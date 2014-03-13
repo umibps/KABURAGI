@@ -1,0 +1,58 @@
+!Moe Pink openbox theme by tapaboy
+!based on zen yellow openbox theme by crimeboy
+
+menu.title.bg: raised splitvertical gradient
+menu.title.bg.color: #ffccff
+menu.title.bg.colorTo: #FEA5FA
+menu.title.text.color: #ffffff
+menu.title.text.justify: left
+
+menu.items.bg: flat solid gradient vertical
+menu.items.bg.color: #fff4ff
+menu.items.bg.colorTo: #fff4ff
+menu.items.text.color: #ff4cf6
+menu.items.justify: left
+menu.items.disabled.text.color: #a9a9a9
+
+menu.items.active.bg: raised splitvertical gradient
+menu.items.active.bg.color: #ffccff
+menu.items.active.bg.colorTo: #FEA5FA
+menu.items.active.text.color: #ffffff
+
+window.active.title.bg: raised splitvertical gradient
+window.active.title.bg.color: #ffccff
+window.active.title.bg.colorTo: #FEA5FA
+window.inactive.title.bg: raised splitvertical gradient
+window.inactive.title.bg.color: #ffccff
+window.inactive.title.bg.colorTo: #FEA5FA
+
+window.label.text.justify: left
+window.active.label.bg: parentrelative
+window.active.label.text.color: #ffffff
+window.inactive.label.bg: parentrelative
+window.inactive.label.text.color: #cc84c8
+
+window.active.handle.bg: raised solid
+window.active.handle.bg.color: #ffccff
+window.inactive.handle.bg: raised solid
+window.inactive.handle.bg.color: #ffccff
+
+window.active.grip.bg: parentrelative
+window.inactive.grip.bg: parentrelative
+
+window.active.button.*.bg: parentrelative
+window.active.button.*.image.color: #ff4cf6
+window.inactive.button.*.bg: parentrelative
+window.inactive.button.*.image.color: #ffffff
+
+border.color: #000000
+border.width: 0
+padding.width: 1
+window.handle.width: 4
+window.client.padding.width: 0
+menu.overlap: 0
+
+window.active.label.text.font:nu:pixelsize=10:shadow=y
+window.inactive.label.text.font:nu:pixelsize=10
+menu.items.font:nu:pixelsize=10
+menu.title.text.font:nu::pixelsize=10:shadow=y

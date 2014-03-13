@@ -1,0 +1,9 @@
+#ifndef _INCLUDED_DRAG_AND_DROP_H_
+#define _INCLUDED_DRAG_AND_DROP_H_
+
+typedef enum _eDRAG_AND_DROP_IDS
+{
+	DRAG_ID_LAYER_WIDGET
+} eDRAG_AND_DROP_IDS;
+
+#endif	// #ifndef _INCLUDED_DRAG_AND_DROP_H_

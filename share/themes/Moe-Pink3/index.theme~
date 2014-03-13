@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=Moe-Pink2
+Comment=moebuntu theme
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=Moe-Pink2
+MetacityTheme=Moe-Pink2
+IconTheme=MoePinkIcons
+CursorTheme=DMZ-White
+ButtonLayout=close,minimize,maximize:
