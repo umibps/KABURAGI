@@ -49,7 +49,10 @@ void InitializeBaseRigidBody(BASE_RIGID_BODY* body, void* parent, void* applicat
 
 void ReleaseBaseRigidBody(BASE_RIGID_BODY* body)
 {
+	DeleteBtMotionState(body->active_motion_state);
+	DeleteBtMotionState(body->kinematic_motion_state);
 	DeleteBtRigidBody(body->body);
+	DeleteBtCollisionShape(body->collision_shape);
 	DeleteBtTransform(body->motion_state.start_transform);
 	DeleteBtTransform(body->motion_state.world_transform);
 	DeleteBtTransform(body->kinematic_state.start_transform);
@@ -404,7 +407,7 @@ void PmxRigidBodyRead(
 
 	// ‰pŒê–¼
 	name_size = GetTextFromStream((char*)&data[stream.data_point], &name_ptr);
-	body->name = EncodeText(encode, name_ptr, name_size);
+	body->english_name = EncodeText(encode, name_ptr, name_size);
 	stream.data_point += sizeof(int32) + name_size;
 
 	body->bone_index = GetSignedValue(&data[stream.data_point], (int)info->bone_index_size);

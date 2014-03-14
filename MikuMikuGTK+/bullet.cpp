@@ -534,6 +534,12 @@ void* BtCollisionShapeNew(eCOLLISION_SHAPE_TYPE type, float* size)
 	return NULL;
 }
 
+void DeleteBtCollisionShape(void* shape)
+{
+	btCollisionShape *s = static_cast<btCollisionShape*>(shape);
+	delete s;
+}
+
 void BtCollisionShapeCalculateLocalInertia(void* shape, const float mass, float* inertia)
 {
 	btCollisionShape *s = static_cast<btCollisionShape*>(shape);
@@ -584,6 +590,12 @@ void* BtMotionStateNew(
 	BT_MOTION_STATE *state = new BT_MOTION_STATE(
 		user_data, get_world_transform, set_world_transform);
 	return static_cast<void*>(state);
+}
+
+void DeleteBtMotionState(void* state)
+{
+	BT_MOTION_STATE *s = static_cast<BT_MOTION_STATE*>(state);
+	delete s;
 }
 
 void BtMotionStateSetWorldTransform(void* state, void* transform)
@@ -710,6 +722,14 @@ void BtRigidBodyAddConstraint(void* rigid_body, void* constraint)
 	btTypedConstraint *c = static_cast<btTypedConstraint*>(constraint);
 
 	body->addConstraintRef(c);
+}
+
+void BtRigidBodyRemoveConstraint(void* rigid_body, void* constraint)
+{
+	btRigidBody *body = static_cast<btRigidBody*>(rigid_body);
+	btTypedConstraint *c = static_cast<btTypedConstraint*>(constraint);
+
+	body->removeConstraintRef(c);
 }
 
 void* BtRigidBodyUpcast(void* object)

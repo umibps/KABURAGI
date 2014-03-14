@@ -263,21 +263,21 @@ void InitializePmxModel(
 
 void ReleasePmxModel(PMX_MODEL* model)
 {
-	ReleaseModelInterface(&model->interface_data);
 	StructArrayDestroy(&model->vertices, NULL);
 	Uint32ArrayDestroy(&model->indices);
 	PointerArrayDestroy(&model->textures, (void (*)(void*))MEM_FREE_FUNC);
 	// TODO : ハッシュテーブルのテクスチャを他に同じパスのモデルが無い場合に削除する
+	ReleaseModelInterface(&model->interface_data);
 	ght_finalize(model->name2texture);
 	ght_finalize(model->texture_indices);
-	StructArrayDestroy(&model->materials, NULL);
+	StructArrayDestroy(&model->materials, (void (*)(void*))ReleasePmxMaterial);
 	StructArrayDestroy(&model->bones, (void (*)(void*))ReleasePmxBone);
 	PointerArrayDestroy(&model->bones_before_physics, NULL);
 	PointerArrayDestroy(&model->bones_after_physics, NULL);
 	StructArrayDestroy(&model->morphs, (void (*)(void*))ReleasePmxMorph);
 	StructArrayDestroy(&model->labels, (void (*)(void*))ReleasePmxModelLabel);
-	StructArrayDestroy(&model->rigid_bodies, (void (*)(void*))ReleaseBaseRigidBody);
 	StructArrayDestroy(&model->joints, (void (*)(void*))ReleaseBaseJoint);
+	StructArrayDestroy(&model->rigid_bodies, (void (*)(void*))ReleaseBaseRigidBody);
 	StructArrayDestroy(&model->soft_bodies, (void (*)(void*))ReleasePmxSoftBody);
 	ght_finalize(model->name2bone);
 	ght_finalize(model->name2morph);

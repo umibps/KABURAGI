@@ -717,13 +717,18 @@ void PmxMorphRead(
 	*data_size = stream.data_point;
 }
 
+static void ReleaseMorphMaterial(MORPH_MATERIAL* material)
+{
+	PointerArrayDestroy(&material->materials, NULL);
+}
+
 void ReleasePmxMorph(PMX_MORPH* morph)
 {
 	ReleaseMorphInterface(&morph->interface_data);
 	StructArrayDestroy(&morph->vertices, NULL);
 	StructArrayDestroy(&morph->uvs, NULL);
 	StructArrayDestroy(&morph->bones, NULL);
-	StructArrayDestroy(&morph->materials, NULL);
+	StructArrayDestroy(&morph->materials, (void (*)(void*))ReleaseMorphMaterial);
 	StructArrayDestroy(&morph->groups, NULL);
 	StructArrayDestroy(&morph->flips, NULL);
 	StructArrayDestroy(&morph->impulses, NULL);

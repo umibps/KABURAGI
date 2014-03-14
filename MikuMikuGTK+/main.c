@@ -82,8 +82,10 @@ int main(int argc, char** argv)
 	GtkWidget *window;
 	GtkWidget *box;
 	void *tbb;
-#ifdef _DEBUG
-	//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);;
+#if defined(_DEBUG) && defined(CHECK_MEMORY_POOL) && CHECK_MEMORY_POOL != 0
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
+	//_CrtSetBreakAlloc(30354);
+	//_CrtSetBreakAlloc(11170);
 #endif
 
 	tbb = TbbObjectNew();

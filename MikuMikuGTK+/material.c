@@ -549,6 +549,12 @@ void PmxMaterialRead(
 	*data_size = stream.data_point;
 }
 
+void ReleasePmxMaterial(PMX_MATERIAL* material)
+{
+	MEM_FREE_FUNC(material->interface_data.name);
+	MEM_FREE_FUNC(material->interface_data.english_name);
+}
+
 void PmxMaterialResetMorph(PMX_MATERIAL* material)
 {
 	MaterialRGB3Reset(&material->ambient);

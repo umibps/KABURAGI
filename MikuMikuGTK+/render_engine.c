@@ -23,11 +23,13 @@ PMX_RENDER_ENGINE* PmxRenderEngineNew(
 )
 {
 	PMX_RENDER_ENGINE *ret;
+	int num_materials;
 	int i;
 
 	ret = (PMX_RENDER_ENGINE*)MEM_ALLOC_FUNC(sizeof(*ret));
 	(void)memset(ret, 0, sizeof(*ret));
 
+	MEM_FREE_FUNC(model->get_materials(model, &num_materials));
 	ret->project_context = project_context;
 	ret->scene = scene;
 	ret->interface_data.model = model;
@@ -39,7 +41,7 @@ PMX_RENDER_ENGINE* PmxRenderEngineNew(
 	ret->aa_bb_max[1] = - FLT_MAX;
 	ret->aa_bb_max[2] = - FLT_MAX;
 	ret->allocated_textures = ght_create(DEFAULT_BUFFER_SIZE);
-	ret->material_textures = StructArrayNew(sizeof(PMX_RENDER_ENGINE_MATERIAL_TEXTURE), DEFAULT_BUFFER_SIZE);
+	ret->material_textures = StructArrayNew(sizeof(PMX_RENDER_ENGINE_MATERIAL_TEXTURE), num_materials + 1);
 	ret->flags |= PMX_RENDER_ENGINE_FLAG_CULL_FACE_STATE | PMX_RENDER_ENGINE_FLAG_UPDATE_EVEN;
 
 	model->get_index_buffer((void*)model, (void**)&ret->index_buffer);
@@ -150,7 +152,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			{
 				t = bridge.texture;
 				texture->main_texture = t;
-				(void)ght_insert(engine->allocated_textures, t, sizeof(t), t);
+				(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
 			}
 			else
 			{
@@ -167,7 +169,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			{
 				t = bridge.texture;
 				texture->sphere_texture = t;
-				(void)ght_insert(engine->allocated_textures, t, sizeof(t), t);
+				(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
 			}
 			else
 			{
@@ -187,7 +189,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			{
 				t = bridge.texture;
 				texture->toon_texture = t;
-				(void)ght_insert(engine->allocated_textures, t, sizeof(t), t);
+				(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
 			}
 			else
 			{
@@ -204,7 +206,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			{
 				t = bridge.texture;
 				texture->toon_texture = t;
-				(void)ght_insert(engine->allocated_textures, t, sizeof(t), t);
+				(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
 			}
 			else
 			{

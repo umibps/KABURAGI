@@ -729,7 +729,7 @@ void VertexBundleWrite(
 
 VERTEX_BUNDLE_LAYOUT* VertexBundleLayoutNew(void)
 {
-	static const char *vertex_array_object_extension_candidates[] = {
+	const char *vertex_array_object_extension_candidates[] = {
 		"ARB_vertex_array_object",
 		"OES_vertex_array_object",
 		"APPLE_vertex_array_object",
@@ -737,7 +737,7 @@ VERTEX_BUNDLE_LAYOUT* VertexBundleLayoutNew(void)
 	};
 	VERTEX_BUNDLE_LAYOUT *ret;
 
-	ret = (VERTEX_BUNDLE_LAYOUT*)MEM_ALLOC_FUNC(sizeof(*ret));
+	ret = (VERTEX_BUNDLE_LAYOUT*)MEM_ALLOC_FUNC(sizeof(VERTEX_BUNDLE_LAYOUT));
 	(void)memset(ret, 0, sizeof(*ret));
 
 	if(CheckHasAnyExtension(vertex_array_object_extension_candidates) != FALSE)

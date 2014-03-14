@@ -451,8 +451,8 @@ gboolean LayerWidgetDragBegin(GtkWidget *widget, GdkDragContext *context, APPLIC
 
 static gboolean DragMotion(GtkWidget* widget, void* data)
 {
-	static int num = 0;
-	printf("drag motion %d\n", num++);
+	//static int num = 0;
+	//printf("drag motion %d\n", num++);
 
 	return TRUE;
 }

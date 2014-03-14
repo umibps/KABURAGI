@@ -148,6 +148,8 @@ extern void BtTransformSetBasis(void* transform, const float* basis);
 
 extern void* BtCollisionShapeNew(eCOLLISION_SHAPE_TYPE type, float* size);
 
+extern void DeleteBtCollisionShape(void* shape);
+
 extern void BtCollisionShapeCalculateLocalInertia(void* shape, const float mass, float* inertia);
 
 extern void* BtMotionStateNew(
@@ -155,6 +157,7 @@ extern void* BtMotionStateNew(
 	void (*get_world_transform)(void* setup_transform, void* user_data),
 	void (*set_world_transform)(const void* world_transform, void* user_data)
 );
+extern void DeleteBtMotionState(void* state);
 extern void BtMotionStateSetWorldTransform(void* state, void* transform);
 
 extern void* BtRigidBodyNew(float mass, void* motion_state, void* shape, const float* local_interia);
@@ -188,6 +191,7 @@ extern void BtRigidBodyGetCenterOfMassTransform(void* rigid_body, void* transfor
 extern void BtRigidBodySetCenterOfMassTransform(void* rigid_body, void* transform);
 
 extern void BtRigidBodyAddConstraint(void* rigid_body, void* constraint);
+extern void BtRigidBodyRemoveConstraint(void* rigid_body, void* constraint);
 
 extern void* BtRigidBodyUpcast(void* object);
 

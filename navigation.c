@@ -52,6 +52,10 @@ void ChangeNavigationRotate(NAVIGATION_WINDOW* navigation, DRAW_WINDOW* window)
 	cairo_matrix_rotate(&matrix, window->angle);
 	cairo_matrix_translate(&matrix, trans_x, trans_y);
 	cairo_pattern_set_matrix(navigation->pattern, &matrix);
+
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	RotateGL(window, (float)window->angle);
+#endif
 	
 }
 

@@ -17,6 +17,8 @@ void InitializeBaseJoint(BASE_JOINT* joint, void *model)
 
 void ReleaseBaseJoint(BASE_JOINT* joint)
 {
+	BtRigidBodyRemoveConstraint(joint->rigid_body1, joint->constraint);
+	BtRigidBodyRemoveConstraint(joint->rigid_body2, joint->constraint);
 	DeleteBtTypedConstraint(joint->constraint);
 	MEM_FREE_FUNC(joint->name);
 	MEM_FREE_FUNC(joint->english_name);

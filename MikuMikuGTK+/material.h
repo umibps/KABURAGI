@@ -143,4 +143,6 @@ extern int LoadPmxMaterials(
 	int expected_indices
 );
 
+extern void ReleasePmxMaterial(PMX_MATERIAL* material);
+
 #endif	// #ifndef _INCLUDED_MATERIAL_H_

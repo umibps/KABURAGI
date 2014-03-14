@@ -389,7 +389,9 @@ int main(int argc, char** argv)
 		{"Execute Back Up..."}
 	};
 
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	void *tbb = TbbObjectNew();
+#endif
 
 	{
 		gchar *initialize_file_path, *raw_path;
@@ -428,7 +430,9 @@ int main(int argc, char** argv)
 
 	gtk_main();
 
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	DeleteTbbObject(tbb);
+#endif
 
 	return 0;
 }

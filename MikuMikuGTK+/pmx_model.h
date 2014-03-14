@@ -204,6 +204,8 @@ extern int LoadPmxModel(PMX_MODEL* model, uint8* data, size_t data_size);
 
 extern void InitializePmxVertex(PMX_VERTEX* vertex, PMX_MODEL* model);
 
+extern void ReleasePmxModel(PMX_MODEL* model);
+
 extern int PmxVertexPreparse(
 	uint8* data,
 	size_t* data_size,
