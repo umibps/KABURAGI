@@ -209,9 +209,13 @@ typedef struct _APPLICATION_MENUS
 	// 通常のレイヤーのときに無効
 	GtkWidget *disable_if_normal_layer[8];
 	uint8 num_disable_if_no_open;
+	uint8 menu_start_disable_if_no_open;
 	uint8 num_disable_if_no_select;
+	uint8 menu_start_disable_if_no_select;
 	uint8 num_disable_if_single_layer;
+	uint8 menu_start_disable_if_single_layer;
 	uint8 num_disable_if_normal_layer;
+	uint8 menu_start_disable_if_normal_layer;
 	// 下のレイヤーと結合メニュー
 	GtkWidget *merge_down_menu;
 	// 背景色切り替えメニュー
@@ -256,6 +260,8 @@ typedef struct _APPLICATION
 {
 	// ウィンドウ、メニュー、タブを入れるパッキングボックス、タブ
 	GtkWidget *window, *vbox, *note_book;
+	// メニューバー
+	GtkWidget *menu_bar;
 	// ステータスバー
 	GtkWidget *status_bar;
 	// 保存、フィルター等の進捗状況を表すプログレスバー

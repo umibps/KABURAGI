@@ -1414,7 +1414,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 		G_CALLBACK(DragDataRecieveCallBack), app);
 
 	// フルスクリーン・最大化変更時のコールバック関数を設定
-	g_signal_connect(G_OBJECT(app->window), "window_state_event",
+	(void)g_signal_connect(G_OBJECT(app->window), "window_state_event",
 		G_CALLBACK(OnChangeMainWindowState), app);
 
 	// スクリプトの読み込み
@@ -1430,13 +1430,13 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 	}
 
 	// メニューバーを作成
-	menu = GetMainMenu(app, app->window, app->language_file_path);
+	app->menu_bar = menu = GetMainMenu(app, app->window, app->language_file_path);
 	// 描画領域のタブを作成
 	app->note_book = gtk_notebook_new();
 	// タブは下側に
 	gtk_notebook_set_tab_pos(GTK_NOTEBOOK(app->note_book), GTK_POS_BOTTOM);
 	// タブの高さを設定
-#if MAJOR_VERSION <= 1
+#if GTK_MAJOR_VERSION <= 2
 	gtk_notebook_set_tab_vborder(GTK_NOTEBOOK(app->note_book), 0);
 #endif
 	// ウィンドウに追加
@@ -1511,7 +1511,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 		smooth_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(app->tool_window.smoother.num_use, 0,
 			SMOOTHER_POINT_BUFFER_SIZE, 1, 1, 0));
 		smooth_spin = gtk_spin_button_new(smooth_adjustment, 1, 1);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		GTK_WIDGET_UNSET_FLAGS(smooth_spin, GTK_CAN_DEFAULT);
 #else
 		g_object_set_data(G_OBJECT(smooth_adjustment), "application", app);
@@ -1532,7 +1532,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 		gtk_box_pack_start(GTK_BOX(smooth_box), gtk_label_new(
 			app->labels->tool_box.smooth_rate), FALSE, FALSE, 1);
 		gtk_box_pack_start(GTK_BOX(smooth_box), smooth_spin, FALSE, TRUE, 0);
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 		g_object_set_data(G_OBJECT(smooth_adjustment), "application", app);
 #endif
 		// コールバック関数の設定

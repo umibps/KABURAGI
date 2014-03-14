@@ -1522,6 +1522,42 @@
 					>
 				</File>
 				<File
+					RelativePath=".\MikuMikuGtk+\history.c"
+					>
+					<FileConfiguration
+						Name="Debug|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_history.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_history.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Profile|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_history.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug x64|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_history.obj"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
 					RelativePath=".\MikuMikuGtk+\ik.c"
 					>
 				</File>

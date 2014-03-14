@@ -131,11 +131,24 @@ GtkWidget* GetMainMenu(
 	// ショートカットキー用
 	GtkAccelGroup* accel_group;
 	// 表示文字列作成用のバッファ
-	char buff[1024];
+	char buff[2048];
 	int i;	// for文用のカウンタ
 
+	// メニューバー作り直しに備えてウィジェットの数を記憶しておく
+	app->menus.menu_start_disable_if_no_open = app->menus.num_disable_if_no_open;
+	app->menus.menu_start_disable_if_no_select = app->menus.num_disable_if_no_select;
+	app->menus.menu_start_disable_if_single_layer = app->menus.num_disable_if_single_layer;
+	app->menus.menu_start_disable_if_normal_layer = app->menus.num_disable_if_normal_layer;
+
 	// ショートカットキー登録の準備
-	app->hot_key = accel_group = gtk_accel_group_new();
+	if(app->hot_key == NULL)
+	{
+		app->hot_key = accel_group = gtk_accel_group_new();
+	}
+	else
+	{
+		accel_group = app->hot_key;
+	}
 	gtk_window_add_accel_group(GTK_WINDOW(window), accel_group);
 
 	// メニューバーを作成
@@ -146,7 +159,7 @@ GtkWidget* GetMainMenu(
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'F', GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ParentItemSelected), NULL);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu_bar), menu_item);
 
@@ -159,7 +172,7 @@ GtkWidget* GetMainMenu(
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'N', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteNew), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
@@ -168,7 +181,7 @@ GtkWidget* GetMainMenu(
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'O', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteOpenFile), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
@@ -178,7 +191,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'O', GDK_SHIFT_MASK | GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteOpenFileAsLayer), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -203,7 +216,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'S', GDK_SHIFT_MASK | GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteSaveAs), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -216,7 +229,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", "Print");
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecutePrint), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -231,7 +244,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'W', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteClose), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -241,14 +254,14 @@ GtkWidget* GetMainMenu(
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		GDK_KEY_Escape, 0, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(OnQuitApplication), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
 	// 「編集」メニュー
 	(void)sprintf(buff, "_%s(_E)", app->labels->menu.edit);
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ParentItemSelected), NULL);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'E', GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
@@ -264,7 +277,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'Z', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteUndo), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -275,7 +288,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'Y', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteRedo), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -290,7 +303,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'C', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteCopy), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_select++;
@@ -301,7 +314,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'C', GDK_CONTROL_MASK | GDK_SHIFT_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteCopyVisible), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_select++;
@@ -312,7 +325,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'X', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteCut), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_select++;
@@ -322,7 +335,7 @@ GtkWidget* GetMainMenu(
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'V', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecutePaste), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
@@ -335,7 +348,7 @@ GtkWidget* GetMainMenu(
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'T', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteTransform), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
@@ -344,7 +357,7 @@ GtkWidget* GetMainMenu(
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'T', GDK_CONTROL_MASK | GDK_SHIFT_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteProjection), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
@@ -355,7 +368,7 @@ GtkWidget* GetMainMenu(
 	// 「環境設定」
 	(void)sprintf(buff, "%s", app->labels->preference.title);
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteSetPreference), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
@@ -363,7 +376,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "_%s(_C)", app->labels->menu.canvas);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ParentItemSelected), NULL);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'C', GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
@@ -378,7 +391,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.change_resolution);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeResolution), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -387,7 +400,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.change_canvas_size);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeCanvasSize), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -396,7 +409,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.flip_canvas_horizontally);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(FlipImageHorizontally), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -405,7 +418,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.flip_canvas_vertically);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(FlipImageVertically), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -415,7 +428,7 @@ GtkWidget* GetMainMenu(
 	app->menus.change_back_ground_menu = 
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 			menu_item = gtk_check_menu_item_new_with_mnemonic(buff);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(SwitchSecondBackColor), app);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'B', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
@@ -426,7 +439,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.change_2nd_bg_color);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(Change2ndBackColor), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -444,7 +457,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "_%s(_L)", app->labels->menu.layer);	
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ParentItemSelected), NULL);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'L', GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
@@ -461,7 +474,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'N', GDK_SHIFT_MASK | GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteMakeColorLayer), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -472,7 +485,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'P', GDK_SHIFT_MASK | GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteMakeVectorLayer), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -483,7 +496,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'G', GDK_SHIFT_MASK | GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteMakeLayerSet), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -503,7 +516,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.copy_layer);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteCopyLayer), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -512,7 +525,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.visible2layer);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteVisible2Layer), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -525,7 +538,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.delete_layer);
 	app->menus.disable_if_single_layer[app->menus.num_disable_if_single_layer] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(DeleteActiveLayer), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_single_layer++;
@@ -535,7 +548,7 @@ GtkWidget* GetMainMenu(
 	app->menus.merge_down_menu =
 		app->menus.disable_if_single_layer[app->menus.num_disable_if_single_layer] =
 			menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(MergeDownActiveLayer), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_single_layer++;
@@ -544,7 +557,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.merge_all_layer);
 	app->menus.disable_if_single_layer[app->menus.num_disable_if_single_layer] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(FlattenImage), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_single_layer++;
@@ -559,7 +572,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'F', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(FillForeGroundColor), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -568,7 +581,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.fill_layer_pattern);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(FillPattern), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -577,7 +590,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.rasterize_layer);
 	app->menus.disable_if_normal_layer[app->menus.num_disable_if_normal_layer] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(RasterizeActiveLayer), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	gtk_widget_set_sensitive(menu_item, FALSE);
@@ -591,7 +604,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->layer_window.alpha_to_select);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ActiveLayerAlpha2SelectionArea), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -600,7 +613,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->layer_window.alpha_add_select);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ActiveLayerAlphaAddSelectionArea), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -624,7 +637,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'D', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(UnSetSelectionArea), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_select++;
@@ -635,7 +648,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'I', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(InvertSelectionArea), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_select++;
@@ -648,7 +661,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.selection_extend);
 	app->menus.disable_if_no_select[app->menus.num_disable_if_no_select] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExtendSelectionArea), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_select++;
@@ -657,7 +670,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.selection_reduct);
 	app->menus.disable_if_no_select[app->menus.num_disable_if_no_select] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ReductSelectionArea), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_select++;
@@ -666,12 +679,12 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->window.edit_selection);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		app->menu_data.edit_selection = menu_item = gtk_check_menu_item_new_with_label(buff);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gtk_check_menu_item_set_show_toggle(GTK_CHECK_MENU_ITEM(menu_item), TRUE);
 #endif
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'Q', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ChangeEditSelectionMode), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -686,7 +699,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'A', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteSelectAll), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -695,7 +708,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "_%s(_T)", app->labels->menu.filters);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);	
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ParentItemSelected), NULL);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'T', GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
@@ -710,7 +723,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.bright_contrast);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeBrightContrastFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -719,7 +732,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.hue_saturtion);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeHueSaturationFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -728,7 +741,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.blur);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteBlurFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -737,7 +750,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.motion_blur);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteMotionBlurFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -746,7 +759,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.luminosity2opacity);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteLuminosity2OpacityFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -755,7 +768,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.colorize_with_under);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteColorizeWithUnderFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -764,7 +777,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.gradation_map);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteGradationMapFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -773,7 +786,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.fill_with_vector);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteFillWithVectorLineFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -810,7 +823,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'+', 0, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteZoomIn), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -821,7 +834,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'-', 0, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteZoomOut), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -830,7 +843,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.zoom_reset);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteZoomReset), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -852,7 +865,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'R', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteRotateClockwise), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -863,7 +876,7 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'L', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteRotateCounterClockwise), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -872,7 +885,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.reset_rotate);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteRotateReset), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -881,12 +894,12 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.reverse_horizontally);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		app->menu_data.reverse_horizontally = menu_item = gtk_check_menu_item_new_with_mnemonic(buff);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gtk_check_menu_item_set_show_toggle(GTK_CHECK_MENU_ITEM(menu_item), TRUE);
 #endif
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'H', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteDisplayReverseHorizontally), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -907,7 +920,7 @@ GtkWidget* GetMainMenu(
 	app->menus.display_filter_menus[DISPLAY_FUNC_TYPE_NO_CONVERT] =
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		radio_top = gtk_radio_menu_item_new_with_mnemonic(NULL, buff);
-	g_signal_connect_swapped(G_OBJECT(radio_top), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(radio_top), "activate",
 		G_CALLBACK(NoDisplayFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), radio_top);
 	app->menus.num_disable_if_no_open++;
@@ -918,7 +931,7 @@ GtkWidget* GetMainMenu(
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_radio_menu_item_new_with_mnemonic(
 		gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(radio_top)), buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(GrayScaleDisplayFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -929,7 +942,7 @@ GtkWidget* GetMainMenu(
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_radio_menu_item_new_with_mnemonic(
 		gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(radio_top)), buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(GrayScaleDisplayFilterYIQ), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -940,7 +953,7 @@ GtkWidget* GetMainMenu(
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_radio_menu_item_new_with_mnemonic(
 		gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(radio_top)), buff);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(IccProfileDisplayFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -972,7 +985,7 @@ GtkWidget* GetMainMenu(
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item),
 		(app->tool_window.flags & TOOL_DOCKED) == 0);
 	g_object_set_data(G_OBJECT(menu_item), "change_mode", GINT_TO_POINTER(UTILITY_PLACE_WINDOW));
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeToolWindowPlace), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 
@@ -982,7 +995,7 @@ GtkWidget* GetMainMenu(
 		gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(app->tool_window.menu_item)), buff);
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item),
 		(app->tool_window.flags & TOOL_DOCKED) != 0 && (app->tool_window.flags & TOOL_PLACE_RIGHT) == 0);
-	g_object_set_data(G_OBJECT(menu_item), "change_mode", GINT_TO_POINTER(UTILITY_PLACE_LEFT));
+	(void)g_object_set_data(G_OBJECT(menu_item), "change_mode", GINT_TO_POINTER(UTILITY_PLACE_LEFT));
 	g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeToolWindowPlace), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
@@ -994,7 +1007,7 @@ GtkWidget* GetMainMenu(
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item),
 		(app->tool_window.flags & TOOL_DOCKED) != 0 && (app->tool_window.flags & TOOL_PLACE_RIGHT) != 0);
 	g_object_set_data(G_OBJECT(menu_item), "change_mode", GINT_TO_POINTER(UTILITY_PLACE_RIGHT));
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeToolWindowPlace), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 
@@ -1020,7 +1033,7 @@ GtkWidget* GetMainMenu(
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item),
 		(app->layer_window.flags & LAYER_WINDOW_DOCKED) == 0);
 	g_object_set_data(G_OBJECT(menu_item), "change_mode", GINT_TO_POINTER(UTILITY_PLACE_WINDOW));
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeNavigationLayerWindowPlace), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 
@@ -1031,7 +1044,7 @@ GtkWidget* GetMainMenu(
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item),
 		(app->layer_window.flags & LAYER_WINDOW_DOCKED) != 0 && (app->layer_window.flags & LAYER_WINDOW_PLACE_RIGHT) == 0);
 	g_object_set_data(G_OBJECT(menu_item), "change_mode", GINT_TO_POINTER(UTILITY_PLACE_LEFT));
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeNavigationLayerWindowPlace), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 
@@ -1042,21 +1055,21 @@ GtkWidget* GetMainMenu(
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item),
 		(app->layer_window.flags & LAYER_WINDOW_DOCKED) != 0 && (app->layer_window.flags & LAYER_WINDOW_PLACE_RIGHT) != 0);
 	g_object_set_data(G_OBJECT(menu_item), "change_mode", GINT_TO_POINTER(UTILITY_PLACE_RIGHT));
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeNavigationLayerWindowPlace), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 
 	// レイヤービューを左上に移動
 	(void)sprintf(buff, "%s (%s)", app->labels->window.move_top_left, app->labels->layer_window.title);
 	menu_item = gtk_menu_item_new_with_label(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteMoveLayerWindowTopLeft), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 
 	// ナビゲーションを左上に移動
 	(void)sprintf(buff, "%s (%s)", app->labels->window.move_top_left, app->labels->navigation.title);
 	menu_item = gtk_menu_item_new_with_label(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteMoveNavigationWindowTopLeft), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 
@@ -1064,7 +1077,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->unit.preview);
 	app->preview_window.menu_item = menu_item = gtk_check_menu_item_new_with_label(buff);
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item), TRUE);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteChangeDisplayPreview), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
@@ -1072,7 +1085,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->window.reference);
 	app->reference_window.menu_item = menu_item = gtk_check_menu_item_new_with_label(buff);
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item), FALSE);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(DisplayReferenceWindowMenuActivate), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
@@ -1080,7 +1093,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->window.fullscreen);
 	menu_item = gtk_check_menu_item_new_with_label(buff);
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item), app->flags & APPLICATION_FULL_SCREEN);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteSwitchFullScreen), app);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		GDK_KEY_Return, GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
@@ -1091,7 +1104,7 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "_%s(_S)", app->labels->menu.script);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ParentItemSelected), NULL);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'S', GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
@@ -1107,7 +1120,7 @@ GtkWidget* GetMainMenu(
 	{
 		(void)sprintf(buff, "%s", app->scripts.file_names[i]);
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-		g_signal_connect(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(ExecuteScript), app);
 		g_object_set_data(G_OBJECT(menu_item), "script_id", GINT_TO_POINTER(i));
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
@@ -1117,7 +1130,7 @@ GtkWidget* GetMainMenu(
 	// 「ヘルプ」メニュー
 	(void)sprintf(buff, "_%s(_H)", app->labels->menu.help);
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ParentItemSelected), NULL);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		'H', GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
@@ -1130,7 +1143,7 @@ GtkWidget* GetMainMenu(
 	// 「バージョン情報」
 	(void)sprintf(buff, "%s", app->labels->menu.version);
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(DisplayVersion), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
@@ -1916,7 +1929,8 @@ static void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 	uint8 fg_color[3], bg_color[3];
 	GtkWidget *box;
 
-	if((app->flags & APPLICATION_INITIALIZED) == 0)
+	if((app->flags & APPLICATION_INITIALIZED) == 0
+		|| (app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) != 0)
 	{
 		return;
 	}
@@ -2059,8 +2073,10 @@ static void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLIC
 	// ウィンドウとドッキング時にウィジェットを入れるパッキングボックス
 	GtkWidget *box;
 
-	if((app->flags & APPLICATION_INITIALIZED) == 0)
+	if((app->flags & APPLICATION_INITIALIZED) == 0
+		|| (app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) != 0)
 	{
+		app->flags &= ~(APPLICATION_IN_SWITCH_DRAW_WINDOW);
 		return;
 	}
 
@@ -2255,7 +2271,8 @@ static void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLIC
 *********************************************************/
 static void ExecuteChangeDisplayPreview(GtkWidget* menu_item, APPLICATION* app)
 {
-	if((app->flags & APPLICATION_IN_DELETE_EVENT) != 0)
+	if((app->flags & APPLICATION_IN_DELETE_EVENT) != 0
+		|| (app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) != 0)
 	{
 		return;
 	}

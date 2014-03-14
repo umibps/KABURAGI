@@ -4,15 +4,24 @@ UI_LABEL LoadDefaultUiLabel(void)
 {
 	const UI_LABEL default_label =
 	{
-		"Environment",
-		"Bone",
-		"Load Models",
-		"Enable Physics",
-		"Display Grid",
 		{
-			"Select",
-			"Move",
-			"Rotate"
+			"File",
+			"Add Model/Accessory",
+			"Edit",
+			"Undo",
+			"Redo"
+		},
+		{
+			"Environment",
+			"Bone",
+			"Load Models",
+			"Enable Physics",
+			"Display Grid",
+			{
+				"Select",
+				"Move",
+				"Rotate"
+			}
 		}
 	};
 

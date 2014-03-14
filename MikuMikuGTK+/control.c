@@ -132,6 +132,17 @@ void MouseButtonPressCallback(
 			MakeRay(project, x, y, ray_from, ray_to);
 			if(bone != NULL)
 			{
+				if(control->edit_mode == EDIT_MODE_MOVE)
+				{
+					bone->get_local_translation(bone, control->before_bone_value);
+					control->flags |= CONTROL_FLAG_BONE_MOVE;
+				}
+				else if(control->edit_mode == EDIT_MODE_ROTATE)
+				{
+					bone->get_local_rotation(bone, control->before_bone_value);
+					control->flags |= CONTROL_FLAG_BONE_ROTATE;
+				}
+
 				if(bone->is_movable(bone) != FALSE)
 				{
 					if(SceneIntersectsBone(scene, bone, z_near, z_far, 0.5f) != FALSE
@@ -283,7 +294,16 @@ void MouseButtonReleaseCallback(
 	switch(button)
 	{
 	case MOUSE_BUTTON_LEFT:
-		control->flags &= ~(CONTROL_FLAG_LEFT_BUTTON_MASK);
+		if((control->flags & CONTROL_FLAG_BONE_MOVE) != 0)
+		{
+			AddBoneMoveHistory(&project->history, project);
+		}
+		else if((control->flags & CONTROL_FLAG_BONE_ROTATE) != 0)
+		{
+			AddBoneRotateHistory(&project->history, project);
+		}
+		control->flags &= ~(CONTROL_FLAG_LEFT_BUTTON_MASK
+			| CONTROL_FLAG_BONE_MOVE | CONTROL_FLAG_BONE_ROTATE);
 		ControlSetEditMode(control, control->edit_mode);
 		break;
 	case MOUSE_BUTTON_CENTER:

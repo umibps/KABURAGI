@@ -101,5 +101,8 @@ extern void InitializeControl(
 	PROJECT* project
 );
 
+extern void ExecuteControlUndo(APPLICATION* application);
+extern void ExecuteControlRedo(APPLICATION* application);
+
 #endif	// #ifndef _INCLUDED_APPLICATION_H_
 

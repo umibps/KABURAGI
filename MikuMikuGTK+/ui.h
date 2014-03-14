@@ -32,4 +32,6 @@ extern gboolean ConfigureEvent(
 	void* project_context
 );
 
+extern GtkWidget* MakeMenuBar(void* application_context, GtkAccelGroup* hot_key);
+
 #endif	// #ifndef _INCLUDED_UI_H_

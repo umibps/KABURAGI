@@ -8,6 +8,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "application.h"
+#include "menu.h"
 #include "brush_core.h"
 #include "vector_brush_core.h"
 #include "brushes.h"
@@ -1923,6 +1924,10 @@ static void AfterPixelDataGet(APPLICATION* app, uint8* pixels)
 {
 	DRAW_WINDOW *draw_window = app->draw_window[app->active_window];
 	LAYER *layer = draw_window->active_layer;
+	uint8 before_num_disable_if_no_open;
+	uint8 before_num_disable_if_no_select;
+	uint8 before_num_disable_if_single_layer;
+	uint8 before_num_disable_if_normal_layer;
 	int i;
 
 	(void)memcpy(layer->pixels, pixels, layer->stride * layer->height);
@@ -1960,6 +1965,26 @@ static void AfterPixelDataGet(APPLICATION* app, uint8* pixels)
 	draw_window->callbacks.display = g_signal_connect(G_OBJECT(draw_window->window), "draw",
 		G_CALLBACK(DisplayDrawWindow), draw_window);
 #endif
+	// メニューバーの復元
+	gtk_widget_destroy(app->menu_bar);
+	before_num_disable_if_no_open = app->menus.num_disable_if_no_open;
+	before_num_disable_if_no_select = app->menus.num_disable_if_no_select;
+	before_num_disable_if_single_layer = app->menus.num_disable_if_single_layer;
+	before_num_disable_if_normal_layer = app->menus.num_disable_if_normal_layer;
+	app->menus.num_disable_if_no_open = app->menus.menu_start_disable_if_no_open;
+	app->menus.num_disable_if_no_select = app->menus.menu_start_disable_if_no_select;
+	app->menus.num_disable_if_single_layer = app->menus.menu_start_disable_if_single_layer;
+	app->menus.num_disable_if_normal_layer = app->menus.menu_start_disable_if_normal_layer;
+	app->flags |= APPLICATION_IN_SWITCH_DRAW_WINDOW;
+	app->menu_bar = GetMainMenu(app, app->window, NULL);
+	app->menus.num_disable_if_no_open = before_num_disable_if_no_open;
+	app->menus.num_disable_if_no_select = before_num_disable_if_no_select;
+	app->menus.num_disable_if_single_layer = before_num_disable_if_single_layer;
+	app->menus.num_disable_if_normal_layer = before_num_disable_if_normal_layer;
+	gtk_box_pack_start(GTK_BOX(app->vbox), app->menu_bar, FALSE, FALSE, 0);
+	gtk_box_reorder_child(GTK_BOX(app->vbox), app->menu_bar, 0);
+	gtk_widget_show_all(app->menu_bar);
+
 	// 入力のコールバック関数をセット
 	draw_window->callbacks.mouse_button_press =g_signal_connect(G_OBJECT(draw_window->window), "button_press_event",
 		G_CALLBACK(ButtonPressEvent), draw_window);
@@ -1972,6 +1997,7 @@ static void AfterPixelDataGet(APPLICATION* app, uint8* pixels)
 	draw_window->callbacks.configure = g_signal_connect(G_OBJECT(draw_window->window), "configure-event",
 		G_CALLBACK(DrawWindowConfigurEvent), draw_window);
 	DrawWindowChangeZoom(draw_window, draw_window->zoom);
+	app->flags &= ~(APPLICATION_IN_SWITCH_DRAW_WINDOW);
 }
 
 static void End3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
@@ -2086,6 +2112,12 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 
 	gtk_widget_show_all(window->brush_scroll);
 	gtk_widget_show_all(window->detail_ui);
+
+	gtk_widget_destroy(app->menu_bar);
+	app->menu_bar = MakeMenuBar(app->modeling, app->hot_key);
+	gtk_box_pack_start(GTK_BOX(app->vbox), app->menu_bar, FALSE, FALSE, 0);
+	gtk_box_reorder_child(GTK_BOX(app->vbox), app->menu_bar, 0);
+	gtk_widget_show_all(app->menu_bar);
 }
 
 void CreateChange3DLayerUI(

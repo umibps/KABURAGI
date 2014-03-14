@@ -10,7 +10,9 @@
 #include "shadow_map.h"
 #include "debug_drawer.h"
 #include "pmx_model.h"
+#include "asset_model.h"
 #include "grid.h"
+#include "history.h"
 #include "control.h"
 #include "ui.h"
 
@@ -84,6 +86,7 @@ typedef struct _PROJECT
 	GRID grid;
 	CONTROL control;
 	WIDGETS widgets;
+	HISTORY history;
 
 	eSHADER_TYPE shader_type;
 	MAP_BUFFER map_buffer;
@@ -166,5 +169,9 @@ extern void ChangeSelectedBones(PROJECT* project, BONE_INTERFACE** bones, int nu
 extern int TestHitModelHandle(PROJECT* project, FLOAT_T x, FLOAT_T y);
 
 extern void ProjectSetEnableAlwaysPhysics(PROJECT* project, int enabled);
+
+extern void AddBoneMoveHistory(HISTORY* history, PROJECT* project);
+
+extern void AddBoneRotateHistory(HISTORY* history, PROJECT* project);
 
 #endif	// #ifndef _INCLUDED_PROJECT_H_

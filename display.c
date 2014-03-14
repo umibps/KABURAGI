@@ -56,8 +56,8 @@ gboolean DisplayDrawWindow(
 	GdkGLContext *context = gtk_widget_get_gl_context(widget);
 	GdkGLDrawable *drawable = gtk_widget_get_gl_drawable(widget);
 	GtkAllocation allocation;
-	int update_x, update_y;
-	int update_width = 0, update_height;
+	int update_x = 0, update_y = 0;
+	int update_width = 0, update_height = 0;
 	double x1, y1, x2, y2;
 
 #if GTK_MAJOR_VERSION >= 3

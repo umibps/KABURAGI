@@ -235,13 +235,13 @@ gboolean DragTimeOutCallBack(APPLICATION* app)
 	gint x, y;
 	int no_check;
 
-#if MAJOR_VERSION >= 2
+#if GTK_MAJOR_VERSION >= 3
 	GtkAllocation allocation, next_allocation;
 #endif
 
 	gtk_widget_get_pointer(app->layer_window.view, &x, &y);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(y < layer->widget->box->allocation.y + layer->widget->box->allocation.height)
 #else
 	gtk_widget_get_allocation(layer->widget->box, &allocation);
@@ -251,7 +251,7 @@ gboolean DragTimeOutCallBack(APPLICATION* app)
 		while(layer != NULL)
 		{
 			no_check = 0;
-#if MAJOR_VERSION >= 2
+#if GTK_MAJOR_VERSION >= 3
 			gtk_widget_get_allocation(layer->widget->box, &allocation);
 #endif
 			if(layer->layer_set != 0)
@@ -272,7 +272,7 @@ gboolean DragTimeOutCallBack(APPLICATION* app)
 			{
 				if(layer->layer_type == TYPE_LAYER_SET)
 				{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 					if(y > layer->widget->box->allocation.y - layer->widget->box->allocation.height/2)
 #else
 					if(y > allocation.y - allocation.height/2)
@@ -284,7 +284,7 @@ gboolean DragTimeOutCallBack(APPLICATION* app)
 				}
 				else
 				{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 					if(y > layer->widget->box->allocation.y - layer->widget->box->allocation.height/2)
 #else
 					if(y > allocation.y - allocation.height/2)
@@ -328,19 +328,19 @@ gboolean DragTimeOutCallBack(APPLICATION* app)
 
 	if(app->layer_window.drag_prev != NULL)
 	{
-#if MAJOR_VERSION >= 2
+#if GTK_MAJOR_VERSION >= 3
 		gtk_widget_get_allocation(app->layer_window.drag_prev->next->widget->box, &allocation);
 #endif
 		if(app->layer_window.drag_prev->next != NULL
 			&& app->layer_window.drag_prev->next->layer_type == TYPE_LAYER_SET)
 		{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			int quarter = app->layer_window.drag_prev->next->widget->box->allocation.height/4;
 #else
 			int quarter = allocation.height/4;
 #endif
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			if(y >= app->layer_window.drag_prev->next->widget->box->allocation.y + quarter
 				&& y <= app->layer_window.drag_prev->next->widget->box->allocation.y + quarter*3)
 #else

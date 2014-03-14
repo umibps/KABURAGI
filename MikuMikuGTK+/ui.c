@@ -1,9 +1,17 @@
+// Visual Studio 2005以降では古いとされる関数を使用するので
+	// 警告が出ないようにする
+#if defined _MSC_VER && _MSC_VER >= 1400
+# define _CRT_SECURE_NO_DEPRECATE
+#endif
+
 #include <GL/glew.h>
 #include <gtk/gtk.h>
 #include <gtk/gtkgl.h>
 #include "application.h"
 #include "mikumikugtk.h"
 #include "memory.h"
+
+static void ExecuteLoadModel(APPLICATION* application);
 
 static void ToggleButtonSetValueCallback(GtkWidget* button, int* set_target)
 {
@@ -111,6 +119,80 @@ static void InitializeGL(PROJECT* project, int widget_width, int widget_height)
 	LoadControlHandle(&project->control.handle, project->application_context);
 
 	project->world.debug_drawer = &project->debug_drawer;
+}
+
+static void ShowChildMenuItem(GtkWidget* menu, void* dummy)
+{
+	gtk_menu_item_select(GTK_MENU_ITEM(menu));
+}
+
+GtkWidget* MakeMenuBar(void* application_context, GtkAccelGroup* hot_key)
+{
+	APPLICATION *application = (APPLICATION*)application_context;
+	PROJECT *project = application->projects[application->active_project];
+	GtkWidget *menu_bar;
+	GtkWidget *menu;
+	GtkWidget *menu_item;
+	GtkWidget *sub_item;
+	char buff[2048];
+
+	if(hot_key == NULL)
+	{
+		hot_key = gtk_accel_group_new();
+		gtk_window_add_accel_group(GTK_WINDOW(project->widgets.main_window), hot_key);
+	}
+
+	menu_bar = gtk_menu_bar_new();
+
+	// 「ファイル」メニュー
+	(void)sprintf(buff, "_%s(_F)", application->label.menu.file);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	gtk_widget_add_accelerator(menu_item, "activate", hot_key, 'F',
+		GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate", G_CALLBACK(ShowChildMenuItem), NULL);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu_bar), menu_item);
+
+	menu = gtk_menu_new();
+	gtk_menu_item_set_submenu(GTK_MENU_ITEM(menu_item), menu);
+
+	// 「モデル・アクセサリーの読み込み」
+	(void)sprintf(buff, "%s", application->label.menu.add_model_accessory);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	gtk_widget_add_accelerator(menu_item, "activate", hot_key,
+		'O', GDK_CONTROL_MASK | GDK_SHIFT_MASK, GTK_ACCEL_VISIBLE);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteLoadModel), application);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+
+	// 「編集」メニュー
+	(void)sprintf(buff, "_%s(_E)", application->label.menu.edit);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	gtk_widget_add_accelerator(menu_item, "activate", hot_key, 'E',
+		GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate", G_CALLBACK(ShowChildMenuItem), NULL);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu_bar), menu_item);
+
+	menu = gtk_menu_new();
+	gtk_menu_item_set_submenu(GTK_MENU_ITEM(menu_item), menu);
+
+	// 元に戻す
+	(void)sprintf(buff, "%s", application->label.menu.undo);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	gtk_widget_add_accelerator(menu_item, "activate", hot_key,
+		'Z', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteControlUndo), application);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	// やり直し
+	(void)sprintf(buff, "%s", application->label.menu.redo);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	gtk_widget_add_accelerator(menu_item, "activate", hot_key,
+		'Y', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteControlRedo), application);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+
+	return menu_bar;
 }
 
 static void MakeContextShadowMap(PROJECT* project, int width, int height)
@@ -319,7 +401,7 @@ void ShowModelComment(MODEL_INTERFACE* model, PROJECT* project)
 	gtk_widget_destroy(dialog);
 }
 
-void ExecuteLoadModel(APPLICATION* application)
+static void ExecuteLoadModel(APPLICATION* application)
 {
 	GtkWidget *chooser;
 	GtkFileFilter *filter;
@@ -332,7 +414,7 @@ void ExecuteLoadModel(APPLICATION* application)
 	}
 
 	chooser = gtk_file_chooser_dialog_new(
-		application->label.load_model,
+		application->label.control.load_model,
 		main_window,
 		GTK_FILE_CHOOSER_ACTION_OPEN,
 		GTK_STOCK_OK, GTK_RESPONSE_OK,
@@ -574,7 +656,7 @@ void* ModelControlWidgetNew(void* application_context)
 	widget = gtk_image_new_from_file(path);
 	g_free(path);
 	gtk_box_pack_start(GTK_BOX(layout_box), widget, FALSE, FALSE, 0);
-	label = gtk_label_new(application->label.load_model);
+	label = gtk_label_new(application->label.control.load_model);
 	gtk_box_pack_start(GTK_BOX(layout_box), label, FALSE, FALSE, 0);
 	control[0] = gtk_button_new();
 	gtk_container_add(GTK_CONTAINER(control[0]), layout_box);
@@ -584,13 +666,13 @@ void* ModelControlWidgetNew(void* application_context)
 	note_book = gtk_notebook_new();
 	gtk_box_pack_start(GTK_BOX(vbox), note_book, FALSE, FALSE, 0);
 	note_book_box = gtk_vbox_new(FALSE, 0);
-	label = gtk_label_new(application->label.bone);
+	label = gtk_label_new(application->label.control.bone);
 	gtk_notebook_append_page(GTK_NOTEBOOK(note_book), note_book_box, label);
-	control[0] = gtk_radio_button_new_with_label(NULL, application->label.edit_mode.select);
+	control[0] = gtk_radio_button_new_with_label(NULL, application->label.control.edit_mode.select);
 	control[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(control[0])),
-		application->label.edit_mode.move);
+		application->label.control.edit_mode.move);
 	control[2] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(control[0])),
-		application->label.edit_mode.rotate);
+		application->label.control.edit_mode.rotate);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control[project->control.edit_mode]), TRUE);
 	for(i=0; i<NUM_EDIT_MODE; i++)
 	{
@@ -610,17 +692,17 @@ void* ModelControlWidgetNew(void* application_context)
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	label = gtk_label_new(application->label.environment);
+	label = gtk_label_new(application->label.control.environment);
 	note_book_box = gtk_vbox_new(FALSE, 0);
 	gtk_notebook_append_page(GTK_NOTEBOOK(note_book), note_book_box, label);
 
-	control[0] = gtk_check_button_new_with_label(application->label.enable_physics);
+	control[0] = gtk_check_button_new_with_label(application->label.control.enable_physics);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control[0]), project->flags & PROJECT_FLAG_ALWAYS_PHYSICS);
 	ToggleButtonSetFlag(control[0], PROJECT_FLAG_ALWAYS_PHYSICS, &project->flags,
 		project, (void (*)(void*, int))ProjectSetEnableAlwaysPhysics, &project->widgets.ui_disabled);
 	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
 
-	control[0] = gtk_check_button_new_with_label(application->label.display_grid);
+	control[0] = gtk_check_button_new_with_label(application->label.control.display_grid);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control[0]),
 		project->flags & PROJECT_FLAG_DRAW_GRID);
 	ToggleButtonSetFlag(control[0], PROJECT_FLAG_DRAW_GRID, &project->flags,

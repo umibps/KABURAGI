@@ -80,6 +80,7 @@ int main(int argc, char** argv)
 {
 	APPLICATION *mikumiku;
 	GtkWidget *window;
+	GtkWidget *main_box;
 	GtkWidget *box;
 	void *tbb;
 #if defined(_DEBUG) && defined(CHECK_MEMORY_POOL) && CHECK_MEMORY_POOL != 0
@@ -111,8 +112,11 @@ int main(int argc, char** argv)
 	//gtk_widget_set_size_request(mikumiku->widgets.drawing_area,
 	//	720, 480);
 	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	main_box = gtk_vbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(window), main_box);
+	gtk_box_pack_start(GTK_BOX(main_box), MakeMenuBar(mikumiku, NULL), FALSE, FALSE, 0);
 	box = gtk_hbox_new(FALSE, 0);
-	gtk_container_add(GTK_CONTAINER(window), box);
+	gtk_box_pack_start(GTK_BOX(main_box), box, TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(box), (GtkWidget*)ModelControlWidgetNew(mikumiku), FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(box), mikumiku->projects[mikumiku->active_project]->widgets.drawing_area,
 		TRUE, TRUE, 0);

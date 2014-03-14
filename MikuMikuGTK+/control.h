@@ -129,7 +129,9 @@ typedef enum _eCONTROL_FLAGS
 	CONTROL_FLAG_LEFT_BUTTON_MASK = 0x01,
 	CONTROL_FLAG_CENTER_BUTTON_MASK = 0x02,
 	CONTROL_FLAG_RIGHT_BUTTON_MASK = 0x04,
-	CONTROL_FLAG_IMAGE_HANDLE_RECT_INTERSECT = 0x08
+	CONTROL_FLAG_IMAGE_HANDLE_RECT_INTERSECT = 0x08,
+	CONTROL_FLAG_BONE_MOVE = 0x10,
+	CONTROL_FLAG_BONE_ROTATE = 0x20
 } eCONTROL_FLAG;
 
 #ifdef _CONTROL
@@ -145,6 +147,7 @@ typedef struct _CONTROL
 	FLOAT_T delta[2];
 	float last_distance;
 	float last_bone_position[3];
+	float before_bone_value[4];
 	unsigned int handle_flags;
 	unsigned int flags;
 } CONTROL;
