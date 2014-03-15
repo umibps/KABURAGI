@@ -1832,11 +1832,11 @@ void CreateBrushTable(
 				);
 				g_free(file_path);
 
-				g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(BrushButtonClicked),
+				(void)g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(BrushButtonClicked),
 					&brush_data[y][x]);
-				g_signal_connect(G_OBJECT(button), "button_press_event",
+				(void)g_signal_connect(G_OBJECT(button), "button_press_event",
 					G_CALLBACK(BrushButtonRightClicked), &brush_data[y][x]);
-				g_signal_connect(G_OBJECT(button), "motion_notify_event",
+				(void)g_signal_connect(G_OBJECT(button), "motion_notify_event",
 					G_CALLBACK(ToolBoxMotionNotifyEvent), app);
 				gtk_widget_add_events(button, GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
 			}
@@ -1898,11 +1898,11 @@ void CreateVectorBrushTable(
 				);
 				g_free(file_path);
 
-				g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(VectorBrushButtonClicked),
+				(void)g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(VectorBrushButtonClicked),
 					&brush_data[y][x]);
-				g_signal_connect(G_OBJECT(button), "button_press_event",
+				(void)g_signal_connect(G_OBJECT(button), "button_press_event",
 					G_CALLBACK(VectorBrushButtonRightClicked), &brush_data[y][x]);
-				g_signal_connect(G_OBJECT(button), "motion_notify_event",
+				(void)g_signal_connect(G_OBJECT(button), "motion_notify_event",
 					G_CALLBACK(ToolBoxMotionNotifyEvent), app);
 				gtk_widget_add_events(button, GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
 			}
@@ -1984,6 +1984,25 @@ static void AfterPixelDataGet(APPLICATION* app, uint8* pixels)
 	gtk_box_pack_start(GTK_BOX(app->vbox), app->menu_bar, FALSE, FALSE, 0);
 	gtk_box_reorder_child(GTK_BOX(app->vbox), app->menu_bar, 0);
 	gtk_widget_show_all(app->menu_bar);
+
+	for(i=0; i<app->menus.num_disable_if_no_open; i++)
+	{
+		gtk_widget_set_sensitive(app->menus.disable_if_no_open[i], TRUE);
+	}
+	if((draw_window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
+	{
+		for(i=0; i<app->menus.num_disable_if_no_select; i++)
+		{
+			gtk_widget_set_sensitive(app->menus.disable_if_no_select[i], TRUE);
+		}
+	}
+	if(draw_window->num_layer > 1)
+	{
+		for(i=0; i<app->menus.num_disable_if_single_layer; i++)
+		{
+			gtk_widget_set_sensitive(app->menus.disable_if_single_layer[i], TRUE);
+		}
+	}
 
 	// 入力のコールバック関数をセット
 	draw_window->callbacks.mouse_button_press =g_signal_connect(G_OBJECT(draw_window->window), "button_press_event",
