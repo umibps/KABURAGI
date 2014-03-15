@@ -27,6 +27,26 @@ int StringCompareIgnoreCase(const char* str1, const char* str2)
 	return ret;
 }
 
+int StringNumCompareIgnoreCase(const char* str1, const char* str2, int num)
+{
+	int ret;
+	int count = 0;
+	while((ret = toupper(*str1) - toupper(*str2)) == 0)
+	{
+		str1++,	str2++;
+		if(*str1 == '\0')
+		{
+			return 0;
+		}
+		count++;
+		if(count >= num)
+		{
+			return ret;
+		}
+	}
+	return ret;
+}
+
 const char* StringStringIgnoreCase(const char* str, const char* compare)
 {
 	char *upper = MEM_STRDUP_FUNC(str);

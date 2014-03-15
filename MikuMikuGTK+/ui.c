@@ -12,6 +12,7 @@
 #include "memory.h"
 
 static void ExecuteLoadModel(APPLICATION* application);
+static void ExecuteLoadPose(APPLICATION* application);
 
 static void ToggleButtonSetValueCallback(GtkWidget* button, int* set_target)
 {
@@ -163,6 +164,12 @@ GtkWidget* MakeMenuBar(void* application_context, GtkAccelGroup* hot_key)
 	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteLoadModel), application);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	// [ポーズの読み込み」
+	(void)sprintf(buff, "%s", application->label.control.load_pose);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteLoadPose), application);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
 	// 「編集」メニュー
 	(void)sprintf(buff, "_%s(_E)", application->label.menu.edit);
@@ -272,7 +279,6 @@ void InitializeWidgets(WIDGETS* widgets, int widget_width, int widget_height, vo
 #endif
 	);
 	// キャンバスにOpenGLを設定
-	//config = gdk_gl_config_new(attrlibute);
 	config = gdk_gl_config_new_by_mode(
 		GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE | GDK_GL_MODE_STENCIL);
 	if(config == NULL)
@@ -369,6 +375,7 @@ gboolean ProjectDisplayEvent(GtkWidget* widget, GdkEventExpose* event_info, void
 
 void ShowModelComment(MODEL_INTERFACE* model, PROJECT* project)
 {
+#define DIALOG_SIZE 480
 	GtkWidget *dialog;
 	GtkWidget *note_book;
 	GtkWidget *scrolled_window;
@@ -396,9 +403,12 @@ void ShowModelComment(MODEL_INTERFACE* model, PROJECT* project)
 	label = gtk_label_new(model->english_comment);
 	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(scrolled_window), label);
 
+	gtk_widget_set_size_request(dialog, DIALOG_SIZE, DIALOG_SIZE);
+
 	gtk_widget_show_all(dialog);
 	(void)gtk_dialog_run(GTK_DIALOG(dialog));
 	gtk_widget_destroy(dialog);
+#undef DIALOG_SIZE
 }
 
 static void ExecuteLoadModel(APPLICATION* application)
@@ -466,6 +476,8 @@ static void ExecuteLoadModel(APPLICATION* application)
 			}
 		}
 
+		gtk_widget_destroy(chooser);
+
 		system_path = g_locale_from_utf8(path, -1, NULL, NULL, NULL);
 		model = LoadModel(application, system_path, file_type);
 		if(model->type == MODEL_TYPE_PMX_MODEL)
@@ -474,8 +486,90 @@ static void ExecuteLoadModel(APPLICATION* application)
 		}
 		g_free(system_path);
 	}
+	else
+	{
+		gtk_widget_destroy(chooser);
+	}
+}
 
-	gtk_widget_destroy(chooser);
+static void ExecuteLoadPose(APPLICATION* application)
+{
+	PROJECT *project = NULL;
+	GtkWidget *chooser;
+	GtkFileFilter *filter;
+	GtkWindow *main_window = NULL;
+	GtkWidget *apply_center_position;
+
+	if(application->num_projects > 0)
+	{
+		project = application->projects[application->active_project];
+		if(project->scene->selected_model == NULL)
+		{
+			return;
+		}
+		main_window = GTK_WINDOW(
+			application->projects[application->active_project]->widgets.main_window);
+	}
+	else
+	{
+		return;
+	}
+
+	chooser = gtk_file_chooser_dialog_new(
+		application->label.control.load_pose,
+		main_window,
+		GTK_FILE_CHOOSER_ACTION_OPEN,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		NULL
+	);
+
+	filter = gtk_file_filter_new();
+	gtk_file_filter_set_name(filter, "Pose File");
+	gtk_file_filter_add_pattern(filter, "*.vpd");
+	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(chooser), filter);
+
+	apply_center_position = gtk_check_button_new_with_label(application->label.control.apply_center_position);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(chooser))), apply_center_position, FALSE, FALSE, 2);
+
+	gtk_widget_show_all(chooser);
+	if(gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_OK)
+	{
+		POSE *pose;
+		FILE *fp;
+		gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+		char *system_path = g_locale_from_utf8(path, -1, NULL, NULL, NULL);
+		char *pose_data;
+		gboolean apply_center = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(apply_center_position));
+		long data_size;
+
+		fp = fopen(system_path, "rb");
+		(void)fseek(fp, 0, SEEK_END);
+		data_size = ftell(fp);
+		rewind(fp);
+		pose_data = (char*)MEM_ALLOC_FUNC(data_size+1);
+		(void)fread(pose_data, 1, data_size, fp);
+		pose_data[data_size] = '\0';
+		g_free(system_path);
+
+		gtk_widget_destroy(chooser);
+
+		pose = LoadPoseData(pose_data);
+		ApplyPose(pose, project->scene->selected_model, apply_center);
+		DeletePose(&pose);
+
+		SceneUpdateModel(project->scene, project->scene->selected_model, TRUE);
+		if((project->flags & PROJECT_FLAG_ALWAYS_PHYSICS) == 0)
+		{
+			WorldStepsSimulation(&project->world, 20, 120);
+		}
+
+		MEM_FREE_FUNC(pose_data);
+	}
+	else
+	{
+		gtk_widget_destroy(chooser);
+	}
 }
 
 GtkWidget* BoneTreeViewNew(void)

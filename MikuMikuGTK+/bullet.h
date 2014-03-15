@@ -70,7 +70,11 @@ extern void BtDynamicsWorldAddRigidBody(void* world, void* body);
 
 extern void BtDynamicsWorldAddRigidBodyWithDetailData(void* world, void* body, short group, short mask);
 
+extern void BtDynamicsWorldRemoveRigidBody(void* world, void* body);
+
 extern void BtDynamicsWorldAddConstraint(void* world, void* constraint);
+
+extern void BtDynamicsWorldRemoveConstraint(void* world, void* constraint);
 
 extern void** BtDynamicsWorldGetCollisionObjects(void* world, int* num_objects);
 

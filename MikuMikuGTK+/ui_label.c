@@ -15,6 +15,8 @@ UI_LABEL LoadDefaultUiLabel(void)
 			"Environment",
 			"Bone",
 			"Load Models",
+			"Load Pose",
+			"Apply Center Position",
 			"Enable Physics",
 			"Display Grid",
 			{

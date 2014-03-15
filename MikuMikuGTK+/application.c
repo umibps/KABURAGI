@@ -61,6 +61,7 @@ APPLICATION* MikuMikuGtkNew(
 	{
 		ret->projects[0] = ProjectNew((void*)ret,
 			widget_width, widget_height, PROJECT_FLAG_DRAW_GRID | PROJECT_FLAG_ALWAYS_PHYSICS);
+		ret->num_projects++;
 	}
 
 	if(initialize_file_path != NULL)

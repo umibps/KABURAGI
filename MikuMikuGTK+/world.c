@@ -17,6 +17,7 @@ void InitializeWorld(WORLD* world)
 
 void SetWorldGravity(WORLD* world, const float* gravity)
 {
+	COPY_VECTOR3(world->gravity, gravity);
 	BtDynamicsWorldSetGravity(world->world, gravity);
 }
 
@@ -29,4 +30,9 @@ void SetWorldPreferredFPS(WORLD* world, float fps)
 void WorldStepSimulation(WORLD* world, float time_step)
 {
 	BtDynamicsWorldStepSimulation(world->world, time_step, world->max_sub_steps, world->fixed_time_step);
+}
+
+void WorldStepsSimulation(WORLD* world, float time_step, int max_sub_steps)
+{
+	BtDynamicsWorldStepSimulation(world->world, time_step, max_sub_steps, world->fixed_time_step);
 }

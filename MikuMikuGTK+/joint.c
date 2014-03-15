@@ -296,6 +296,12 @@ void BaseJointJoinWorld(BASE_JOINT* joint, void* world)
 	BtTypedConstraintSetUserConstraintPointer(joint->constraint, joint);
 }
 
+void BaseJointLeaveWorld(BASE_JOINT* joint, void* world)
+{
+	BtDynamicsWorldRemoveConstraint(world, joint->constraint);
+	BtTypedConstraintSetUserConstraintPointer(joint->constraint, NULL);
+}
+
 void BaseJointUpdateTransform(BASE_JOINT* joint)
 {
 	switch(BtTypedConstraintGetType(joint->constraint))

@@ -104,5 +104,8 @@ extern void InitializeControl(
 extern void ExecuteControlUndo(APPLICATION* application);
 extern void ExecuteControlRedo(APPLICATION* application);
 
+extern void ModelJoinWorld(MODEL_INTERFACE* model, WORLD* world);
+extern void ModelLeaveWorld(MODEL_INTERFACE* model, WORLD* world);
+
 #endif	// #ifndef _INCLUDED_APPLICATION_H_
 

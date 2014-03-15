@@ -17,6 +17,8 @@ typedef struct _UI_LABEL
 		char *environment;
 		char *bone;
 		char *load_model;
+		char *load_pose;
+		char *apply_center_position;
 		char *enable_physics;
 		char *display_grid;
 		struct

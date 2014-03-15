@@ -1776,3 +1776,28 @@ void PmxModelJoinWorld(PMX_MODEL* model, void* world)
 		}
 	}
 }
+
+void PmxModelLeaveWorld(PMX_MODEL* model, void* world)
+{
+	if(world != NULL)
+	{
+		const int num_rigid_bodies = (int)model->rigid_bodies->num_data;
+		const int num_joints = (int)model->joints->num_data;
+		PMX_RIGID_BODY *bodies = (PMX_RIGID_BODY*)model->rigid_bodies->buffer;
+		PMX_RIGID_BODY *body;
+		PMX_JOINT *joints = (PMX_JOINT*)model->joints->buffer;
+		PMX_JOINT *joint;
+		int i;
+
+		for(i=0; i<num_rigid_bodies; i++)
+		{
+			body = &bodies[i];
+			BaseRigidBodyLeaveWorld((BASE_RIGID_BODY*)body, world);
+		}
+		for(i=0; i<num_joints; i++)
+		{
+			joint = &joints[i];
+			BaseJointLeaveWorld((BASE_JOINT*)joint, world);
+		}
+	}
+}

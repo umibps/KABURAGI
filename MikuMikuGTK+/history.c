@@ -169,7 +169,7 @@ static void UndoRedoBoneMove(HISTORY_DATA* history, PROJECT* project)
 	}
 	bone->get_local_translation(bone, temp);
 	bone->set_local_translation(bone, data.position);
-	COPY_VECTOR3(data.position, temp);
+	COPY_VECTOR3(((BONE_MOVE_HISTORY_DATA*)history->data)->position, temp);
 }
 
 void AddBoneMoveHistory(HISTORY* history, PROJECT* project)
@@ -198,7 +198,7 @@ void AddBoneMoveHistory(HISTORY* history, PROJECT* project)
 	data.bone_name_length = (uint16)strlen(bone->name)+1;
 	(void)MemWrite(&data, 1, offsetof(BONE_MOVE_HISTORY_DATA, bone_name), history_data);
 	(void)MemWrite(bone->name, 1, data.bone_name_length, history_data);
-	AddControlHistory(history, "bone rotation", history_data->buff_ptr, history_data->data_point,
+	AddControlHistory(history, "bone move", history_data->buff_ptr, history_data->data_point,
 		(history_func)UndoRedoBoneMove, (history_func)UndoRedoBoneMove);
 	(void)DeleteMemoryStream(history_data);
 }
@@ -234,7 +234,7 @@ static void UndoRedoBoneRotate(HISTORY_DATA* history, PROJECT* project)
 	}
 	bone->get_local_rotation(bone, temp);
 	bone->set_local_rotation(bone, data.rotation);
-	COPY_VECTOR4(data.rotation, temp);
+	COPY_VECTOR4(((BONE_ROTATE_HISTORY_DATA*)history->data)->rotation, temp);
 }
 
 void AddBoneRotateHistory(HISTORY* history, PROJECT* project)

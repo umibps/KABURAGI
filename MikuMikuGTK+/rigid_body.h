@@ -100,6 +100,8 @@ extern void BaseRigidBodySyncLocalTransform(BASE_RIGID_BODY* body);
 
 extern void BaseRigidBodyJoinWorld(BASE_RIGID_BODY* body, void* world);
 
+extern void BaseRigidBodyLeaveWorld(BASE_RIGID_BODY* body, void* world);
+
 extern void BaseRigidBodyUpdateTransform(BASE_RIGID_BODY* body);
 
 extern void BaseRigidBodySetActivation(BASE_RIGID_BODY* body, int active);

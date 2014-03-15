@@ -326,6 +326,8 @@ extern int aiMeshHasTextureCoords(const struct aiMesh* mesh, unsigned int index)
 **************************************/
 extern int StringCompareIgnoreCase(const char* str1, const char* str2);
 
+extern int StringNumCompareIgnoreCase(const char* str1, const char* str2, int num);
+
 extern const char* StringStringIgnoreCase(const char* str, const char* compare);
 
 extern int GetTextFromStream(char* stream, char** text);

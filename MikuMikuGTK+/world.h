@@ -22,4 +22,6 @@ extern void SetWorldPreferredFPS(WORLD* world, float fps);
 
 extern void WorldStepSimulation(WORLD* world, float time_step);
 
+extern void WorldStepsSimulation(WORLD* world, float time_step, int max_sub_steps);
+
 #endif	// #ifndef _INCLUDED_WORLD_H_

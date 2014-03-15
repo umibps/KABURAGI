@@ -350,6 +350,8 @@ extern void DeletePmxDefaultStaticVertexBuffer(PMX_DEFAULT_STATIC_VERTEX_BUFFER*
 
 extern void PmxModelJoinWorld(PMX_MODEL* model, void* world);
 
+extern void PmxModelLeaveWorld(PMX_MODEL* model, void* world);
+
 extern void PmxModelPerformUpdate(PMX_MODEL* model, int force_sync);
 
 extern void PmxModelResetMotionState(PMX_MODEL* model, void* world);

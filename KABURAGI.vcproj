@@ -1626,6 +1626,10 @@
 					>
 				</File>
 				<File
+					RelativePath=".\MikuMikuGtk+\pose.c"
+					>
+				</File>
+				<File
 					RelativePath=".\MikuMikuGtk+\program.c"
 					>
 				</File>
@@ -2301,6 +2305,14 @@
 						>
 					</File>
 				</Filter>
+				<Filter
+					Name="libguess"
+					>
+					<File
+						RelativePath=".\MikuMikuGtk+\libguess\guess.c"
+						>
+					</File>
+				</Filter>
 			</Filter>
 			<Filter
 				Name="gtkglext"
@@ -2530,6 +2542,10 @@
 			</File>
 			<File
 				RelativePath=".\pattern.h"
+				>
+			</File>
+			<File
+				RelativePath=".\MikuMikuGtk+\pose.h"
 				>
 			</File>
 			<File

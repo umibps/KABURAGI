@@ -191,12 +191,28 @@ void BtDynamicsWorldAddRigidBodyWithDetailData(void* world, void* body, short gr
 	w->world->addRigidBody(b, group, mask);
 }
 
+void BtDynamicsWorldRemoveRigidBody(void* world, void* body)
+{
+	BT_DYNAMICS_WORLD *w = static_cast<BT_DYNAMICS_WORLD*>(world);
+	btRigidBody *b = static_cast<btRigidBody*>(body);
+
+	w->world->removeRigidBody(b);
+}
+
 void BtDynamicsWorldAddConstraint(void* world, void* constraint)
 {
 	BT_DYNAMICS_WORLD *w = static_cast<BT_DYNAMICS_WORLD*>(world);
 	btTypedConstraint *c = static_cast<btTypedConstraint*>(constraint);
 
 	w->world->addConstraint(c);
+}
+
+void BtDynamicsWorldRemoveConstraint(void* world, void* constraint)
+{
+	BT_DYNAMICS_WORLD *w = static_cast<BT_DYNAMICS_WORLD*>(world);
+	btTypedConstraint *c = static_cast<btTypedConstraint*>(constraint);
+
+	w->world->removeConstraint(c);
 }
 
 void** BtDynamicsWorldGetCollisionObjects(void* world, int* num_objects)

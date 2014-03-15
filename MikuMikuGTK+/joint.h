@@ -44,6 +44,8 @@ extern void ReleaseBaseJoint(BASE_JOINT* joint);
 
 extern void BaseJointJoinWorld(BASE_JOINT* joint, void* world);
 
+extern void BaseJointLeaveWorld(BASE_JOINT* joint, void* world);
+
 extern void BaseJointUpdateTransform(BASE_JOINT* joint);
 
 extern int LoadPmxJoints(STRUCT_ARRAY* joints, STRUCT_ARRAY* bodies);

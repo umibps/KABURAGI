@@ -6,6 +6,7 @@
 #include "scene.h"
 #include "world.h"
 #include "motion.h"
+#include "pose.h"
 #include "annotation.h"
 #include "shadow_map.h"
 #include "debug_drawer.h"

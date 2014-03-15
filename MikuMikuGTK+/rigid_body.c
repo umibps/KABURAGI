@@ -251,6 +251,12 @@ void BaseRigidBodyJoinWorld(BASE_RIGID_BODY* body, void* world)
 	BtRigidBodySetUserData(body->body, body);
 }
 
+void BaseRigidBodyLeaveWorld(BASE_RIGID_BODY* body, void* world)
+{
+	BtDynamicsWorldRemoveRigidBody(world, body->body);
+	BtRigidBodySetUserData(body->body, NULL);
+}
+
 void BaseRigidBodyUpdateTransform(BASE_RIGID_BODY* body)
 {
 	MODEL_INTERFACE *model = (MODEL_INTERFACE*)body->parent_model;
