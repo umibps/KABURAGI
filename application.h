@@ -144,7 +144,7 @@ typedef struct _TOOL_WINDOW
 	COLOR_CHOOSER *color_chooser;
 	// ブラシのコアテーブル
 	BRUSH_CORE brushes[BRUSH_TABLE_HEIGHT][BRUSH_TABLE_WIDTH];
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 	// タッチイベント用のデータ
 	BRUSH_CORE touch[MAX_TOUCH];
 	// 指判定用
@@ -185,7 +185,7 @@ typedef struct _TOOL_WINDOW
 	// 手ブレ補正の情報
 	SMOOTHER smoother;
 	// タッチイベント用の手ブレ補正
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 	SMOOTHER touch_smoother[MAX_TOUCH];
 #endif
 	// パレットの情報
@@ -852,6 +852,24 @@ extern void TextLayerMotionCallBack(
 );
 
 extern GtkWidget* CreateTextLayerDetailUI(APPLICATION* app, struct _LAYER* target, TEXT_LAYER* layer);
+
+/*********************************************************
+* ExecuteChangeToolWindowPlace関数                       *
+* ツールボックスの位置を変更する                         *
+* 引数                                                   *
+* menu_item	: メニューアイテムウィジェット               *
+* app		: アプリケーションを管理する構造体のアドレス *
+*********************************************************/
+extern void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app);
+
+/*********************************************************
+* ExecuteChangeNavigationLayerWindowPlace関数            *
+* ナビゲーションとレイヤービューの位置を変更する         *
+* 引数                                                   *
+* menu_item	: 位置変更メニューアイテムウィジェット       *
+* app		: アプリケーションを管理する構造体のアドレス *
+*********************************************************/
+extern void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* app);
 
 /*************************************************************
 * TextFieldFocusIn関数                                       *

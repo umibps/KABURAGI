@@ -2025,6 +2025,7 @@ static void End3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	LAYER *layer = draw_window->active_layer;
 	TOOL_WINDOW *window = &app->tool_window;
 	uint8 *pixels = (uint8*)MEM_ALLOC_FUNC(layer->stride * layer->height);
+	gint before_pane_position;
 
 	if(pixels == NULL)
 	{
@@ -2064,6 +2065,32 @@ static void End3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 		RenderForPixelData(layer->layer_data.project,
 			layer->width, layer->height, pixels, (void (*)(void*, uint8*))AfterPixelDataGet, app);
 	}
+
+	gtk_widget_destroy(app->layer_window.vbox);
+	before_pane_position = app->layer_window.pane_position;
+	ExecuteChangeToolWindowPlace(NULL, app);
+	ExecuteChangeNavigationLayerWindowPlace(NULL, app);
+	app->layer_window.pane_position = before_pane_position;
+	gtk_paned_set_position(GTK_PANED(app->navi_layer_pane), app->layer_window.pane_position);
+
+	{
+		LAYER* layer;	// ビューに追加するレイヤー
+		int i;			// for文用のカウンタ
+
+		// 一番下のレイヤーを設定
+		layer = app->draw_window[app->active_window]->layer;
+
+		// ビューに全てのレイヤーを追加
+		for(i=0; i<app->draw_window[app->active_window]->num_layer; i++)
+		{
+			LayerViewAddLayer(layer, app->draw_window[app->active_window]->layer,
+				app->layer_window.view, i+1);
+			layer = layer->next;
+		}
+
+		// アクティブレイヤーをセット
+		LayerViewSetActiveLayer(app->draw_window[app->active_window]->active_layer, app->layer_window.view);
+	}
 }
 
 static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
@@ -2073,20 +2100,22 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	TOOL_WINDOW *window = &app->tool_window;
 	GtkAllocation allocation;
 	GtkWidget *return_button;
+	GtkWidget *camera_light_widget;
 	gtk_widget_destroy(window->brush_table);
 	window->brush_table = (GtkWidget*)ModelControlWidgetNew(
 		app->modeling);
-	gtk_widget_destroy(window->detail_ui);
+	gtk_widget_destroy(window->ui);
 	return_button = gtk_button_new_with_label("End 3D Modeling");
 	(void)g_signal_connect(G_OBJECT(return_button), "pressed",
 		G_CALLBACK(End3DLayerButtonPressed), app);
-	window->detail_ui = gtk_vbox_new(FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(window->detail_ui), return_button, FALSE, FALSE, 0);
+	window->ui = gtk_vbox_new(FALSE, 0);
+	gtk_box_pack_end(GTK_BOX(window->ui), return_button, FALSE, FALSE, 0);
 
 	glDeleteTextures(1, &draw_window->gl_data.texture_name);
 
+	window->brush_scroll = gtk_scrolled_window_new(NULL, NULL);
+	gtk_box_pack_start(GTK_BOX(window->ui), window->brush_scroll, TRUE, TRUE, 0);
 	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(window->brush_scroll), window->brush_table);
-	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(window->detail_ui_scroll), window->detail_ui);
 
 	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.display);
 	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_button_press);
@@ -2129,8 +2158,45 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	gtk_widget_set_size_request(draw_window->window, allocation.width, allocation.height);
 	gtk_widget_show_all(draw_window->window);
 
-	gtk_widget_show_all(window->brush_scroll);
-	gtk_widget_show_all(window->detail_ui);
+	if((window->flags & TOOL_DOCKED) == 0)
+	{
+		gtk_container_add(GTK_CONTAINER(window->window), window->ui);
+	}
+	else if((window->flags & TOOL_PLACE_RIGHT) == 0)
+	{
+		gtk_box_pack_start(GTK_BOX(gtk_paned_get_child1(GTK_PANED(app->left_pane))),
+			window->ui, TRUE, TRUE, 0);
+	}
+	else
+	{
+		gtk_box_pack_start(GTK_BOX(gtk_paned_get_child2(GTK_PANED(app->right_pane))),
+			window->ui, TRUE, TRUE, 0);
+	}
+	gtk_widget_show_all(window->ui);
+
+	camera_light_widget = CameraLightControlWidgetNew(app->modeling);
+	if((app->layer_window.flags & LAYER_WINDOW_DOCKED) == 0)
+	{
+		gtk_widget_destroy(app->layer_window.vbox);
+		app->layer_window.vbox = camera_light_widget;
+		gtk_container_add(GTK_CONTAINER(app->layer_window.window), app->layer_window.vbox);
+	}
+	else
+	{
+		gtk_widget_destroy(app->navi_layer_pane);
+		app->layer_window.vbox = camera_light_widget;
+		if((app->layer_window.flags & LAYER_WINDOW_PLACE_RIGHT) != 0)
+		{
+			gtk_box_pack_start(GTK_BOX(gtk_paned_get_child2(GTK_PANED(app->right_pane))),
+				app->layer_window.vbox, TRUE, TRUE, 0);
+		}
+		else
+		{
+			gtk_box_pack_start(GTK_BOX(gtk_paned_get_child1(GTK_PANED(app->left_pane))),
+				app->layer_window.vbox, TRUE, TRUE, 0);
+		}
+	}
+	gtk_widget_show_all(app->layer_window.vbox);
 
 	gtk_widget_destroy(app->menu_bar);
 	app->menu_bar = MakeMenuBar(app->modeling, app->hot_key);
@@ -2318,81 +2384,84 @@ GtkWidget *CreateToolBox(
 	INI_FILE_PTR vector_file;
 	INI_FILE_PTR common_tool;
 
-	if(brush_data_file_path[0] == '.' && brush_data_file_path[1] == '/')
+	if((app->flags & APPLICATION_INITIALIZED) == 0)
 	{
-		file_path = g_build_filename(app->current_path,
-			&brush_data_file_path[2], NULL);
-		fp = g_file_new_for_path(file_path);
-		g_free(file_path);
+		if(brush_data_file_path[0] == '.' && brush_data_file_path[1] == '/')
+		{
+			file_path = g_build_filename(app->current_path,
+				&brush_data_file_path[2], NULL);
+			fp = g_file_new_for_path(file_path);
+			g_free(file_path);
+		}
+		else
+		{
+			fp = g_file_new_for_path(brush_data_file_path);
+		}
+		stream = g_file_read(fp, NULL, NULL);
+
+		// ファイルサイズを取得
+		file_info = g_file_input_stream_query_info(stream,
+			G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
+		data_size = (size_t)g_file_info_get_size(file_info);
+
+		file = CreateIniFile(stream,
+			(size_t (*)(void*, size_t, size_t, void*))FileRead, data_size, INI_READ);
+
+		// 一度不要になったオブジェクトを削除
+		g_object_unref(fp);
+		g_object_unref(stream);
+		g_object_unref(file_info);
+
+		if(vector_brush_data_file_path[0] == '.' && vector_brush_data_file_path[1] == '/')
+		{
+			file_path = g_build_filename(app->current_path,
+				&vector_brush_data_file_path[2], NULL);
+			fp = g_file_new_for_path(file_path);
+			g_free(file_path);
+		}
+		else
+		{
+			fp = g_file_new_for_path(vector_brush_data_file_path);
+		}
+		stream = g_file_read(fp, NULL, NULL);
+		// ファイルサイズを取得
+		file_info = g_file_input_stream_query_info(stream,
+			G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
+		data_size = (size_t)g_file_info_get_size(file_info);
+
+		vector_file = CreateIniFile(stream,
+			(size_t (*)(void*, size_t, size_t, void*))FileRead, data_size, INI_READ);
+
+		// 一度不要になったオブジェクトを削除
+		g_object_unref(fp);
+		g_object_unref(stream);
+		g_object_unref(file_info);
+
+		if(common_tools_data_file_path[0] == '.' && common_tools_data_file_path[1] == '/')
+		{
+			file_path = g_build_filename(app->current_path,
+				&common_tools_data_file_path[2], NULL);
+			fp = g_file_new_for_path(file_path);
+			g_free(file_path);
+		}
+		else
+		{
+			fp = g_file_new_for_path(common_tools_data_file_path);
+		}
+		stream = g_file_read(fp, NULL, NULL);
+		// ファイルサイズを取得
+		file_info = g_file_input_stream_query_info(stream,
+			G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
+		data_size = (size_t)g_file_info_get_size(file_info);
+
+		common_tool = CreateIniFile(stream,
+			(size_t (*)(void*, size_t, size_t, void*))FileRead, data_size, INI_READ);
+
+		// 不要になったオブジェクトを削除
+		g_object_unref(fp);
+		g_object_unref(stream);
+		g_object_unref(file_info);
 	}
-	else
-	{
-		fp = g_file_new_for_path(brush_data_file_path);
-	}
-	stream = g_file_read(fp, NULL, NULL);
-
-	// ファイルサイズを取得
-	file_info = g_file_input_stream_query_info(stream,
-		G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
-	data_size = (size_t)g_file_info_get_size(file_info);
-
-	file = CreateIniFile(stream,
-		(size_t (*)(void*, size_t, size_t, void*))FileRead, data_size, INI_READ);
-
-	// 一度不要になったオブジェクトを削除
-	g_object_unref(fp);
-	g_object_unref(stream);
-	g_object_unref(file_info);
-
-	if(vector_brush_data_file_path[0] == '.' && vector_brush_data_file_path[1] == '/')
-	{
-		file_path = g_build_filename(app->current_path,
-			&vector_brush_data_file_path[2], NULL);
-		fp = g_file_new_for_path(file_path);
-		g_free(file_path);
-	}
-	else
-	{
-		fp = g_file_new_for_path(vector_brush_data_file_path);
-	}
-	stream = g_file_read(fp, NULL, NULL);
-	// ファイルサイズを取得
-	file_info = g_file_input_stream_query_info(stream,
-		G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
-	data_size = (size_t)g_file_info_get_size(file_info);
-
-	vector_file = CreateIniFile(stream,
-		(size_t (*)(void*, size_t, size_t, void*))FileRead, data_size, INI_READ);
-
-	// 一度不要になったオブジェクトを削除
-	g_object_unref(fp);
-	g_object_unref(stream);
-	g_object_unref(file_info);
-
-	if(common_tools_data_file_path[0] == '.' && common_tools_data_file_path[1] == '/')
-	{
-		file_path = g_build_filename(app->current_path,
-			&common_tools_data_file_path[2], NULL);
-		fp = g_file_new_for_path(file_path);
-		g_free(file_path);
-	}
-	else
-	{
-		fp = g_file_new_for_path(common_tools_data_file_path);
-	}
-	stream = g_file_read(fp, NULL, NULL);
-	// ファイルサイズを取得
-	file_info = g_file_input_stream_query_info(stream,
-		G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
-	data_size = (size_t)g_file_info_get_size(file_info);
-
-	common_tool = CreateIniFile(stream,
-		(size_t (*)(void*, size_t, size_t, void*))FileRead, data_size, INI_READ);
-
-	// 不要になったオブジェクトを削除
-	g_object_unref(fp);
-	g_object_unref(stream);
-	g_object_unref(file_info);
 
 	// ボックスのサイズをセット
 	gtk_widget_set_size_request(widget,
@@ -2410,33 +2479,38 @@ GtkWidget *CreateToolBox(
 	SetColorChangeCallBack(window->color_chooser, ColorChangeCallBack, (void*)app);
 
 	// 共通ツールのテーブル作成
-		// 文字コードの読み込み
-	(void)IniFileGetString(common_tool, "CODE", "CODE_TYPE", code, MAX_STR_LENGTH);
-	window->common_tool_code = MEM_STRDUP_FUNC(code);
+	if((app->flags & APPLICATION_INITIALIZED) == 0)
+	{	// 文字コードの読み込み
+		(void)IniFileGetString(common_tool, "CODE", "CODE_TYPE", code, MAX_STR_LENGTH);
+		window->common_tool_code = MEM_STRDUP_FUNC(code);
+	}
 	window->common_tool_table = table = gtk_table_new(COMMON_TOOL_TABLE_HEIGHT, COMMON_TOOL_TABLE_WIDTH, TRUE);
 	{
 		char temp[MAX_STR_LENGTH];
 		size_t length;
 
-		for(i=0; i<common_tool->section_count; i++)
+		if((app->flags & APPLICATION_INITIALIZED) == 0)
 		{
-			if((length = IniFileGetString(common_tool, common_tool->section[i].section_name,
-				"NAME", temp, MAX_STR_LENGTH)) != 0)
+			for(i=0; i<common_tool->section_count; i++)
 			{
-				x = IniFileGetInt(common_tool, common_tool->section[i].section_name, "X");
-				y = IniFileGetInt(common_tool, common_tool->section[i].section_name, "Y");
-				common_tool_data[y][x].name = g_convert(
-					temp, length, "UTF-8", code, NULL, NULL, NULL);
-				common_tool_data[y][x].image_file_path =
-					IniFileStrdup(common_tool, common_tool->section[i].section_name, "IMAGE");
-				if(IniFileGetString(common_tool, common_tool->section[i].section_name, "HOT_KEY", hot_key, 3) != 0)
+				if((length = IniFileGetString(common_tool, common_tool->section[i].section_name,
+					"NAME", temp, MAX_STR_LENGTH)) != 0)
 				{
-					common_tool_data[y][x].hot_key = hot_key[0];
+					x = IniFileGetInt(common_tool, common_tool->section[i].section_name, "X");
+					y = IniFileGetInt(common_tool, common_tool->section[i].section_name, "Y");
+					common_tool_data[y][x].name = g_convert(
+						temp, length, "UTF-8", code, NULL, NULL, NULL);
+					common_tool_data[y][x].image_file_path =
+						IniFileStrdup(common_tool, common_tool->section[i].section_name, "IMAGE");
+					if(IniFileGetString(common_tool, common_tool->section[i].section_name, "HOT_KEY", hot_key, 3) != 0)
+					{
+						common_tool_data[y][x].hot_key = hot_key[0];
+					}
+					(void)IniFileGetString(common_tool, common_tool->section[i].section_name,
+						"TYPE", temp, MAX_STR_LENGTH);
+					LoadCommonToolDetailData(&common_tool_data[y][x], common_tool,
+						common_tool->section[i].section_name, temp, app);
 				}
-				(void)IniFileGetString(common_tool, common_tool->section[i].section_name,
-					"TYPE", temp, MAX_STR_LENGTH);
-				LoadCommonToolDetailData(&common_tool_data[y][x], common_tool,
-					common_tool->section[i].section_name, temp, app);
 			}
 		}
 
@@ -2466,9 +2540,9 @@ GtkWidget *CreateToolBox(
 					button = CreateImageButton(file_path, NULL, NULL);
 					g_free(file_path);
 
-					g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(CommonToolButtonClicked),
+					(void)g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(CommonToolButtonClicked),
 						&common_tool_data[y][x]);
-					g_signal_connect(G_OBJECT(button), "button_press_event",
+					(void)g_signal_connect(G_OBJECT(button), "button_press_event",
 						G_CALLBACK(CommonToolButtonRightClicked), &common_tool_data[y][x]);
 					gtk_widget_set_tooltip_text(button, common_tool_data[y][x].name);
 				}
@@ -2494,7 +2568,7 @@ GtkWidget *CreateToolBox(
 	// スクロールバーを表示する条件をセット
 	gtk_scrolled_window_set_policy(
 		GTK_SCROLLED_WINDOW(window->brush_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	// ペーンに追加
 	gtk_paned_pack1(GTK_PANED(window->pane), window->brush_scroll, TRUE, TRUE);
 #else
@@ -2503,12 +2577,14 @@ GtkWidget *CreateToolBox(
 #endif
 
 	// ブラシデータファイルを読み込む
-		// 文字コードの読み込み
-	(void)IniFileGetString(file, "CODE", "CODE_TYPE", code, MAX_STR_LENGTH);
-	window->brush_code = MEM_STRDUP_FUNC(code);
+	if((app->flags & APPLICATION_INITIALIZED) == 0)
 	{
 		char temp[MAX_STR_LENGTH];
 		size_t length;
+
+		// 文字コードの読み込み
+		(void)IniFileGetString(file, "CODE", "CODE_TYPE", code, MAX_STR_LENGTH);
+		window->brush_code = MEM_STRDUP_FUNC(code);
 
 		window->font_file = IniFileStrdup(file, "FONT", "FONT_FILE");
 
@@ -2538,12 +2614,14 @@ GtkWidget *CreateToolBox(
 	}
 
 	// ベクトルブラシデータファイルを読み込む
-		// 文字コードの読み込み
-	(void)IniFileGetString(vector_file, "CODE", "CODE_TYPE", code, MAX_STR_LENGTH);
-	window->vector_brush_code = MEM_STRDUP_FUNC(code);
+	if((app->flags & APPLICATION_INITIALIZED) == 0)
 	{
 		char temp[MAX_STR_LENGTH];
 		size_t length;
+
+		// 文字コードの読み込み
+		(void)IniFileGetString(vector_file, "CODE", "CODE_TYPE", code, MAX_STR_LENGTH);
+		window->vector_brush_code = MEM_STRDUP_FUNC(code);
 
 		for(i=1; i<vector_file->section_count; i++)
 		{
@@ -2581,7 +2659,7 @@ GtkWidget *CreateToolBox(
 	// テクスチャ選択用のボタンを作成
 	button = gtk_button_new_with_label(app->labels->tool_box.texture);
 	gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
-	g_signal_connect(G_OBJECT(button), "clicked",
+	(void)g_signal_connect(G_OBJECT(button), "clicked",
 		G_CALLBACK(TextureButtonCallBack), app);
 	// 使用中のテクスチャを表示するラベルを作成
 	app->texture_label = gtk_label_new(app->labels->tool_box.no_texture);
@@ -2603,11 +2681,14 @@ GtkWidget *CreateToolBox(
 	SetColorPicker(&window->color_picker_core, &window->color_picker);
 	SetControlPointTool(&window->vector_control_core, &window->vector_control);
 
-	file->delete_func(file);
-	vector_file->delete_func(vector_file);
-	common_tool->delete_func(common_tool);
+	if((app->flags & APPLICATION_INITIALIZED) == 0)
+	{
+		file->delete_func(file);
+		vector_file->delete_func(vector_file);
+		common_tool->delete_func(common_tool);
+	}
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	// 拡張デバイスを有効に
 	gtk_widget_set_extension_events(widget, GDK_EXTENSION_EVENTS_CURSOR);
 #endif
@@ -2617,9 +2698,6 @@ GtkWidget *CreateToolBox(
 
 static void OnDeleteToolBoxWidget(GtkWidget* widget, APPLICATION* app)
 {
-	cairo_surface_destroy(app->tool_window.color_chooser->color_box_surface);
-	MEM_FREE_FUNC(app->tool_window.color_chooser->color_box_pixel_data);
-	MEM_FREE_FUNC(app->tool_window.color_chooser->color_circle_data);
 	app->tool_window.ui = NULL;
 }
 

@@ -19,6 +19,12 @@ void MakeShaderProgram(SHADER_PROGRAM* program)
 	}
 }
 
+void ReleaseShaderProgram(SHADER_PROGRAM* program)
+{
+	glDeleteProgram(program->program);
+	program->program = 0;
+}
+
 void ShaderProgramBind(SHADER_PROGRAM* program)
 {
 	glUseProgram(program->program);

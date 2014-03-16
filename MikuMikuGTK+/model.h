@@ -24,6 +24,7 @@ typedef struct _MODEL_INTERFACE
 	char *model_path;
 	float opacity;
 	float scale_factor;
+	struct _MODEL_INTERFACE *parent_model;
 	struct _BONE_INTERFACE *parent_bone;
 	void* (*find_bone)(void*, const char*);
 	void* (*find_morph)(void*, const char*);
@@ -40,6 +41,8 @@ typedef struct _MODEL_INTERFACE
 	void (*get_world_orientation)(void*, float*);
 	FLOAT_T (*get_edge_scale_factor)(void*, float*);
 	int (*is_visible)(void*);
+	void (*set_world_position)(void*, float*);
+	void (*set_world_orientation)(void*, float*);
 	void (*set_visible)(void*, int);
 	void (*set_opacity)(void*, float);
 	void (*set_aa_bb)(void*, float*, float*);
@@ -74,6 +77,7 @@ typedef struct _MODEL_BUFFER_INTERFACE
 	size_t (*get_stride_offset)(void*, eMODEL_STRIDE_TYPE);
 	size_t (*get_stride_size)(void*);
 	void* (*ident)(void*);
+	void (*delete_func)(void*);
 } MODEL_BUFFER_INTERFACE;
 
 /*
@@ -187,6 +191,10 @@ typedef struct _MODEL
 	unsigned int flags;
 } MODEL;
 
+extern void DeleteModel(MODEL_INTERFACE* model);
+
 extern void ReleaseModelInterface(MODEL_INTERFACE* model);
+
+extern char** GetChildBoneNames(MODEL_INTERFACE* model, void* application_context);
 
 #endif	// #ifndef _INCLUDED_MODEL_H_

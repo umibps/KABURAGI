@@ -578,19 +578,6 @@ VERTEX_BUNDLE* VertexBundleNew(void)
 	return ret;
 }
 
-void DeleteVertexBundle(VERTEX_BUNDLE** bundle)
-{
-	if(bundle == NULL || *bundle == NULL)
-	{
-		return;
-	}
-
-	ght_finalize((*bundle)->vertex_buffers);
-
-	MEM_FREE_FUNC(*bundle);
-	*bundle = NULL;
-}
-
 void MakeVertexBundle(
 	VERTEX_BUNDLE* bundle,
 	eVERTEX_BUNDLE_BUFFER_TYPE type,
@@ -620,6 +607,12 @@ void MakeVertexBundle(
 	}
 }
 
+static void DeleteVertexBuffer(void *data)
+{
+	GLuint name = (GLuint)data;
+	glDeleteBuffers(1, &name);
+}
+
 void VertexBundleRelease(
 	VERTEX_BUNDLE* bundle,
 	eVERTEX_BUNDLE_BUFFER_TYPE type,
@@ -630,10 +623,10 @@ void VertexBundleRelease(
 	{
 	case VERTEX_BUNDLE_VERTEX_BUFFER:
 		{
-			GLuint *buffer = (GLuint*)ght_get(bundle->vertex_buffers, sizeof(key), (const void*)&key);
-			if(buffer != NULL)
+			GLuint buffer = (GLuint)ght_get(bundle->vertex_buffers, sizeof(key), (const void*)&key);
+			if(buffer != 0)
 			{
-				glDeleteBuffers(1, buffer);
+				glDeleteBuffers(1, &buffer);
 				ght_remove(bundle->vertex_buffers, sizeof(key), (const void*)key);
 			}
 		}
@@ -646,6 +639,20 @@ void VertexBundleRelease(
 		}
 		break;
 	}
+}
+
+void DeleteVertexBundle(VERTEX_BUNDLE** bundle)
+{
+	if(bundle == NULL || *bundle == NULL)
+	{
+		return;
+	}
+
+	HashTableReleaseAll((*bundle)->vertex_buffers, (void (*)(void*))DeleteVertexBuffer);
+	ght_finalize((*bundle)->vertex_buffers);
+
+	MEM_FREE_FUNC(*bundle);
+	*bundle = NULL;
 }
 
 void VertexBundleBind(
@@ -755,6 +762,7 @@ void DeleteVertexBundleLayout(VERTEX_BUNDLE_LAYOUT** layout)
 		return;
 	}
 
+	glDeleteVertexArrays(1, &(*layout)->name);
 	MEM_FREE_FUNC(*layout);
 
 	*layout = NULL;

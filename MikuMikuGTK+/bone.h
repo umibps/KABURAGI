@@ -168,6 +168,7 @@ typedef struct _ASSET_ROOT_BONE
 {
 	BONE_INTERFACE interface_data;
 	struct _ASSET_MODEL *model;
+	void *world_transform;
 } ASSET_ROOT_BONE;
 
 #define ASSET_SCALE_BONE_MAX_VALUE 0.01f

@@ -7,6 +7,8 @@ extern void* ProjectContextNew(void* application_context, int width, int height,
 
 extern void* ModelControlWidgetNew(void* application_context);
 
+extern void* CameraLightControlWidgetNew(void* application_context);
+
 extern void MouseButtonPressCallback(
 	void* project_context,
 	double x,

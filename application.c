@@ -1793,7 +1793,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 		GdkDevice *device;
 		const gchar *device_name;
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		device_list = gdk_devices_list();
 #else
 		device = gdk_device_manager_get_client_pointer(
@@ -1802,7 +1802,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 #endif
 
 #ifdef _WIN32
-# if MAJOR_VERSION == 1
+# if GTK_MAJOR_VERSION <= 2
 		while(device_list != NULL)
 		{
 			device = (GdkDevice*)device_list->data;
@@ -1814,7 +1814,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 			}
 			device_list = device_list->next;
 		}
-#else
+# else
 		{
 			GList *check_list = device_list;
 
@@ -1847,7 +1847,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 		app->set_input_modes = (gboolean*)MEM_ALLOC_FUNC(
 				sizeof(*app->set_input_modes)*app->num_device);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		device_list = gdk_devices_list();
 #else
 		device_list = gdk_device_list_slave_devices(NULL);
@@ -1867,7 +1867,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 				app->set_input_modes[app->num_device] = FALSE;
 			}
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			if(StringStringIgnoreCase(device_name, "STYLUS") != NULL)
 			{
 				gdk_device_set_source(device, GDK_SOURCE_PEN);
@@ -1884,7 +1884,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 		}
 #endif
 
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 		g_list_free(device_list);
 #endif
 	}

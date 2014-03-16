@@ -659,7 +659,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 		UI_FONT_SIZE, app->labels->layer_window.blend_mode);
 	gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 	// 合成モードを選択するコンボボックスを作成
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	window->layer_control.mode = gtk_combo_box_new_text();
 	for(i=0; i<LAYER_BLEND_SLELECTABLE_NUM; i++)
 	{
@@ -696,7 +696,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	window->layer_control.opacity = GTK_ADJUSTMENT(gtk_adjustment_new(100, 0, 100, 1, 1, 0));
 	opacity_slider = gtk_hscale_new(window->layer_control.opacity);
 	// 値変更時のコールバック関数を設定
-	g_signal_connect(G_OBJECT(window->layer_control.opacity), "value_changed",
+	(void)g_signal_connect(G_OBJECT(window->layer_control.opacity), "value_changed",
 		G_CALLBACK(ChangeLayerOpacityCallBack), app);
 	// 数値表示は左側に
 	gtk_scale_set_value_pos(GTK_SCALE(opacity_slider), GTK_POS_LEFT);
@@ -725,7 +725,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	// 不透明度保護
 	app->layer_window.layer_control.lock_opacity =
 		gtk_check_button_new_with_label(app->labels->layer_window.lock_opacity);
-	g_signal_connect(G_OBJECT(app->layer_window.layer_control.lock_opacity),
+	(void)g_signal_connect(G_OBJECT(app->layer_window.layer_control.lock_opacity),
 		"toggled", G_CALLBACK(SetLockLayerOpacity), app);
 	gtk_widget_set_sensitive(app->layer_window.layer_control.lock_opacity, FALSE);
 	gtk_box_pack_start(GTK_BOX(vbox), app->layer_window.layer_control.lock_opacity, FALSE, FALSE, 0);
@@ -733,7 +733,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	// 下のレイヤーでマスキングチェックボックス
 	app->layer_window.layer_control.mask_width_under =
 		gtk_check_button_new_with_label(app->labels->layer_window.mask_with_under);
-	g_signal_connect(G_OBJECT(app->layer_window.layer_control.mask_width_under),
+	(void)g_signal_connect(G_OBJECT(app->layer_window.layer_control.mask_width_under),
 		"toggled", G_CALLBACK(SetLayerMaskingWithUnderLayer), app);
 
 	// 複数レイヤーがなければ無効
@@ -747,7 +747,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	image = gtk_image_new_from_file(file_path);
 	g_free(file_path);
 	button = gtk_button_new();
-	g_signal_connect_swapped(G_OBJECT(button), "clicked",
+	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 		G_CALLBACK(ExecuteMakeColorLayer), app);
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
@@ -755,7 +755,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	image = gtk_image_new_from_file(file_path);
 	g_free(file_path);
 	button = gtk_button_new();
-	g_signal_connect_swapped(G_OBJECT(button), "clicked",
+	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 		G_CALLBACK(ExecuteMakeVectorLayer), app);
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
@@ -763,7 +763,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	image = gtk_image_new_from_file(file_path);
 	g_free(file_path);
 	button = gtk_button_new();
-	g_signal_connect_swapped(G_OBJECT(button), "clicked",
+	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 		G_CALLBACK(ExecuteMakeLayerSet), app);
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
@@ -775,7 +775,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	window->layer_control.up = button = gtk_button_new();
 	image = gtk_image_new_from_pixbuf(image_buff);
 	gtk_container_add(GTK_CONTAINER(button), image);
-	g_signal_connect_swapped(G_OBJECT(button), "clicked",
+	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 		G_CALLBACK(ExecuteUpLayer), app);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
 	gtk_widget_set_sensitive(window->layer_control.up, FALSE);
@@ -784,7 +784,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	image_buff = gdk_pixbuf_flip(src, FALSE);
 	image = gtk_image_new_from_pixbuf(image_buff);
 	gtk_container_add(GTK_CONTAINER(button), image);
-	g_signal_connect_swapped(G_OBJECT(button), "clicked",
+	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 		G_CALLBACK(ExecuteDownLayer), app);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
 	gtk_widget_set_sensitive(window->layer_control.down, FALSE);
@@ -814,7 +814,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	image = gtk_image_new_from_file(file_path);
 	g_free(file_path);
 	window->layer_control.merge_down = button = gtk_button_new();
-	g_signal_connect_swapped(G_OBJECT(button), "clicked",
+	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 		G_CALLBACK(MergeDownActiveLayer), app);
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.merge_box), button, FALSE, TRUE, 0);
@@ -822,7 +822,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	image = gtk_image_new_from_file(file_path);
 	g_free(file_path);
 	window->layer_control.delete_layer = button = gtk_button_new();
-	g_signal_connect_swapped(G_OBJECT(button), "clicked",
+	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 		G_CALLBACK(DeleteActiveLayer), app);
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.merge_box), button, FALSE, TRUE, 0);
@@ -912,17 +912,17 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 		1,
 		GDK_ACTION_PRIVATE
 	);
-	g_signal_connect(G_OBJECT(*box), "drag-begin",
+	(void)g_signal_connect(G_OBJECT(*box), "drag-begin",
 		G_CALLBACK(LayerWidgetDragBegin), app);
-	g_signal_connect(G_OBJECT(*box), "drag-motion",
+	(void)g_signal_connect(G_OBJECT(*box), "drag-motion",
 		G_CALLBACK(DragMotion), app);
-	g_signal_connect(G_OBJECT(*box), "drag-end",
+	(void)g_signal_connect(G_OBJECT(*box), "drag-end",
 		G_CALLBACK(LayerWidgetDragEnd), app);
-	g_signal_connect(G_OBJECT(*box), "drag-data-received",
+	(void)g_signal_connect(G_OBJECT(*box), "drag-data-received",
 		G_CALLBACK(LayerWidgetDragDataReceived), app);
-	g_signal_connect(G_OBJECT(*box), "drag-data-get",
+	(void)g_signal_connect(G_OBJECT(*box), "drag-data-get",
 		G_CALLBACK(LayerWidgetDragDataSet), app);
-	g_signal_connect(G_OBJECT(*box), "drag-drop",
+	(void)g_signal_connect(G_OBJECT(*box), "drag-drop",
 		G_CALLBACK(LayerWidgetDropData), app);
 
 	gtk_drag_dest_set_track_motion(*box, TRUE);
@@ -972,31 +972,34 @@ GtkWidget *CreateLayerWindow(APPLICATION* app, GtkWidget *parent, GtkWidget** vi
 	// for文用のカウンタ
 	int i;
 
-	if((app->layer_window.flags & LAYER_WINDOW_DOCKED) == 0)
+	if((app->layer_window.flags & LAYER_WINDOW_DOCKED) == 0 )
 	{
-		// ウィンドウ作成
-		window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-		// ウィンドウの位置とサイズを設定
-		gtk_window_move(GTK_WINDOW(window), app->layer_window.window_x, app->layer_window.window_y);
-		gtk_window_resize(GTK_WINDOW(window), app->layer_window.window_width, app->layer_window.window_height);
-		// ウィンドウが閉じるときのコールバック関数をセット
-		g_signal_connect(G_OBJECT(window), "delete_event", G_CALLBACK(OnCloseLayerWindow), app);
-		// 親ウィンドウを登録
-		gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(parent));
-		// タイトルをセット
-		gtk_window_set_title(GTK_WINDOW(window), app->labels->layer_window.title);
-		// 閉じるボタンのみのウィンドウへ
-		gtk_window_set_type_hint(GTK_WINDOW(window), GDK_WINDOW_TYPE_HINT_UTILITY);
-		// ショートカットキーを登録
-		gtk_window_add_accel_group(GTK_WINDOW(window), app->hot_key);
-		// タスクバーには表示しない
-		gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window), TRUE);
+		if((window = app->layer_window.window) == NULL)
+		{
+			// ウィンドウ作成
+			window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+			// ウィンドウの位置とサイズを設定
+			gtk_window_move(GTK_WINDOW(window), app->layer_window.window_x, app->layer_window.window_y);
+			gtk_window_resize(GTK_WINDOW(window), app->layer_window.window_width, app->layer_window.window_height);
+			// ウィンドウが閉じるときのコールバック関数をセット
+			(void)g_signal_connect(G_OBJECT(window), "delete_event", G_CALLBACK(OnCloseLayerWindow), app);
+			// 親ウィンドウを登録
+			gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(parent));
+			// タイトルをセット
+			gtk_window_set_title(GTK_WINDOW(window), app->labels->layer_window.title);
+			// 閉じるボタンのみのウィンドウへ
+			gtk_window_set_type_hint(GTK_WINDOW(window), GDK_WINDOW_TYPE_HINT_UTILITY);
+			// ショートカットキーを登録
+			gtk_window_add_accel_group(GTK_WINDOW(window), app->hot_key);
+			// タスクバーには表示しない
+			gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window), TRUE);
 
-		// キーボードのコールバック関数をセット
-		g_signal_connect(G_OBJECT(window), "key-press-event",
-			G_CALLBACK(KeyPressEvent), app);
-		g_signal_connect(G_OBJECT(window), "key-release-event",
-			G_CALLBACK(KeyPressEvent), app);
+			// キーボードのコールバック関数をセット
+			(void)g_signal_connect(G_OBJECT(window), "key-press-event",
+				G_CALLBACK(KeyPressEvent), app);
+			(void)g_signal_connect(G_OBJECT(window), "key-release-event",
+				G_CALLBACK(KeyPressEvent), app);
+		}
 	}
 
 	// レイヤーのサムネイルの背景作成
@@ -1032,7 +1035,7 @@ GtkWidget *CreateLayerWindow(APPLICATION* app, GtkWidget *parent, GtkWidget** vi
 
 	app->layer_window.vbox = CreateLayerView(app, &app->layer_window, view);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	// 拡張デバイスを有効に
 	gtk_widget_set_extension_events(app->layer_window.vbox, GDK_EXTENSION_EVENTS_CURSOR);
 #endif
@@ -1058,7 +1061,7 @@ GtkWidget *CreateLayerWindow(APPLICATION* app, GtkWidget *parent, GtkWidget** vi
 * display	: 描画イベントの情報               *
 * layer		: サムネイルを更新するレイヤー     *
 ***********************************************/
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 static void UpadateLayerThumbnail(
 	GtkWidget* widget,
 	GdkEventExpose *display,
@@ -1073,7 +1076,7 @@ static void UpadateLayerThumbnail(
 #endif
 {
 	// 描画用のCairo情報
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 #endif
 	// コピーの拡大率
@@ -1100,7 +1103,7 @@ static void UpadateLayerThumbnail(
 	cairo_set_source_surface(cairo_p, layer->surface_p, 0, 0);
 	cairo_paint(cairo_p);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	// Cairoを破棄
 	cairo_destroy(cairo_p);
 #endif

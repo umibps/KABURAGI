@@ -13864,7 +13864,8 @@ static void PickerImageBrushPressCallBack(
 		brush->points[0][1] = x, brush->points[0][2] = y;
 		brush->points[0][3] = pressure;
 		brush->sum_distance = brush->travel = brush->finish_length = 0;
-		brush->remain_distance = brush->core.d * brush->core.d;
+		//brush->remain_distance = brush->core.d * brush->core.d;
+		brush->remain_distance = brush->core.d;
 		brush->draw_start = r * brush->out * 0.01 * 4;
 		brush->enter_length = r * brush->enter * 0.01 * 4;
 		brush->enter_size = (1 - brush->enter * 0.01);
@@ -22541,7 +22542,7 @@ static GtkWidget* CreateMixBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		combo = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), mag_str[1]);

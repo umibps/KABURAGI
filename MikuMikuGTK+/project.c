@@ -31,7 +31,7 @@ PROJECT* ProjectNew(
 	ret = (PROJECT*)MEM_ALLOC_FUNC(sizeof(*ret));
 	(void)memset(ret, 0, sizeof(*ret));
 
-	InitializeWidgets(&ret->widgets, widget_width, widget_height, (void*)ret);
+	InitializeProjectWidgets(&ret->widgets, widget_width, widget_height, (void*)ret);
 
 	// ƒŒƒ“ƒ_ƒŠƒ“ƒO‚Ì‰Šú‰»
 		// ”z—ñ‚Ì‰Šú‰»

@@ -7,6 +7,7 @@
 #include "utils.h"
 #include "vertex.h"
 #include "bone.h"
+#include "model_label.h"
 #include "material.h"
 #include "morph.h"
 #include "model.h"
@@ -37,7 +38,14 @@ typedef struct _ASSET_MODEL
 	struct _APPLICATION *application;
 } ASSET_MODEL;
 
-extern int LoadAssetModel(ASSET_MODEL* model, uint8* data, size_t data_size, const char* file_type, const char* model_path);
+extern int LoadAssetModel(
+	ASSET_MODEL* model,
+	uint8* data,
+	size_t data_size,
+	const char* file_name,
+	const char* file_type,
+	const char* model_path
+);
 
 extern void AssetModelSetWorldPositionInternal(ASSET_MODEL* model, const float* translation);
 
@@ -62,6 +70,12 @@ extern void InitializeAssetScaleBone(
 	ASSET_SCALE_BONE* bone,
 	ASSET_MODEL* model,
 	void* application_context
+);
+
+extern void InitializeAssetModelLabel(
+	ASSET_MODEL_LABEL* label,
+	ASSET_MODEL* model,
+	POINTER_ARRAY* bones
 );
 
 extern void InitializeAssetMaterial(

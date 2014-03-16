@@ -411,6 +411,34 @@ void SceneRotate(SCENE* scene, float* delta)
 	scene->flags |= SCENE_FLAG_UPDATE_CAMERA;
 }
 
+void SceneRemoveModel(SCENE* scene, MODEL_INTERFACE* model)
+{
+	int num_items;
+	int i;
+
+	if(model == NULL)
+	{
+		return;
+	}
+
+	ModelLeaveWorld(model, &scene->project->world);
+	num_items = (int)scene->engines->num_data;
+	for(i=0; i<num_items; i++)
+	{
+		RENDER_ENGINE_INTERFACE *engine = (RENDER_ENGINE_INTERFACE*)scene->engines->buffer[i];
+		if(engine->model == model)
+		{
+			PointerArrayRemoveByData(scene->engines, engine, engine->delete_func);
+			break;
+		}
+	}
+	PointerArrayRemoveByData(scene->models, model, (void (*)(void*))DeleteModel);
+	if(scene->selected_model == model)
+	{
+		scene->selected_model = NULL;
+	}
+}
+
 MOTION_INTERFACE* SceneModelMotionNew(SCENE* scene, MODEL_INTERFACE* model)
 {
 	MOTION_INTERFACE *ret = NULL;

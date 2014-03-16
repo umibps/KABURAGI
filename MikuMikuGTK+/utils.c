@@ -1458,6 +1458,11 @@ int DummyFuncZeroReturn(void* dummy)
 	return 0;
 }
 
+int DummyFuncTrueReturn(void* dummy)
+{
+	return TRUE;
+}
+
 int DummyFuncMinusOneReturn(void* dummy)
 {
 	return -1;

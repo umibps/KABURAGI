@@ -25,6 +25,7 @@ typedef struct _RENDER_ENGINE_INTERFACE
 	void (*update)(void*);
 	void (*prepare_post_process)(void*);
 	void (*perform_pre_process)(void*);
+	void (*delete_func)(void*);
 } RENDER_ENGINE_INTERFACE;
 
 typedef enum _ePMX_VERTEX_BUFFER_OBJECT_TYPE
@@ -104,6 +105,7 @@ typedef struct _ASSET_RENDER_ENGINE
 	int cull_face_state;
 } ASSET_RENDER_ENGINE;
 
+extern void DeletePmxRenderEngine(PMX_RENDER_ENGINE* engine);
 extern void PmxRenderEngineRenderModel(PMX_RENDER_ENGINE* engine);
 extern void PmxRenderEngineRenderShadow(PMX_RENDER_ENGINE* engine);
 extern void PmxRenderEngineRenderEdge(PMX_RENDER_ENGINE* engine);

@@ -651,13 +651,13 @@ void InitializeNavigation(
 		// ショートカットキーを登録
 		gtk_window_add_accel_group(GTK_WINDOW(navigation->window), app->hot_key);
 		// ウィンドウを削除するときにイベントを設定
-		g_signal_connect(G_OBJECT(navigation->window), "delete_event",
+		(void)g_signal_connect(G_OBJECT(navigation->window), "delete_event",
 			G_CALLBACK(OnDeleteNavigationWindow), app);
 
 		// キーボードのコールバック関数をセット
-		g_signal_connect(G_OBJECT(navigation->window), "key-press-event",
+		(void)g_signal_connect(G_OBJECT(navigation->window), "key-press-event",
 			G_CALLBACK(KeyPressEvent), app);
-		g_signal_connect(G_OBJECT(navigation->window), "key-release-event",
+		(void)g_signal_connect(G_OBJECT(navigation->window), "key-release-event",
 			G_CALLBACK(KeyPressEvent), app);
 	}
 	else
@@ -672,18 +672,18 @@ void InitializeNavigation(
 	gtk_box_pack_start(GTK_BOX(vbox), navigation->draw_area, TRUE, TRUE, 0);
 
 	// 描画用のコールバック関数をセット
-#if MAJOR_VERSION == 1
-	g_signal_connect(G_OBJECT(navigation->draw_area), "expose_event",
+#if GTK_MAJOR_VERSION <= 2
+	(void)g_signal_connect(G_OBJECT(navigation->draw_area), "expose_event",
 		G_CALLBACK(DisplayNavigation), app);
 #else
-	g_signal_connect(G_OBJECT(navigation->draw_area), "draw",
+	(void)g_signal_connect(G_OBJECT(navigation->draw_area), "draw",
 		G_CALLBACK(DisplayNavigation), app);
 #endif
 	// マウスクリックのコールバック関数をセット
-	g_signal_connect(G_OBJECT(navigation->draw_area), "button_press_event",
+	(void)g_signal_connect(G_OBJECT(navigation->draw_area), "button_press_event",
 		G_CALLBACK(NavigationButtonPressCallBack), app);
 	// マウスオーバーのコールバック関数をセット
-	g_signal_connect(G_OBJECT(navigation->draw_area), "motion_notify_event",
+	(void)g_signal_connect(G_OBJECT(navigation->draw_area), "motion_notify_event",
 		G_CALLBACK(NavigationMotionNotifyCallBack), app);
 
 	// イベントの種類をセット
@@ -698,7 +698,7 @@ void InitializeNavigation(
 
 		navigation->zoom_slider = adjustment;
 
-		g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
 			G_CALLBACK(ChangeNavigationZoomSlider), app);
 		scale = SpinScaleNew(adjustment, app->labels->menu.zoom, 0);
 		gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, TRUE, 2);
@@ -720,7 +720,7 @@ void InitializeNavigation(
 
 		navigation->rotate_slider = adjustment;
 
-		g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
 			G_CALLBACK(ChangeNavigationRotateSlider), app);
 		scale = SpinScaleNew(adjustment, app->labels->menu.rotate, 0);
 		gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, TRUE, 2);
@@ -741,13 +741,13 @@ void InitializeNavigation(
 
 	// 等倍表示ボタンを追加
 	button = gtk_button_new_with_label(app->labels->menu.zoom_reset);
-	g_signal_connect_swapped(G_OBJECT(button), "clicked",
+	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 		G_CALLBACK(ExecuteZoomReset), app);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
 
 	// 回転角度リセットボタンを追加
 	button = gtk_button_new_with_label(app->labels->menu.reset_rotate);
-	g_signal_connect_swapped(G_OBJECT(button), "clicked",
+	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 		G_CALLBACK(ExecuteRotateReset), app);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
 

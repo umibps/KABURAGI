@@ -1011,6 +1011,8 @@ LAYER* ReadOriginalFormatLayers(
 	gchar show_text[16];
 	// 進捗状況表示更新用
 	GdkEvent *queued_event;
+	// レイヤー読み込みエラー判定
+	int before_error = FALSE;
 	// for文用のカウンタ
 	unsigned int i, j;
 	int k;
@@ -1018,35 +1020,62 @@ LAYER* ReadOriginalFormatLayers(
 	for(i=0; i<num_layer; i++)
 	{
 		// レイヤーデータ読み込み
-			// 名前
-		(void)MemRead(&name_length, sizeof(name_length), 1, stream);
-		name = (char*)MEM_ALLOC_FUNC(name_length);
-		(void)MemRead(name, 1, name_length, stream);
-		// 基本情報
-		(void)MemRead(&base.layer_type, sizeof(base.layer_type), 1, stream);
-		(void)MemRead(&base.layer_mode, sizeof(base.layer_mode), 1, stream);
-		(void)MemRead(&base.x, sizeof(base.x), 1, stream);
-		(void)MemRead(&base.y, sizeof(base.y), 1, stream);
-		(void)MemRead(&base.width, sizeof(base.width), 1, stream);
-		(void)MemRead(&base.height, sizeof(base.height), 1, stream);
-		(void)MemRead(&base.flags, sizeof(base.flags), 1, stream);
-		(void)MemRead(&base.alpha, sizeof(base.alpha), 1, stream);
-		(void)MemRead(&base.channel, sizeof(base.channel), 1, stream);
-		(void)MemRead(&base.layer_set, sizeof(base.layer_set), 1, stream);
-		// 値のセット
-		layer = CreateLayer(base.x, base.y, base.width, base.height,
-			base.channel, base.layer_type, layer, NULL, name, window);
-		layer->alpha = base.alpha;
-		layer->layer_mode = base.layer_mode;
-		layer->flags = base.flags;
-		hierarchy[i] = base.layer_set;
-		MEM_FREE_FUNC(name);
-		window->active_layer = layer;
-
+		if(before_error == FALSE)
+		{	// 名前
+			(void)MemRead(&name_length, sizeof(name_length), 1, stream);
+			name = (char*)MEM_ALLOC_FUNC(name_length);
+			(void)MemRead(name, 1, name_length, stream);
+			// 基本情報
+			(void)MemRead(&base.layer_type, sizeof(base.layer_type), 1, stream);
+			(void)MemRead(&base.layer_mode, sizeof(base.layer_mode), 1, stream);
+			(void)MemRead(&base.x, sizeof(base.x), 1, stream);
+			(void)MemRead(&base.y, sizeof(base.y), 1, stream);
+			(void)MemRead(&base.width, sizeof(base.width), 1, stream);
+			(void)MemRead(&base.height, sizeof(base.height), 1, stream);
+			(void)MemRead(&base.flags, sizeof(base.flags), 1, stream);
+			(void)MemRead(&base.alpha, sizeof(base.alpha), 1, stream);
+			(void)MemRead(&base.channel, sizeof(base.channel), 1, stream);
+			(void)MemRead(&base.layer_set, sizeof(base.layer_set), 1, stream);
+			// 値のセット
+			layer = CreateLayer(base.x, base.y, base.width, base.height,
+				base.channel, base.layer_type, layer, NULL, name, window);
+			layer->alpha = base.alpha;
+			layer->layer_mode = base.layer_mode;
+			layer->flags = base.flags;
+			hierarchy[i] = base.layer_set;
+			MEM_FREE_FUNC(name);
+			window->active_layer = layer;
+		}
+		else
+		{
+			name = MEM_STRDUP_FUNC("Error");
+			base.layer_type = TYPE_NORMAL_LAYER;
+			base.layer_mode = LAYER_BLEND_NORMAL;
+			base.x = 0;
+			base.y = 0;
+			base.width = window->width;
+			base.height = window->height;
+			base.flags = 0;
+			base.alpha = 100;
+			base.channel = 4;
+			base.layer_set = 0;
+			before_error = FALSE;
+			// 値のセット
+			layer = CreateLayer(base.x, base.y, base.width, base.height,
+				base.channel, base.layer_type, layer, NULL, name, window);
+			layer->alpha = base.alpha;
+			layer->layer_mode = base.layer_mode;
+			layer->flags = base.flags;
+			hierarchy[i] = base.layer_set;
+			stream->data_point -= 4;
+			MEM_FREE_FUNC(name);
+			window->active_layer = layer;
+		}
 		// レイヤーのタイプで処理切り替え
 		switch(base.layer_type)
 		{
 		case TYPE_NORMAL_LAYER:	// 通常レイヤー
+		default:
 			// PNG圧縮されたピクセルデータを展開して読み込む
 			(void)MemRead(&data_size, sizeof(data_size), 1, stream);
 			next_data_point = (uint32)(stream->data_point + data_size);
@@ -1057,6 +1086,10 @@ LAYER* ReadOriginalFormatLayers(
 			if(pixels != NULL)
 			{
 				(void)memcpy(layer->pixels, pixels, height*stride);
+			}
+			else
+			{
+				before_error = TRUE;
 			}
 			DeleteMemoryStream(image);
 			MEM_FREE_FUNC(pixels);
@@ -1229,7 +1262,15 @@ LAYER* ReadOriginalFormatLayers(
 					target = target->prev;
 				}
 
-				next_data_point = (uint32)stream->data_point;
+				if(stream->buff_ptr[stream->data_point] > 20)
+				{
+					before_error = TRUE;
+					while(stream->buff_ptr[stream->data_point] != 0x0)
+					{
+						stream->data_point++;
+					}
+					next_data_point = (uint32)stream->data_point;
+				}
 			}
 
 			break;
@@ -1260,9 +1301,17 @@ LAYER* ReadOriginalFormatLayers(
 		{
 			// データの名前を読み込む
 			(void)MemRead(&name_length, sizeof(name_length), 1, stream);
+			if(name_length >= 8192)
+			{
+				break;
+			}
 			layer->extra_data[j].name = (char*)MEM_ALLOC_FUNC(name_length);
 			(void)MemRead(layer->extra_data[j].name, 1, name_length, stream);
 			(void)MemRead(&size_t_temp, sizeof(size_t_temp), 1, stream);
+			if((int)size_t_temp >= layer->stride * layer->height * 3)
+			{
+				break;
+			}
 			layer->extra_data[j].data_size = size_t_temp;
 			layer->extra_data[j].data = MEM_ALLOC_FUNC(layer->extra_data[j].data_size);
 			(void)MemRead(layer->extra_data[j].data, 1, layer->extra_data[j].data_size, stream);
@@ -1273,7 +1322,7 @@ LAYER* ReadOriginalFormatLayers(
 		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), current_progress);
 		(void)sprintf(show_text, "%.0f%%", current_progress * 100);
 		gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->progress), show_text);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gdk_window_process_updates(app->progress->window, FALSE);
 #else
 		gdk_window_process_updates(gtk_widget_get_window(app->progress), FALSE);
@@ -1284,7 +1333,7 @@ LAYER* ReadOriginalFormatLayers(
 			gtk_main_iteration();
 			if(queued_event != NULL)
 			{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 				if(queued_event->any.window == app->progress->window
 #else
 				if(queued_event->any.window == gtk_widget_get_window(app->progress)
@@ -2403,7 +2452,7 @@ DRAW_WINDOW* ReadOriginalFormat(
 		progress_step = 1.0 / (num_layer + 1);
 		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), progress_step);
 		(void)sprintf(show_text, "%.0f%%", progress_step * 100);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gdk_window_process_updates(app->progress->window, FALSE);
 #else
 		gdk_window_process_updates(gtk_widget_get_window(app->progress), FALSE);
@@ -2414,7 +2463,7 @@ DRAW_WINDOW* ReadOriginalFormat(
 			gtk_main_iteration();
 			if(queued_event != NULL)
 			{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 				if(queued_event->any.window == app->progress->window
 #else
 				if(queued_event->any.window == gtk_widget_get_window(app->progress)
@@ -2461,6 +2510,11 @@ DRAW_WINDOW* ReadOriginalFormat(
 	layer = window->layer;
 	for(i=0; i<num_layer; i++)
 	{
+		if(layer == NULL)
+		{
+			window->num_layer = i;
+			break;
+		}
 		LayerViewAddLayer(layer, window->layer, app->layer_window.view, i+1);
 		layer = layer->next;
 	}
@@ -2931,7 +2985,7 @@ void WriteOriginalFormat(
 	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(progress), show_text);
 
 	// イベントを回してメッセージを表示
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gdk_window_process_updates(window->app->status_bar->window, TRUE);
 #else
 	gdk_window_process_updates(gtk_widget_get_window(window->app->status_bar), TRUE);
@@ -2942,7 +2996,7 @@ void WriteOriginalFormat(
 		gtk_main_iteration();
 		if(queued_event != NULL)
 		{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			if(queued_event->any.window == window->app->status_bar->window
 #else
 			if(queued_event->any.window == gtk_widget_get_window(window->app->status_bar)
@@ -3058,7 +3112,7 @@ void WriteOriginalFormat(
 	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progress), current_progress);
 	(void)sprintf(show_text, "%.0f%%", current_progress * 100);
 	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(progress), show_text);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gdk_window_process_updates(progress->window, FALSE);
 #else
 	gdk_window_process_updates(gtk_widget_get_window(progress), FALSE);
@@ -3069,7 +3123,7 @@ void WriteOriginalFormat(
 		gtk_main_iteration();
 		if(queued_event != NULL)
 		{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			if(queued_event->any.window == progress->window
 #else
 			if(queued_event->any.window == gtk_widget_get_window(progress)
@@ -3135,6 +3189,7 @@ void WriteOriginalFormat(
 		switch(layer->layer_type)
 		{
 		case TYPE_NORMAL_LAYER:	// 通常レイヤー
+		default:
 			// ピクセルデータをPNG圧縮して書きだす
 			(void)MemSeek(image, 0, SEEK_SET);
 			WritePNGStream(image, (stream_func)MemWrite, NULL, layer->pixels,
@@ -3297,7 +3352,7 @@ void WriteOriginalFormat(
 		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progress), current_progress);
 		(void)sprintf(show_text, "%.0f%%", current_progress * 100);
 		gtk_progress_bar_set_text(GTK_PROGRESS_BAR(progress), show_text);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gdk_window_process_updates(progress->window, FALSE);
 #else
 		gdk_window_process_updates(gtk_widget_get_window(progress), FALSE);
@@ -3308,7 +3363,7 @@ void WriteOriginalFormat(
 			gtk_main_iteration();
 			if(queued_event != NULL)
 			{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 				if(queued_event->any.window == progress->window
 #else
 				if(queued_event->any.window == gtk_widget_get_window(progress)

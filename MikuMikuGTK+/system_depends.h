@@ -29,5 +29,6 @@ typedef enum _eMODIFIERS
 extern char* LocaleFromUTF8(const char* utf8_code);
 extern char* Locale2UTF8(const char* locale);
 extern char* GetDirectoryName(const char* utf8_path);
+extern char* NextCharUTF8(char* str);
 
 #endif	// #ifndef _INCLUDED_SYSTEM_DEPENDS_H_

@@ -9,10 +9,24 @@
 #include <gtk/gtkgl.h>
 #include "application.h"
 #include "mikumikugtk.h"
+#include "spin_scale.h"
 #include "memory.h"
+
+#ifndef M_PI
+# define M_PI 3.1415926535897932384626433832795
+#endif
+
+typedef enum _eSET_VALUE_TYPE
+{
+	SET_VALUE_TYPE_X,
+	SET_VALUE_TYPE_Y,
+	SET_VALUE_TYPE_Z
+} eSET_VALUE_TYPE;
 
 static void ExecuteLoadModel(APPLICATION* application);
 static void ExecuteLoadPose(APPLICATION* application);
+static void FillParentModelComboBox(GtkWidget* combo, SCENE* scene, APPLICATION* application);
+static void FillParentBoneComboBox(GtkWidget* combo, SCENE* scene, APPLICATION* application);
 
 static void ToggleButtonSetValueCallback(GtkWidget* button, int* set_target)
 {
@@ -140,7 +154,7 @@ GtkWidget* MakeMenuBar(void* application_context, GtkAccelGroup* hot_key)
 	if(hot_key == NULL)
 	{
 		hot_key = gtk_accel_group_new();
-		gtk_window_add_accel_group(GTK_WINDOW(project->widgets.main_window), hot_key);
+		gtk_window_add_accel_group(GTK_WINDOW(application->widgets.main_window), hot_key);
 	}
 
 	menu_bar = gtk_menu_bar_new();
@@ -262,7 +276,7 @@ gboolean ConfigureEvent(
 	return TRUE;
 }
 
-void InitializeWidgets(WIDGETS* widgets, int widget_width, int widget_height, void* project)
+void InitializeProjectWidgets(PROJECT_WIDGETS* widgets, int widget_width, int widget_height, void* project)
 {
 	// OpenGLの設定
 	GdkGLConfig *config;
@@ -373,16 +387,18 @@ gboolean ProjectDisplayEvent(GtkWidget* widget, GdkEventExpose* event_info, void
 	return TRUE;
 }
 
-void ShowModelComment(MODEL_INTERFACE* model, PROJECT* project)
+int ShowModelComment(MODEL_INTERFACE* model, PROJECT* project)
 {
 #define DIALOG_SIZE 480
 	GtkWidget *dialog;
 	GtkWidget *note_book;
 	GtkWidget *scrolled_window;
 	GtkWidget *label;
+	int ok;
 
-	dialog = gtk_dialog_new_with_buttons("", GTK_WINDOW(project->widgets.main_window),
-		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_STOCK_OK, GTK_RESPONSE_OK, NULL);
+	dialog = gtk_dialog_new_with_buttons("", GTK_WINDOW(project->application_context->widgets.main_window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, NULL);
 	gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
 	note_book = gtk_notebook_new();
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
@@ -406,22 +422,27 @@ void ShowModelComment(MODEL_INTERFACE* model, PROJECT* project)
 	gtk_widget_set_size_request(dialog, DIALOG_SIZE, DIALOG_SIZE);
 
 	gtk_widget_show_all(dialog);
-	(void)gtk_dialog_run(GTK_DIALOG(dialog));
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{
+		ok = TRUE;
+	}
+	else
+	{
+		ok = FALSE;
+	}
 	gtk_widget_destroy(dialog);
 #undef DIALOG_SIZE
+	return ok;
 }
 
 static void ExecuteLoadModel(APPLICATION* application)
 {
+	PROJECT *project = application->projects[application->active_project];
 	GtkWidget *chooser;
 	GtkFileFilter *filter;
 	GtkWindow *main_window = NULL;
 
-	if(application->num_projects > 0)
-	{
-		main_window = GTK_WINDOW(
-			application->projects[application->active_project]->widgets.main_window);
-	}
+	main_window = GTK_WINDOW(application->widgets.main_window);
 
 	chooser = gtk_file_chooser_dialog_new(
 		application->label.control.load_model,
@@ -449,6 +470,7 @@ static void ExecuteLoadModel(APPLICATION* application)
 		gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
 		gchar *file_type;
 		const gchar *filter_name;
+		int ok = TRUE;
 
 		filter = gtk_file_chooser_get_filter(GTK_FILE_CHOOSER(chooser));
 		filter_name = gtk_file_filter_get_name(filter);
@@ -472,7 +494,7 @@ static void ExecuteLoadModel(APPLICATION* application)
 					file_type = str;
 				}
 
-				str = g_utf8_next_char(str);
+				str = NextCharUTF8(str);
 			}
 		}
 
@@ -482,8 +504,25 @@ static void ExecuteLoadModel(APPLICATION* application)
 		model = LoadModel(application, system_path, file_type);
 		if(model->type == MODEL_TYPE_PMX_MODEL)
 		{
-			ShowModelComment(model, application->projects[application->active_project]);
+			ok = ShowModelComment(model, application->projects[application->active_project]);
+			if(ok == FALSE)
+			{
+				SceneRemoveModel(project->scene, model);
+			}
 		}
+
+		if(ok != FALSE)
+		{
+#if GTK_MAJOR_VERSION <= 2
+			gtk_combo_box_append_text(GTK_COMBO_BOX(application->widgets.model_combo_box), model->name);
+#else
+			gtk_combo_box_text_append_text(GTK_COMBO_BOX(application->widgets.model_combo_box), model->name);
+#endif
+			gtk_combo_box_set_active(GTK_COMBO_BOX(application->widgets.model_combo_box),
+				(int)project->scene->models->num_data);
+			FillParentModelComboBox(application->widgets.connect_model, project->scene, application);
+		}
+
 		g_free(system_path);
 	}
 	else
@@ -508,7 +547,7 @@ static void ExecuteLoadPose(APPLICATION* application)
 			return;
 		}
 		main_window = GTK_WINDOW(
-			application->projects[application->active_project]->widgets.main_window);
+			application->widgets.main_window);
 	}
 	else
 	{
@@ -572,6 +611,297 @@ static void ExecuteLoadPose(APPLICATION* application)
 	}
 }
 
+static void OnChangeSelectedModel(GtkWidget* combo, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+	gint select = gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+	scene = project->scene;
+
+	if(select <= 0)
+	{
+		scene->selected_model = NULL;
+	}
+	else
+	{
+		float set_value[4];
+		application->widgets.ui_disabled = TRUE;
+		scene->selected_model = (MODEL_INTERFACE*)scene->models->buffer[select-1];
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_scale), scene->selected_model->scale_factor * 100.0);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_scale), scene->selected_model->opacity * 100.0);
+		scene->selected_model->get_world_translation(scene->selected_model, set_value);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_position[0]), set_value[0]);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_position[1]), set_value[1]);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_position[2]), set_value[2]);
+		scene->selected_model->get_world_orientation(scene->selected_model, set_value);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[0]), set_value[0]);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[1]), set_value[1]);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[2]), set_value[2]);
+		application->widgets.ui_disabled = FALSE;
+	}
+}
+
+static void OnChangeModelScale(GtkAdjustment* adjustment, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+
+	if(project->scene->selected_model != NULL)
+	{
+		project->scene->selected_model->scale_factor =
+			(float)(gtk_adjustment_get_value(adjustment) * 0.01);
+		SceneUpdateModel(project->scene, project->scene->selected_model, FALSE);
+	}
+}
+
+static void OnChangeModelOpacity(GtkAdjustment* adjustment, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+
+	if(project->scene->selected_model != NULL)
+	{
+		project->scene->selected_model->opacity =
+			(float)(gtk_adjustment_get_value(adjustment) * 0.01);
+		SceneUpdateModel(project->scene, project->scene->selected_model, FALSE);
+	}
+}
+
+static void FillParentModelComboBox(GtkWidget* combo, SCENE* scene, APPLICATION* application)
+{
+	GtkTreeModel *tree_model;
+	int i;
+
+	tree_model = gtk_combo_box_get_model(GTK_COMBO_BOX(combo));
+	gtk_list_store_clear(GTK_LIST_STORE(tree_model));
+#if GTK_MAJOR_VERSION <= 2
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo), application->label.control.no_select);
+	if(scene != NULL)
+	{
+		for(i=0; i<(int)scene->models->num_data; i++)
+		{
+			if(scene->models->buffer[i] != (void*)scene->selected_model)
+			{
+				gtk_combo_box_append_text(GTK_COMBO_BOX(combo), ((MODEL_INTERFACE*)scene->models->buffer[i])->name);
+			}
+			if(scene->selected_model != NULL)
+			{
+				if(scene->models->buffer[i] == (void*)scene->selected_model->parent_model)
+				{
+					gtk_combo_box_set_active(GTK_COMBO_BOX(combo), i+1);
+				}
+			}
+		}
+	}
+#else
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX(combo), application->label.control.no_select);
+	if(scene != NULL)
+	{
+		for(i=0; i<(int)scene->models->num_data; i++)
+		{
+			if(scene->models->buffer[i] != (void*)scene->selected_model)
+			{
+				gtk_combo_box_text_append_text(GTK_COMBO_BOX(combo), ((MODEL_INTERFACE*)scene->models->buffer[i])->name);
+			}
+			if(scene->selected_model != NULL)
+			{
+				if(scene->models->buffer[i] == (void*)scene->selected_model->parent_model)
+				{
+					gtk_combo_box_set_active(GTK_COMBO_BOX(combo), i+1);
+				}
+			}
+		}
+	}
+#endif
+}
+
+static void FillParentBoneComboBox(GtkWidget* combo, SCENE* scene, APPLICATION* application)
+{
+	GtkTreeModel *tree_model;
+	int i;
+
+	tree_model = gtk_combo_box_get_model(GTK_COMBO_BOX(combo));
+	gtk_list_store_clear(GTK_LIST_STORE(tree_model));
+#if GTK_MAJOR_VERSION <= 2
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo), application->label.control.no_select);
+	if(scene != NULL)
+	{
+		if(scene->selected_model != NULL)
+		{
+			if(scene->selected_model->parent_model != NULL)
+			{
+				char **names = GetChildBoneNames(scene->selected_model->parent_model, application);
+				for(i=0; names[i] != NULL; i++)
+				{
+					gtk_combo_box_append_text(GTK_COMBO_BOX(combo), names[i]);
+					if(scene->selected_model->parent_bone != NULL)
+					{
+						if(strcmp(names[i], scene->selected_model->parent_bone->name) == 0)
+						{
+							gtk_combo_box_set_active(GTK_COMBO_BOX(combo), i+1);
+						}
+					}
+					MEM_FREE_FUNC(names[i]);
+				}
+				MEM_FREE_FUNC(names);
+			}
+		}
+	}
+#else
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX(combo), application->label.control.no_select);
+	if(scene != NULL)
+	{
+		if(scene->selected_model != NULL)
+		{
+			if(scene->selected_model->parent_model != NULL)
+			{
+				char **names = GetChildBoneNames(scene->selected_model->parent_model, application);
+				for(i=0; names[i] != NULL; i++)
+				{
+					gtk_combo_box_text_append_text(GTK_COMBO_BOX(combo), names[i]);
+					if(scene->selected_model->parent_bone != NULL)
+					{
+						if(strcmp(names[i], scene->selected_model->parent_bone->name) == 0)
+						{
+							gtk_combo_box_set_active(GTK_COMBO_BOX(combo), i+1);
+						}
+					}
+				}
+				MEM_FREE_FUNC(names);
+			}
+		}
+	}
+#endif
+}
+
+static void OnChangeSelectedParentModel(GtkWidget* combo, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+	GtkWidget *bone_combo = application->widgets.connect_bone;
+	GtkTreeModel *tree_model;
+	gint select = gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+	scene = project->scene;
+
+	tree_model = gtk_combo_box_get_model(GTK_COMBO_BOX(bone_combo));
+	gtk_list_store_clear(GTK_LIST_STORE(tree_model));
+	if(select <= 0)
+	{
+		scene->selected_model->parent_model = NULL;
+	}
+	else
+	{
+		scene->selected_model->parent_model = (MODEL_INTERFACE*)scene->models->buffer[select-1];
+	}
+	FillParentBoneComboBox(application->widgets.connect_bone, scene, application);
+}
+
+static void OnChangeSelectedParentBone(GtkWidget* combo, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+	gint select = gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+	gchar *name;
+
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+	scene = project->scene;
+
+	if(scene->selected_model == NULL)
+	{
+		return;
+	}
+
+	if(select <= 0)
+	{
+		scene->selected_model->parent_bone = NULL;
+	}
+	else
+	{
+#if GTK_MAJOR_VERSION <= 2
+		name = gtk_combo_box_get_active_text(GTK_COMBO_BOX(combo));
+#else
+		name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX(combo));
+#endif
+		if(scene->selected_model->parent_model != NULL)
+		{
+			scene->selected_model->parent_bone =
+				scene->selected_model->parent_model->find_bone(scene->selected_model->parent_model, name);
+		}
+		else
+		{
+			scene->selected_model->parent_bone = NULL;
+		}
+	}
+
+	SceneUpdateModel(scene, scene->selected_model, FALSE);
+}
+
+static void OnChangeModelPosition(GtkAdjustment* adjustment, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+	VECTOR3 position;
+	eSET_VALUE_TYPE type = (eSET_VALUE_TYPE)g_object_get_data(G_OBJECT(adjustment), "set_type");
+	float value;
+
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	scene = project->scene;
+	value = (float)gtk_adjustment_get_value(adjustment);
+	if(scene->selected_model != NULL)
+	{
+		scene->selected_model->get_world_translation(scene->selected_model, position);
+		position[type] = value;
+		scene->selected_model->set_world_position(scene->selected_model, position);
+	}
+
+	SceneUpdateModel(scene, scene->selected_model, TRUE);
+}
+
+static void OnChangeModelRotation(GtkAdjustment* adjustment, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+	QUATERNION rotation;
+	eSET_VALUE_TYPE type = (eSET_VALUE_TYPE)g_object_get_data(G_OBJECT(adjustment), "set_type");
+	float value;
+
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	scene = project->scene;
+	value = (float)gtk_adjustment_get_value(adjustment);
+	if(scene->selected_model != NULL)
+	{
+		scene->selected_model->get_world_orientation(scene->selected_model, rotation);
+		rotation[type] = value * (float)M_PI / 180.0f;
+		scene->selected_model->set_world_orientation(scene->selected_model, rotation);
+	}
+
+	SceneUpdateModel(scene, scene->selected_model, TRUE);
+}
+
 GtkWidget* BoneTreeViewNew(void)
 {
 	GtkTreeViewColumn *column;
@@ -589,11 +919,17 @@ GtkWidget* BoneTreeViewNew(void)
 	return view;
 }
 
-void OnChangedSelectedBone(GtkWidget* widget, PROJECT* project)
+void OnChangedSelectedBone(GtkWidget* widget, APPLICATION* application)
 {
+	PROJECT *project = application->projects[application->active_project];
 	GtkTreeIter iter;
 	GtkTreeModel *model;
 	BONE_INTERFACE *bone;
+
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
 
 	if(gtk_tree_selection_get_selected(GTK_TREE_SELECTION(widget), &model, &iter) != FALSE)
 	{
@@ -608,9 +944,10 @@ typedef struct _SET_LABEL_DATA
 	POINTER_ARRAY *child_names;
 } SET_LABEL_DATA;
 
-void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* project_context)
+void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* application_context)
 {
-	PROJECT *project = (PROJECT*)project_context;
+	APPLICATION *application = (APPLICATION*)application_context;
+	PROJECT *project = application->projects[application->active_project];
 	MODEL_INTERFACE *model = (MODEL_INTERFACE*)model_interface;
 	STRUCT_ARRAY *set_label_data = StructArrayNew(sizeof(SET_LABEL_DATA), DEFAULT_BUFFER_SIZE);
 	SET_LABEL_DATA *parent;
@@ -732,15 +1069,22 @@ void* ModelControlWidgetNew(void* application_context)
 	APPLICATION *application = (APPLICATION*)application_context;
 	PROJECT *project = application->projects[application->active_project];
 	SCENE *scene = project->scene;
+	GtkAdjustment *adjustment;
 	GtkWidget *vbox;
 	GtkWidget *note_book_box;
+	GtkWidget *child_note_book;
+	GtkWidget *child_note_book_box;
 	GtkWidget *layout_box;
+	GtkWidget *frame_box;
+	GtkWidget *table;
 	GtkWidget *note_book;
 	GtkWidget *label;
 	GtkWidget *widget;
 	GtkWidget *control[4];
 	GtkTreeSelection *selection;
+	float scalar_value[4];
 	gchar *path;
+	char str[4096];
 	int i;
 
 	vbox = gtk_vbox_new(FALSE, 0);
@@ -760,8 +1104,223 @@ void* ModelControlWidgetNew(void* application_context)
 	note_book = gtk_notebook_new();
 	gtk_box_pack_start(GTK_BOX(vbox), note_book, FALSE, FALSE, 0);
 	note_book_box = gtk_vbox_new(FALSE, 0);
-	label = gtk_label_new(application->label.control.bone);
+	label = gtk_label_new(application->label.control.model);
+
+	child_note_book = gtk_notebook_new();
+	gtk_box_pack_start(GTK_BOX(note_book_box), child_note_book, TRUE, TRUE, 0);
 	gtk_notebook_append_page(GTK_NOTEBOOK(note_book), note_book_box, label);
+
+	// モデルの選択
+	label = gtk_label_new(application->label.control.model);
+	child_note_book_box = gtk_vbox_new(FALSE, 0);
+	gtk_notebook_append_page(GTK_NOTEBOOK(child_note_book), child_note_book_box, label);
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(child_note_book_box), layout_box, FALSE, FALSE, 0);
+	(void)sprintf(str, "%s : ", application->label.control.control_model);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new(str), FALSE, FALSE, 0);
+#if GTK_MAJOR_VERSION <= 2
+	application->widgets.model_combo_box = control[0] = gtk_combo_box_new_text();
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control[0]), application->label.control.no_select);
+	if(scene != NULL)
+	{
+		for(i=0; i<(int)scene->models->num_data; i++)
+		{
+			gtk_combo_box_append_text(GTK_COMBO_BOX(control[0]), ((MODEL_INTERFACE*)scene->models->buffer[i])->name);
+			if(scene->models->buffer[i] == (void*)scene->selected_model)
+			{
+				gtk_combo_box_set_active(GTK_COMBO_BOX(control[0]), i+1);
+			}
+		}
+	}
+#else
+	application->widgets.model_combo_box = control[0] = gtk_combo_box_text_new();
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX(control[0]), application->label.control.no_select);
+	if(scene != NULL)
+	{
+		for(i=0; i<(int)scene->models->num_data; i++)
+		{
+			gtk_combo_box_text_append_text(GTK_COMBO_BOX(control[0]), ((MODEL_INTERFACE*)scene->models->buffer[i])->name);
+			if(scene->models->buffer[i] == (void*)scene->selected_model)
+			{
+				gtk_combo_box_set_active(GTK_COMBO_BOX(control[0]), i+1);
+			}
+		}
+	}
+#endif
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	(void)g_signal_connect(G_OBJECT(control[0]), "changed",
+		G_CALLBACK(OnChangeSelectedModel), application);
+	// 拡大率
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(child_note_book_box), layout_box, FALSE, FALSE, 0);
+	(void)sprintf(str, "%s : ", application->label.control.scale);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new(str), FALSE, FALSE, 0);
+	adjustment = NULL;
+	if(scene != NULL)
+	{
+		if(scene->selected_model != NULL)
+		{
+			adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scene->selected_model->scale_factor * 100.0f,
+				0, 10000, 1, 5, 0));
+		}
+	}
+	if(adjustment == NULL)
+	{
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(100.0f, 0, 10000, 1, 5, 0));
+	}
+	application->widgets.model_scale =  control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeModelScale), application);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	// 不透明度
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(child_note_book_box), layout_box, FALSE, FALSE, 0);
+	(void)sprintf(str, "%s : ", application->label.control.opacity);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new(str), FALSE, FALSE, 0);
+	adjustment = NULL;
+	if(scene != NULL)
+	{
+		if(scene->selected_model != NULL)
+		{
+			adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scene->selected_model->opacity * 100.0f,
+				0, 100, 1, 5, 0));
+		}
+	}
+	if(adjustment == NULL)
+	{
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(100.0f, 0, 100, 1, 5, 0));
+	}
+	application->widgets.model_opacity =  control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeModelOpacity), application);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	// 接続先フレーム
+	layout_box = gtk_frame_new(application->label.control.model_connect_to);
+	frame_box = gtk_vbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(layout_box), frame_box);
+	gtk_box_pack_start(GTK_BOX(child_note_book_box), layout_box, FALSE, FALSE, 0);
+	// 接続先モデル
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	(void)sprintf(str, "%s : ", application->label.control.model);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new(str), FALSE, FALSE, 0);
+	application->widgets.connect_model = control[0] =
+#if GTK_MAJOR_VERSION <= 2
+		gtk_combo_box_new_text();
+#else
+		gtk_combo_box_text_new();
+#endif
+	FillParentModelComboBox(control[0], scene, application);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	(void)g_signal_connect(G_OBJECT(control[0]), "changed",
+		G_CALLBACK(OnChangeSelectedParentModel), application);
+	// 接続先ボーン
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	(void)sprintf(str, "%s : ", application->label.control.bone);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new(str), FALSE, FALSE, 0);
+	application->widgets.connect_bone = control[0] =
+#if GTK_MAJOR_VERSION <= 2
+		gtk_combo_box_new_text();
+#else
+		gtk_combo_box_text_new();
+#endif
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	(void)g_signal_connect(G_OBJECT(control[0]), "changed",
+		G_CALLBACK(OnChangeSelectedParentBone), application);
+	// 位置と回転
+	table = gtk_table_new(1, 2, TRUE);
+	gtk_box_pack_start(GTK_BOX(child_note_book_box), table, FALSE, FALSE, 0);
+	// 位置
+	scalar_value[0] = scalar_value[1] = scalar_value[2] = scalar_value[3] = 0;
+	if(scene != NULL)
+	{
+		if(scene->selected_model != NULL)
+		{
+			scene->selected_model->get_world_translation(scene->selected_model, scalar_value);
+		}
+	}
+	layout_box = gtk_frame_new(application->label.control.position);
+	gtk_table_attach_defaults(GTK_TABLE(table), layout_box, 0, 1, 0, 1);
+	frame_box = gtk_vbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(layout_box), frame_box);
+	// X
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("X:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[0], -10000, 10000, 1, 5, 0));
+	application->widgets.model_position[0] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_X));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeModelPosition), application);
+	// Y
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Y:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[1], -10000, 10000, 1, 5, 0));
+	application->widgets.model_position[1] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Y));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeModelPosition), application);
+	// Z
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Z:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[2], -10000, 10000, 1, 5, 0));
+	application->widgets.model_position[2] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Z));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeModelPosition), application);
+	// 回転
+	scalar_value[0] = scalar_value[1] = scalar_value[2] = scalar_value[3] = 0;
+	if(scene != NULL)
+	{
+		if(scene->selected_model != NULL)
+		{
+			scene->selected_model->get_world_orientation(scene->selected_model, scalar_value);
+		}
+	}
+	layout_box = gtk_frame_new(application->label.control.rotation);
+	gtk_table_attach_defaults(GTK_TABLE(table), layout_box, 1, 2, 0, 1);
+	frame_box = gtk_vbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(layout_box), frame_box);
+	// X
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("X:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[0], -180, 180, 1, 5, 0));
+	application->widgets.model_rotation[0] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_X));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeModelRotation), application);
+	// Y
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Y:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[1], -180, 180, 1, 5, 0));
+	application->widgets.model_rotation[1] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Y));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeModelRotation), application);
+	// Z
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Z:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[2], -180, 180, 1, 5, 0));
+	application->widgets.model_rotation[2] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Z));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeModelRotation), application);
+
+	label = gtk_label_new(application->label.control.bone);
+	child_note_book_box = gtk_vbox_new(FALSE, 0);
+	gtk_notebook_append_page(GTK_NOTEBOOK(child_note_book), child_note_book_box, label);
 	control[0] = gtk_radio_button_new_with_label(NULL, application->label.control.edit_mode.select);
 	control[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(control[0])),
 		application->label.control.edit_mode.move);
@@ -771,18 +1330,18 @@ void* ModelControlWidgetNew(void* application_context)
 	for(i=0; i<NUM_EDIT_MODE; i++)
 	{
 		ToggleButtonSetValue(control[i], i, (int*)&project->control.edit_mode,
-			&project->control, (void (*)(void*, int))ControlSetEditMode, &project->widgets.ui_disabled);
-		gtk_box_pack_start(GTK_BOX(note_book_box), control[i], FALSE, FALSE, 0);
+			&project->control, (void (*)(void*, int))ControlSetEditMode, &application->widgets.ui_disabled);
+		gtk_box_pack_start(GTK_BOX(child_note_book_box), control[i], FALSE, FALSE, 0);
 	}
 
 	control[0] = gtk_scrolled_window_new(NULL, NULL);
-	project->widgets.bone_tree_view = BoneTreeViewNew();
-	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(control[0]), project->widgets.bone_tree_view);
+	application->widgets.bone_tree_view = BoneTreeViewNew();
+	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(control[0]), application->widgets.bone_tree_view);
 	gtk_widget_set_size_request(control[0], 128, 360);
-	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, TRUE, 0);
-	selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(project->widgets.bone_tree_view));
+	gtk_box_pack_start(GTK_BOX(child_note_book_box), control[0], FALSE, TRUE, 0);
+	selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(application->widgets.bone_tree_view));
 	(void)g_signal_connect(G_OBJECT(selection), "changed",
-		G_CALLBACK(OnChangedSelectedBone), project);
+		G_CALLBACK(OnChangedSelectedBone), application);
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -793,15 +1352,52 @@ void* ModelControlWidgetNew(void* application_context)
 	control[0] = gtk_check_button_new_with_label(application->label.control.enable_physics);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control[0]), project->flags & PROJECT_FLAG_ALWAYS_PHYSICS);
 	ToggleButtonSetFlag(control[0], PROJECT_FLAG_ALWAYS_PHYSICS, &project->flags,
-		project, (void (*)(void*, int))ProjectSetEnableAlwaysPhysics, &project->widgets.ui_disabled);
+		project, (void (*)(void*, int))ProjectSetEnableAlwaysPhysics, &application->widgets.ui_disabled);
 	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
 
 	control[0] = gtk_check_button_new_with_label(application->label.control.display_grid);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control[0]),
 		project->flags & PROJECT_FLAG_DRAW_GRID);
 	ToggleButtonSetFlag(control[0], PROJECT_FLAG_DRAW_GRID, &project->flags,
-		NULL, NULL, &project->widgets.ui_disabled);
+		NULL, NULL, &application->widgets.ui_disabled);
 	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
+
+	return (void*)vbox;
+}
+
+void ResetCameraPositionButtonClicked(GtkWidget* button, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+
+	ResetCameraDefault(&project->scene->camera);
+}
+
+void* CameraLightControlWidgetNew(void* application_context)
+{
+	APPLICATION *application = (APPLICATION*)application_context;
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
+	GtkWidget *note_book;
+	GtkWidget *note_book_box;
+	GtkWidget *label;
+	GtkWidget *control[4];
+	char str[4096];
+
+	note_book = gtk_notebook_new();
+	gtk_box_pack_start(GTK_BOX(vbox), note_book, TRUE, TRUE, 0);
+
+	// カメラタブ
+	label = gtk_label_new(application->label.control.camera);
+	note_book_box = gtk_vbox_new(FALSE, 0);
+	gtk_notebook_append_page(GTK_NOTEBOOK(note_book), note_book_box, label);
+	// カメラの位置を初期化
+	control[0] = gtk_button_new_with_label(application->label.control.reset);
+	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
+	(void)g_signal_connect(G_OBJECT(control[0]), "clicked",
+		G_CALLBACK(ResetCameraPositionButtonClicked), application);
 
 	return (void*)vbox;
 }
@@ -837,12 +1433,12 @@ gboolean RenderForPixelDataDrawing(
 	allocation = widget->allocation;
 #endif
 
-	if(allocation.width != data->width || allocation.height != data->height)
+	if(allocation.width < data->width || allocation.height < data->height)
 	{
 		return TRUE;
 	}
 
-	RenderEngines(data->project, allocation.width, allocation.height);
+	RenderEngines(data->project, data->width, data->height);
 
 	if(gdk_gl_drawable_is_double_buffered(drawable) != FALSE)
 	{

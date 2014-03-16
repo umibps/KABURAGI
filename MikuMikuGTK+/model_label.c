@@ -2,6 +2,7 @@
 #include <limits.h>
 #include "model_label.h"
 #include "pmx_model.h"
+#include "asset_model.h"
 #include "memory_stream.h"
 #include "memory.h"
 
@@ -243,4 +244,43 @@ void ReleasePmxModelLabel(PMX_MODEL_LABEL* label)
 {
 	ReleaseLabelInterface(&label->interface_data);
 	StructArrayDestroy(&label->pairs, NULL);
+}
+
+static int AssetModelLabelGetCount(ASSET_MODEL_LABEL* label)
+{
+	return (int)label->bones->num_data;
+}
+
+static void* AssetModelLabelGetBone(ASSET_MODEL_LABEL* label, int index)
+{
+	if(index >= 0 && index < (int)label->bones->num_data)
+	{
+		return label->bones->buffer[index];
+	}
+	return NULL;
+}
+
+void InitializeAssetModelLabel(
+	ASSET_MODEL_LABEL* label,
+	ASSET_MODEL* model,
+	POINTER_ARRAY* bones
+)
+{
+	static const char name[] = "Root";
+	const int num_bones = (int)bones->num_data;
+	int i;
+
+	(void)memset(label, 0, sizeof(*label));
+	label->model = model;
+	label->bones = PointerArrayNew(ASSET_MODEL_BUFFER_SIZE);
+	for(i=0; i<num_bones; i++)
+	{
+		PointerArrayAppend(label->bones, bones->buffer[i]);
+	}
+	label->interface_data.name = (char*)name;
+	label->interface_data.get_count =
+		(int (*)(void*))AssetModelLabelGetCount;
+	label->interface_data.get_bone =
+		(void* (*)(void*, int))AssetModelLabelGetBone;
+	label->interface_data.special = TRUE;
 }

@@ -35,6 +35,8 @@ typedef struct _APPLICATION
 	int num_projects;
 	int active_project;
 
+	APPLICATION_WIDGETS widgets;
+
 	ght_hash_table_t *texture_chache_map;
 
 	DEFAULT_DATA default_data;

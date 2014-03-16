@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 	//gtk_widget_set_size_request(mikumiku->widgets.drawing_area,
 	//	720, 480);
 	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	mikumiku->projects[mikumiku->active_project]->widgets.main_window = window;
+	mikumiku->widgets.main_window = window;
 	main_box = gtk_vbox_new(FALSE, 0);
 	gtk_container_add(GTK_CONTAINER(window), main_box);
 	gtk_box_pack_start(GTK_BOX(main_box), MakeMenuBar(mikumiku, NULL), FALSE, FALSE, 0);
@@ -121,6 +121,7 @@ int main(int argc, char** argv)
 	gtk_box_pack_start(GTK_BOX(box), (GtkWidget*)ModelControlWidgetNew(mikumiku), FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(box), mikumiku->projects[mikumiku->active_project]->widgets.drawing_area,
 		TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(box), (GtkWidget*)CameraLightControlWidgetNew(mikumiku), FALSE, FALSE, 0);
 	(void)g_signal_connect(window, "destroy",
 		G_CALLBACK(gtk_main_quit), NULL);
 

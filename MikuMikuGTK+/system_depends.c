@@ -32,3 +32,8 @@ char* GetDirectoryName(const char* utf8_path)
 	g_free(dir);
 	return ret;
 }
+
+char* NextCharUTF8(char* str)
+{
+	return g_utf8_next_char(str);
+}

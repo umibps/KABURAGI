@@ -38,24 +38,6 @@ static void ExecuteNew(APPLICATION *app);
 static void ExecuteDisplayReverseHorizontally(GtkWidget* menu_item, APPLICATION* app);
 
 /*********************************************************
-* ExecuteChangeToolWindowPlace関数                       *
-* ツールボックスの位置を変更する                         *
-* 引数                                                   *
-* menu_item	: メニューアイテムウィジェット               *
-* app		: アプリケーションを管理する構造体のアドレス *
-*********************************************************/
-static void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app);
-
-/*********************************************************
-* ExecuteChangeNavigationLayerWindowPlace関数            *
-* ナビゲーションとレイヤービューの位置を変更する         *
-* 引数                                                   *
-* menu_item	: 位置変更メニューアイテムウィジェット       *
-* app		: アプリケーションを管理する構造体のアドレス *
-*********************************************************/
-static void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* app);
-
-/*********************************************************
 * ExecuteChangeDisplayPreview関数                        *
 * プレビューの表示/非表示を切り替える                    *
 * 引数                                                   *
@@ -1923,7 +1905,7 @@ void ExecuteDisplayReverseHorizontally(GtkWidget* menu_item, APPLICATION* app)
 * menu_item	: メニューアイテムウィジェット               *
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
-static void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
+void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 {
 	HSV hsv, back_hsv;
 	uint8 fg_color[3], bg_color[3];
@@ -1951,7 +1933,10 @@ static void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 	(void)memcpy(fg_color, app->tool_window.color_chooser->rgb, 3);
 	(void)memcpy(bg_color, app->tool_window.color_chooser->back_rgb, 3);
 
-	app->tool_window.place = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(menu_item), "change_mode"));
+	if(menu_item != NULL)
+	{
+		app->tool_window.place = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(menu_item), "change_mode"));
+	}
 
 	switch(app->tool_window.place)
 	{
@@ -2068,7 +2053,7 @@ static void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 * menu_item	: 位置変更メニューアイテムウィジェット       *
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
-static void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* app)
+void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 {
 	// ウィンドウとドッキング時にウィジェットを入れるパッキングボックス
 	GtkWidget *box;
@@ -2076,7 +2061,6 @@ static void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLIC
 	if((app->flags & APPLICATION_INITIALIZED) == 0
 		|| (app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) != 0)
 	{
-		app->flags &= ~(APPLICATION_IN_SWITCH_DRAW_WINDOW);
 		return;
 	}
 
@@ -2090,7 +2074,10 @@ static void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLIC
 		app->right_pane_position = gtk_paned_get_position(GTK_PANED(app->right_pane));
 	}
 
-	app->layer_window.place = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(menu_item), "change_mode"));
+	if(menu_item != NULL)
+	{
+		app->layer_window.place = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(menu_item), "change_mode"));
+	}
 
 	switch(app->layer_window.place)
 	{

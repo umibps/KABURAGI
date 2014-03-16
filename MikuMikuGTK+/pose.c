@@ -246,6 +246,11 @@ void ApplyPose(POSE* pose, MODEL_INTERFACE* model, int apply_center)
 	const int num_morphs = (int)pose->morphs->num_data;
 	int i;
 
+	if(!(model->type == MODEL_TYPE_PMD_MODEL || model->type == MODEL_TYPE_PMX_MODEL))
+	{
+		return;
+	}
+
 	if(apply_center != FALSE)
 	{
 		for(i=0; i<num_bones; i++)

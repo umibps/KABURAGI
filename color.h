@@ -118,6 +118,8 @@ extern void SetColorChooserPoint(COLOR_CHOOSER* chooser, HSV* set_hsv, gboolean 
 
 extern void UpdateColorBox(COLOR_CHOOSER* chooser);
 
+extern void DestroyColorChooser(COLOR_CHOOSER* chooser);
+
 /*********************************************************
 * SetColorChangeCallBack関数                             *
 * 色が変更されたときに呼び出されるコールバック関数を設定 *

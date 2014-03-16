@@ -834,19 +834,19 @@ void DrawColorCircle(
 	cairo_destroy(cairo_p);
 }
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 void DrawColorBox(GtkWidget *widget, GdkEventExpose *event, COLOR_CHOOSER* chooser)
 #else
 void DrawColorBox(GtkWidget *widget, cairo_t* cairo_p, COLOR_CHOOSER* chooser)
 #endif
 {
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 #endif
 	cairo_set_source_surface(cairo_p, chooser->color_box_surface, 0, 0);
 	cairo_paint(cairo_p);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 #endif
 }
@@ -878,13 +878,13 @@ void ColorBoxButtonPressCalBack(GtkWidget *widget, GdkEventButton *event, COLOR_
 	}
 }
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 static void DisplayPallete(GtkWidget* widget, GdkEventExpose* expose, COLOR_CHOOSER* chooser)
 #else
 static void DisplayPallete(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* chooser)
 #endif
 {
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 #endif
 	uint8 *pixels = chooser->pallete_pixels;
@@ -981,7 +981,7 @@ static void DisplayPallete(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* c
 	cairo_set_source_surface(cairo_p, chooser->pallete_surface, 0, 0);
 	cairo_paint(cairo_p);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 #endif
 }
@@ -1495,17 +1495,17 @@ COLOR_CHOOSER *CreateColorChooser(
 	gtk_widget_set_size_request(ret->choose_area, width, height);
 
 	// マウスクリックのイベントを追加
-	g_signal_connect(G_OBJECT(ret->choose_area), "button_press_event",
+	(void)g_signal_connect(G_OBJECT(ret->choose_area), "button_press_event",
 		G_CALLBACK(OnColorChooserClicked), ret);
-	g_signal_connect(G_OBJECT(ret->choose_area), "motion-notify-event",
+	(void)g_signal_connect(G_OBJECT(ret->choose_area), "motion-notify-event",
 		G_CALLBACK(OnColorChooserMotion), ret);
-	g_signal_connect(G_OBJECT(ret->choose_area), "button-release-event",
+	(void)g_signal_connect(G_OBJECT(ret->choose_area), "button-release-event",
 		G_CALLBACK(OnColorChooserButtonReleased), ret);
-#if MAJOR_VERSION == 1
-	g_signal_connect(G_OBJECT(ret->choose_area), "expose-event",
+#if GTK_MAJOR_VERSION <= 2
+	(void)g_signal_connect(G_OBJECT(ret->choose_area), "expose-event",
 		G_CALLBACK(DisplayColorChooser), ret);
 #else
-	g_signal_connect(G_OBJECT(ret->choose_area), "draw",
+	(void)g_signal_connect(G_OBJECT(ret->choose_area), "draw",
 		G_CALLBACK(DisplayColorChooser), ret);
 #endif
 	gtk_widget_add_events(ret->choose_area,
@@ -1586,20 +1586,20 @@ COLOR_CHOOSER *CreateColorChooser(
 	}
 	ret->color_box = gtk_drawing_area_new();
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gtk_drawing_area_size(GTK_DRAWING_AREA(ret->color_box), (COLOR_BOX_SIZE*3)/2, (COLOR_BOX_SIZE*3)/2);
 #else
 	gtk_widget_set_size_request(ret->color_box, (COLOR_BOX_SIZE*3)/2, (COLOR_BOX_SIZE*3)/2);
 #endif
 	gtk_widget_add_events(ret->color_box, GDK_EXPOSURE_MASK | GDK_BUTTON_PRESS_MASK);
-#if MAJOR_VERSION == 1
-	g_signal_connect(G_OBJECT(ret->color_box), "expose_event",
+#if GTK_MAJOR_VERSION <= 2
+	(void)g_signal_connect(G_OBJECT(ret->color_box), "expose_event",
 		G_CALLBACK(DrawColorBox), ret);
 #else
-	g_signal_connect(G_OBJECT(ret->color_box), "draw",
+	(void)g_signal_connect(G_OBJECT(ret->color_box), "draw",
 		G_CALLBACK(DrawColorBox), ret);
 #endif
-	g_signal_connect(G_OBJECT(ret->color_box), "button_press_event",
+	(void)g_signal_connect(G_OBJECT(ret->color_box), "button_press_event",
 		G_CALLBACK(ColorBoxButtonPressCalBack), ret);
 
 	gtk_box_pack_end(GTK_BOX(vbox), ret->color_box, FALSE, FALSE, 0);
@@ -1613,7 +1613,7 @@ COLOR_CHOOSER *CreateColorChooser(
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), TRUE);
 	g_object_set_data(G_OBJECT(button), "color_chooser", ret);
 	g_object_set_data(G_OBJECT(button), "flag_value", GINT_TO_POINTER(COLOR_CHOOSER_SHOW_CIRCLE));
-	g_signal_connect(G_OBJECT(button), "toggled",
+	(void)g_signal_connect(G_OBJECT(button), "toggled",
 		G_CALLBACK(ChangeColorChooserWidgetVisible), ret->choose_area);
 	g_free(image_file_path);
 
@@ -1625,12 +1625,12 @@ COLOR_CHOOSER *CreateColorChooser(
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), TRUE);
 	g_object_set_data(G_OBJECT(button), "color_chooser", ret);
 	g_object_set_data(G_OBJECT(button), "flag_value", GINT_TO_POINTER(COLOR_CHOOSER_SHOW_PALLETE));
-	g_signal_connect(G_OBJECT(button), "toggled",
+	(void)g_signal_connect(G_OBJECT(button), "toggled",
 		G_CALLBACK(ChangeColorChooserWidgetVisible), ret->pallete);
 	g_free(image_file_path);
 
 	button = gtk_button_new_with_label(labels->unit.detail);
-	g_signal_connect(G_OBJECT(button), "clicked",
+	(void)g_signal_connect(G_OBJECT(button), "clicked",
 		G_CALLBACK(ColorChooserDetailSelect), ret);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
 
@@ -1639,9 +1639,24 @@ COLOR_CHOOSER *CreateColorChooser(
 	hbox = gtk_hbox_new(FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(hbox), ret->pallete, TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 0);
+	(void)g_signal_connect_swapped(G_OBJECT(vbox), "destroy",
+		G_CALLBACK(DestroyColorChooser), ret);
 	ret->widget = vbox;
 
 	return ret;
+}
+
+void DestroyColorChooser(COLOR_CHOOSER* chooser)
+{
+	MEM_FREE_FUNC(chooser->color_circle_data);
+	cairo_surface_destroy(chooser->circle_surface);
+	cairo_destroy(chooser->chooser_cairo);
+	cairo_surface_destroy(chooser->chooser_surface);
+	MEM_FREE_FUNC(chooser->chooser_pixel_data);
+	cairo_surface_destroy(chooser->color_box_surface);
+	MEM_FREE_FUNC(chooser->color_box_pixel_data);
+	cairo_surface_destroy(chooser->pallete_surface);
+	MEM_FREE_FUNC(chooser->pallete_pixels);
 }
 
 /*********************************************************

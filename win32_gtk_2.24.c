@@ -1,10 +1,10 @@
 #ifdef _WIN32
 
 #include <gtk/gtk.h>
-#include "configure.h"
-#include "application.h"
+//#include "configure.h"
+//#include "application.h"
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2 && GTK_MICRO_VERSION <= 20
 
 #ifdef __cplusplus
 extern "C" {

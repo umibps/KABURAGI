@@ -152,6 +152,8 @@ extern void SceneTranslate(SCENE* scene, float* delta);
 
 extern void SceneRotate(SCENE* scene, float* delta);
 
+extern void SceneRemoveModel(SCENE* scene, MODEL_INTERFACE* model);
+
 extern void SceneSetEmptyMotion(SCENE* scene, MODEL_INTERFACE* model);
 
 extern KEYFRAME_INTERFACE* SceneGetCurrentKeyframe(

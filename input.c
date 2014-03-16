@@ -29,7 +29,7 @@ gboolean ButtonPressEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDOW*
 	gdouble pressure;
 	gdouble rev_zoom = window->rev_zoom;
 	FLOAT_T x, y;
-#if MAJOR_VERSION >= 2
+#if GTK_MAJOR_VERSION >= 3
 	GdkDevice *device;
 	GdkInputSource source;
 #endif
@@ -64,7 +64,7 @@ gboolean ButtonPressEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDOW*
 	}
 
 	// マウス以外なら筆圧を取得
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(event->device->source != GDK_SOURCE_MOUSE)
 	{
 		if(event->device->source == GDK_SOURCE_ERASER)

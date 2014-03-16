@@ -15,10 +15,21 @@ typedef struct _UI_LABEL
 	struct
 	{
 		char *environment;
+		char *camera;
+		char *light;
+		char *position;
+		char *rotation;
+		char *model;
 		char *bone;
 		char *load_model;
 		char *load_pose;
+		char *control_model;
+		char *no_select;
+		char *reset;
 		char *apply_center_position;
+		char *scale;
+		char *opacity;
+		char *model_connect_to;
 		char *enable_physics;
 		char *display_grid;
 		struct

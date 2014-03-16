@@ -171,7 +171,6 @@ typedef struct _PMX_MODEL
 	MODEL_INTERFACE interface_data;
 	TEXT_ENCODE *encoding;
 	struct _PMX_MODEL *self;
-	void *parent_model;
 	struct _SCENE *parent_scene;
 	STRUCT_ARRAY *vertices;
 	UINT32_ARRAY *indices;

@@ -10,6 +10,33 @@
 #include "application.h"
 #include "memory.h"
 
+static void** AssetModelGetBones(ASSET_MODEL* model, int* num_bones)
+{
+	void **bones = (void**)MEM_ALLOC_FUNC(sizeof(void*)*model->bones->num_data);
+	int i;
+
+	*num_bones = (int)model->bones->num_data;
+	for(i=0; i<*num_bones; i++)
+	{
+		bones[i] = model->bones->buffer[i];
+	}
+	return bones;
+}
+
+static void** AssetModelGetLabels(ASSET_MODEL* model, int* num_labels)
+{
+	void **labels = (void**)MEM_ALLOC_FUNC(sizeof(void*)*model->labels->num_data);
+	ASSET_MODEL_LABEL *asset_labels = (ASSET_MODEL_LABEL*)model->labels->buffer;
+	int i;
+
+	*num_labels = (int)model->labels->num_data;
+	for(i=0; i<*num_labels; i++)
+	{
+		labels[i] = (void*)&asset_labels[i];
+	}
+	return labels;
+}
+
 static void AssetModelSetVisible(ASSET_MODEL* model, int visible)
 {
 	model->visible = visible;
@@ -30,15 +57,28 @@ static void AssetModelGetWorldRotation(ASSET_MODEL* model, float* rotation)
 	COPY_VECTOR4(rotation, model->rotation);
 }
 
+static void AssetModelSetWorldPosition(ASSET_MODEL* model, float* position)
+{
+	COPY_VECTOR3(model->position, position);
+}
+
+static void AssetModelSetWorldOrientation(ASSET_MODEL* model, float* rotation)
+{
+	COPY_VECTOR4(model->rotation, rotation);
+}
+
 void InitializeAssetModel(
 	ASSET_MODEL* model,
 	SCENE* scene,
 	void* application_context
 )
 {
+	ASSET_MODEL_LABEL *label;
+
 	(void)memset(model, 0, sizeof(*model));
 
 	model->bones = PointerArrayNew(ASSET_MODEL_BUFFER_SIZE);
+	model->labels = StructArrayNew(sizeof(ASSET_MODEL_LABEL), ASSET_MODEL_BUFFER_SIZE);
 	model->morphs = StructArrayNew(sizeof(ASSET_OPACITY_MORPH), ASSET_MODEL_BUFFER_SIZE);
 	model->name2bone = ght_create(ASSET_MODEL_BUFFER_SIZE);
 	ght_set_hash(model->name2bone, (ght_fn_hash_t)GetStringHash);
@@ -47,6 +87,10 @@ void InitializeAssetModel(
 	model->interface_data.opacity = 1;
 	model->interface_data.scale_factor = 10;
 	model->interface_data.scene = scene;
+	model->interface_data.get_bones =
+		(void** (*)(void*, int*))AssetModelGetBones;
+	model->interface_data.get_labels =
+		(void** (*)(void*, int*))AssetModelGetLabels;
 	model->interface_data.set_visible =
 		(void (*)(void*, int))AssetModelSetVisible;
 	model->rotation[3] = 1;
@@ -56,15 +100,23 @@ void InitializeAssetModel(
 	PointerArrayAppend(model->bones, (void*)&model->root_bone);
 	InitializeAssetScaleBone(&model->scale_bone, model, application_context);
 	PointerArrayAppend(model->bones, (void*)&model->scale_bone);
+	label = (ASSET_MODEL_LABEL*)StructArrayReserve(model->labels);
+	InitializeAssetModelLabel(label, model, model->bones);
 	InitializeAssetOpacityMorph((ASSET_OPACITY_MORPH*)StructArrayReserve(model->morphs),
 		model, application_context);
 	model->materials = StructArrayNew(sizeof(ASSET_MATERIAL), DEFAULT_BUFFER_SIZE);
 	model->vertices = StructArrayNew(sizeof(ASSET_VERTEX), DEFAULT_BUFFER_SIZE);
 
+	model->interface_data.get_world_position =
+		(void (*)(void*, float*))AssetModelGetWorldTranslation;
 	model->interface_data.get_world_translation =
 		(void (*)(void*, float*))AssetModelGetWorldTranslation;
 	model->interface_data.get_world_orientation =
 		(void (*)(void*, float*))AssetModelGetWorldRotation;
+	model->interface_data.set_world_position =
+		(void (*)(void*, float*))AssetModelSetWorldPosition;
+	model->interface_data.set_world_orientation =
+		(void (*)(void*, float*))AssetModelSetWorldOrientation;
 	model->interface_data.perform_update =
 		(void (*)(void*, int))DummyFuncNoReturn2;
 	model->interface_data.reset_motion_state =
@@ -151,7 +203,14 @@ void AssetModelSetVerticesRecurse(
 	}
 }
 
-int LoadAssetModel(ASSET_MODEL* model, uint8* data, size_t data_size, const char* file_type, const char* model_path)
+int LoadAssetModel(
+	ASSET_MODEL* model,
+	uint8* data,
+	size_t data_size,
+	const char* file_name,
+	const char* file_type,
+	const char* model_path
+)
 {
 	BONE_INTERFACE **bones = (BONE_INTERFACE**)model->bones->buffer;
 	BONE_INTERFACE *bone;
@@ -161,11 +220,28 @@ int LoadAssetModel(ASSET_MODEL* model, uint8* data, size_t data_size, const char
 	const int num_morphs = (int)model->morphs->num_data;
 	unsigned int flags = aiProcessPreset_TargetRealtime_Quality | aiProcess_FlipUVs
 		| aiProcess_CalcTangentSpace | aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_SortByPType;
+	char *str;
+	char *last_period = NULL;
 	int i;
 
 	model->scene = (struct aiScene*)aiImportFileFromMemory((const char*)data, (unsigned int)data_size,
 		flags, file_type);
 	model->model_path = MEM_STRDUP_FUNC(model_path);
+	model->interface_data.name = str = MEM_STRDUP_FUNC(file_name);
+	while(*str != '\0')
+	{
+		if(*str == '.')
+		{
+			last_period = str;
+		}
+		str = NextCharUTF8(str);
+	}
+	if(last_period != NULL)
+	{
+		*last_period = '\0';
+	}
+	model->interface_data.english_name = MEM_STRDUP_FUNC(model->interface_data.name);
+
 	for(i=0; i<num_bones; i++)
 	{
 		bone = bones[i];

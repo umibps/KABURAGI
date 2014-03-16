@@ -148,6 +148,16 @@ FLOAT_T PmxModelGetEdgeScaleFactor(PMX_MODEL* model, float* camera_position)
 	return length / 1000.0;
 }
 
+void PmxModelSetWorldPosition(PMX_MODEL* model, float* position)
+{
+	COPY_VECTOR3(model->position, position);
+}
+
+void PmxModelSetWorldOrientation(PMX_MODEL* model, float* rotation)
+{
+	COPY_VECTOR4(model->rotation, rotation);
+}
+
 void PmxModelSetOpacity(PMX_MODEL* model, float opacity)
 {
 	if(model->interface_data.opacity != opacity)
@@ -239,6 +249,10 @@ void InitializePmxModel(
 		(void** (*)(void*, int*))PmxModelGetLabels;
 	model->interface_data.is_visible =
 		(int (*)(void*))PmxModelIsVisible;
+	model->interface_data.set_world_position =
+		(void (*)(void*, float*))PmxModelSetWorldPosition;
+	model->interface_data.set_world_orientation =
+		(void (*)(void*, float*))PmxModelSetWorldOrientation;
 	model->interface_data.set_visible =
 		(void (*)(void*, int))PmxModelSetVisible;
 	model->interface_data.get_world_position =
@@ -1227,6 +1241,8 @@ PMX_DEFAULT_STATIC_VERTEX_BUFFER* PmxDefaultStaticVertexBufferNew(PMX_MODEL* mod
 		(size_t (*)(void*))PmxDefaultStaticVertexBufferGetStrideSize;
 	ret->interface_data.base.get_stride_offset =
 		(size_t (*)(void*, eMODEL_STRIDE_TYPE))PmxDefaultStaticVertexBufferGetStrideOffset;
+	ret->interface_data.base.delete_func =
+		(void (*)(void*))DeletePmxDefaultStaticVertexBuffer;
 	ret->interface_data.update =
 		(void (*)(void*, void*))PmxDefaultStaticVertexBufferUpdate;
 
@@ -1235,7 +1251,7 @@ PMX_DEFAULT_STATIC_VERTEX_BUFFER* PmxDefaultStaticVertexBufferNew(PMX_MODEL* mod
 
 void DeletePmxDefaultStaticVertexBuffer(PMX_DEFAULT_STATIC_VERTEX_BUFFER* buffer)
 {
-	PointerArrayDestroy(&buffer->bone_index_hashes, NULL);
+	PointerArrayDestroy(&buffer->bone_index_hashes, (void (*)(void*))ght_finalize);
 	MEM_FREE_FUNC(buffer);
 }
 
@@ -1372,6 +1388,11 @@ void PmxDefaultDynamicVertexBufferPerformTransform(
 
 }
 
+void DeletePmxDefaultDynamicVertexBuffer(PMX_DEFAULT_DYNAMIC_VERTEX_BUFFER* buffer)
+{
+	MEM_FREE_FUNC(buffer);
+}
+
 PMX_DEFAULT_DYNAMIC_VERTEX_BUFFER* PmxDefaultDynamicVertexBufferNew(
 	PMX_MODEL* model,
 	MODEL_INDEX_BUFFER_INTERFACE* index_buffer
@@ -1389,14 +1410,10 @@ PMX_DEFAULT_DYNAMIC_VERTEX_BUFFER* PmxDefaultDynamicVertexBufferNew(
 	ret->interface_data.base.get_size = (size_t (*)(void*))PmxDefaultDynamicVertexBufferGetSize;
 	ret->interface_data.base.get_stride_size = (size_t (*)(void*))PmxDefaultDynamicVertexBufferGetStrideSize;
 	ret->interface_data.base.get_stride_offset = (size_t (*)(void*, eMODEL_STRIDE_TYPE))PmxDefaultDynamicVertexByfferGetStrideOffset;
+	ret->interface_data.base.delete_func = (void (*)(void*))DeletePmxDefaultDynamicVertexBuffer;
 	ret->interface_data.perform_transform = (void (*)(void*, void*, const float*, float*, float*))PmxDefaultDynamicVertexBufferPerformTransform;
 
 	return ret;
-}
-
-void DeletePmxDefaultDynamicVertexBuffer(PMX_DEFAULT_DYNAMIC_VERTEX_BUFFER* buffer)
-{
-	MEM_FREE_FUNC(buffer);
 }
 
 void PmxDefaultIndexBufferSetIndexAt(PMX_DEFAULT_INDEX_BUFFER* buffer, int index, int value)
@@ -1448,6 +1465,12 @@ size_t PmxDefaultIndexBufferGetStrideSize(PMX_DEFAULT_INDEX_BUFFER* buffer)
 void* PmxDefaultIndexBufferGetBytes(PMX_DEFAULT_INDEX_BUFFER* buffer)
 {
 	return (void*)buffer->indices.indices8;
+}
+
+void DeletePmxDefaultIndexBuffer(PMX_DEFAULT_INDEX_BUFFER* buffer)
+{
+	MEM_FREE_FUNC(buffer->indices.indices8);
+	MEM_FREE_FUNC(buffer);
 }
 
 PMX_DEFAULT_INDEX_BUFFER* PmxDefaultIndexBufferNew(
@@ -1537,14 +1560,9 @@ PMX_DEFAULT_INDEX_BUFFER* PmxDefaultIndexBufferNew(
 	ret->interface_data.bytes = (void* (*)(void*))PmxDefaultIndexBufferGetBytes;
 	ret->interface_data.base.get_size = (size_t (*)(void*))PmxDefaultIndexBufferGetSize;
 	ret->interface_data.base.get_stride_size = (size_t (*)(void*))PmxDefaultIndexBufferGetStrideSize;
+	ret->interface_data.base.delete_func = (void (*)(void*))DeletePmxDefaultIndexBuffer;
 
 	return ret;
-}
-
-void DeletePmxDefaultIndexBuffer(PMX_DEFAULT_INDEX_BUFFER* buffer)
-{
-	MEM_FREE_FUNC(buffer->indices.indices8);
-	MEM_FREE_FUNC(buffer);
 }
 
 size_t PmxDefaultMatrixBufferGetSize(PMX_DEFAULT_MATRIX_BUFFER* buffer, int material_index)
@@ -1637,6 +1655,21 @@ void InitializePmxDefaultMatrixBuffer(PMX_DEFAULT_MATRIX_BUFFER* buffer)
 	UpdateBoneLocalTransforms(buffer);
 }
 
+void DeletePmxDefaultMatrixBuffer(PMX_DEFAULT_MATRIX_BUFFER* buffer)
+{
+	size_t i;
+
+	for(i=0; i<buffer->meshes.bones->num_data; i++)
+	{
+		UINT32_ARRAY *p = (UINT32_ARRAY*)buffer->meshes.bones->buffer[i];
+		Uint32ArrayDestroy(&p);
+	}
+	PointerArrayDestroy(&buffer->meshes.bones, NULL);
+	PointerArrayDestroy(&buffer->meshes.matrices, MEM_FREE_FUNC);
+
+	MEM_FREE_FUNC(buffer);
+}
+
 PMX_DEFAULT_MATRIX_BUFFER* PmxDefaultMatrixBufferNew(
 	PMX_MODEL* model,
 	PMX_DEFAULT_INDEX_BUFFER* index_buffer,
@@ -1653,26 +1686,12 @@ PMX_DEFAULT_MATRIX_BUFFER* PmxDefaultMatrixBufferNew(
 	ret->dynamic_buffer = dynamic_buffer;
 	ret->interface_data.update = (void (*)(void*, void*))PmxDefaultMatrixBufferUpdate;
 	ret->interface_data.get_size = (size_t (*)(void*, int))PmxDefaultMatrixBufferGetSize;
+	ret->interface_data.base.delete_func = (void (*)(void*))DeletePmxDefaultMatrixBuffer;
 	ret->interface_data.bytes = (float* (*)(void*, int))PmxDefaultMatrixBufferGetBytes;
 
 	InitializePmxDefaultMatrixBuffer(ret);
 
 	return ret;
-}
-
-void DeletePmxDefaultMatrixBuffer(PMX_DEFAULT_MATRIX_BUFFER* buffer)
-{
-	size_t i;
-
-	for(i=0; i<buffer->meshes.bones->num_data; i++)
-	{
-		POINTER_ARRAY *p = (POINTER_ARRAY*)buffer->meshes.bones->buffer[i];
-		PointerArrayDestroy(&p, NULL);
-	}
-	PointerArrayDestroy(&buffer->meshes.bones, NULL);
-	PointerArrayDestroy(&buffer->meshes.matrices, MEM_FREE_FUNC);
-
-	MEM_FREE_FUNC(buffer);
 }
 
 void PmxModelGetIndexBuffer(PMX_MODEL* model, PMX_DEFAULT_INDEX_BUFFER** buffer)

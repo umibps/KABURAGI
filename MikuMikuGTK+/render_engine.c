@@ -82,8 +82,33 @@ PMX_RENDER_ENGINE* PmxRenderEngineNew(
 	ret->interface_data.get_effect = (EFFECT_INTERFACE* (*)(void*, eEFFECT_SCRIPT_ORDER_TYPE))PmxRenderEngineGetEffect;
 	ret->interface_data.prepare_post_process = (void (*)(void*))DummyFuncNoReturn;
 	ret->interface_data.perform_pre_process = (void (*)(void*))DummyFuncNoReturn;
+	ret->interface_data.delete_func = (void (*)(void*))DeletePmxRenderEngine;
 
 	return ret;
+}
+
+void DeletePmxRenderEngine(PMX_RENDER_ENGINE* engine)
+{
+	int i;
+	engine->index_buffer->base.delete_func(engine->index_buffer);
+	engine->static_buffer->base.delete_func(engine->static_buffer);
+	engine->dynamic_buffer->base.delete_func(engine->dynamic_buffer);
+	if(engine->matrix_buffer != NULL)
+	{
+		engine->matrix_buffer->base.delete_func(engine->matrix_buffer);
+	}
+	ReleaseShaderProgram((SHADER_PROGRAM*)&engine->edge_program);
+	ReleaseShaderProgram((SHADER_PROGRAM*)&engine->model_program);
+	ReleaseShaderProgram((SHADER_PROGRAM*)&engine->shadow_program);
+	ReleaseShaderProgram((SHADER_PROGRAM*)&engine->z_plot_program);
+	DeleteVertexBundle(&engine->buffer);
+	for(i=0; i<MAX_PMX_VERTEX_ARRAY_OBJECT_TYPE; i++)
+	{
+		DeleteVertexBundleLayout(&engine->bundles[i]);
+	}
+	ght_finalize(engine->allocated_textures);
+	StructArrayDestroy(&engine->material_textures, NULL);
+	MEM_FREE_FUNC(engine);
 }
 
 int PmxRenderEngineCreateProgram(

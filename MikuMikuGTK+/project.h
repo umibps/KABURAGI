@@ -86,7 +86,7 @@ typedef struct _PROJECT
 	DEBUG_DRAWER debug_drawer;
 	GRID grid;
 	CONTROL control;
-	WIDGETS widgets;
+	PROJECT_WIDGETS widgets;
 	HISTORY history;
 
 	eSHADER_TYPE shader_type;

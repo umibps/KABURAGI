@@ -345,6 +345,7 @@ extern void HashTableReleaseAll(ght_hash_table_t* table, void (*destroy_func)(vo
 extern void DummyFuncNoReturn(void* dummy);
 extern void DummyFuncNoReturn2(void* dummy1, void* dummy2);
 extern int DummyFuncZeroReturn(void* dummy);
+extern int DummyFuncTrueReturn(void* dummy);
 extern int DummyFuncMinusOneReturn(void* dummy);
 extern float DummyFuncFloatZeroReturn(void* dummy);
 extern float DummyFuncFloatOneReturn(void* dummy);

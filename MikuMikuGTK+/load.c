@@ -30,6 +30,8 @@ MODEL_INTERFACE* LoadModel(
 
 		if(fp == NULL)
 		{
+			MEM_FREE_FUNC(utf8_path);
+			MEM_FREE_FUNC(model_path);
 			MEM_FREE_FUNC(model);
 			return FALSE;
 		}
@@ -44,6 +46,10 @@ MODEL_INTERFACE* LoadModel(
 		InitializePmxModel(model, scene, &application->encode, model_path);
 		if(LoadPmxModel(model, data, file_size) == FALSE)
 		{
+			ReleasePmxModel(model);
+			MEM_FREE_FUNC(model);
+			MEM_FREE_FUNC(utf8_path);
+			MEM_FREE_FUNC(model_path);
 			return NULL;
 		}
 
@@ -65,7 +71,7 @@ MODEL_INTERFACE* LoadModel(
 		{
 			model->interface_data.set_enable_physics(model, TRUE);
 		}
-		BoneTreeViewSetBones(project->widgets.bone_tree_view, (MODEL_INTERFACE*)model, (void*)project);
+		BoneTreeViewSetBones(application->widgets.bone_tree_view, (MODEL_INTERFACE*)model, (void*)application);
 
 		return (MODEL_INTERFACE*)model;
 	}
@@ -74,13 +80,27 @@ MODEL_INTERFACE* LoadModel(
 		ASSET_MODEL *model = (ASSET_MODEL*)MEM_ALLOC_FUNC(sizeof(*model));
 		char *utf8_path = Locale2UTF8(system_path);
 		char *model_path = GetDirectoryName(utf8_path);
+		char *file_name;
+		char *str;
 
 		fp = fopen(system_path, "rb");
 
 		if(fp == NULL)
 		{
+			MEM_FREE_FUNC(utf8_path);
+			MEM_FREE_FUNC(model_path);
 			MEM_FREE_FUNC(model);
 			return NULL;
+		}
+
+		file_name = str = utf8_path;
+		while(*str != '\0')
+		{
+			if(*str == '\\' || *str == '/')
+			{
+				file_name = str + 1;
+			}
+			str = NextCharUTF8(str);
 		}
 
 		(void)fseek(fp, 0, SEEK_END);
@@ -91,7 +111,7 @@ MODEL_INTERFACE* LoadModel(
 		(void)fclose(fp);
 
 		InitializeAssetModel(model, scene, application);
-		if(LoadAssetModel(model, data, file_size, file_type, model_path) == FALSE)
+		if(LoadAssetModel(model, data, file_size, file_name, file_type, model_path) == FALSE)
 		{
 			return NULL;
 		}

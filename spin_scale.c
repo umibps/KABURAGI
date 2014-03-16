@@ -158,7 +158,7 @@ static void SpinScaleGetProperty(
 	}
 }
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 static void SpinScaleSizeRequest(GtkWidget* widget, GtkRequisition* requisition)
 {
 	SPIN_SCALE_PRIVATE* data = GET_PRIVATE(widget);
@@ -265,7 +265,7 @@ static void SpinScaleStyleSet(GtkWidget* widget, GtkStyle *prev_style)
 	}
 }
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 static gboolean SpinScaleExpose(GtkWidget *widget, GdkEventExpose *pevent)
 #else
 static gboolean SpinScaleExpose(GtkWidget *widget, cairo_t* cairo_p)
@@ -273,7 +273,7 @@ static gboolean SpinScaleExpose(GtkWidget *widget, cairo_t* cairo_p)
 {
 	SPIN_SCALE_PRIVATE *data = GET_PRIVATE(widget);
 	GtkStyle *style = gtk_widget_get_style(widget);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_t *cairo_p;
 #else
 	GdkRectangle text_area;
@@ -284,7 +284,7 @@ static gboolean SpinScaleExpose(GtkWidget *widget, cairo_t* cairo_p)
 	gboolean rtl;
 	gint width, height;
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	GTK_WIDGET_CLASS(SpinScaleParentClass)->expose_event(widget, pevent);
 
 	cairo_p = gdk_cairo_create(pevent->window);
@@ -297,7 +297,7 @@ static gboolean SpinScaleExpose(GtkWidget *widget, cairo_t* cairo_p)
 
 	rtl = (gtk_widget_get_direction(widget) == GTK_TEXT_DIR_RTL);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	width = gdk_window_get_width(pevent->window);
 	height = gdk_window_get_height(pevent->window);
 #else
@@ -309,7 +309,7 @@ static gboolean SpinScaleExpose(GtkWidget *widget, cairo_t* cairo_p)
 		? TRUE : FALSE;
 #endif
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(pevent->window == gtk_entry_get_text_window(GTK_ENTRY(widget)))
 #else
 	//if(is_entry != FALSE)
@@ -361,7 +361,7 @@ static gboolean SpinScaleExpose(GtkWidget *widget, cairo_t* cairo_p)
 	}
 
 	if(data->label != NULL && gtk_widget_is_drawable(widget)
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		&& pevent->window == gtk_entry_get_text_window(GTK_ENTRY(widget)))
 #else
 		)//&& is_entry != FALSE)
@@ -372,7 +372,7 @@ static gboolean SpinScaleExpose(GtkWidget *widget, cairo_t* cairo_p)
 		PangoRectangle logical;
 		gint layout_offset_x, layout_offset_y;
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		GTK_WIDGET_CLASS(SpinScaleParentClass)->size_request(widget, &requisition);
 #else
 		gtk_widget_size_request(widget, &requisition);
@@ -408,7 +408,7 @@ static gboolean SpinScaleExpose(GtkWidget *widget, cairo_t* cairo_p)
 		pango_cairo_show_layout(cairo_p, data->layout);
 	}
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 #endif
 
@@ -471,7 +471,7 @@ static void SpinScaleChangeValue(GtkWidget *widget, gdouble x)
 	SPIN_SCALE_PRIVATE *data = GET_PRIVATE(widget);
 	GtkSpinButton *spin_button = GTK_SPIN_BUTTON(widget);
 	GtkAdjustment *adjustment = gtk_spin_button_get_adjustment(spin_button);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	GdkWindow *text_window = gtk_entry_get_text_window(GTK_ENTRY(widget));
 #else
 	GdkRectangle text_area;
@@ -482,7 +482,7 @@ static void SpinScaleChangeValue(GtkWidget *widget, gdouble x)
 
 	SpinScaleGetLimits(WIDGET_SPIN_SCALE(widget), &lower, &upper);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	width = gdk_window_get_width(text_window);
 #else
 	gtk_entry_get_text_area(GTK_ENTRY(widget), &text_area);
@@ -524,7 +524,7 @@ static void SpinScaleChangeValue(GtkWidget *widget, gdouble x)
 static gboolean SpinScaleButtonPress(GtkWidget* widget, GdkEventButton *pevent)
 {
 	SPIN_SCALE_PRIVATE *data = GET_PRIVATE(widget);
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 	GdkRectangle rect;
 	gint x, y;
 
@@ -535,7 +535,7 @@ static gboolean SpinScaleButtonPress(GtkWidget* widget, GdkEventButton *pevent)
 	data->changing_value = FALSE;
 	data->relative_change = FALSE;
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(pevent->window == gtk_entry_get_text_window(GTK_ENTRY(widget)))
 #else
 	if(x >= rect.x && y >= rect.y
@@ -598,7 +598,7 @@ static gboolean SpinScaleMotionNotify(GtkWidget *widget, GdkEventMotion *pevent)
 	GTK_WIDGET_CLASS(SpinScaleParentClass)->motion_notify_event(widget, pevent);
 
 	if((pevent->state & (GDK_BUTTON1_MASK | GDK_BUTTON2_MASK | GDK_BUTTON3_MASK)) == 0
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		&& pevent->window == gtk_entry_get_text_window(GTK_ENTRY(widget)))
 #else
 		)
@@ -658,14 +658,14 @@ static void SpinScaleClassInit(SPIN_SCALE_CLASS* data)
 	object_class->set_property = SpinScaleSetProperty;
 	object_class->get_property = SpinScaleGetProperty;
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	widget_class->size_request = SpinScaleSizeRequest;
 #else
 	widget_class->get_preferred_width = SpinScaleGetPreferredWidth;
 	widget_class->get_preferred_height = SpinScaleGetPreferredHeight;
 #endif
 	widget_class->style_set = SpinScaleStyleSet;
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	widget_class->expose_event = SpinScaleExpose;
 #else
 	widget_class->draw = SpinScaleExpose;
