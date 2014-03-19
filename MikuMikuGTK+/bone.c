@@ -427,7 +427,7 @@ static void PmxBoneSetLocalTranslation(PMX_BONE* bone, float* translation)
 	}
 }
 
-static void PmxBoneSetInverseKinematicsEnable(PMX_BONE* bone, int is_enable)
+void PmxBoneSetInverseKinematicsEnable(PMX_BONE* bone, int is_enable)
 {
 	if(!BOOL_COMPARE(bone->flags & PMX_BONE_FLAG_ENABLE_INVERSE_KINEMATICS, is_enable))
 	{

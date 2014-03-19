@@ -6,7 +6,7 @@
 
 typedef struct _CAMERA
 {
-	void *scene;
+	struct _SCENE *scene;
 	MOTION_INTERFACE *motion;
 	float look_at[3];
 	float position[3];

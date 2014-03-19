@@ -1,4 +1,5 @@
 #include "light.h"
+#include "application.h"
 
 void SetLightColor(LIGHT* light, const uint8* color)
 {
@@ -29,6 +30,6 @@ void ResetLightDefault(LIGHT* light)
 
 void InitializeLight(LIGHT* light, void* scene)
 {
-	light->scene = scene;
+	light->scene = (SCENE*)scene;
 	ResetLightDefault(light);
 }

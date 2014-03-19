@@ -16,14 +16,6 @@
 # pragma link "tlg.lib"
 #endif
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-typedef uint32 DWORD;
-typedef uint16 WORD;
-typedef uint8 BYTE;
-#endif /* _WIN32 */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,6 +51,22 @@ typedef __int64 tjs_int64;
 typedef unsigned __int64 tjs_uint64;
 typedef int tjs_int;    /* at least 32bits */
 typedef unsigned int tjs_uint;    /* at least 32bits */
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+typedef tjs_uint32 DWORD;
+typedef tjs_uint16 WORD;
+typedef tjs_uint8 BYTE;
+typedef int BOOL;
+# define BI_RGB (0)
+# ifndef FALSE
+#  define FALSE (0)
+# endif
+# ifndef TRUE
+#  define TRUE (!(FALSE))
+# endif
+#endif /* _WIN32 */
 
 #ifdef __cplusplus
 typedef wchar_t tjs_char;
@@ -238,14 +246,14 @@ typedef enum _tTVPLoadGraphicType
 #ifndef _WIN32
 typedef struct tagBITMAPINFOHEADER{
   DWORD  biSize;
-  int32   biWidth;
-  int32   biHeight;
+  tjs_int32   biWidth;
+  tjs_int32   biHeight;
   WORD   biPlanes;
   WORD   biBitCount;
   DWORD  biCompression;
   DWORD  biSizeImage;
-  int32   biXPelsPerMeter;
-  int32   biYPelsPerMeter;
+  tjs_int32   biXPelsPerMeter;
+  tjs_int32   biYPelsPerMeter;
   DWORD  biClrUsed;
   DWORD  biClrImportant;
 } BITMAPINFOHEADER, *PBITMAPINFOHEADER;
@@ -428,9 +436,13 @@ void tTVPBitmapAllocate(tTVPBitmap *bitmap, tjs_uint width, tjs_uint height, tjs
 
 	bitmap->BitmapInfoSize = sizeof(BITMAPINFOHEADER) +
 			((bpp==8)?sizeof(RGBQUAD)*256 : 0);
+#ifdef _WIN32
 	bitmap->BitmapInfo = (BITMAPINFO*)
 		GlobalAlloc(GPTR, bitmap->BitmapInfoSize);
-
+#else
+	bitmap->BitmapInfo = (BITMAPINFO*)
+		MEM_ALLOC_FUNC(bitmap->BitmapInfoSize);
+#endif
 	bitmap->width = width;
 	bitmap->height = height;
 
@@ -557,7 +569,9 @@ void (*TVPTLG6DecodeLine)(tjs_uint32 *prevline, tjs_uint32 *curline, tjs_int wid
 extern tjs_uint32 TVPCPUType;
 
 #ifdef _WIN32
-#define TVP_GL_IA32_FUNC_EXTERN_DECL(rettype, funcname, arg)  extern rettype __cdecl funcname arg
+# define TVP_GL_IA32_FUNC_EXTERN_DECL(rettype, funcname, arg)  extern rettype __cdecl funcname arg
+#else
+# define TVP_GL_IA32_FUNC_EXTERN_DECL(rettype, funcname, arg)  extern rettype funcname arg
 #endif
 
 TVP_GL_IA32_FUNC_EXTERN_DECL(tjs_int,  TVPTLG5DecompressSlide_a,  (tjs_uint8 *out, const tjs_uint8 *in, tjs_int insize, tjs_uint8 *text, tjs_int initialr));

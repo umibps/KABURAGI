@@ -4,6 +4,7 @@
 # define _CRT_SECURE_NO_WARNINGS
 #endif
 
+#include "annotation.h"
 #include "effect_engine.h"
 #include "application.h"
 #include "map_funcs.h"
@@ -104,38 +105,48 @@ int EffectEngineTestTechnique(
 		ANNOTATION *anno_mmd_pass;
 		ANNOTATION *anno_subset;
 		ANNOTATION *annotation_ref;
-		STR_PTR_MAPIterator iterator;
+		char *str;
 		int ok = 1;
 
-		iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, "MMDPass");
-		anno_mmd_pass = (ANNOTATION*)(*STR_PTR_MAP_value(iterator));
+		str = "MMDPass";
+		anno_mmd_pass = (ANNOTATION*)ght_get(tech->tech.cf.annotation_map, sizeof("MMDPass"), str);
+		//iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, "MMDPass");
+		//anno_mmd_pass = (ANNOTATION*)(*STR_PTR_MAP_value(iterator));
 		if(anno_mmd_pass != NULL)
 		{
 			ok &= (strcmp(anno_mmd_pass->anno.fx.value_str, pass) == 0) ? 1 : 0;
 		}
-		iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, "Subset");
-		anno_subset = (ANNOTATION*)(*STR_PTR_MAP_value(iterator));
+		str = "Subset";
+		anno_subset = (ANNOTATION*)ght_get(tech->tech.cf.annotation_map, sizeof("Subset"), str);
+		//iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, "Subset");
+		//anno_subset = (ANNOTATION*)(*STR_PTR_MAP_value(iterator));
 		if(anno_subset != NULL)
 		{
 			ok &=
 				(EffectEngineContainsSubset(engine, anno_subset, offset, num_materials) != 0) ? 1 : 0;
 		}
-		iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, "UseTexture");
-		annotation_ref = (ANNOTATION*)(*STR_PTR_MAP_value(iterator));
+		str = "UseTexture";
+		annotation_ref = (ANNOTATION*)ght_get(tech->tech.cf.annotation_map, sizeof("UseTexture"), str);
+		//iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, "UseTexture");
+		//annotation_ref = (ANNOTATION*)(*STR_PTR_MAP_value(iterator));
 		if(annotation_ref != NULL)
 		{
 			ok &= (annotation_ref->anno.fx.values->ivalue != FALSE
 				&& has_texture != FALSE) ? 1: 0;
 		}
-		iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, "UseSphereMap");
-		annotation_ref = (ANNOTATION*)(*STR_PTR_MAP_value(iterator));
+		str = "UseSphereMap";
+		annotation_ref = (ANNOTATION*)ght_get(tech->tech.cf.annotation_map, sizeof("UseSphereMap"), str);
+		//iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, "UseSphereMap");
+		//annotation_ref = (ANNOTATION*)(*STR_PTR_MAP_value(iterator));
 		if(annotation_ref != NULL)
 		{
 			ok &= (annotation_ref->anno.fx.values->ivalue != FALSE
 				&& has_sphere_map != FALSE) ? 1: 0;
 		}
-		iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, "UseToon");
-		annotation_ref = (ANNOTATION*)(*STR_PTR_MAP_value(iterator));
+		str = "UseToon";
+		annotation_ref = (ANNOTATION*)ght_get(tech->tech.cf.annotation_map, sizeof("UseToon"), str);
+		//iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, "UseToon");
+		//annotation_ref = (ANNOTATION*)(*STR_PTR_MAP_value(iterator));
 		if(annotation_ref != NULL)
 		{
 			ok &= (annotation_ref->anno.fx.values->ivalue != FALSE
