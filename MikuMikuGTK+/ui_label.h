@@ -19,6 +19,7 @@ typedef struct _UI_LABEL
 		char *light;
 		char *position;
 		char *rotation;
+		char *direction;
 		char *model;
 		char *bone;
 		char *load_model;
@@ -28,10 +29,14 @@ typedef struct _UI_LABEL
 		char *reset;
 		char *apply_center_position;
 		char *scale;
+		char *color;
 		char *opacity;
+		char *distance;
+		char *field_of_view;
 		char *model_connect_to;
 		char *enable_physics;
 		char *display_grid;
+		char *render_edge_only;
 		struct
 		{
 			char *select;

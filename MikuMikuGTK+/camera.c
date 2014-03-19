@@ -6,7 +6,7 @@ void InitializeCamera(CAMERA* camera, void* scene)
 {
 	const float identity[9] = IDENTITY_MATRIX3x3;
 
-	camera->scene = scene;
+	camera->scene = (SCENE*)scene;
 	camera->znear = 0.5f;
 	camera->zfar = 1000000;
 	camera->transform = BtTransformNew(identity);

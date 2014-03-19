@@ -27,6 +27,8 @@ static void ExecuteLoadModel(APPLICATION* application);
 static void ExecuteLoadPose(APPLICATION* application);
 static void FillParentModelComboBox(GtkWidget* combo, SCENE* scene, APPLICATION* application);
 static void FillParentBoneComboBox(GtkWidget* combo, SCENE* scene, APPLICATION* application);
+static void SetCameraPositionWidget(APPLICATION* application);
+static void SetLightColorDirectionWidget(APPLICATION* application);
 
 static void ToggleButtonSetValueCallback(GtkWidget* button, int* set_target)
 {
@@ -263,6 +265,9 @@ gboolean ConfigureEvent(
 
 		MakeContextShadowMap(project, 2048, 2048);
 		project->flags |= PROJECT_FLAG_GL_INTIALIZED;
+
+		SetCameraPositionWidget(project->application_context);
+		SetLightColorDirectionWidget(project->application_context);
 	}
 
 	project->scene->width = allocation.width;
@@ -334,6 +339,11 @@ gboolean MouseMotionEvent(GtkWidget* widget, GdkEventMotion* event_info, void* p
 
 	MouseMotionCallback(project_context, event_info->x, event_info->y, (int)state);
 
+	if((event_info->state & GDK_BUTTON2_MASK) || (event_info->state & GDK_BUTTON3_MASK) != 0)
+	{
+		SetCameraPositionWidget(((PROJECT*)project_context)->application_context);
+	}
+
 	return TRUE;
 }
 
@@ -348,6 +358,7 @@ gboolean MouseButtonReleaseEvent(GtkWidget* widget, GdkEventButton* event_info, 
 gboolean MouseWheelScrollEvent(GtkWidget* widget, GdkEventScroll* event_info, void* project_context)
 {
 	MouseScrollCallback(project_context, event_info->direction, event_info->state);
+	SetCameraPositionWidget(((PROJECT*)project_context)->application_context);
 
 	return TRUE;
 }
@@ -1068,7 +1079,7 @@ void* ModelControlWidgetNew(void* application_context)
 {
 	APPLICATION *application = (APPLICATION*)application_context;
 	PROJECT *project = application->projects[application->active_project];
-	SCENE *scene = project->scene;
+	SCENE *scene = NULL;
 	GtkAdjustment *adjustment;
 	GtkWidget *vbox;
 	GtkWidget *note_book_box;
@@ -1086,6 +1097,11 @@ void* ModelControlWidgetNew(void* application_context)
 	gchar *path;
 	char str[4096];
 	int i;
+
+	if(project != NULL)
+	{
+		scene = project->scene;
+	}
 
 	vbox = gtk_vbox_new(FALSE, 0);
 
@@ -1362,10 +1378,87 @@ void* ModelControlWidgetNew(void* application_context)
 		NULL, NULL, &application->widgets.ui_disabled);
 	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
 
+	control[0] = gtk_check_button_new_with_label(application->label.control.render_edge_only);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control[0]),
+		project->flags & PROJECT_FLAG_RENDER_EDGE_ONLY);
+	ToggleButtonSetFlag(control[0], PROJECT_FLAG_RENDER_EDGE_ONLY, &project->flags,
+		NULL, NULL, &application->widgets.ui_disabled);
+	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
+
 	return (void*)vbox;
 }
 
-void ResetCameraPositionButtonClicked(GtkWidget* button, APPLICATION* application)
+static void OnChangeCameraPosition(GtkAdjustment* adjustment, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+	eSET_VALUE_TYPE type = (eSET_VALUE_TYPE)g_object_get_data(G_OBJECT(adjustment), "set_type");
+	float value;
+
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	scene = project->scene;
+	value = (float)gtk_adjustment_get_value(adjustment);
+	scene->camera.look_at[type] = value;
+
+	CameraUpdateTransform(&scene->camera);
+}
+
+static void OnChangeCameraAngle(GtkAdjustment* adjustment, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+	eSET_VALUE_TYPE type = (eSET_VALUE_TYPE)g_object_get_data(G_OBJECT(adjustment), "set_type");
+	float value;
+
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	scene = project->scene;
+	value = (float)gtk_adjustment_get_value(adjustment);
+	scene->camera.angle[type] = (float)(value * M_PI / 180.0);
+
+	CameraUpdateTransform(&scene->camera);
+}
+
+static void OnChangeCameraDistance(GtkAdjustment* adjustment, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+	float value;
+
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	scene = project->scene;
+	value = (float)gtk_adjustment_get_value(adjustment);
+	scene->camera.distance[2] = - value;
+
+	CameraUpdateTransform(&scene->camera);
+}
+
+static void OnChangeCameraFieldOfView(GtkAdjustment* adjustment, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+	float value;
+
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	scene = project->scene;
+	value = (float)gtk_adjustment_get_value(adjustment);
+	scene->camera.fov = value;
+
+	CameraUpdateTransform(&scene->camera);
+}
+
+static void ResetCameraPositionButtonClicked(GtkWidget* button, APPLICATION* application)
 {
 	PROJECT *project = application->projects[application->active_project];
 	if(application->num_projects <= 0)
@@ -1374,17 +1467,123 @@ void ResetCameraPositionButtonClicked(GtkWidget* button, APPLICATION* applicatio
 	}
 
 	ResetCameraDefault(&project->scene->camera);
+	SetCameraPositionWidget(application);
+}
+
+static void OnChangeLightColor(GtkWidget* button, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	GdkColor color;
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+
+	gtk_color_button_get_color(GTK_COLOR_BUTTON(button), &color);
+	project->scene->light.vertex.color[0] = color.red / 256;
+	project->scene->light.vertex.color[1] = color.green / 256;
+	project->scene->light.vertex.color[2] = color.blue / 256;
+}
+
+static void OnChangeLightDirection(GtkAdjustment* adjustment, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+	eSET_VALUE_TYPE type = (eSET_VALUE_TYPE)g_object_get_data(G_OBJECT(adjustment), "set_type");
+	float value;
+
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	scene = project->scene;
+	value = (float)gtk_adjustment_get_value(adjustment);
+	scene->light.vertex.position[type] = value;
+
+	CameraUpdateTransform(&scene->camera);
+}
+
+static void ResetLightButtonClicked(GtkWidget* button, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+
+	ResetLightDefault(&project->scene->light);
+	SetLightColorDirectionWidget(application);
+}
+
+static void SetCameraPositionWidget(APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+
+	application->widgets.ui_disabled = TRUE;
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_look_at[0]),
+		project->scene->camera.look_at[0]);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_look_at[2]),
+		project->scene->camera.look_at[1]);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_look_at[1]),
+		project->scene->camera.look_at[2]);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_angle[0]),
+		project->scene->camera.angle[0]);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_angle[1]),
+		project->scene->camera.angle[1]);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_angle[2]),
+		project->scene->camera.angle[2]);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_distance),
+		- project->scene->camera.distance[2]);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_fov),
+		project->scene->camera.fov);
+	application->widgets.ui_disabled = FALSE;
+}
+
+static void SetLightColorDirectionWidget(APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	GdkColor color;
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+
+	application->widgets.ui_disabled = TRUE;
+	color.red = project->scene->light.vertex.color[0] | (project->scene->light.vertex.color[0] << 8);
+	color.green = project->scene->light.vertex.color[1] | (project->scene->light.vertex.color[1] << 8);
+	color.blue = project->scene->light.vertex.color[2] | (project->scene->light.vertex.color[2] << 8);
+	gtk_color_button_set_color(GTK_COLOR_BUTTON(application->widgets.light_color), &color);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.light_direction[0]), project->scene->light.vertex.position[0]);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.light_direction[1]), project->scene->light.vertex.position[1]);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.light_direction[2]), project->scene->light.vertex.position[2]);
+	application->widgets.ui_disabled = FALSE;
 }
 
 void* CameraLightControlWidgetNew(void* application_context)
 {
 	APPLICATION *application = (APPLICATION*)application_context;
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene = NULL;
 	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
 	GtkWidget *note_book;
 	GtkWidget *note_book_box;
+	GtkWidget *layout_box;
+	GtkWidget *frame_box;
 	GtkWidget *label;
 	GtkWidget *control[4];
+	GtkWidget *table;
+	GtkAdjustment *adjustment;
 	char str[4096];
+	float scalar_value[4];
+
+	if(project != NULL)
+	{
+		scene = project->scene;
+	}
 
 	note_book = gtk_notebook_new();
 	gtk_box_pack_start(GTK_BOX(vbox), note_book, TRUE, TRUE, 0);
@@ -1393,11 +1592,182 @@ void* CameraLightControlWidgetNew(void* application_context)
 	label = gtk_label_new(application->label.control.camera);
 	note_book_box = gtk_vbox_new(FALSE, 0);
 	gtk_notebook_append_page(GTK_NOTEBOOK(note_book), note_book_box, label);
+	// 位置と回転
+	table = gtk_table_new(1, 2, TRUE);
+	gtk_box_pack_start(GTK_BOX(note_book_box), table, FALSE, FALSE, 0);
+	// 位置
+	scalar_value[0] = scalar_value[1] = scalar_value[2] = scalar_value[3] = 0;
+	if(scene != NULL)
+	{
+		COPY_VECTOR3(scalar_value, scene->camera.position);
+	}
+	layout_box = gtk_frame_new(application->label.control.position);
+	gtk_table_attach_defaults(GTK_TABLE(table), layout_box, 0, 1, 0, 1);
+	frame_box = gtk_vbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(layout_box), frame_box);
+	// X
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("X:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[0], -10000, 10000, 1, 5, 0));
+	application->widgets.camera_look_at[0] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_X));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeCameraPosition), application);
+	// Y
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Y:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[1], -10000, 10000, 1, 5, 0));
+	application->widgets.camera_look_at[1] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Y));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeCameraPosition), application);
+	// Z
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Z:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[2], -10000, 10000, 1, 5, 0));
+	application->widgets.camera_look_at[2] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Z));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeCameraPosition), application);
+	// 回転
+	scalar_value[0] = scalar_value[1] = scalar_value[2] = scalar_value[3] = 0;
+	if(scene != NULL)
+	{
+		COPY_VECTOR4(scalar_value, scene->camera.angle);
+	}
+	layout_box = gtk_frame_new(application->label.control.rotation);
+	gtk_table_attach_defaults(GTK_TABLE(table), layout_box, 1, 2, 0, 1);
+	frame_box = gtk_vbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(layout_box), frame_box);
+	// X
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("X:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[0], -180, 180, 1, 5, 0));
+	application->widgets.camera_angle[0] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_X));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeCameraAngle), application);
+	// Y
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Y:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[1], -180, 180, 1, 5, 0));
+	application->widgets.camera_angle[1] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Y));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeCameraAngle), application);
+	// Z
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Z:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[2], -180, 180, 1, 5, 0));
+	application->widgets.camera_angle[2] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Z));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeCameraAngle), application);
+	// 距離
+	scalar_value[0] = scalar_value[1] = scalar_value[2] = scalar_value[3] = 0;
+	if(scene != NULL)
+	{
+		COPY_VECTOR3(scalar_value, scene->camera.distance);
+		SET_POSITION(scalar_value, scalar_value);
+	}
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(note_book_box), layout_box, FALSE, FALSE, 0);
+	(void)sprintf(str, "%s : ", application->label.control.distance);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new(str), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[2], -10000, 10000, 1, 5, 0));
+	application->widgets.camera_distance = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeCameraDistance), application);
+	// 視野角
+	scalar_value[0] = 0;
+	if(scene != NULL)
+	{
+		scalar_value[0] = scene->camera.fov;
+	}
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(note_book_box), layout_box, FALSE, FALSE, 0);
+	(void)sprintf(str, "%s : ", application->label.control.field_of_view);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new(str), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[0], -10000, 10000, 1, 5, 0));
+	application->widgets.camera_fov = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeCameraFieldOfView), application);
 	// カメラの位置を初期化
 	control[0] = gtk_button_new_with_label(application->label.control.reset);
 	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
 	(void)g_signal_connect(G_OBJECT(control[0]), "clicked",
 		G_CALLBACK(ResetCameraPositionButtonClicked), application);
+
+	// 照明タブ
+	label = gtk_label_new(application->label.control.light);
+	note_book_box = gtk_vbox_new(FALSE, 0);
+	gtk_notebook_append_page(GTK_NOTEBOOK(note_book), note_book_box, label);
+	// 色と向き
+	table = gtk_table_new(1, 2, TRUE);
+	gtk_box_pack_start(GTK_BOX(note_book_box), table, FALSE, FALSE, 0);
+	// 色
+	layout_box = gtk_frame_new(application->label.control.color);
+	gtk_table_attach_defaults(GTK_TABLE(table), layout_box, 0, 1, 0, 1);
+	frame_box = gtk_vbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(layout_box), frame_box);
+	application->widgets.light_color = control[0] = gtk_color_button_new();
+	gtk_box_pack_start(GTK_BOX(frame_box), control[0], TRUE, TRUE, 2);
+	(void)g_signal_connect(G_OBJECT(control[0]), "color-set",
+		G_CALLBACK(OnChangeLightColor), application);
+	// 向き
+	scalar_value[0] = scalar_value[1] = scalar_value[2] = scalar_value[3] = 0;
+	if(scene != NULL)
+	{
+		COPY_VECTOR3(scalar_value, scene->light.vertex.position);
+	}
+	layout_box = gtk_frame_new(application->label.control.position);
+	gtk_table_attach_defaults(GTK_TABLE(table), layout_box, 1, 2, 0, 1);
+	frame_box = gtk_vbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(layout_box), frame_box);
+	// X
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("X:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[0], -1, 1, 0.01, 0.05, 0));
+	application->widgets.light_direction[0] = control[0] = gtk_spin_button_new(adjustment, 0.01, 4);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_X));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeLightDirection), application);
+	// Y
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Y:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[1], -1, 1, 0.01, 0.05, 0));
+	application->widgets.light_direction[1] = control[0] = gtk_spin_button_new(adjustment, 0.01, 4);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Y));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeLightDirection), application);
+	// Z
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Z:"), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[2], -1, 1, 0.01, 0.05, 0));
+	application->widgets.light_direction[2] = control[0] = gtk_spin_button_new(adjustment, 0.01, 4);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Z));
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeLightDirection), application);
 
 	return (void*)vbox;
 }
@@ -1433,12 +1803,12 @@ gboolean RenderForPixelDataDrawing(
 	allocation = widget->allocation;
 #endif
 
-	if(allocation.width < data->width || allocation.height < data->height)
+	if(allocation.width != data->width || allocation.height != data->height)
 	{
 		return TRUE;
 	}
 
-	RenderEngines(data->project, data->width, data->height);
+	RenderEngines(data->project, allocation.width, allocation.height);
 
 	if(gdk_gl_drawable_is_double_buffered(drawable) != FALSE)
 	{

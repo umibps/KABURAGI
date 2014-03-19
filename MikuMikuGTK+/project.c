@@ -303,20 +303,35 @@ void RenderEngines(PROJECT* project, int width, int height)
 	}
 
 	loop = scene->render_engines.num_standard;
-	for(i=0; i<loop; i++)
+	if((project->flags & PROJECT_FLAG_RENDER_EDGE_ONLY) == 0)
 	{
-		/*
-		if(シャドウマップ)
+		for(i=0; i<loop; i++)
 		{
-			project->scene->render_engines.standard[i]->render_shadow(project->scene->render_engines.standard[i]);
-		}
-		*/
-		scene->render_engines.standard[i]->render_model(scene->render_engines.standard[i]);
-		scene->render_engines.standard[i]->render_edge(scene->render_engines.standard[i]);
+			/*
+			if(シャドウマップ)
+			{
+				project->scene->render_engines.standard[i]->render_shadow(project->scene->render_engines.standard[i]);
+			}
+			*/
+			scene->render_engines.standard[i]->render_model(scene->render_engines.standard[i]);
+			scene->render_engines.standard[i]->render_edge(scene->render_engines.standard[i]);
 
-		if((project->flags & PROJECT_FLAG_UPDATE_ALWAYS) != 0)
+			if((project->flags & PROJECT_FLAG_UPDATE_ALWAYS) != 0)
+			{
+				scene->render_engines.standard[i]->update(scene->render_engines.standard[i]);
+			}
+		}
+	}
+	else
+	{
+		for(i=0; i<loop; i++)
 		{
-			scene->render_engines.standard[i]->update(scene->render_engines.standard[i]);
+			scene->render_engines.standard[i]->render_edge(scene->render_engines.standard[i]);
+
+			if((project->flags & PROJECT_FLAG_UPDATE_ALWAYS) != 0)
+			{
+				scene->render_engines.standard[i]->update(scene->render_engines.standard[i]);
+			}
 		}
 	}
 }

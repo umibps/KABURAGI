@@ -22,8 +22,8 @@ typedef struct _NV_PASS
 
 typedef struct _CF_PASS
 {
-	STR_STR_MAP *sources;
-	STR_PTR_MAP *annotations;
+	ght_hash_table_t *sources;
+	ght_hash_table_t *annotations;
 	struct _CF_PARAMETER *parameters;
 	int num_parameters;
 	int size_parameters_buffer;
