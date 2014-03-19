@@ -7659,13 +7659,13 @@ static void WaterColorBrushMotionCallBack(
 										blend_alpha /*= dst_value*/ = (mask_value - *comp_pix);
 										*comp_pix = mask_value;
 										ref_pix[3] = ((blend_alpha+1)*color[3]+(0xff-blend_alpha+1)*ref_pix[3])>>8;
-											blend_alpha = min(ref_pix[3]*2, 0xff);
+											blend_alpha = MINIMUM(ref_pix[3]*2, 0xff);
 
-										ref_pix[0] = (uint8)min(
+										ref_pix[0] = (uint8)MINIMUM(
 											(((mask_value+1)*color[0]+(0xff-mask_value+1)*ref_pix[0])>>8), blend_alpha);
-										ref_pix[1] = (uint8)min(
+										ref_pix[1] = (uint8)MINIMUM(
 											(((mask_value+1)*color[1]+(0xff-mask_value+1)*ref_pix[1])>>8), blend_alpha);
-										ref_pix[2] = (uint8)min(
+										ref_pix[2] = (uint8)MINIMUM(
 											(((mask_value+1)*color[2]+(0xff-mask_value+1)*ref_pix[2])>>8), blend_alpha);
 									}
 								}
@@ -8569,13 +8569,13 @@ static void WaterColorBrushReleaseCallBack(
 							blend_alpha /*= dst_value*/ = (mask_value - *comp_pix);
 							*comp_pix = mask_value;
 							ref_pix[3] = ((blend_alpha+1)*color[3]+(0xff-blend_alpha+1)*ref_pix[3])>>8;
-								blend_alpha = min(ref_pix[3]*2, 0xff);
+								blend_alpha = MINIMUM(ref_pix[3]*2, 0xff);
 
-							ref_pix[0] = (uint8)min(
+							ref_pix[0] = (uint8)MINIMUM(
 								(((mask_value+1)*color[0]+(0xff-mask_value+1)*ref_pix[0])>>8), blend_alpha);
-							ref_pix[1] = (uint8)min(
+							ref_pix[1] = (uint8)MINIMUM(
 								(((mask_value+1)*color[1]+(0xff-mask_value+1)*ref_pix[1])>>8), blend_alpha);
-							ref_pix[2] = (uint8)min(
+							ref_pix[2] = (uint8)MINIMUM(
 								(((mask_value+1)*color[2]+(0xff-mask_value+1)*ref_pix[2])>>8), blend_alpha);
 						}
 					}
