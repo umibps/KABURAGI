@@ -354,9 +354,10 @@ void SetBtWorldDebugDrawer(void* world, void* draw)
 void BtDebugDrawSphere(void* draw, float* position, float radius, const float* color)
 {
 	BT_DEBUG_DRAW *d = static_cast<BT_DEBUG_DRAW*>(draw);
+	btVector3 p = btVector3(position[0], position[1], position[2]);
+	btVector3 c = btVector3(color[0], color[1], color[2]);
 
-	d->drawSphere(btVector3(position[0], position[1], position[2]), radius,
-		btVector3(color[0], color[1], color[2]));
+	d->drawSphere(p, radius, c);
 }
 
 void BtDebugDrawWorld(void* world)

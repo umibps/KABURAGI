@@ -35,6 +35,9 @@ typedef unsigned long long int uint64;
 
 typedef double FLOAT_T;
 
+#define MAXIMUM(A, B) (((A) > (B)) ? (A) : (B))
+#define MINIMUM(A, B) (((A) < (B)) ? (A) : (B))
+
 #define DIV_PIXEL ((FLOAT_T)0.00392157)
 
 #define ROOT2 1.4142135623730950488016887242097

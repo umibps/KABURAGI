@@ -40,6 +40,8 @@
 
 /* VC++/BCC */
 
+#include <windows.h>
+
 /*[*/
 typedef __int8 tjs_int8;
 typedef unsigned __int8 tjs_uint8;

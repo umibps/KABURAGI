@@ -1219,16 +1219,16 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 						if(window->mask->pixels[x*4+3] > window->temp_layer->pixels[x*4+3])
 						{
 							window->temp_layer->pixels[x*4+0] = (uint8)(
-								(uint32)((max((int)window->mask->pixels[x*4+0] - window->temp_layer->pixels[x+4+0], 0))
+								(uint32)((MAXIMUM((int)window->mask->pixels[x*4+0] - window->temp_layer->pixels[x+4+0], 0))
 									* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+0]);
 							window->temp_layer->pixels[x*4+1] = (uint8)(
-								(uint32)((max((int)window->mask->pixels[x*4+1] - window->temp_layer->pixels[x+4+1], 0))
+								(uint32)((MAXIMUM((int)window->mask->pixels[x*4+1] - window->temp_layer->pixels[x+4+1], 0))
 									* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+1]);
 							window->temp_layer->pixels[x*4+2] = (uint8)(
-								(uint32)((max((int)window->mask->pixels[x*4+2] - window->temp_layer->pixels[x+4+2], 0))
+								(uint32)((MAXIMUM((int)window->mask->pixels[x*4+2] - window->temp_layer->pixels[x+4+2], 0))
 									* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+2]);
 							window->temp_layer->pixels[x*4+3] = (uint8)(
-								(uint32)((max((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
+								(uint32)((MAXIMUM((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
 									* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+3]);
 						}
 					}
@@ -1258,16 +1258,16 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 							if(window->mask->pixels[x*4+3] > window->temp_layer->pixels[x*4+3])
 							{
 								window->temp_layer->pixels[x*4+0] = (uint8)(
-									(uint32)((max((int)window->mask->pixels[x*4+0] - window->temp_layer->pixels[x+4+0], 0))
+									(uint32)((MAXIMUM((int)window->mask->pixels[x*4+0] - window->temp_layer->pixels[x+4+0], 0))
 										* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+0]);
 								window->temp_layer->pixels[x*4+1] = (uint8)(
-									(uint32)((max((int)window->mask->pixels[x*4+1] - window->temp_layer->pixels[x+4+1], 0))
+									(uint32)((MAXIMUM((int)window->mask->pixels[x*4+1] - window->temp_layer->pixels[x+4+1], 0))
 										* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+1]);
 								window->temp_layer->pixels[x*4+2] = (uint8)(
-									(uint32)((max((int)window->mask->pixels[x*4+2] - window->temp_layer->pixels[x+4+2], 0))
+									(uint32)((MAXIMUM((int)window->mask->pixels[x*4+2] - window->temp_layer->pixels[x+4+2], 0))
 										* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+2]);
 								window->temp_layer->pixels[x*4+3] = (uint8)(
-									(uint32)((max((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
+									(uint32)((MAXIMUM((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
 										* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+3]);
 							}
 						}
@@ -1322,7 +1322,7 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 				pattern_surface = cairo_image_surface_create_for_data(window->mask_temp->pixels,
 					CAIRO_FORMAT_ARGB32, pattern_width, pattern_height, pattern_stride);
 				pattern = cairo_pattern_create_for_surface(pattern_surface);
-				pattern_size = max(pattern_width, pattern_height);
+				pattern_size = MAXIMUM(pattern_width, pattern_height);
 				(void)memcpy(window->temp_layer->pixels, layers[i]->pixels, window->pixel_buf_size);
 
 				alpha_minus = 1.0 / (filter_data->size * 2 + 1);
@@ -1347,16 +1347,16 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 						if(window->mask->pixels[x*4+3] > window->temp_layer->pixels[x*4+3])
 						{
 							window->temp_layer->pixels[x*4+0] = (uint8)(
-								(uint32)((max((int)window->mask->pixels[x*4+0] - window->temp_layer->pixels[x+4+0], 0))
+								(uint32)((MAXIMUM((int)window->mask->pixels[x*4+0] - window->temp_layer->pixels[x+4+0], 0))
 									* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+0]);
 							window->temp_layer->pixels[x*4+1] = (uint8)(
-								(uint32)((max((int)window->mask->pixels[x*4+1] - window->temp_layer->pixels[x+4+1], 0))
+								(uint32)((MAXIMUM((int)window->mask->pixels[x*4+1] - window->temp_layer->pixels[x+4+1], 0))
 									* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+1]);
 							window->temp_layer->pixels[x*4+2] = (uint8)(
-								(uint32)((max((int)window->mask->pixels[x*4+2] - window->temp_layer->pixels[x+4+2], 0))
+								(uint32)((MAXIMUM((int)window->mask->pixels[x*4+2] - window->temp_layer->pixels[x+4+2], 0))
 									* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+2]);
 							window->temp_layer->pixels[x*4+3] = (uint8)(
-								(uint32)((max((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
+								(uint32)((MAXIMUM((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
 									* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+3]);
 						}
 					}
@@ -1798,7 +1798,7 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 					if(window->mask->pixels[x*4+3] > window->temp_layer->pixels[x*4+3])
 					{
 						window->temp_layer->pixels[x*4+3] = (uint8)(
-							(uint32)((max((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
+							(uint32)((MAXIMUM((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
 								* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+3]);
 					}
 				}
@@ -1828,7 +1828,7 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 						if(window->mask->pixels[x*4+3] > window->temp_layer->pixels[x*4+3])
 						{
 							window->temp_layer->pixels[x*4+3] = (uint8)(
-								(uint32)((max((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
+								(uint32)((MAXIMUM((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
 									* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+3]);
 						}
 					}
@@ -1864,7 +1864,7 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 			pattern_surface = cairo_image_surface_create_for_data(window->mask_temp->pixels,
 				CAIRO_FORMAT_ARGB32, pattern_width, pattern_height, pattern_stride);
 			pattern = cairo_pattern_create_for_surface(pattern_surface);
-			pattern_size = max(pattern_width, pattern_height);
+			pattern_size = MAXIMUM(pattern_width, pattern_height);
 			(void)memset(window->temp_layer->pixels, 0, window->pixel_buf_size);
 			for(i=0; i<window->width * window->height; i++)
 			{
@@ -1893,7 +1893,7 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 					if(window->mask->pixels[x*4+3] > window->temp_layer->pixels[x*4+3])
 					{
 						window->temp_layer->pixels[x*4+3] = (uint8)(
-							(uint32)((max((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
+							(uint32)((MAXIMUM((int)window->mask->pixels[x*4+3] - window->temp_layer->pixels[x+4+3], 0))
 								* window->mask->pixels[x*4+3] >> 8) + window->temp_layer->pixels[x*4+3]);
 					}
 				}
@@ -2951,9 +2951,9 @@ void ChangeHueSaturationFilter(
 
 			for(j=0; j<(unsigned int)(layers[i]->width*layers[i]->height); j++)
 			{
-				layers[i]->pixels[j*4] = min(window->temp_layer->pixels[j*4], layers[i]->pixels[j*4+3]);
-				layers[i]->pixels[j*4+1] = min(window->temp_layer->pixels[j*4+1], layers[i]->pixels[j*4+3]);
-				layers[i]->pixels[j*4+2] = min(window->temp_layer->pixels[j*4+2], layers[i]->pixels[j*4+3]);
+				layers[i]->pixels[j*4] = MINIMUM(window->temp_layer->pixels[j*4], layers[i]->pixels[j*4+3]);
+				layers[i]->pixels[j*4+1] = MINIMUM(window->temp_layer->pixels[j*4+1], layers[i]->pixels[j*4+3]);
+				layers[i]->pixels[j*4+2] = MINIMUM(window->temp_layer->pixels[j*4+2], layers[i]->pixels[j*4+3]);
 			}
 		}	// ’ÊíƒŒƒCƒ„[‚È‚ç
 			// if(layers[i]->layer_type == TYPE_NORMAL_LAYER)

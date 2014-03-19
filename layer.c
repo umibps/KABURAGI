@@ -1721,13 +1721,13 @@ void LayerMergeDown(LAYER* target)
 						sa = alpha * DIV_PIXEL;
 						dc = new_prev->pixels[i*4] * DIV_PIXEL;
 						rc = temp_layer->pixels[i*4] * DIV_PIXEL;
-						target->prev->pixels[i*4] = (uint8)min(alpha, ((ra*rc - da*dc*(1-sa)) / sa) * alpha);
+						target->prev->pixels[i*4] = (uint8)MINIMUM(alpha, ((ra*rc - da*dc*(1-sa)) / sa) * alpha);
 						dc = new_prev->pixels[i*4+1] * DIV_PIXEL;
 						rc = temp_layer->pixels[i*4+1] * DIV_PIXEL;
-						target->prev->pixels[i*4+1] = (uint8)min(alpha, ((ra*rc - da*dc*(1-sa)) / sa) * alpha);
+						target->prev->pixels[i*4+1] = (uint8)MINIMUM(alpha, ((ra*rc - da*dc*(1-sa)) / sa) * alpha);
 						dc = new_prev->pixels[i*4+2] * DIV_PIXEL;
 						rc = temp_layer->pixels[i*4+2] * DIV_PIXEL;
-						target->prev->pixels[i*4+2] = (uint8)min(alpha, ((ra*rc - da*dc*(1-sa)) / sa) * alpha);
+						target->prev->pixels[i*4+2] = (uint8)MINIMUM(alpha, ((ra*rc - da*dc*(1-sa)) / sa) * alpha);
 						target->prev->pixels[i*4+3] = window->temp_layer->pixels[i*4+3];
 					}
 				}
