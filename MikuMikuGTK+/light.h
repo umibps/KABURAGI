@@ -16,7 +16,7 @@ typedef struct _LIGHT
 {
 	MOTION_INTERFACE *motion;
 	VERTEX_C4UB_V3F vertex;
-	void *scene;
+	struct _SCENE *scene;
 	unsigned int flags;
 } LIGHT;
 

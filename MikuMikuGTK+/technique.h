@@ -14,9 +14,9 @@ typedef enum _eTECHNIQUE_TYPE
 typedef struct _CF_TECHNIQUE
 {
 	struct _EFFECT *parent_effect;
-	STR_PTR_MAP *parameter_map;
-	STR_PTR_MAP *pass_map;
-	STR_PTR_MAP *annotation_map;
+	ght_hash_table_t *parameter_map;
+	ght_hash_table_t *pass_map;
+	ght_hash_table_t *annotation_map;
 	char *name;
 } CF_TECHNIQUE;
 

@@ -365,7 +365,7 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 	}
 
 	// 入力デバイスの設定
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(event->device->source == GDK_SOURCE_ERASER)
 #else
 	device = gdk_event_get_device((GdkEvent*)event);

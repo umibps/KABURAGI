@@ -1338,7 +1338,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 	}
 
 	// 拡張デバイスを有効に
-#if MAJOR_VERION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gtk_widget_set_extension_events(app->window, GDK_EXTENSION_EVENTS_CURSOR);
 #endif
 	// ウィンドウタイトルを設定

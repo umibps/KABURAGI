@@ -367,6 +367,7 @@ void DebugDrawerDrawBone(
 	void *transform = ((PROJECT*)drawer->project_context)->application_context->transform;
 	float dest[3];
 	float origin[3];
+	float position[3];
 	float color[3] = {0, 0, 0};
 
 	if(bone == NULL || bone->is_visible(bone) == 0)
@@ -375,30 +376,33 @@ void DebugDrawerDrawBone(
 	}
 
 	bone->get_destination_origin(bone, dest);
+	BtTransformMultiVector3(bone->local_transform, dest, dest);
 	bone->get_world_transform(bone, transform);
 	BtTransformGetOrigin(transform, origin);
+	BtTransformMulti(bone->local_transform, transform, transform);
+	BtTransformGetOrigin(transform, position);
 
 	if(PointerArrayDoesCointainData(selected, bone) != FALSE)
 	{
-		BtDebugDrawSphere(drawer->drawer, origin, SPHERE_RADIUS, color);
+		BtDebugDrawSphere(drawer->drawer, position, SPHERE_RADIUS, color);
 		// To red
 		color[0] = 1;
 	}
 	else if(bone->has_fixed_axis(bone) != FALSE)
 	{
 		color[0] = 1,	color[2] = 1;
-		BtDebugDrawSphere(drawer->drawer, origin, SPHERE_RADIUS, color);
+		BtDebugDrawSphere(drawer->drawer, position, SPHERE_RADIUS, color);
 		color[0] = 0;
 	}
 	else if(PointerArrayDoesCointainData(ik, bone) != FALSE)
 	{
 		color[0] = 1,	color[1] = 0.75f;
-		BtDebugDrawSphere(drawer->drawer, origin, SPHERE_RADIUS,color);
+		BtDebugDrawSphere(drawer->drawer, position, SPHERE_RADIUS,color);
 	}
 	else
 	{
 		color[2] = 1;
-		BtDebugDrawSphere(drawer->drawer, origin, SPHERE_RADIUS, color);
+		BtDebugDrawSphere(drawer->drawer, position, SPHERE_RADIUS, color);
 	}
 
 	if(skip_draw_line == FALSE)
@@ -409,11 +413,11 @@ void DebugDrawerDrawBone(
 		float draw_origin[3] = {CONE_RADIUS, 0, 0};
 		float from[3];
 		BtTransformSetOrigin(trans, draw_origin);
-		BtTransformMultiVector3(trans, origin, from);
+		BtTransformMultiVector3(trans, position, from);
 		DebugDrawerDrawLine(drawer, from, dest, color);
 		draw_origin[0] = - CONE_RADIUS;
 		BtTransformSetOrigin(trans, draw_origin);
-		BtTransformMultiVector3(trans, origin, from);
+		BtTransformMultiVector3(trans, position, from);
 		DebugDrawerDrawLine(drawer, from, dest, color);
 		DeleteBtTransform(trans);
 	}
