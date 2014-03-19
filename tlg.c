@@ -52,22 +52,6 @@ typedef unsigned __int64 tjs_uint64;
 typedef int tjs_int;    /* at least 32bits */
 typedef unsigned int tjs_uint;    /* at least 32bits */
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-typedef tjs_uint32 DWORD;
-typedef tjs_uint16 WORD;
-typedef tjs_uint8 BYTE;
-typedef int BOOL;
-# define BI_RGB (0)
-# ifndef FALSE
-#  define FALSE (0)
-# endif
-# ifndef TRUE
-#  define TRUE (!(FALSE))
-# endif
-#endif /* _WIN32 */
-
 #ifdef __cplusplus
 typedef wchar_t tjs_char;
 #else
@@ -130,6 +114,18 @@ typedef unsigned char uint8;
 	typedef int64_t tjs_int64;
 	typedef uint64_t tjs_uint64;
 #endif
+
+typedef tjs_uint32 DWORD;
+typedef tjs_uint16 WORD;
+typedef tjs_uint8 BYTE;
+typedef int BOOL;
+# define BI_RGB (0)
+# ifndef FALSE
+#  define FALSE (0)
+# endif
+# ifndef TRUE
+#  define TRUE (!(FALSE))
+# endif
 
 typedef wchar_t tjs_char;
 
