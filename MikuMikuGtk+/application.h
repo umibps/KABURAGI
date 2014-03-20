@@ -67,6 +67,8 @@ extern char* LoadShaderSource(
 
 extern int UploadTexture(const char* path, TEXTURE_DATA_BRIDGE* bridge, APPLICATION* application);
 
+extern int UploadWhiteTexture(int width, int height, APPLICATION* application);
+
 extern MODEL_INTERFACE* LoadModel(
 	APPLICATION* application,
 	const char* system_path,

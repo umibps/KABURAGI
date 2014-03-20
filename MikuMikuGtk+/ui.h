@@ -12,6 +12,7 @@ typedef struct _APPLICATION_WIDGETS
 	GtkWidget *model_opacity;
 	GtkWidget *model_position[3];
 	GtkWidget *model_rotation[3];
+	GtkWidget *edge_size;
 	GtkWidget *camera_look_at[3];
 	GtkWidget *camera_angle[3];
 	GtkWidget *camera_distance;

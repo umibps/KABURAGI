@@ -135,6 +135,8 @@ static void InitializeGL(PROJECT* project, int widget_width, int widget_height)
 	InitializeControl(&project->control, widget_width, widget_height, project);
 	LoadControlHandle(&project->control.handle, project->application_context);
 
+	UploadWhiteTexture(WHITE_TEXTURE_SIZE, WHITE_TEXTURE_SIZE, project->application_context);
+
 	project->world.debug_drawer = &project->debug_drawer;
 }
 
@@ -652,6 +654,7 @@ static void OnChangeSelectedModel(GtkWidget* combo, APPLICATION* application)
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[0]), set_value[0]);
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[1]), set_value[1]);
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[2]), set_value[2]);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.edge_size), scene->selected_model->edge_width);
 		application->widgets.ui_disabled = FALSE;
 	}
 }
@@ -913,6 +916,22 @@ static void OnChangeModelRotation(GtkAdjustment* adjustment, APPLICATION* applic
 	SceneUpdateModel(scene, scene->selected_model, TRUE);
 }
 
+static void OnChangeModelEdgeSize(GtkAdjustment* adjustment, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene;
+
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	scene = project->scene;
+	if(scene->selected_model != NULL)
+	{
+		scene->selected_model->edge_width = (FLOAT_T)gtk_adjustment_get_value(adjustment);
+	}
+}
+
 GtkWidget* BoneTreeViewNew(void)
 {
 	GtkTreeViewColumn *column;
@@ -937,7 +956,7 @@ void OnChangedSelectedBone(GtkWidget* widget, APPLICATION* application)
 	GtkTreeModel *model;
 	BONE_INTERFACE *bone;
 
-	if(application->num_projects <= 0)
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
 	{
 		return;
 	}
@@ -1094,6 +1113,7 @@ void* ModelControlWidgetNew(void* application_context)
 	GtkWidget *control[4];
 	GtkTreeSelection *selection;
 	float scalar_value[4];
+	FLOAT_T float_value;
 	gchar *path;
 	char str[4096];
 	int i;
@@ -1333,6 +1353,24 @@ void* ModelControlWidgetNew(void* application_context)
 	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Z));
 	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
 		G_CALLBACK(OnChangeModelRotation), application);
+	// エッジサイズ
+	float_value = 0;
+	if(scene != NULL)
+	{
+		if(scene->selected_model != NULL)
+		{
+			float_value = scene->selected_model->edge_width;
+		}
+	}
+	layout_box = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(child_note_book_box), layout_box, FALSE, FALSE, 0);
+	(void)sprintf(str, "%s : ", application->label.control.edge_size);
+	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new(str), FALSE, FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(float_value, 0, 20, 0.01, 0.05, 0));
+	application->widgets.edge_size = control[0] = gtk_spin_button_new(adjustment, 0.01, 2);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeModelEdgeSize), application);
 
 	label = gtk_label_new(application->label.control.bone);
 	child_note_book_box = gtk_vbox_new(FALSE, 0);

@@ -193,7 +193,6 @@ typedef struct _PMX_MODEL
 	float aa_bb_min[3];
 	float position[3];
 	QUATERNION rotation;
-	FLOAT_T edge_width;
 	PMX_DATA_INFO data_info;
 
 	unsigned int flags;

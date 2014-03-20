@@ -69,6 +69,8 @@ typedef struct _VERTEX_C3F_V3F
 
 #define ROOT2 1.4142135623730950488016887242097
 
+#define WHITE_TEXTURE_NAME "WhiteTexture"
+
 typedef size_t (*stream_func)(void*, size_t, size_t, void*);
 typedef int (*seek_func)(void*, long, int);
 

@@ -9,11 +9,22 @@ void* CfTechniqueGetPass(CF_TECHNIQUE* tech, int* num_data)
 {
 	if(tech->pass_map != NULL)
 	{
-		int size = (int)STR_PTR_MAP_size(tech->pass_map);
+		int size = (int)ght_size(tech->pass_map);
+		//int size = (int)STR_PTR_MAP_size(tech->pass_map);
 		void **ret = MEM_ALLOC_FUNC(size * sizeof(*ret));
-		STR_PTR_MAPIterator iterator;
+		//STR_PTR_MAPIterator iterator;
+		void *data;
+		void *key;
+		ght_iterator_t iterator;
 		int count = 0;
 
+		for(data = ght_first(tech->pass_map, &iterator, &key); data != NULL;
+				data = ght_next(tech->pass_map, &iterator, &key))
+		{
+			ret[count] = data;
+			count++;
+		}
+		/*
 		iterator = STR_PTR_MAP_begin(tech->pass_map);
 		while(iterator != NULL)
 		{
@@ -21,6 +32,7 @@ void* CfTechniqueGetPass(CF_TECHNIQUE* tech, int* num_data)
 			count++;
 			iterator = STR_PTR_MAP_next(iterator);
 		}
+		*/
 	}
 
 	return NULL;
@@ -32,6 +44,8 @@ struct _ANNOTATION* CfTechniqueGetAnnotationRefference(
 	char* name
 )
 {
+	return (ANNOTATION*)ght_get(tech->tech.cf.annotation_map, (unsigned int)strlen(name), name);
+	/*
 	STR_PTR_MAPIterator iterator;
 	iterator = STR_PTR_MAP_find(tech->tech.cf.annotation_map, name);
 	if(iterator != STR_PTR_MAP_end(tech->tech.cf.annotation_map))
@@ -41,6 +55,7 @@ struct _ANNOTATION* CfTechniqueGetAnnotationRefference(
 	}
 
 	return NULL;
+	*/
 }
 
 /*

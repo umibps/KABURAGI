@@ -7,6 +7,8 @@
 #include "texture.h"
 #include "effect.h"
 
+#define MINIMUM_EDGE_SIZE 2
+
 typedef enum _eRENDER_ENGINE_TYPE
 {
 	RENDER_ENGINE_PMX,
@@ -22,6 +24,7 @@ typedef struct _RENDER_ENGINE_INTERFACE
 	void (*render_shadow)(void*);
 	void (*render_edge)(void*);
 	void (*render_z_plot)(void*);
+	void (*render_model_reverse)(void*);
 	void (*update)(void*);
 	void (*prepare_post_process)(void*);
 	void (*perform_pre_process)(void*);
@@ -110,6 +113,7 @@ extern void PmxRenderEngineRenderModel(PMX_RENDER_ENGINE* engine);
 extern void PmxRenderEngineRenderShadow(PMX_RENDER_ENGINE* engine);
 extern void PmxRenderEngineRenderEdge(PMX_RENDER_ENGINE* engine);
 extern void PmxRenderEngineRenderZPlot(PMX_RENDER_ENGINE* engine);
+extern void PmxRenderEngineRenderWhiteModel(PMX_RENDER_ENGINE* engine);
 extern int PmxRenderEngineUpload(PMX_RENDER_ENGINE* engine, void* user_data);
 extern void PmxRenderEngineUpdate(PMX_RENDER_ENGINE* engine);
 

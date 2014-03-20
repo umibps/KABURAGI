@@ -31,6 +31,7 @@ typedef struct _UI_LABEL
 		char *scale;
 		char *color;
 		char *opacity;
+		char *edge_size;
 		char *distance;
 		char *field_of_view;
 		char *model_connect_to;

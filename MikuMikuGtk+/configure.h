@@ -5,4 +5,6 @@
 
 #define CHECK_MEMORY_POOL 0
 
+#define WHITE_TEXTURE_SIZE 128
+
 #endif	// #ifndef _INCLUDED_CONFIGURE_H_

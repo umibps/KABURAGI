@@ -29,6 +29,7 @@ UI_LABEL LoadDefaultUiLabel(void)
 			"Scale",
 			"Color",
 			"Opacity",
+			"Edge Size",
 			"Distance",
 			"Field of View",
 			"Connect to",

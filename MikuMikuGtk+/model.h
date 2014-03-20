@@ -24,6 +24,7 @@ typedef struct _MODEL_INTERFACE
 	char *model_path;
 	float opacity;
 	float scale_factor;
+	FLOAT_T edge_width;
 	struct _MODEL_INTERFACE *parent_model;
 	struct _BONE_INTERFACE *parent_bone;
 	void* (*find_bone)(void*, const char*);

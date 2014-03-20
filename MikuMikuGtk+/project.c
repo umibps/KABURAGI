@@ -326,6 +326,7 @@ void RenderEngines(PROJECT* project, int width, int height)
 	{
 		for(i=0; i<loop; i++)
 		{
+			scene->render_engines.standard[i]->render_model_reverse(scene->render_engines.standard[i]);
 			scene->render_engines.standard[i]->render_edge(scene->render_engines.standard[i]);
 
 			if((project->flags & PROJECT_FLAG_UPDATE_ALWAYS) != 0)

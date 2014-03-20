@@ -78,6 +78,7 @@ PMX_RENDER_ENGINE* PmxRenderEngineNew(
 	ret->interface_data.render_shadow = (void (*)(void*))PmxRenderEngineRenderShadow;
 	ret->interface_data.render_edge = (void (*)(void*))PmxRenderEngineRenderEdge;
 	ret->interface_data.render_z_plot = (void (*)(void*))PmxRenderEngineRenderZPlot;
+	ret->interface_data.render_model_reverse = (void (*)(void*))PmxRenderEngineRenderWhiteModel;
 	ret->interface_data.update = (void (*)(void*))PmxRenderEngineUpdate;
 	ret->interface_data.get_effect = (EFFECT_INTERFACE* (*)(void*, eEFFECT_SCRIPT_ORDER_TYPE))PmxRenderEngineGetEffect;
 	ret->interface_data.prepare_post_process = (void (*)(void*))DummyFuncNoReturn;
@@ -405,10 +406,20 @@ void PmxRenderEngineUpdate(PMX_RENDER_ENGINE* engine)
 	ePMX_VERTEX_BUFFER_OBJECT_TYPE vbo =
 		((engine->flags & PMX_RENDER_ENGINE_FLAG_UPDATE_EVEN) == 0) ? PMX_VERTEX_BUFFER_OBJECT_TYPE_DYNAMIC_VERTEX_BUFFER_EVEN : PMX_VERTEX_BUFFER_OBJECT_TYPE_DYNAMIC_VERTEX_BUFFER_ODD;
 	void *address;
+	FLOAT_T before_edge_width;
 
 	if(((MODEL_INTERFACE*)engine->interface_data.model)->is_visible(engine->interface_data.model) == FALSE)
 	{
 		return;
+	}
+
+	before_edge_width = engine->interface_data.model->edge_width;
+	if((engine->project_context->flags & PROJECT_FLAG_RENDER_EDGE_ONLY) != 0)
+	{
+		if(before_edge_width <= MINIMUM_EDGE_SIZE)
+		{
+			engine->interface_data.model->edge_width = MINIMUM_EDGE_SIZE;
+		}
 	}
 
 	VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, vbo);
@@ -428,6 +439,8 @@ void PmxRenderEngineUpdate(PMX_RENDER_ENGINE* engine)
 
 	((MODEL_INTERFACE*)engine->interface_data.model)->set_aa_bb(engine->interface_data.model, engine->aa_bb_min, engine->aa_bb_max);
 	engine->flags ^= PMX_RENDER_ENGINE_FLAG_UPDATE_EVEN;
+
+	engine->interface_data.model->edge_width = before_edge_width;
 }
 
 int PmxRenderEngineUpload(PMX_RENDER_ENGINE* engine, void* user_data)
@@ -809,6 +822,107 @@ void PmxRenderEngineRenderZPlot(PMX_RENDER_ENGINE* engine)
 	MEM_FREE_FUNC(materials);
 }
 
+void PmxRenderEngineRenderWhiteModel(PMX_RENDER_ENGINE* engine)
+{
+	TEXTURE_INTERFACE *texture;
+	MATERIAL_INTERFACE **materials;
+	float matrix[16];
+	float diffuse[4];
+	float specular[4];
+	//float material_ambient[4];
+	//float material_diffuse[4];
+	float material_specular[4];
+	float blend[4];
+	float light_color[3];
+	float opacity;
+	GLuint texture_id = 0;
+	size_t offset;
+	size_t size;
+	int num_materials;
+	int num_indices;
+	int has_model_transparent;
+	int i;
+
+	ShaderProgramBind(&engine->model_program.program.program.base_data);
+	GetContextMatrix(matrix, engine->interface_data.model,
+		MATRIX_FLAG_WORLD_MATRIX | MATRIX_FLAG_VIEW_MATRIX | MATRIX_FLAG_PROJECTION_MATRIX | MATRIX_FLAG_CAMERA_MATRIX,
+		engine->project_context);
+	BaseShaderProgramSetModelViewProjectionMatrix(
+		&engine->model_program.program.program, matrix);
+	GetContextMatrix(matrix, engine->interface_data.model,
+		MATRIX_FLAG_WORLD_MATRIX | MATRIX_FLAG_VIEW_MATRIX | MATRIX_FLAG_CAMERA_MATRIX,
+		engine->project_context);
+	ObjectProgramSetNormalMatrix(&engine->model_program.program, matrix);
+	GetContextMatrix(matrix, engine->interface_data.model,
+		MATRIX_FLAG_WORLD_MATRIX | MATRIX_FLAG_VIEW_MATRIX | MATRIX_FLAG_PROJECTION_MATRIX | MATRIX_FLAG_LIGHT_MATRIX,
+		engine->project_context);
+	ObjectProgramSetLightViewProjectionMatrix(&engine->model_program.program, matrix);
+
+	if(engine->scene->shadow_map != NULL)
+	{
+		float size[3];
+		void *texture = engine->scene->shadow_map->get_texture(engine->scene->shadow_map);
+		texture_id = (GLuint)texture;
+		engine->scene->shadow_map->get_size(engine->scene->shadow_map, size);
+		ObjectProgramSetDepthTextureSize(&engine->model_program.program, size);
+	}
+
+	ObjectProgramSetLightColor(&engine->model_program.program, engine->scene->light.vertex.color);
+	ObjectProgramSetLightDirection(&engine->model_program.program, engine->scene->light.vertex.position);
+	PmxModelProgramSetToonEnable(&engine->model_program, engine->scene->light.flags & LIGHT_FLAG_TOON_ENABLE);
+	PmxModelProgramSetCameraPosition(&engine->model_program, engine->scene->camera.look_at);
+	opacity = ((MODEL_INTERFACE*)engine->interface_data.model)->opacity;
+	ObjectProgramSetOpacity(&engine->model_program.program, opacity);
+
+	materials = (MATERIAL_INTERFACE**)((MODEL_INTERFACE*)engine->interface_data.model)->get_materials(engine->interface_data.model, &num_materials);
+
+	has_model_transparent = !FuzzyZero(opacity - 1.0f);
+	PmxRenderEngineBindVertexBundle(engine);
+	light_color[0] = engine->scene->light.vertex.color[0] * DIV_PIXEL;
+	light_color[1] = engine->scene->light.vertex.color[1] * DIV_PIXEL;
+	light_color[2] = engine->scene->light.vertex.color[2] * DIV_PIXEL;
+	size = engine->index_buffer->base.get_stride_size(engine->index_buffer);
+	//offset = engine->dynamic_buffer->base.get_stride_offset(engine->dynamic_buffer, MODEL_VERTEX_STRIDE);
+	offset = 0;
+
+	diffuse[0] = diffuse[1] = diffuse[2] = diffuse[3] = 1;
+	material_specular[0] = material_specular[1] = material_specular[2] = 0;
+	blend[0] = blend[1] = blend[2] = blend[3] = 1;
+	texture = (TEXTURE_INTERFACE*)ght_get(
+		engine->scene->project->application_context->texture_chache_map, sizeof(WHITE_TEXTURE_NAME), WHITE_TEXTURE_NAME);
+
+	for(i=0; i<num_materials; i++)
+	{
+		MATERIAL_INTERFACE *material = materials[i];
+		material->get_diffuse(material, diffuse);
+		diffuse[0] = diffuse[1] = diffuse[2] = 1;
+		specular[0] = material_specular[0] * light_color[0];
+		specular[1] = material_specular[1] * light_color[1];
+		specular[2] = material_specular[2] * light_color[2];
+		specular[3] = 1;
+		PmxModelProgramSetMaterialColor(&engine->model_program, diffuse);
+		PmxModelProgramSetMaterialSpecular(&engine->model_program, specular);
+		PmxModelProgramSetMaterialShininess(&engine->model_program, 5);
+		material->get_main_texture_blend(material, blend);
+		blend[0] = blend[1] = blend[2] = 1;
+		PmxModelProgramSetMainTextureBlend(&engine->model_program, blend);
+		ObjectProgramSetMainTexture(&engine->model_program.program, texture);
+		PmxModelProgramSetSphereTexture(&engine->model_program, MATERIAL_RENDER_NONE, NULL);
+		PmxModelProgramSetToonTexture(&engine->model_program, NULL);
+		ObjectProgramSetDepthTexture(&engine->model_program.program, 0);
+
+		num_indices = material->get_index_range(material).count;
+		glDrawElements(GL_TRIANGLES, num_indices, engine->index_type, (GLvoid*)offset);
+
+		offset += num_indices * size;
+	}
+
+	PmxRenderEngineUnbindVertexBundle(engine);
+	ShaderProgramUnbind(&engine->model_program.program.program.base_data);
+
+	MEM_FREE_FUNC(materials);
+}
+
 EFFECT_INTERFACE* PmxRenderEngineGetEffect(PMX_RENDER_ENGINE* engine, eEFFECT_SCRIPT_ORDER_TYPE type)
 {
 	return NULL;
@@ -838,6 +952,8 @@ ASSET_RENDER_ENGINE* AssetRenderEngineNew(
 	ret->interface_data.render_model =
 		(void (*)(void*))AssetRenderEngineRenderModel;
 	ret->interface_data.render_edge =
+		(void (*)(void*))DummyFuncNoReturn;
+	ret->interface_data.render_model_reverse =
 		(void (*)(void*))DummyFuncNoReturn;
 	ret->interface_data.update =
 		(void (*)(void*))DummyFuncNoReturn;

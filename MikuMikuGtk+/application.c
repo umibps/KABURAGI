@@ -571,5 +571,32 @@ int UploadTexture(const char* path, TEXTURE_DATA_BRIDGE* bridge, APPLICATION* ap
 
 	texture = CreateTexture(pixels, &format, size, bridge->flags & TEXTURE_FLAG_GENERATE_TEXTURE_MIPMAP);
 
+	MEM_FREE_FUNC(pixels);
+
 	return CacheTexture(path, texture, bridge, application);
+}
+
+int UploadWhiteTexture(int width, int height, APPLICATION* application)
+{
+	TEXTURE_DATA_BRIDGE bridge;
+	TEXTURE_FORMAT format;
+	TEXTURE_INTERFACE *texture;
+	int size[3];
+	uint8 *pixels;
+
+	if(FindTextureCache(WHITE_TEXTURE_NAME, &bridge, application) != FALSE)
+	{
+		return TRUE;
+	}
+
+	pixels = (uint8*)MEM_ALLOC_FUNC(width * height * 4);
+	(void)memset(pixels, 0xff, width * height * 4);
+	LOAD_DEFAULT_FORMAT_RGBA(format);
+
+	size[0] = width,	size[1] = height;
+	texture = CreateTexture(pixels, &format, size, 0);
+
+	MEM_FREE_FUNC(pixels);
+
+	return CacheTexture(WHITE_TEXTURE_NAME, texture, &bridge, application);
 }

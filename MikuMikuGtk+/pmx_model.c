@@ -143,7 +143,7 @@ FLOAT_T PmxModelGetEdgeScaleFactor(PMX_MODEL* model, float* camera_position)
 		origin[0] = camera_position[0] - origin[0];
 		origin[1] = camera_position[1] - origin[1];
 		origin[2] = camera_position[2] - origin[2];
-		length = Length3DVector(origin) * model->edge_width;
+		length = Length3DVector(origin) * model->interface_data.edge_width;
 	}
 	return length / 1000.0;
 }
