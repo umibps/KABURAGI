@@ -8,6 +8,7 @@
 #include <limits.h>
 #include "material.h"
 #include "pmx_model.h"
+#include "pmd_model.h"
 #include "asset_model.h"
 #include "memory_stream.h"
 #include "utils.h"
@@ -317,7 +318,7 @@ int PmxMaterialPreparse(
 	uint8 *data,
 	size_t *data_size,
 	size_t rest,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	MEMORY_STREAM stream = {data, 0, rest, 1};
@@ -431,7 +432,7 @@ int LoadPmxMaterials(
 			}
 			else
 			{
-				m->interface_data.main_texture = textures->buffer[texture_index];
+				m->interface_data.main_texture = (char*)textures->buffer[texture_index];
 			}
 		}
 
@@ -445,7 +446,7 @@ int LoadPmxMaterials(
 			}
 			else
 			{
-				m->interface_data.sphere_texture = textures->buffer[texture_index];
+				m->interface_data.sphere_texture = (char*)textures->buffer[texture_index];
 			}
 		}
 
@@ -459,7 +460,7 @@ int LoadPmxMaterials(
 			}
 			else
 			{
-				m->interface_data.toon_texture = textures->buffer[texture_index];
+				m->interface_data.toon_texture = (char*)textures->buffer[texture_index];
 			}
 		}
 
@@ -473,7 +474,7 @@ int LoadPmxMaterials(
 void PmxMaterialRead(
 	PMX_MATERIAL* material,
 	uint8* data,
-	PMX_DATA_INFO* info,
+	MODEL_DATA_INFO* info,
 	size_t* data_size
 )
 {
@@ -613,6 +614,82 @@ void PmxMaterialMergeMorph(PMX_MATERIAL* material, MORPH_MATERIAL* morph, FLOAT_
 		MaterialRGBA3Calculate(&material->sphere_texture_blend);
 		MaterialRGBA3Calculate(&material->toon_texture_blend);
 	}
+}
+
+#define PMD2_MATERIAL_UNIT_SIZE 70
+typedef struct _PMD2_MATERIAL_UNIT
+{
+	float diffuse[3];
+	float opacity;
+	float shininess;
+	float specular[3];
+	float ambient[3];
+	uint8 toon_texture_index;
+	uint8 edge;
+	int32 num_indices;
+	uint8 texture_name[PMD2_MATERIAL_NAME_SIZE];
+} PMD2_MATERIAL_UNIT;
+
+void InitializePmd2Material(
+	PMD2_MATERIAL* material,
+	PMD2_MODEL* model,
+	void* application_context
+)
+{
+	(void)memset(material, 0, sizeof(*material));
+	material->model = model;
+	material->interface_data.index = -1;
+	material->application = (APPLICATION*)application_context;
+}
+
+int Pmd2MaterialPreparse(
+	MEMORY_STREAM_PTR stream,
+	size_t* data_size,
+	MODEL_DATA_INFO* info
+)
+{
+	int32 size;
+	if(MemRead(&size, sizeof(size), 1, stream) == 0 ||
+		PMD2_MATERIAL_UNIT_SIZE * size > stream->data_size)
+	{
+		return FALSE;
+	}
+	info->materials_count = size;
+	info->materials = &stream->buff_ptr[stream->data_point];
+	(void)MemSeek(stream, size * PMD2_MATERIAL_UNIT_SIZE, SEEK_CUR);
+	return TRUE;
+}
+
+int LoadPMd2Materials(STRUCT_ARRAY* materials, POINTER_ARRAY* textures, int expected_indices)
+{
+	PMD2_MATERIAL *m = (PMD2_MATERIAL*)materials->buffer;
+	PMD2_MATERIAL *material;
+	const int num_materials = (int)materials->num_data;
+	const int num_textures = (int)textures->num_data;
+	int toon_texture_index;
+	int actual_indices = 0;
+	int i;
+
+	for(i=0; i<num_materials; i++)
+	{
+		material = &m[i];
+		toon_texture_index = material->toon_texture_index;
+		if(toon_texture_index >= 0)
+		{
+			if(toon_texture_index >= num_textures)
+			{
+				return FALSE;
+			}
+			else
+			{
+				material->interface_data.toon_texture =
+					(char*)textures->buffer[toon_texture_index];
+			}
+		}
+		material->interface_data.index = i;
+		actual_indices += material->index_range.count;
+	}
+	return actual_indices == expected_indices;
 }
 
 void AssetMaterialSetTextures(ASSET_MATERIAL* material)

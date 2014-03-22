@@ -30,7 +30,7 @@ typedef enum _eRIGID_BODY_OBJECT_TYPE
 typedef struct _RIGID_BODY
 {
 	uint8 name[RIGID_BODY_NAME_SIZE+1];
-	BONE *bone;
+	struct _PMD2_BONE *bone;
 	void *shape;
 	void *motion_state;
 	void *transform;

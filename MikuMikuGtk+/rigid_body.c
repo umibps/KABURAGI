@@ -312,7 +312,7 @@ int PmxRigidBodyPreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	MEMORY_STREAM stream = {data, 0, rest, 1};
@@ -396,7 +396,7 @@ int PmxRigidBodyLoad(STRUCT_ARRAY* bodies, STRUCT_ARRAY* bones)
 void PmxRigidBodyRead(
 	PMX_RIGID_BODY* body,
 	uint8* data,
-	PMX_DATA_INFO* info,
+	MODEL_DATA_INFO* info,
 	size_t* data_size
 )
 {

@@ -708,6 +708,26 @@ INLINE void MulMatrixVector4Transpose(const float matrix[16], const float vector
 	COPY_VECTOR4(result, ret);
 }
 
+INLINE void MulMatrixScalar4x4(float matrix[16], float scale)
+{
+	matrix[0] *= scale;
+	matrix[1] *= scale;
+	matrix[2] *= scale;
+	matrix[3] *= scale;
+	matrix[4] *= scale;
+	matrix[5] *= scale;
+	matrix[6] *= scale;
+	matrix[7] *= scale;
+	matrix[8] *= scale;
+	matrix[9] *= scale;
+	matrix[10] *= scale;
+	matrix[11] *= scale;
+	matrix[12] *= scale;
+	matrix[13] *= scale;
+	matrix[14] *= scale;
+	matrix[15] *= scale;
+}
+
 INLINE float CalcDetermineMatrix4x4(float matrix[16])
 {
 	return matrix[0]*matrix[5]*matrix[10]*matrix[15]+matrix[0]*matrix[6]*matrix[11]*matrix[13]+matrix[0]*matrix[7]*matrix[9]*matrix[14]

@@ -1347,12 +1347,12 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 	gtk_window_move(GTK_WINDOW(app->window), app->window_x, app->window_y);
 	gtk_window_resize(GTK_WINDOW(app->window), app->window_width, app->window_height);
 	// ウィンドウが閉じるときのコールバック関数をセット
-	g_signal_connect(G_OBJECT(app->window), "delete_event",
+	(void)g_signal_connect(G_OBJECT(app->window), "delete_event",
 		G_CALLBACK(OnCloseMainWindow), app);
 	// キーボードのコールバック関数をセット
-	g_signal_connect(G_OBJECT(app->window), "key-press-event",
+	(void)g_signal_connect(G_OBJECT(app->window), "key-press-event",
 		G_CALLBACK(KeyPressEvent), app);
-	g_signal_connect(G_OBJECT(app->window), "key-release-event",
+	(void)g_signal_connect(G_OBJECT(app->window), "key-release-event",
 		G_CALLBACK(KeyPressEvent), app);
 
 	// パターンを初期化

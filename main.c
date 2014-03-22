@@ -31,7 +31,7 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 # pragma comment(lib, "OpenGL32.lib")
 # pragma comment(lib, "GlU32.lib")
-# ifdef _DEBUG
+# ifdef TEST //_DEBUG
 #  pragma comment(lib, "tbb_debug.lib")
 #  pragma comment(lib, "tbb_preview_debug.lib")
 #  pragma comment(lib, "tbbmalloc_debug.lib")
@@ -132,11 +132,11 @@ cairo_image_surface_create_from_png (const char	*filename)
 #   endif
 #  else
 #  ifdef _DEBUG
-//#   pragma comment(linker, "/NODEFAULTLIB:LIBCMTD")
+#   pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
 #  else
-//#   pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
+#   pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
 #  endif
-#   if MAJOR_VERSION == 1
+#   if GTK_MAJOR_VERSION <= 2
 #    pragma comment(lib, "atk-1.0.lib")
 #    pragma comment(lib, "cairo.lib")
 #    pragma comment(lib, "expat.lib")

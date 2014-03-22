@@ -3,7 +3,7 @@
 #include "material.h"
 #include "vmd_motion.h"
 #include "memory.h"
-
+/*
 typedef struct _PMD_HEADER
 {
 	uint8 signature[3];
@@ -19,7 +19,8 @@ typedef struct _PMD_STATE
 	STRUCT_ARRAY *rotations;
 	UINT32_ARRAY *weights;
 } PMD_STATE;
-
+*/
+/*
 PMD_MODEL* PmdModelNew(void)
 {
 	PMD_MODEL* ret;
@@ -52,3 +53,4 @@ PMD_MODEL* PmdModelNew(void)
 	ret->is_ik_simulated = ByteArrayNew(PMD_MODEL_BUFFER_SIZE / 8);
 	ret->skinned_vertices = StructArrayNew(sizeof(SKIN_VERTEX), PMD_MODEL_BUFFER_SIZE);
 }
+*/

@@ -86,19 +86,6 @@ typedef struct _MATERIAL_RGBA3
 	float add[4];
 } MATERIAL_RGBA3;
 
-typedef struct _MATERIAL
-{
-	MODEL *model;
-	struct _MATERIAL *material;
-	char *main_texture;
-	char *sphere_texture;
-	char *toon_texture;
-	eMATERIAL_SPHERE_TEXTURE_RENDER_MODE sphere_texture_render_mode;
-	uint8 diffuse[3];
-	MATERIAL_INDEX_RANGE index_range;
-	int toon_texture_index;
-} MATERIAL;
-
 typedef struct _PMX_MATERIAL
 {
 	MATERIAL_INTERFACE interface_data;
@@ -118,6 +105,23 @@ typedef struct _PMX_MATERIAL
 	int sphere_texture_index;
 	int toon_texture_index;
 } PMX_MATERIAL;
+
+#define PMD2_MATERIAL_NAME_SIZE 20
+
+typedef struct _PMD2_MATERIAL
+{
+	MATERIAL_INTERFACE interface_data;
+	struct _PMD2_MODEL *model;
+	float ambient[4];
+	float diffuse[4];
+	float specular[4];
+	float edge_color[4];
+	MATERIAL_INDEX_RANGE index_range;
+	float shininess;
+	int toon_texture_index;
+	int enable_edge;
+	struct _APPLICATION *application;
+} PMD2_MATERIAL;
 
 typedef struct _ASSET_MATERIAL
 {

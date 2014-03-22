@@ -6,8 +6,8 @@
 
 typedef struct _IK
 {
-	BONE *destination;
-	BONE *target;
+	BONE_INTERFACE *destination;
+	BONE_INTERFACE *target;
 	POINTER_ARRAY *bones;
 	uint16 iteration;
 	float angle_constraint;

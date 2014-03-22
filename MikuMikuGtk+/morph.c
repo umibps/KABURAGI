@@ -88,7 +88,7 @@ int PmxMorphPreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	MEMORY_STREAM stream = {data, 0, rest, 1};
@@ -483,7 +483,7 @@ void PmxMorphReadBones(
 	PMX_MORPH* morph,
 	MEMORY_STREAM* stream,
 	int count,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	PMX_MORPH_BONE m;
@@ -506,7 +506,7 @@ void PmxMorphReadGroups(
 	PMX_MORPH* morph,
 	MEMORY_STREAM* stream,
 	int count,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	float weight;
@@ -527,7 +527,7 @@ void PmxMorphReadMaterials(
 	PMX_MORPH* morph,
 	MEMORY_STREAM* stream,
 	int count,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	PMX_MORPH_MATERIAL m;
@@ -569,7 +569,7 @@ void PmxMorphReadUVs(
 	MEMORY_STREAM* stream,
 	int count,
 	int offset,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	int i;
@@ -589,7 +589,7 @@ void PmxMorphReadVertices(
 	PMX_MORPH* morph,
 	MEMORY_STREAM* stream,
 	int count,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	float position[3];
@@ -610,7 +610,7 @@ void PmxMorphReadFlips(
 	PMX_MORPH* morph,
 	MEMORY_STREAM* stream,
 	int count,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	int i;
@@ -629,7 +629,7 @@ void PmxMorphReadImpulses(
 	PMX_MORPH* morph,
 	MEMORY_STREAM* stream,
 	int count,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	PMX_MORPH_IMPULSE imp;
@@ -656,7 +656,7 @@ void PmxMorphRead(
 	PMX_MORPH* morph,
 	uint8* data,
 	size_t* data_size,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};

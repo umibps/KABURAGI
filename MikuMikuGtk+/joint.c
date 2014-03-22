@@ -335,7 +335,7 @@ int PmxJointPreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	MEMORY_STREAM stream = {data, 0, rest, 1};
@@ -441,7 +441,7 @@ int LoadPmxJoints(STRUCT_ARRAY* joints, STRUCT_ARRAY* bodies)
 	return TRUE;
 }
 
-void PmxJointRead(PMX_JOINT* joint, uint8* data, PMX_DATA_INFO* info, size_t* data_size)
+void PmxJointRead(PMX_JOINT* joint, uint8* data, MODEL_DATA_INFO* info, size_t* data_size)
 {
 	PMX_JOINT_UNIT unit;
 	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};
