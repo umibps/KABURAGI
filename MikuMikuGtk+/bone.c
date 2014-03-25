@@ -1404,7 +1404,6 @@ void InitializePmd2Bone(PMD2_BONE* bone, MODEL_INTERFACE* model, void* applicati
 }
 
 int Pmd2BonePreparse(
-	PMD2_BONE* bone,
 	MEMORY_STREAM_PTR stream,
 	MODEL_DATA_INFO* info
 )
@@ -1545,6 +1544,18 @@ void Pmd2BonePerformTransform(PMD2_BONE* bone)
 		BtTransformMulti(bone->parent_bone->world_transform, bone->world_transform, bone->world_transform);
 	}
 	Pmd2BoneGetLocalTransoform(bone, bone->interface_data.local_transform);
+}
+
+void Pmd2BoneReadEnglishName(PMD2_BONE* bone, MEMORY_STREAM_PTR stream, int index)
+{
+	if(index >= 0)
+	{
+		char name[BONE_NAME_SIZE+1];
+		(void)MemSeek(stream, BONE_NAME_SIZE*index, SEEK_SET);
+		(void)MemRead(name, BONE_NAME_SIZE, 1, stream);
+		bone->interface_data.english_name = EncodeText(
+			&bone->application->encode, name, BONE_NAME_SIZE);
+	}
 }
 
 void AssetRootBoneGetWorldTransform(ASSET_ROOT_BONE* bone, void* transform)

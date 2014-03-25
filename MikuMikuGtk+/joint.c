@@ -489,3 +489,98 @@ void PmxJointRead(PMX_JOINT* joint, uint8* data, MODEL_DATA_INFO* info, size_t* 
 
 	*data_size = stream.data_point;
 }
+
+#define PMD2_JOINT_UNIT_SIZE 124
+typedef struct _PMD2_JONIT_UNIT
+{
+	uint8 name[PMD_JOINT_NAME_SIZE];
+	int32 body_id_a;
+	int32 body_id_b;
+	float position[3];
+	float rotation[3];
+	float position_lower_limit[3];
+	float position_upper_limit[3];
+	float rotation_lower_limit[3];
+	float rotation_upper_limit[3];
+	float position_stiffness[3];
+	float rotation_stiffness[3];
+} PMD2_JOINT_UNIT;
+
+int Pmd2JointPreparse(MEMORY_STREAM_PTR stream, MODEL_DATA_INFO* info)
+{
+	int32 size;
+	if(MemRead(&size, sizeof(size), 1, stream) == 0
+		|| size * PMD2_JOINT_UNIT_SIZE > stream->data_size - stream->data_point)
+	{
+		return FALSE;
+	}
+	info->joints_count = size;
+	info->joints = &stream->buff_ptr[stream->data_point];
+	(void)MemSeek(stream, size * PMD2_JOINT_UNIT_SIZE, SEEK_CUR);
+	return TRUE;
+}
+
+int LoadPm2Joints(STRUCT_ARRAY* joints, STRUCT_ARRAY* rigid_bodies)
+{
+	PMD2_JOINT *pmd2_joints = (PMD2_JOINT*)joints->buffer;
+	const int num_joints = (int)joints->num_data;
+	PMD2_JOINT *joint;
+	PMD2_RIGID_BODY *bodies = (PMD2_RIGID_BODY*)rigid_bodies->buffer;
+	const int num_bodies = (int)rigid_bodies->num_data;
+	int i;
+	for(i=0; i<num_joints; i++)
+	{
+		joint = &pmd2_joints[i];
+		if(joint->rigid_body1_index >= 0)
+		{
+			if(joint->rigid_body1_index >= num_bodies)
+			{
+				return FALSE;
+			}
+			else
+			{
+				joint->rigid_body1 = (void*)&bodies[joint->rigid_body1_index];
+			}
+		}
+		if(joint->rigid_body2_index >= 0)
+		{
+			if(joint->rigid_body2_index >= num_bodies)
+			{
+				return FALSE;
+			}
+			else
+			{
+				joint->rigid_body2 = (void*)&bodies[joint->rigid_body2_index];
+			}
+		}
+		BuildBaseJoint(joint, i);
+	}
+	return TRUE;
+}
+
+void ReadPmd2Joint(PMD2_JOINT* joint, MEMORY_STREAM_PTR stream, size_t* data_size, MODEL_DATA_INFO* info)
+{
+	PMD2_JOINT_UNIT unit;
+	(void)MemRead(unit.name, sizeof(unit.name), 1, stream);
+	(void)MemRead(&unit.body_id_a, sizeof(unit.body_id_a), 1, stream);
+	(void)MemRead(&unit.body_id_b, sizeof(unit.body_id_b), 1, stream);
+	(void)MemRead(unit.position, sizeof(unit.position), 1, stream);
+	(void)MemRead(unit.rotation, sizeof(unit.rotation), 1, stream);
+	(void)MemRead(unit.position_lower_limit, sizeof(unit.position_lower_limit), 1, stream);
+	(void)MemRead(unit.position_upper_limit, sizeof(unit.position_upper_limit), 1, stream);
+	(void)MemRead(unit.rotation_lower_limit, sizeof(unit.rotation_lower_limit), 1, stream);
+	(void)MemRead(unit.rotation_upper_limit, sizeof(unit.rotation_upper_limit), 1, stream);
+	(void)MemRead(unit.position_stiffness, sizeof(unit.position_stiffness), 1, stream);
+	(void)MemRead(unit.rotation_stiffness, sizeof(unit.rotation_stiffness), 1, stream);
+	joint->rigid_body1_index = unit.body_id_a;
+	joint->rigid_body2_index = unit.body_id_b;
+	COPY_VECTOR3(joint->position, unit.position);
+	COPY_VECTOR3(joint->rotation, unit.rotation);
+	COPY_VECTOR3(joint->position_lower_limit, unit.position_lower_limit);
+	COPY_VECTOR3(joint->position_upper_limit, unit.position_upper_limit);
+	COPY_VECTOR3(joint->rotation_lower_limit, unit.rotation_lower_limit);
+	COPY_VECTOR3(joint->rotation_upper_limit, unit.rotation_upper_limit);
+	COPY_VECTOR3(joint->position_stiffness, unit.position_stiffness);
+	COPY_VECTOR3(joint->rotation_stiffness, unit.rotation_stiffness);
+	*data_size = PMD2_JOINT_UNIT_SIZE;
+}

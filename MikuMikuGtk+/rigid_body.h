@@ -68,9 +68,9 @@ typedef struct _BASE_RIGID_BODY
 	void *kinematic_motion_state;
 	void *world_transform;
 	void *world2local_transform;
-	void *parent_model;
+	struct _MODEL_INTERFACE *parent_model;
 	TEXT_ENCODE *encode;
-	void *bone;
+	struct _BONE_INTERFACE *bone;
 	char *name;
 	char *english_name;
 	int bone_index;
@@ -92,6 +92,10 @@ typedef struct _BASE_RIGID_BODY
 
 typedef BASE_RIGID_BODY PMX_RIGID_BODY;
 
+#define PMD2_RIGID_BODY_NAME_SIZE 20
+
+typedef BASE_RIGID_BODY PMD2_RIGID_BODY;
+
 extern void RigidBodySyncLocalTransform(void* rigid_body, int index, void* dummy);
 
 extern void ReleaseBaseRigidBody(BASE_RIGID_BODY* body);
@@ -111,5 +115,7 @@ extern void ResetBaseRigidBody(BASE_RIGID_BODY* body, void* world);
 extern BASE_RIGID_BODY* GetBoneBody(BONE_INTERFACE* bone);
 
 extern int PmxRigidBodyLoad(STRUCT_ARRAY* bodies, STRUCT_ARRAY* bones);
+
+extern int LoadPmd2RigidBodies(STRUCT_ARRAY* rigid_bodies, STRUCT_ARRAY* bones);
 
 #endif	// #ifndef _INCLUDED_RIGID_BODY_H_

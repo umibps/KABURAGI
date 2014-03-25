@@ -417,6 +417,32 @@ void* StructArrayReserve(STRUCT_ARRAY* struct_array)
 	return ret;
 }
 
+void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size)
+{
+	size_t alloc_size;
+
+	if(struct_array->buffer_size == new_size)
+	{
+		return;
+	}
+	if(struct_array->block_size > 1)
+	{
+		alloc_size = ((new_size + struct_array->block_size - 1)
+			/ struct_array->block_size) * struct_array->block_size;
+	}
+	else
+	{
+		alloc_size = new_size;
+	}
+	struct_array->buffer = (uint8*)MEM_REALLOC_FUNC(
+		struct_array->buffer, struct_array->data_size * alloc_size);
+	if(alloc_size < struct_array->num_data)
+	{
+		struct_array->num_data = alloc_size-1;
+	}
+	struct_array->buffer_size = alloc_size;
+}
+
 void StructArrayRemoveByIndex(
 	STRUCT_ARRAY* struct_array,
 	size_t index,

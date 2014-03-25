@@ -288,4 +288,6 @@ extern void ReadPmd2Bone(
 
 extern void Pmd2BoneGetLocalTransoform(PMD2_BONE* bone, void* world2local_transform);
 
+extern void Pmd2BoneReadEnglishName(PMD2_BONE* bone, MEMORY_STREAM_PTR stream, int index);
+
 #endif	// #ifndef _INCLUDED_BONE_H_

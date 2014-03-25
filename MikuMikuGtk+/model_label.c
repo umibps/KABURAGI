@@ -1,7 +1,14 @@
+// Visual Studio 2005ˆÈ~‚Å‚ÍŒÃ‚¢‚Æ‚³‚ê‚éŠÖ”‚ðŽg—p‚·‚é‚Ì‚Å
+	// Œx‚ªo‚È‚¢‚æ‚¤‚É‚·‚é
+#if defined _MSC_VER && _MSC_VER >= 1400
+# define _CRT_NONSTDC_NO_DEPRECATE
+#endif
+
 #include <string.h>
 #include <limits.h>
 #include "model_label.h"
 #include "pmx_model.h"
+#include "pmd_model.h"
 #include "asset_model.h"
 #include "memory_stream.h"
 #include "memory.h"
@@ -244,6 +251,154 @@ void ReleasePmxModelLabel(PMX_MODEL_LABEL* label)
 {
 	ReleaseLabelInterface(&label->interface_data);
 	StructArrayDestroy(&label->pairs, NULL);
+}
+
+#define PMD_BONE_LABEL_SIZE 3
+typedef struct _PMD2_BONE_LABEL
+{
+	uint16 bone_index;
+	uint8 category_index;
+} PMD2_BONE_LABEL;
+
+void InitializePmd2ModelLabel(
+	PMD2_MODEL_LABEL* label,
+	PMD2_MODEL* model,
+	const char* name,
+	ePMD2_MODEL_LABEL_TYPE type,
+	void* application_context
+)
+{
+	(void)memset(label, 0, sizeof(*label));
+	label->model = model;
+	label->type = type;
+	label->bones = PointerArrayNew(DEFAULT_MODEL_LABEL_BUFFER_SIZE);
+	label->morphs = PointerArrayNew(DEFAULT_MODEL_LABEL_BUFFER_SIZE);
+	label->bone_indices = Uint32ArrayNew(DEFAULT_MODEL_LABEL_BUFFER_SIZE);
+	label->morph_indices = Uint32ArrayNew(DEFAULT_MODEL_LABEL_BUFFER_SIZE);
+	label->interface_data.name = MEM_STRDUP_FUNC(name);
+	label->interface_data.index = -1;
+}
+
+int Pmd2ModelLabelPreparse(
+	MEMORY_STREAM_PTR stream,
+	MODEL_DATA_INFO* info
+)
+{
+	uint8 bone_names_size;
+	uint32 bone_labels_size;
+	if(MemRead(&bone_names_size, sizeof(bone_names_size), 1, stream) == 0
+		|| bone_names_size * sizeof(uint16) > stream->data_size - stream->data_point)
+	{
+		return FALSE;
+	}
+	info->bone_category_names_count = bone_names_size;
+	info->bone_category_names = &stream->buff_ptr[stream->data_point];
+	(void)MemSeek(stream, bone_names_size * PMD_BONE_CATEGORY_NAME_SIZE, SEEK_CUR);
+	if(MemRead(&bone_labels_size, sizeof(bone_labels_size), 1, stream) == 0
+		|| bone_labels_size * PMD_BONE_LABEL_SIZE > stream->data_size - stream->data_point)
+	{
+		return FALSE;
+	}
+	info->bone_labels_count = bone_labels_size;
+	info->bone_labels = &stream->buff_ptr[stream->data_point];
+	(void)MemSeek(stream, bone_labels_size * PMD_BONE_LABEL_SIZE, SEEK_CUR);
+	return TRUE;
+}
+
+int LoadPmd2ModelLabels(
+	STRUCT_ARRAY* model_labels,
+	STRUCT_ARRAY* bones,
+	STRUCT_ARRAY* morphs
+)
+{
+	PMD2_MODEL_LABEL *labels = (PMD2_MODEL_LABEL*)model_labels->buffer;
+	PMD2_MODEL_LABEL *label;
+	const int num_labels = (int)model_labels->num_data;
+	PMD2_BONE *b = (PMD2_BONE*)bones->buffer;
+	PMD2_BONE *bone;
+	const int num_bones = (int)bones->num_data;
+	PMD2_MORPH *m = (PMD2_MORPH*)morphs->buffer;
+	PMD2_MORPH *morph;
+	const int num_morphs = (int)morphs->num_data;
+	int i, j;
+	for(i=0; i<num_labels; i++)
+	{
+		label = &labels[i];
+		switch(label->type)
+		{
+		case PMD2_MODEL_LABEL_TYPE_SPECIAL_BONE_CATEGORY:
+			if(num_bones > 0)
+			{
+				bone = &b[0];
+				PointerArrayAppend(label->bones, bone);
+			}
+			break;
+		case PMD2_MODEL_LABEL_TYPE_BONE_CATEGORY:
+			{
+				int index;
+				const int num_indices = (int)label->bone_indices->num_data;
+				for(j=0; j<num_indices; j++)
+				{
+					index = (int)label->bone_indices->buffer[j];
+					if(CHECK_BOUND(index, 0, num_bones))
+					{
+						bone = &b[index];
+						PointerArrayAppend(label->bones, bone);
+					}
+				}
+			}
+			break;
+		case PMD2_MODEL_LABEL_TYPE_MORPH_CATEGORY:
+			{
+				int index;
+				const int num_indices = (int)label->morph_indices->num_data;
+				for(j=0; j<num_indices; j++)
+				{
+					index = (int)label->morph_indices->buffer[j];
+					if(CHECK_BOUND(index, 0, num_morphs))
+					{
+						morph = &m[index];
+						PointerArrayAppend(label->morphs, morph);
+					}
+				}
+			}
+			break;
+		}
+		label->interface_data.index = i;
+	}
+	return TRUE;
+}
+
+void ReadPmd2ModelLabel(
+	PMD2_MODEL_LABEL* label,
+	MEMORY_STREAM_PTR stream,
+	size_t* data_size
+)
+{
+	switch(label->type)
+	{
+	case PMD2_MODEL_LABEL_TYPE_SPECIAL_BONE_CATEGORY:
+	case PMD2_MODEL_LABEL_TYPE_BONE_CATEGORY:
+		{
+			PMD2_BONE_LABEL unit;
+			(void)MemRead(&unit.bone_index, sizeof(unit.bone_index), 1, stream);
+			(void)MemRead(&unit.category_index, sizeof(unit.category_index), 1, stream);
+			Uint32ArrayAppend(label->bone_indices, unit.bone_index);
+			*data_size = PMD_BONE_LABEL_SIZE;
+		}
+		break;
+	case PMD2_MODEL_LABEL_TYPE_MORPH_CATEGORY:
+		{
+			uint16 morph_index;
+			(void)MemRead(&morph_index, sizeof(morph_index), 1, stream);
+			Uint32ArrayAppend(label->morph_indices, morph_index);
+			*data_size = sizeof(morph_index);
+		}
+		break;
+	default:
+		*data_size = 0;
+		break;
+	}
 }
 
 static int AssetModelLabelGetCount(ASSET_MODEL_LABEL* label)

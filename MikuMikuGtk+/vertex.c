@@ -558,7 +558,6 @@ void InitializePmd2Vertex(
 }
 
 int Pmd2VertexPreparse(
-	PMD2_VERTEX* vertex,
 	MEMORY_STREAM_PTR stream,
 	size_t* data_size,
 	MODEL_DATA_INFO* info

@@ -3481,6 +3481,95 @@ void WriteOriginalFormat(
 	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(progress), "");
 }
 
+static int32 PackLine(
+	uint8* start,
+	int32 length,
+	int32 stride,
+	uint8* dst
+)
+{
+	int32 remain = length;
+	int i, j;
+
+	length = 0;
+	while(remain > 0)
+	{
+		// 最初のデータと同じものの個数を調べる
+		i = 0;
+		while((i < 128) && (remain - i > 0) && (start[0] == start[i*stride]))
+		{
+			i++;
+		}
+		// データ有
+		if(i > 1)
+		{
+			*dst++ = - (i - 1);
+			*dst++ = *start;
+
+			start += i * stride;
+			remain -= i;
+			length += 2;
+		}
+		else
+		{
+			i = 0;
+			while((i < 128) && (remain - (i + 1) > 0)
+				&& (start[i*stride] != start[(i + 1)*stride]
+				|| remain - (i + 2) <= 0 || start[i*stride] != start[(i + 2)*stride]))
+			{
+				i++;
+			}
+
+			if(remain == 1)
+			{
+				i = 1;
+			}
+			if(i > 0)
+			{
+				*dst++ = i - 1;
+				for(j=0; j<i; j++)
+				{
+					*dst++ = start[j*stride];
+				}
+				start += i*stride;
+				remain -= i;
+				length += i + 1;
+			}
+		}
+	}
+
+	return length;
+}
+
+static int GetCompressChannelData(
+	uint8* channel_data,
+	int32 channel_columns,
+	int32 channel_rows,
+	int32 stride,
+	uint16* length_table,
+	uint8* remain_data
+)
+{
+	uint8 *start;
+	int32 channel_length;
+	int32 length;
+	int i;
+
+	channel_length = channel_columns * channel_rows;
+
+	length = 0;
+	for(i=0; i<channel_rows; i++)
+	{
+		start = channel_data + (i * stride);
+
+		length_table[i] = (uint16)PackLine(start, channel_columns, stride, &remain_data[length]);
+
+		length += length_table[i];
+	}
+
+	return length;
+}
+
 /*************************************************
 * WritePhotoShopDocument関数                     *
 * PSD形式で書きだす                              *
@@ -3507,6 +3596,19 @@ void WritePhotoShopDocument(
 	char* name;
 	// ピクセルデータ
 	uint8 *byte_data = (uint8*)MEM_ALLOC_FUNC(window->pixel_buf_size);
+	// RLE圧縮後のデータ
+	uint8 *rle_data = (uint8*)MEM_ALLOC_FUNC(window->height * (window->width + 10 + (window->width/100)));
+	// RLE圧縮後のデータバイト数
+	int compressed_data_length;
+	// チャンネルのデータのバイト数書き込み位置
+	long (*channel_length_position)[4] =
+		(long (*)[4])MEM_ALLOC_FUNC(sizeof(*channel_length_position)*window->num_layer);
+	// RLEテーブルのデータ
+	uint16 *length_table = (uint16*)MEM_ALLOC_FUNC(sizeof(*length_table)*window->height);
+	// チャンネルデータのバイト数書き込み位置
+	long length_table_position;
+	// チャンネルデータのバイト数
+	int channel_data_length;
 	// レイヤーデータのバイト数
 	size_t data_size;
 	// 4バイトバッファ
@@ -3619,6 +3721,7 @@ void WritePhotoShopDocument(
 			word = 0xFFFF;
 			(void)write_func(&word, sizeof(word), 1, stream);
 			// LengthOfChannelData
+			channel_length_position[i][3] = tell_func(stream);
 			dw = sizeof(word) + layer->width*layer->height;
 			dw = GUINT32_TO_BE(dw);
 			(void)write_func(&dw, sizeof(dw), 1, stream);
@@ -3630,6 +3733,7 @@ void WritePhotoShopDocument(
 			word = GUINT16_TO_BE(word);
 			(void)write_func(&word, sizeof(word), 1, stream);
 			// LengthOfChannelData
+			channel_length_position[i][j] = tell_func(stream);
 			dw = sizeof(word) + layer->width*layer->height;
 			dw = GUINT32_TO_BE(dw);
 			(void)write_func(&dw, sizeof(dw), 1, stream);
@@ -3770,18 +3874,42 @@ void WritePhotoShopDocument(
 		{
 			// 書き出すチャンネルのインデックス
 			int channel;
-
+ 
 			if(layer->channel == 4)
 			{
+				channel_data_length = sizeof(uint16);
 				// Compression
+				word = 1;
+				word = GUINT16_TO_BE(word);
 				(void)write_func(&word, sizeof(word), 1, stream);
+
+				length_table_position = tell_func(stream);
+				// 一度ダミーのテーブルを書き出しておく
+				(void)write_func(length_table, sizeof(*length_table), layer->height, stream);
+				channel_data_length += layer->height * sizeof(uint16);
 
 				// ピクセルデータ
 				for(j=0; j<layer->width*layer->height; j++)
 				{
 					byte_data[j] = layer->pixels[j*layer->channel+3];
 				}
-				(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+				compressed_data_length = channel_data_length += GetCompressChannelData(byte_data,
+					layer->width, layer->height, layer->width, length_table, rle_data);
+				channel_data_length += compressed_data_length;
+				(void)write_func(rle_data, 1, compressed_data_length, stream);
+				(void)seek_func(stream, length_table_position, SEEK_SET);
+				for(j=0; j<layer->height; j++)
+				{
+					word = length_table[j];
+					word = GUINT16_TO_BE(word);
+					(void)write_func(&word, sizeof(word), 1, stream);
+				}
+				(void)seek_func(stream, channel_length_position[i][3], SEEK_SET);
+				dw = channel_data_length;
+				dw = GUINT32_TO_BE(dw);
+				(void)write_func(&dw, sizeof(dw), 1, stream);
+				(void)seek_func(stream, 0, SEEK_END);
+				//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 			}
 
 			(void)memcpy(window->temp_layer->pixels, window->mixed_layer->pixels, window->pixel_buf_size);
@@ -3814,7 +3942,23 @@ void WritePhotoShopDocument(
 					byte_data[k] = window->temp_layer->pixels[k*layer->channel+channel];
 					//byte_data[k] = layer->pixels[k*layer->channel+j];
 				}
-				(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+				compressed_data_length = channel_data_length += GetCompressChannelData(byte_data,
+					layer->width, layer->height, layer->width, length_table, rle_data);
+				channel_data_length += compressed_data_length;
+				(void)write_func(rle_data, 1, compressed_data_length, stream);
+				(void)seek_func(stream, length_table_position, SEEK_SET);
+				for(k=0; k<layer->height; k++)
+				{
+					word = length_table[k];
+					word = GUINT16_TO_BE(word);
+					(void)write_func(&word, sizeof(word), 1, stream);
+				}
+				(void)seek_func(stream, channel_length_position[i][j], SEEK_SET);
+				dw = channel_data_length;
+				dw = GUINT32_TO_BE(dw);
+				(void)write_func(&dw, sizeof(dw), 1, stream);
+				(void)seek_func(stream, 0, SEEK_END);
+				//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 			}
 		}
 		else
@@ -3845,7 +3989,23 @@ void WritePhotoShopDocument(
 				{
 					byte_data[j] = window->temp_layer->pixels[j*layer->channel+3];
 				}
-				(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+				compressed_data_length = channel_data_length += GetCompressChannelData(byte_data,
+					layer->width, layer->height, layer->width, length_table, rle_data);
+				channel_data_length += compressed_data_length;
+				(void)write_func(rle_data, 1, compressed_data_length, stream);
+				(void)seek_func(stream, length_table_position, SEEK_SET);
+				for(j=0; j<layer->height; j++)
+				{
+					word = length_table[j];
+					word = GUINT16_TO_BE(word);
+					(void)write_func(&word, sizeof(word), 1, stream);
+				}
+				(void)seek_func(stream, channel_length_position[i][3], SEEK_SET);
+				dw = channel_data_length;
+				dw = GUINT32_TO_BE(dw);
+				(void)write_func(&dw, sizeof(dw), 1, stream);
+				(void)seek_func(stream, 0, SEEK_END);
+				//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 			}
 			// チャンネルデータ書き出し
 			for(j=0; j<3; j++)
@@ -3868,7 +4028,23 @@ void WritePhotoShopDocument(
 				{
 					byte_data[k] = window->mask_temp->pixels[k*layer->channel+channel_id];
 				}
-				(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+				compressed_data_length = channel_data_length += GetCompressChannelData(byte_data,
+					layer->width, layer->height, layer->width, length_table, rle_data);
+				channel_data_length += compressed_data_length;
+				(void)write_func(rle_data, 1, compressed_data_length, stream);
+				(void)seek_func(stream, length_table_position, SEEK_SET);
+				for(k=0; k<layer->height; k++)
+				{
+					word = length_table[k];
+					word = GUINT16_TO_BE(word);
+					(void)write_func(&word, sizeof(word), 1, stream);
+				}
+				(void)seek_func(stream, channel_length_position[i][j], SEEK_SET);
+				dw = channel_data_length;
+				dw = GUINT32_TO_BE(dw);
+				(void)write_func(&dw, sizeof(dw), 1, stream);
+				(void)seek_func(stream, 0, SEEK_END);
+				//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 			}
 		}
 
@@ -3908,7 +4084,23 @@ void WritePhotoShopDocument(
 		{
 			byte_data[j] = layer->pixels[j*layer->channel+3];
 		}
-		(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+		compressed_data_length = channel_data_length += GetCompressChannelData(byte_data,
+			layer->width, layer->height, layer->width, length_table, rle_data);
+		channel_data_length += compressed_data_length;
+		(void)write_func(rle_data, 1, compressed_data_length, stream);
+		(void)seek_func(stream, length_table_position, SEEK_SET);
+		for(j=0; j<layer->height; j++)
+		{
+			word = length_table[j];
+			word = GUINT16_TO_BE(word);
+			(void)write_func(&word, sizeof(word), 1, stream);
+		}
+		(void)seek_func(stream, channel_length_position[i][3], SEEK_SET);
+		dw = channel_data_length;
+		dw = GUINT32_TO_BE(dw);
+		(void)write_func(&dw, sizeof(dw), 1, stream);
+		(void)seek_func(stream, 0, SEEK_END);
+		//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 	}
 	for(j=0; j<3; j++)
 	{
@@ -3929,9 +4121,28 @@ void WritePhotoShopDocument(
 		{
 			byte_data[k] = layer->pixels[k*layer->channel+channel_id];
 		}
-		(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+		compressed_data_length = channel_data_length += GetCompressChannelData(byte_data,
+			layer->width, layer->height, layer->width, length_table, rle_data);
+		channel_data_length += compressed_data_length;
+		(void)write_func(rle_data, 1, compressed_data_length, stream);
+		(void)seek_func(stream, length_table_position, SEEK_SET);
+		for(k=0; k<layer->height; k++)
+		{
+			word = length_table[k];
+			word = GUINT16_TO_BE(word);
+			(void)write_func(&word, sizeof(word), 1, stream);
+		}
+		(void)seek_func(stream, channel_length_position[i][j], SEEK_SET);
+		dw = channel_data_length;
+		dw = GUINT32_TO_BE(dw);
+		(void)write_func(&dw, sizeof(dw), 1, stream);
+		(void)seek_func(stream, 0, SEEK_END);
+		//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 	}
 	//DeleteLayer(&layer);
+	MEM_FREE_FUNC(length_table);
+	MEM_FREE_FUNC(rle_data);
+	MEM_FREE_FUNC(channel_length_position);
 	MEM_FREE_FUNC(byte_data);
 
 	(void)write_func(&word, 1, 1, stream);

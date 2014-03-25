@@ -95,6 +95,15 @@ typedef struct _MODEL_DATA_INFO
 	size_t joints_count;
 	uint8 *soft_bodies;
 	size_t soft_bodies_count;
+	uint8 *bone_category_names;
+	size_t bone_category_names_count;
+	uint8 *bone_labels;
+	size_t bone_labels_count;
+	uint8 *bone_names;
+	uint8 *english_bone_names;
+	uint8 *english_face_names;
+	uint8 *english_bone_frames;
+	uint8 *custom_toon_texture_names;
 	uint8 *end;
 } MODEL_DATA_INFO;
 

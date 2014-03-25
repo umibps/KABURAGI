@@ -214,6 +214,7 @@ extern void StructArrayDestroy(
 );
 extern void StructArrayAppend(STRUCT_ARRAY* struct_array, void* data);
 extern void* StructArrayReserve(STRUCT_ARRAY* struct_array);
+extern void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size);
 extern void StructArrayRemoveByIndex(
 	STRUCT_ARRAY* struct_array,
 	size_t index,

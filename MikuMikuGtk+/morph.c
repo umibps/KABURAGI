@@ -2,6 +2,7 @@
 #include <limits.h>
 #include "morph.h"
 #include "pmx_model.h"
+#include "pmd_model.h"
 #include "asset_model.h"
 #include "memory_stream.h"
 #include "application.h"
@@ -79,7 +80,7 @@ void InitializePmxMorph(PMX_MORPH* morph, PMX_MODEL* model)
 	morph->impulses = StructArrayNew(sizeof(MORPH_IMPULSE), MORPH_BUFFER_SIZE);
 	morph->parent_model = model;
 	morph->type = MORPH_TYPE_UNKNOWN;
-	morph->index = -1;
+	morph->interface_data.index = -1;
 	morph->interface_data.set_weight =
 		(void (*)(void*, FLOAT_T))PmxMorphSetWegiht;
 }
@@ -290,7 +291,7 @@ static int PmxMorphLoadUVs(PMX_MORPH* morph, STRUCT_ARRAY* vertices, int offset)
 		{
 			if(vertex_index < num_vertices)
 			{
-				uv->vertex = &v[vertex_index];
+				uv->vertex = (VERTEX_INTERFACE*)&v[vertex_index];
 				uv->offset = offset;
 			}
 			else
@@ -473,7 +474,7 @@ int PmxMorphLoad(
 		default:
 			return FALSE;
 		}
-		morph->index = i;
+		morph->interface_data.index = i;
 	}
 
 	return TRUE;
@@ -944,6 +945,162 @@ void PmxMorphSyncWeight(PMX_MORPH* morph)
 		}
 		PmxMorphSetInternalWeight(morph, morph->weight);
 	}
+}
+
+#define PMD2_MORPH_UNIT_SIZE 25
+
+typedef struct _PMD2_MORPH_UNIT
+{
+	uint8 name[PMD_MORPH_NAME_SIZE];
+	int32 num_vertices;
+	uint8 type;
+} PMD_MORPH_UNIT;
+
+#define PMD2_VERTEX_MORPH_SIZE 16
+
+typedef struct _PMD2_VERTEX_MORPH_UNIT
+{
+	int32 vertex_index;
+	float position[3];
+} PMD2_VERTEX_MORPH_UNIT;
+
+void InitializePmd2Morph(
+	PMD2_MORPH *morph,
+	PMD2_MODEL *model,
+	void *application_context
+)
+{
+	(void)memset(morph, 0, sizeof(*morph));
+	morph->model = model;
+	morph->vertices = StructArrayNew(sizeof(MORPH_VERTEX), MORPH_BUFFER_SIZE);
+	morph->vertex_refs = PointerArrayNew(MORPH_BUFFER_SIZE);
+	morph->interface_data.index = -1;
+}
+
+int Pmd2MorphPreparse(
+	MEMORY_STREAM_PTR stream,
+	size_t* data_size,
+	MODEL_DATA_INFO* info
+)
+{
+	PMD_MORPH_UNIT unit;
+	uint16 size;
+	size_t unit_size = 0;
+	size_t i;
+	if(MemRead(&size, sizeof(size), 1, stream) == 0)
+	{
+		return FALSE;
+	}
+	info->morphs_count = size;
+	info->morphs = &stream->buff_ptr[stream->data_point];
+	for(i=0; i<size; i++)
+	{
+		if(PMD2_MORPH_UNIT_SIZE > stream->data_size - stream->data_point)
+		{
+			return FALSE;
+		}
+		(void)MemRead(unit.name, sizeof(unit.name), 1, stream);
+		(void)MemRead(&unit.num_vertices, sizeof(unit.num_vertices), 1, stream);
+		unit_size = PMD2_MORPH_UNIT_SIZE + unit.num_vertices * PMD2_VERTEX_MORPH_SIZE;
+		if(unit_size > stream->data_size - stream->data_point)
+		{
+			return FALSE;
+		}
+		(void)MemSeek(stream, (long)unit_size, SEEK_CUR);
+	}
+	return TRUE;
+}
+
+int LoadPmd2Morphs(STRUCT_ARRAY *morphs, STRUCT_ARRAY* vertices)
+{
+	PMD2_MORPH *m = (PMD2_MORPH*)morphs->buffer;
+	PMD2_MORPH *morph;
+	PMD2_MORPH *base_morph = NULL;
+	PMD2_VERTEX *v = (PMD2_VERTEX*)vertices->buffer;
+	PMD2_VERTEX *vertex;
+	const int num_vertices = (int)vertices->num_data;
+	MORPH_VERTEX *morph_vertices;
+	MORPH_VERTEX *morph_vertex;
+	MORPH_VERTEX *base_vertices;
+	const int num_morphs = (int)morphs->num_data;
+	int num_morph_vertices;
+	int num_base_morph_vertices;
+	int i, j;
+	for(i=0; i<num_morphs; i++)
+	{
+		morph = &m[i];
+		if(morph->category == MORPH_CATEGORY_BASE)
+		{
+			const int num_morph_vertices = (int)morph->vertices->num_data;
+			morph_vertices = (MORPH_VERTEX*)morph->vertices->buffer;
+			for(j=0; j<num_morph_vertices; j++)
+			{
+				morph_vertex = &morph_vertices[j];
+				if(CHECK_BOUND((int)morph_vertex->index, 0, num_vertices))
+				{
+					vertex = &v[morph_vertex->index];
+					COPY_VECTOR3(vertex->origin, morph_vertex->position);
+					PointerArrayAppend(morph->vertex_refs, vertex);
+				}
+			}
+			base_morph = morph;
+			break;
+		}
+		if(base_morph != NULL)
+		{
+			base_vertices = (MORPH_VERTEX*)base_morph->vertices->buffer;
+			for(i=0; i<num_morphs; i++)
+			{
+				morph = &m[i];
+				morph->interface_data.index = i;
+				if(morph->category != MORPH_CATEGORY_BASE)
+				{
+					morph_vertices = (MORPH_VERTEX*)morph->vertices->buffer;
+					num_morph_vertices = (int)morph->vertices->num_data;
+					num_base_morph_vertices = (int)base_morph->vertices->num_data;
+					for(j=0; j<num_morph_vertices; j++)
+					{
+						morph_vertex = &morph_vertices[j];
+						if(CHECK_BOUND((int)morph_vertex->index, 0, num_base_morph_vertices))
+						{
+							morph_vertex->base = base_vertices[morph_vertex->index].index;
+							PointerArrayAppend(morph->vertex_refs, &v[morph_vertex->base]);
+						}
+					}
+				}
+			}
+		}
+	}
+	return TRUE;
+}
+
+void ReadPmd2Morph(PMD2_MORPH* morph, MEMORY_STREAM_PTR stream, size_t* data_size)
+{
+	size_t start = stream->data_point;
+	PMD_MORPH_UNIT unit;
+	PMD2_VERTEX_MORPH_UNIT vertex_unit;
+	MORPH_VERTEX *vertex;
+	int i;
+	(void)MemRead(unit.name, sizeof(unit.name), 1, stream);
+	(void)MemRead(&unit.num_vertices, sizeof(unit.num_vertices), 1, stream);
+	(void)MemRead(&unit.type, sizeof(unit.type), 1, stream);
+	for(i=0; i<unit.num_vertices; i++)
+	{
+		(void)MemRead(&vertex_unit.vertex_index, sizeof(vertex_unit.vertex_index),
+			1, stream);
+		(void)MemRead(vertex_unit.position, sizeof(vertex_unit.position),
+			1, stream);
+		if(CHECK_BOUND(vertex_unit.vertex_index, 0, 0xffff))
+		{
+			vertex = (MORPH_VERTEX*)StructArrayReserve(morph->vertices);
+			SET_POSITION(vertex->position, vertex_unit.position);
+			vertex->index = vertex_unit.vertex_index;
+		}
+	}
+	morph->interface_data.name = EncodeText(&morph->application->encode, unit.name,
+		sizeof(unit.name));
+	morph->category = (eMORPH_CATEGORY)unit.type;
+	*data_size = stream->data_point - start;
 }
 
 void InitializeAssetOpacityMorph(

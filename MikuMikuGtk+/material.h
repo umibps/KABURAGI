@@ -2,6 +2,7 @@
 #define _INCLUDED_MATERIAL_H_
 
 #include <assimp/material.h>
+#include "memory_stream.h"
 #include "model.h"
 #include "types.h"
 #include "utils.h"
@@ -148,5 +149,11 @@ extern int LoadPmxMaterials(
 );
 
 extern void ReleasePmxMaterial(PMX_MATERIAL* material);
+
+extern int LoadPMd2Materials(STRUCT_ARRAY* materials, POINTER_ARRAY* textures, int expected_indices);
+
+extern void ReadPmd2Material(PMD2_MATERIAL* material, MEMORY_STREAM_PTR stream, size_t* data_size);
+
+extern void Pmd2MaterialSetIndexRange(PMD2_MATERIAL* material, MATERIAL_INDEX_RANGE *range);
 
 #endif	// #ifndef _INCLUDED_MATERIAL_H_
