@@ -603,13 +603,13 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 			{
 				if((stream = g_file_read(fp, NULL, NULL)) != NULL)
 				{
-					uint8 *pixels = ReadPNGStream(stream, (stream_func)FileRead,
+					uint8 *pixels = ReadPNGStream(stream, (stream_func_t)FileRead,
 						&width, &height, &stride);
 					if(pixels != NULL)
 					{
 						if(width <= 32 && height <= 32)
 						{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 							gtk_combo_box_append_text(GTK_COMBO_BOX(button_image_file), file_name);
 #else
 							gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(button_image_file), file_name);

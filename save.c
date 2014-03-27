@@ -165,7 +165,7 @@ void SaveAsPng(APPLICATION* app, DRAW_WINDOW* window, const gchar* file_name)
 					}
 				}
 
-				WritePNGDetailData((void*)stream, (stream_func)FileWrite, NULL, pixels,
+				WritePNGDetailData((void*)stream, (stream_func_t)FileWrite, NULL, pixels,
 					window->original_width, window->original_height, stride, 4, 0, compress_value,
 						window->resolution, icc_name, icc_profile_data, icc_profile_size);
 
@@ -211,7 +211,7 @@ void SaveAsPng(APPLICATION* app, DRAW_WINDOW* window, const gchar* file_name)
 					}
 				}
 
-				WritePNGDetailData(stream, (stream_func)FileWrite, NULL, pixels, window->original_width,
+				WritePNGDetailData(stream, (stream_func_t)FileWrite, NULL, pixels, window->original_width,
 					window->original_height, save_stride, 2, 0, compress_value, window->resolution,
 						NULL, NULL, 0);
 
@@ -292,7 +292,7 @@ void SaveAsPng(APPLICATION* app, DRAW_WINDOW* window, const gchar* file_name)
 					}
 				}
 
-				WritePNGDetailData((void*)stream, (stream_func)FileWrite, NULL, pixels,
+				WritePNGDetailData((void*)stream, (stream_func_t)FileWrite, NULL, pixels,
 					window->original_width, window->original_height, stride, 3, 0, compress_value,
 						window->resolution, icc_name, icc_profile_data, icc_profile_size);
 
@@ -328,7 +328,7 @@ void SaveAsPng(APPLICATION* app, DRAW_WINDOW* window, const gchar* file_name)
 					}
 				}
 
-				WritePNGDetailData(stream, (stream_func)FileWrite, NULL, pixels, window->original_width,
+				WritePNGDetailData(stream, (stream_func_t)FileWrite, NULL, pixels, window->original_width,
 					window->original_height, window->original_width, 1, 0, compress_value, window->resolution,
 						NULL, NULL, 0);
 
@@ -495,7 +495,7 @@ void SaveAsOriginalFormat(APPLICATION* app, DRAW_WINDOW* window, const char* fil
 		context_id, app->labels->window.saving);
 	gtk_widget_queue_draw(app->status_bar);
 
-	WriteOriginalFormat((void*)fp, (stream_func)fwrite, window, 1, app->preference.compress);
+	WriteOriginalFormat((void*)fp, (stream_func_t)fwrite, window, 1, app->preference.compress);
 
 	(void)fclose(fp);
 
@@ -520,7 +520,7 @@ void SaveAsPhotoShopDocument(APPLICATION* app, DRAW_WINDOW* window, const char* 
 		return;
 	}
 
-	WritePhotoShopDocument((void*)fp, (stream_func)fwrite, (seek_func)fseek,
+	WritePhotoShopDocument((void*)fp, (stream_func_t)fwrite, (seek_func_t)fseek,
 		(long (*)(void*))ftell, window);
 
 	(void)fclose(fp);

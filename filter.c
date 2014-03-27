@@ -94,7 +94,7 @@ static void FilterHistoryUndo(DRAW_WINDOW* window, void* p)
 		(void)MemRead(&next_data_pos, sizeof(next_data_pos), 1, &stream);
 		next_data_pos += stream.data_point;
 		// ピクセルデータ読み込み
-		pixels = ReadPNGStream((void*)&stream, (stream_func)MemRead,
+		pixels = ReadPNGStream((void*)&stream, (stream_func_t)MemRead,
 			&width, &height, &stride);
 		// ピクセルデータコピー
 		(void)memcpy(layer->pixels, pixels, stride*height);
@@ -249,7 +249,7 @@ void AddFilterHistory(
 		(void)MemSeek(stream, sizeof(before_pos), SEEK_CUR);
 
 		// PNGデータでピクセル情報を記憶
-		WritePNGStream(stream, (stream_func)MemWrite, NULL, layers[i]->pixels,
+		WritePNGStream(stream, (stream_func_t)MemWrite, NULL, layers[i]->pixels,
 			layers[i]->width, layers[i]->height, layers[i]->stride, layers[i]->channel, 0,
 			DATA_COMPRESSION_LEVEL
 		);
@@ -323,7 +323,7 @@ static void SelectionFilterHistoryUndo(DRAW_WINDOW* window, void* p)
 		// PNGのバイト数を読み込む
 	(void)MemRead(&next_data_pos, sizeof(next_data_pos), 1, &stream);
 	// ピクセルデータ読み込み
-	pixels = ReadPNGStream((void*)&stream, (stream_func)MemRead,
+	pixels = ReadPNGStream((void*)&stream, (stream_func_t)MemRead,
 		&width, &height, &stride);
 	// ピクセルデータコピー
 	(void)memcpy(window->selection->pixels, pixels, stride*height);
@@ -443,7 +443,7 @@ void AddSelectionFilterHistory(
 	(void)MemSeek(stream, sizeof(before_pos), SEEK_CUR);
 
 	// PNGデータでピクセル情報を記憶
-	WritePNGStream(stream, (stream_func)MemWrite, NULL, window->selection->pixels,
+	WritePNGStream(stream, (stream_func_t)MemWrite, NULL, window->selection->pixels,
 		window->selection->width, window->selection->height, window->selection->stride, window->selection->channel, 0,
 		DATA_COMPRESSION_LEVEL
 	);

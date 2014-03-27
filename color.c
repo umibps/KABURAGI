@@ -1149,7 +1149,7 @@ static void ExecuteWritePallete(COLOR_CHOOSER* chooser)
 				}
 			}
 
-			WriteACO((void*)stream, (stream_func)FileWrite, data, num_data);
+			WriteACO((void*)stream, (stream_func_t)FileWrite, data, num_data);
 			g_object_unref(stream);
 		}
 
@@ -1690,7 +1690,7 @@ void SetColorChangeCallBack(
 *************************************************/
 int ReadACO(
 	void* src,
-	stream_func read_func,
+	stream_func_t read_func,
 	uint8 (*rgb)[3],
 	int buffer_size
 )
@@ -1825,7 +1825,7 @@ int ReadACO(
 ***********************************************/
 void WriteACO(
 	void* dst,
-	stream_func write_func,
+	stream_func_t write_func,
 	uint8 (*rgb)[3],
 	int write_num
 )
@@ -1885,7 +1885,7 @@ int LoadPallete(
 		return 0;
 	}
 
-	read_num = ReadACO((void*)stream, (stream_func)FileRead, rgb, max_read);
+	read_num = ReadACO((void*)stream, (stream_func_t)FileRead, rgb, max_read);
 
 	g_object_unref(stream);
 	g_object_unref(fp);

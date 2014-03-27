@@ -75,7 +75,7 @@ void InitializePattern(PATTERNS* pattern, const char* directory_path, int* buffe
 			if((stream = g_file_read(fp, NULL, NULL)) != NULL)
 			{	// PNGƒf[ƒ^‚ğ“Ç‚İ‚Ş
 				pattern->patterns[pattern->num_pattern].pixels =
-					ReadPNGStream(stream, (stream_func)FileRead,
+					ReadPNGStream(stream, (stream_func_t)FileRead,
 						&pattern->patterns[pattern->num_pattern].width,
 						&pattern->patterns[pattern->num_pattern].height,
 						&pattern->patterns[pattern->num_pattern].stride

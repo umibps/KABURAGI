@@ -148,6 +148,8 @@ extern void BtTransformMulti(void* transform1, void* transform2, void* result);
 
 extern void BtTransformMultiVector3(void* transform, const float* vector, float* ret);
 
+extern void BtTransformMultiQuaternion(void* transform, const float* quaternion, float* ret);
+
 extern void BtTransformSetBasis(void* transform, const float* basis);
 
 extern void* BtCollisionShapeNew(eCOLLISION_SHAPE_TYPE type, float* size);

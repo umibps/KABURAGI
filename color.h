@@ -147,7 +147,7 @@ extern void SetColorChangeCallBack(
 *************************************************/
 extern int ReadACO(
 	void* src,
-	stream_func read_func,
+	stream_func_t read_func,
 	uint8 (*rgb)[3],
 	int buffer_size
 );
@@ -163,7 +163,7 @@ extern int ReadACO(
 ***********************************************/
 extern void WriteACO(
 	void* dst,
-	stream_func write_func,
+	stream_func_t write_func,
 	uint8 (*rgb)[3],
 	int write_num
 );

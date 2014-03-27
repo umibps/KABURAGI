@@ -210,6 +210,14 @@ extern void (*g_layer_blend_funcs[])(LAYER* src, LAYER* dst);
 *********************************************/
 extern void DeleteLayer(LAYER** layer);
 
+/*********************************************
+* DeleteTempLayer関数                        *
+* 一時的に作成したレイヤーを削除する         *
+* 引数                                       *
+* layer	: 削除するレイヤーポインタのアドレス *
+*********************************************/
+extern void DeleteTempLayer(LAYER** layer);
+
 /*********************************
 * AddDeleteLayerHistory関数      *
 * レイヤーの削除履歴データを作成 *

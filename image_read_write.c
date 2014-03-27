@@ -32,7 +32,7 @@ extern "C" {
 typedef struct _PNG_IO
 {
 	void* data;
-	stream_func rw_func;
+	stream_func_t rw_func;
 	void (*flush_func)(void* stream);
 } PNG_IO;
 
@@ -82,7 +82,7 @@ static void PngFlush(png_structp png_p)
 ***********************************************************/
 uint8* ReadPNGStream(
 	void* stream,
-	stream_func read_func,
+	stream_func_t read_func,
 	gint32* width,
 	gint32* height,
 	gint32* stride
@@ -169,7 +169,7 @@ uint8* ReadPNGStream(
 **************************************************************************/
 void ReadPNGHeader(
 	void* stream,
-	stream_func read_func,
+	stream_func_t read_func,
 	gint32* width,
 	gint32* height,
 	gint32* stride,
@@ -298,7 +298,7 @@ void ReadPNGHeader(
 **************************************************************************/
 uint8* ReadPNGDetailData(
 	void* stream,
-	stream_func read_func,
+	stream_func_t read_func,
 	gint32* width,
 	gint32* height,
 	gint32* stride,
@@ -433,7 +433,7 @@ uint8* ReadPNGDetailData(
 *********************************************/
 void WritePNGStream(
 	void* stream,
-	stream_func write_func,
+	stream_func_t write_func,
 	void (*flush_func)(void*),
 	uint8* pixels,
 	int32 width,
@@ -528,7 +528,7 @@ void WritePNGStream(
 ********************************************************/
 void WritePNGDetailData(
 	void* stream,
-	stream_func write_func,
+	stream_func_t write_func,
 	void (*flush_func)(void*),
 	uint8* pixels,
 	int32 width,
@@ -1081,7 +1081,7 @@ LAYER* ReadOriginalFormatLayers(
 			next_data_point = (uint32)(stream->data_point + data_size);
 			image = CreateMemoryStream(data_size);
 			(void)MemRead(image->buff_ptr, 1, data_size, stream);
-			pixels = ReadPNGStream(image, (stream_func)MemRead,
+			pixels = ReadPNGStream(image, (stream_func_t)MemRead,
 				&width, &height, &stride);
 			if(pixels != NULL)
 			{
@@ -1281,7 +1281,7 @@ LAYER* ReadOriginalFormatLayers(
 			next_data_point = (uint32)(stream->data_point + data_size);
 			image = CreateMemoryStream(data_size);
 			(void)MemRead(image->buff_ptr, 1, data_size, stream);
-			pixels = ReadPNGStream(image, (stream_func)MemRead,
+			pixels = ReadPNGStream(image, (stream_func_t)MemRead,
 				&width, &height, &stride);
 			if(pixels != NULL)
 			{
@@ -1446,7 +1446,7 @@ LAYER* ReadOriginalFormatLayersOldVersion3(
 			next_data_point = (uint32)(stream->data_point + data_size);
 			image = CreateMemoryStream(data_size);
 			(void)MemRead(image->buff_ptr, 1, data_size, stream);
-			pixels = ReadPNGStream(image, (stream_func)MemRead,
+			pixels = ReadPNGStream(image, (stream_func_t)MemRead,
 				&width, &height, &stride);
 			for(x=0; x<width*height; x++)
 			{
@@ -1735,7 +1735,7 @@ LAYER* ReadOriginalFormatLayersOldVersion2(
 			next_data_point = (uint32)(stream->data_point + data_size);
 			image = CreateMemoryStream(data_size);
 			(void)MemRead(image->buff_ptr, 1, data_size, stream);
-			pixels = ReadPNGStream(image, (stream_func)MemRead,
+			pixels = ReadPNGStream(image, (stream_func_t)MemRead,
 				&width, &height, &stride);
 			for(x=0; x<width*height; x++)
 			{
@@ -2026,7 +2026,7 @@ LAYER* ReadOriginalFormatLayersOldVersion1(
 			next_data_point = (uint32)(stream->data_point + data_size);
 			image = CreateMemoryStream(data_size);
 			(void)MemRead(image->buff_ptr, 1, data_size, stream);
-			pixels = ReadPNGStream(image, (stream_func)MemRead,
+			pixels = ReadPNGStream(image, (stream_func_t)MemRead,
 				&width, &height, &stride);
 			for(x=0; x<width*height; x++)
 			{
@@ -2272,7 +2272,7 @@ void ReadOriginalFormatExtraData(MEMORY_STREAM_PTR stream, DRAW_WINDOW* window)
 				select_stream.data_size = data_size;
 				select_stream.data_point = 0;
 
-				pixels = ReadPNGStream((void*)&select_stream, (stream_func)MemRead,
+				pixels = ReadPNGStream((void*)&select_stream, (stream_func_t)MemRead,
 					&width, &height, &stride);
 
 				(void)memcpy(window->selection->pixels, pixels, window->width*window->height);
@@ -2346,7 +2346,7 @@ void ReadOriginalFormatExtraData(MEMORY_STREAM_PTR stream, DRAW_WINDOW* window)
 ***********************************************************/
 DRAW_WINDOW* ReadOriginalFormat(
 	void* stream,
-	stream_func read_func,
+	stream_func_t read_func,
 	size_t stream_size,
 	APPLICATION* app,
 	const char* data_name
@@ -2435,7 +2435,7 @@ DRAW_WINDOW* ReadOriginalFormat(
 	image = CreateMemoryStream(data_size);
 	(void)MemRead(image->buff_ptr, 1, data_size, mem_stream);
 
-	pixels = ReadPNGStream(image, (stream_func)MemRead, &width, &height,&stride);
+	pixels = ReadPNGStream(image, (stream_func_t)MemRead, &width, &height,&stride);
 
 	// 描画領域の背景へコピー
 	(void)memcpy(window->back_ground, pixels, height*stride);
@@ -2555,7 +2555,7 @@ DRAW_WINDOW* ReadOriginalFormat(
 ***********************************************************/
 LAYER* ReadOriginalFormatMixedData(
 	void* stream,
-	stream_func read_func,
+	stream_func_t read_func,
 	size_t stream_size,
 	APPLICATION* app,
 	const char* data_name
@@ -2644,7 +2644,7 @@ LAYER* ReadOriginalFormatMixedData(
 	image = CreateMemoryStream(data_size);
 	(void)MemRead(image->buff_ptr, 1, data_size, mem_stream);
 
-	pixels = ReadPNGStream(image, (stream_func)MemRead, &width, &height,&stride);
+	pixels = ReadPNGStream(image, (stream_func_t)MemRead, &width, &height,&stride);
 
 	// 描画領域の背景へコピー
 	(void)memcpy(window->back_ground, pixels, height*stride);
@@ -2820,7 +2820,7 @@ void ReadOriginalFormatMemoryStream(
 	image = CreateMemoryStream(data_size);
 	(void)MemRead(image->buff_ptr, 1, data_size, stream);
 
-	pixels = ReadPNGStream(image, (stream_func)MemRead, &width, &height,&stride);
+	pixels = ReadPNGStream(image, (stream_func_t)MemRead, &width, &height,&stride);
 
 	// 描画領域の背景へコピー
 	window->back_ground = (uint8*)MEM_ALLOC_FUNC(stride*height);
@@ -2936,7 +2936,7 @@ void ReadOriginalFormatMemoryStream(
 *******************************************/
 void WriteOriginalFormat(
 	void* stream,
-	stream_func write_func,
+	stream_func_t write_func,
 	DRAW_WINDOW* window,
 	int add_thumbnail,
 	int compress
@@ -3061,7 +3061,7 @@ void WriteOriginalFormat(
 				pixels[i*4+2] = r;
 			}
 
-			WritePNGStream(image, (stream_func)MemWrite, NULL, pixels,
+			WritePNGStream(image, (stream_func_t)MemWrite, NULL, pixels,
 				THUMBNAIL_SIZE, THUMBNAIL_SIZE, THUMBNAIL_SIZE*4, 4, 0, 5);
 
 			size_t_temp = (guint32)image->data_point;
@@ -3096,7 +3096,7 @@ void WriteOriginalFormat(
 
 	// 背景画像のピクセルデータを書き出す
 	WritePNGStream(
-		image, (stream_func)MemWrite, NULL, window->back_ground,
+		image, (stream_func_t)MemWrite, NULL, window->back_ground,
 		window->width, window->height, window->stride, window->channel,
 		0, compress
 	);
@@ -3192,7 +3192,7 @@ void WriteOriginalFormat(
 		default:
 			// ピクセルデータをPNG圧縮して書きだす
 			(void)MemSeek(image, 0, SEEK_SET);
-			WritePNGStream(image, (stream_func)MemWrite, NULL, layer->pixels,
+			WritePNGStream(image, (stream_func_t)MemWrite, NULL, layer->pixels,
 				layer->width, layer->height, layer->stride, layer->channel,
 				0, compress
 			);
@@ -3404,7 +3404,7 @@ void WriteOriginalFormat(
 			(void)write_func(&tag, sizeof(tag), 1, stream);
 
 			(void)MemSeek(image, 0, SEEK_SET);
-			WritePNGStream((void*)image, (stream_func)MemWrite, NULL,
+			WritePNGStream((void*)image, (stream_func_t)MemWrite, NULL,
 				window->selection->pixels, window->width, window->height, window->width, 1, 0, compress);
 			size_t_temp = (guint32)image->data_point;
 			(void)write_func(&size_t_temp, sizeof(size_t_temp), 1, stream);
@@ -3481,6 +3481,684 @@ void WriteOriginalFormat(
 	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(progress), "");
 }
 
+/************************************************
+* PackLine関数                                  *
+* 一行分のデータをRun Length符号化する          *
+* 引数                                          *
+* start		: 符号化するデータの開始位置        *
+* length	: データの長さ                      *
+* stride	: 1ピクセルのチャンネルデータの間隔 *
+* dst		: 符号化したデータの書き込み先      *
+* 返り値                                        *
+*	書き出したデータのバイト数                  *
+************************************************/
+static int32 PackLine(
+	uint8* start,
+	int32 length,
+	int32 stride,
+	uint8* dst
+)
+{
+	int32 remain = length;
+	int i, j;
+
+	length = 0;
+	while(remain > 0)
+	{
+		// 最初のデータと同じものの個数を調べる
+		i = 0;
+		while((i < 128) && (remain - i > 0) && (start[0] == start[i*stride]))
+		{
+			i++;
+		}
+		// データ有
+		if(i > 1)
+		{
+			*dst++ = - (i - 1);
+			*dst++ = *start;
+
+			start += i * stride;
+			remain -= i;
+			length += 2;
+		}
+		else
+		{
+			i = 0;
+			while((i < 128) && (remain - (i + 1) > 0)
+				&& (start[i*stride] != start[(i + 1)*stride]
+				|| remain - (i + 2) <= 0 || start[i*stride] != start[(i + 2)*stride]))
+			{
+				i++;
+			}
+
+			if(remain == 1)
+			{
+				i = 1;
+			}
+			if(i > 0)
+			{
+				*dst++ = i - 1;
+				for(j=0; j<i; j++)
+				{
+					*dst++ = start[j*stride];
+				}
+				start += i*stride;
+				remain -= i;
+				length += i + 1;
+			}
+		}
+	}
+
+	return length;
+}
+
+/*******************************************************
+* GetCompressChannelData関数                           *
+* Run Length符号化したデータテーブルを作成する         *
+* 引数                                                 *
+* channel_data		: 符号化するチャンネルデータ       *
+* channel_columns	: 符号化する画像の幅               *
+* channel_rows		: 符号化する画像の高さ             *
+* stride			: 符号化する画像の一行分のバイト数 *
+* length_table		: 一行分のテーブルのバイト数記録先 *
+* remain_data		: 符号化後のデータ保存先           *
+* 返り値                                               *
+*	符号化後のバイト数テーブルのバイト数               *
+*******************************************************/
+static int GetCompressChannelData(
+	uint8* channel_data,
+	int32 channel_columns,
+	int32 channel_rows,
+	int32 stride,
+	uint16* length_table,
+	uint8* remain_data
+)
+{
+	uint8 *start;
+	int32 channel_length;
+	int32 length;
+	int i;
+
+	channel_length = channel_columns * channel_rows;
+
+	length = 0;
+	for(i=0; i<channel_rows; i++)
+	{
+		start = channel_data + (i * stride);
+
+		length_table[i] = (uint16)PackLine(start, channel_columns, 1, &remain_data[length]);
+
+		length += length_table[i];
+	}
+
+	return length;
+}
+
+/*************************************************
+* DecodeRunLengthData関数                        *
+* Run Length符号化されたデータを復号化する       *
+* 引数                                           *
+* src			: 復号元のデータ                 *
+* length_table	: 一行分のバイト数を格納した配列 *
+* height		: レイヤーの高さ                 *
+* dst			: 復号したデータの書き込み先     *
+*************************************************/
+static void DecodeRunLengthData(
+	uint8* src,
+	uint16* length_table,
+	int32 height,
+	int32 stride,
+	uint8* dst
+)
+{
+	uint8 *data;
+	uint8 *start = dst;
+	uint8 channel_value;
+	int next_pointer = 0;
+	int packed_size;
+	int unpacked_size;
+	int n;
+	int i;
+	for(i=0; i<height; i++)
+	{
+		data = src + next_pointer;
+		dst = start + (i*stride);
+		next_pointer += packed_size = length_table[i];
+		unpacked_size = stride;
+		while(packed_size > 0 && unpacked_size > 0)
+		{
+			n = *data;
+			data++;
+			packed_size--;
+			if(n == 128)
+			{
+				continue;
+			}
+			else if(n > 128)
+			{
+				n -= 256;
+			}
+
+			if(n < 0)
+			{
+				n = 1 - n;
+				if(packed_size == 0)
+				{
+					break;
+				}
+				if(n > unpacked_size)
+				{
+					break;
+				}
+				channel_value = *data;
+				for( ; n > 0; --n)
+				{
+					if(unpacked_size == 0)
+					{
+						break;
+					}
+					*dst = channel_value;
+					dst++;
+					unpacked_size--;
+				}
+				if(unpacked_size != 0)
+				{
+					data++;
+					packed_size--;
+				}
+			}
+			else
+			{
+				n++;
+				for( ; n > 0; --n)
+				{
+					if(packed_size == 0)
+					{
+						break;
+					}
+					if(unpacked_size == 0)
+					{
+						break;
+					}
+					*dst = *data;
+					dst++;
+					unpacked_size--;
+					data++;
+					packed_size--;
+				}
+			}
+		}
+
+		if(unpacked_size > 0)
+		{
+			for(n = 0; n < unpacked_size; ++n)
+			{
+				*dst = 0;
+				dst++;
+			}
+		}
+	}
+}
+
+/**********************************************************************
+* PSDのレイヤー合成モードからKABURAGI用のレイヤー合成モードに変換する *
+* 引数                                                                *
+* key	: 合成モードを表すデータ                                      *
+* 返り値                                                              *
+*	合成モード定数                                                    *
+**********************************************************************/
+static eLAYER_BLEND_MODE GetLayerBlendModeFromPhotoShopDocument(const uint8* key)
+{
+	if(memcmp(key, "norm", 4) == 0)
+	{
+		return LAYER_BLEND_NORMAL;
+	}
+	else if(memcmp(key, "lddg", 4) == 0)
+	{
+		return LAYER_BLEND_ADD;
+	}
+	else if(memcmp(key, "mul ", 4) == 0)
+	{
+		return LAYER_BLEND_MULTIPLY;
+	}
+	else if(memcmp(key, "scrn", 4) == 0)
+	{
+		return LAYER_BLEND_SCREEN;
+	}
+	else if(memcmp(key, "over", 4) == 0)
+	{
+		return LAYER_BLEND_OVERLAY;
+	}
+	else if(memcmp(key, "lite", 4) == 0)
+	{
+		return LAYER_BLEND_LIGHTEN;
+	}
+	else if(memcmp(key, "dark", 4) == 0)
+	{
+		return LAYER_BLEND_DARKEN;
+	}
+	else if(memcmp(key, "div ", 4) == 0)
+	{
+		return LAYER_BLEND_DODGE;
+	}
+	else if(memcmp(key, "idiv", 4) == 0)
+	{
+		return LAYER_BLEND_BURN;
+	}
+	else if(memcmp(key, "hLit", 4) == 0)
+	{
+		return LAYER_BLEND_HARD_LIGHT;
+	}
+	else if(memcmp(key, "sLit", 4) == 0)
+	{
+		return LAYER_BLEND_SOFT_LIGHT;
+	}
+	else if(memcmp(key, "diff", 4) == 0)
+	{
+		return LAYER_BLEND_DIFFERENCE;
+	}
+	else if(memcmp(key, "hue ", 4) == 0)
+	{
+		return LAYER_BLEND_HSL_HUE;
+	}
+	else if(memcmp(key, "sat ", 4) == 0)
+	{
+		return LAYER_BLEND_HSL_SATURATION;
+	}
+	else if(memcmp(key, "colr", 4) == 0)
+	{
+		return LAYER_BLEND_HSL_COLOR;
+	}
+	else if(memcmp(key, "lum ", 4) == 0)
+	{
+		return LAYER_BLEND_HSL_LUMINOSITY;
+	}
+	return LAYER_BLEND_NORMAL;
+}
+
+/*************************************************
+* ReadPhotoShopDocument関数                      *
+* PSD形式を読み込む                              *
+* 引数                                           *
+* stream		: 書き込み先のストリーム         *
+* write_func	: 書き込み用の関数ポインタ       *
+* seek_func		: シーク用の関数ポインタ         *
+* tell_func		: シーク位置取得用の関数ポインタ *
+* 返り値                                         *
+*	正常終了時:一番下のレイヤー, 異常終了時:NULL *
+*************************************************/
+LAYER* ReadPhotoShopDocument(
+	void* stream,
+	stream_func_t read_func,
+	seek_func_t seek_func,
+	long (*tell_func)(void*)
+)
+{
+	// 一番下のレイヤー
+	LAYER *bottom = NULL;
+	// 処理中のレイヤー
+	LAYER *layer = NULL;
+	// 最も大きいレイヤーの幅・高さ
+	int max_width = 0,	max_height = 0;
+	// Run Lengthのバイトサイズテーブル情報
+	uint16 *length_table;
+	// 画像データのバイト数
+	size_t data_size;
+	// 画像データの開始位置
+	long data_start;
+	// キャンバスの幅、高さ
+	int canvas_width, canvas_height;
+	// セクションの長さ
+	unsigned long block_length;
+	// セクションの終了位置
+	unsigned long block_end;
+	// カラーモード
+	uint16 color_mode;
+	// チャンネル数
+	uint16 channels;
+	// チャンネルインデックス
+	int (*channel_indices)[4];
+	// チャンネルデータのバイト数
+	guint32 (*channel_bytes)[4];
+	// ピクセルデータ
+	uint8 *pixels = NULL;
+	// 圧縮されたデータ
+	uint8 *rle_data = NULL;
+	// レイヤーの名前
+	char layer_name[1024];
+	// レイヤーの数
+	int16 num_layers;
+	// 4バイトバッファ
+	guint32 dw;
+	gint32 signed_dw;
+	// 2バイトバッファ
+	uint16 word;
+	int16 signed_word;
+	// 1バイトバッファ
+	uint8 byte;
+	// 比較用のキー
+	char *key;
+	// Signature格納バッファ
+	uint8 signature[16];
+	// for文用のカウンタ
+	int i, j, k;
+
+	// Headerを読み込む
+	(void)read_func(signature, 1, 4, stream);
+	key = "8BPS";
+	if(memcmp(signature, key, 4) != 0)
+	{
+		return NULL;
+	}
+	// Version
+	(void)read_func(&word, sizeof(word), 1, stream);
+	// Reserved
+	for(i=0; i<3; i++)
+	{
+		(void)read_func(&word, sizeof(word), 1, stream);
+	}
+	// Channels
+	(void)read_func(&channels, sizeof(channels), 1, stream);
+	channels = GUINT16_FROM_BE(channels);
+	// Rows(キャンバスの高さ)
+	(void)read_func(&dw, sizeof(dw), 1, stream);
+	canvas_height = (int)(GUINT32_FROM_BE(dw));
+	// Columns(キャンバスの幅)
+	(void)read_func(&dw, sizeof(dw), 1, stream);
+	canvas_width = (int)(GUINT32_FROM_BE(dw));
+	// ピクセルデータ深度
+	(void)read_func(&word, sizeof(word), 1, stream);
+	word = GUINT16_FROM_BE(word);
+	if(word != 8)
+	{
+		return NULL;
+	}
+	// カラーモード
+	(void)read_func(&color_mode, sizeof(color_mode), 1, stream);
+	color_mode = GUINT16_FROM_BE(color_mode);
+	if(!(
+		color_mode == 1	// グレースケール
+		|| color_mode == 3	// RGB
+		|| color_mode == 4	// CMYK
+	))
+	{
+		return NULL;
+	}
+
+	// Color Mode Data Block
+	(void)read_func(&dw, sizeof(dw), 1, stream);
+	block_length = (unsigned int)(GUINT32_FROM_BE(dw));
+	block_end = (unsigned int)(tell_func(stream) + block_length);
+
+	// 現在、インデックスカラー等には非対応
+	if(seek_func(stream, block_end, SEEK_SET) < 0)
+	{
+		return NULL;
+	}
+
+	// Image Resource Block
+	(void)read_func(&dw, sizeof(dw), 1, stream);
+	block_length = (unsigned int)(GUINT32_FROM_BE(dw));
+	block_end = (unsigned int)(tell_func(stream) + block_length);
+	if(seek_func(stream, block_end, SEEK_SET) < 0)
+	{
+		return NULL;
+	}
+
+	// Layer and Mask Information Block
+	(void)read_func(&dw, sizeof(dw), 1, stream);
+	data_size = GUINT32_FROM_BE(dw);
+	(void)read_func(&dw, sizeof(dw), 1, stream);
+	block_length = (unsigned int)(GUINT32_FROM_BE(dw));
+	block_end = (unsigned int)(tell_func(stream) + block_length);
+
+	// レイヤーの数
+	(void)read_func(&signed_word, sizeof(signed_word), 1, stream);
+	num_layers = GINT16_FROM_BE(signed_word);
+	if(num_layers < 0)
+	{
+		num_layers = - num_layers;
+	}
+	channel_indices = (int (*)[4])MEM_ALLOC_FUNC(sizeof(*channel_indices)*num_layers);
+	channel_bytes = (guint32 (*)[4])MEM_ALLOC_FUNC(sizeof(*channel_bytes)*num_layers);
+	// レイヤーの情報を読み込む
+	for(i=0; i<num_layers; i++)
+	{
+		// レイヤーの座標
+		int32 layer_x,	layer_y;
+		// レイヤーの幅、高さ
+		int32 layer_width,	layer_height;
+		// レイヤーのチャンネル数
+		uint8 channels;
+		// レイヤーの合成モード
+		eLAYER_BLEND_MODE blend_mode;
+		// レイヤーの不透明度
+		uint8 opacity;
+		// 非表示、透明保護等のフラグ
+		uint8 layer_flags;
+		// 追加情報のバイト数
+		unsigned int extra_data_size;
+		unsigned int extra_data_end;
+		// レイヤー名の長さ
+		uint16 name_length;
+		// UTF8への変換用
+		char *utf8_name = NULL;
+		// レイヤー名のエンコード方式
+		int is_unicode = FALSE;
+		// Top
+		(void)read_func(&signed_dw, sizeof(signed_dw), 1, stream);
+		signed_dw = GINT32_FROM_BE(signed_dw);
+		layer_y = signed_dw;
+		// Left
+		(void)read_func(&signed_dw, sizeof(signed_dw), 1, stream);
+		signed_dw = GINT32_FROM_BE(signed_dw);
+		layer_x = signed_dw;
+		// Bottom
+		(void)read_func(&signed_dw, sizeof(signed_dw), 1, stream);
+		signed_dw = GINT32_FROM_BE(signed_dw);
+		layer_height = signed_dw - layer_y;
+		// Right
+		(void)read_func(&signed_dw, sizeof(signed_dw), 1, stream);
+		signed_dw = GINT32_FROM_BE(signed_dw);
+		layer_width = signed_dw - layer_x;
+
+		if(max_width < layer_width)
+		{
+			max_width = layer_width;
+		}
+		if(max_height < layer_height)
+		{
+			max_height = layer_height;
+		}
+
+		// Channels
+		(void)read_func(&word, sizeof(word), 1, stream);
+		word = GUINT16_FROM_BE(word);
+		channels = (uint8)word;
+
+		for(j=0; j<channels; j++)
+		{
+			(void)read_func(&word, sizeof(word), 1, stream);
+			word = GUINT16_FROM_BE(word);
+			if(word == 0xFFFF)
+			{
+				channel_indices[i][j] = 3;
+			}
+			else
+			{
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				if(word == 0)
+				{
+					channel_indices[i][j] = 2;
+				}
+				else if(word == 2)
+				{
+					channel_indices[i][j] = 0;
+				}
+				else
+#endif
+				{
+					channel_indices[i][j] = word;
+				}
+			}
+			(void)read_func(&dw, sizeof(dw), 1, stream);
+			dw = GUINT32_FROM_BE(dw);
+			channel_bytes[i][j] = dw;
+		}
+
+		// 合成モード
+		(void)read_func(signature, 1, 4, stream);
+		key = "8BIM";
+		if(memcmp(signature, key, 4) != 0)
+		{
+		}
+		(void)read_func(signature, 1, 4, stream);
+		blend_mode = GetLayerBlendModeFromPhotoShopDocument(signature);
+		// 不透明度
+		(void)read_func(&opacity, sizeof(opacity), 1, stream);
+		// クリッピング(読み飛ばす)
+		(void)read_func(&byte, sizeof(byte), 1, stream);
+		// フラグ
+		layer_flags = 0;
+		(void)read_func(&byte, sizeof(byte), 1, stream);
+		if((byte & 0x01) != 0)
+		{
+			layer_flags |= LAYER_LOCK_OPACITY;
+		}
+		if((byte & 0x02) != 0)
+		{
+			layer_flags |= LAYER_FLAG_INVISIBLE;
+		}
+		// Padding
+		(void)read_func(&byte, sizeof(byte), 1, stream);
+		// Extra Data Size
+		(void)read_func(&dw, sizeof(dw), 1, stream);
+		extra_data_size = GUINT32_FROM_BE(dw);
+		extra_data_end = (unsigned int)(tell_func(stream) + extra_data_size);
+		// レイヤーマスク(読み飛ばす)
+		(void)read_func(&dw, sizeof(dw), 1, stream);
+		// Blending Ranges(読み飛ばす)
+		(void)read_func(&dw, sizeof(dw), 1, stream);
+		// レイヤー名
+		(void)read_func(&byte, sizeof(byte), 1, stream);
+		name_length = byte;
+		(void)read_func(layer_name, 1, name_length, stream);
+		layer_name[name_length] = '\0';
+
+		while(extra_data_size >= 4 && ftell(stream) < (long)(extra_data_end))
+		{
+			long key_data_size;
+			(void)read_func(signature, 1, 4, stream);
+			if(memcmp(signature, "8BIM", 4) == 0)
+			{
+				(void)read_func(signature, 1, 4, stream);
+				if(memcmp(signature, "luni", 4) == 0)
+				{
+					is_unicode = TRUE;
+					(void)read_func(&dw, sizeof(dw), 1, stream);
+					(void)read_func(&dw, sizeof(dw), 1, stream);
+					dw = GUINT32_FROM_BE(dw);
+					name_length = (uint16)(dw * 2);
+					(void)read_func(layer_name, 1, name_length, stream);
+				}
+				else
+				{
+					(void)read_func(&dw, sizeof(dw), 1, stream);
+					key_data_size = (long)(GUINT32_FROM_BE(dw));
+					(void)seek_func(stream, key_data_size, SEEK_CUR);
+				}
+			}
+		}
+
+		(void)seek_func(stream, extra_data_end, SEEK_SET);
+
+		if(is_unicode != FALSE)
+		{
+			utf8_name = g_convert(layer_name, name_length, "UTF-8", "UTF-16BE",
+				NULL, NULL, NULL);
+		}
+		else
+		{
+			utf8_name = g_locale_to_utf8(layer_name, -1, NULL, NULL, NULL);
+		}
+		layer = CreateLayer(layer_x, layer_y, layer_width, layer_height,
+			4, TYPE_NORMAL_LAYER, layer, NULL, utf8_name, NULL);
+		(void)memset(layer->pixels, 0, layer->height * layer->stride);
+		if(channels == 3)
+		{
+			for(j=0; j<layer->width * layer->height; j++)
+			{
+				layer->pixels[j*4+3] = 0xff;
+			}
+		}
+		layer->channel = channels;
+		layer->flags = layer_flags;
+		layer->alpha = (opacity * 100) / 255;
+		g_free(utf8_name);
+		if(bottom == NULL)
+		{
+			bottom = layer;
+		}
+	}
+	//(void)seek_func(stream, block_end, SEEK_SET);
+	// 画像データ読み込み
+	data_start = tell_func(stream);
+	layer = bottom;
+	pixels = (uint8*)MEM_ALLOC_FUNC(max_width * max_height * 2);
+	rle_data = (uint8*)MEM_ALLOC_FUNC(max_width * max_height * 2);
+	length_table = (uint16*)MEM_ALLOC_FUNC(max_height * 2);
+	for(i=0; i<num_layers; i++)
+	{
+		for(j=0; j<layer->channel; j++)
+		{
+			int channel_index = channel_indices[i][j];
+			block_end = data_start + channel_bytes[i][j];
+			data_start = block_end;
+			(void)read_func(&word, sizeof(word), 1, stream);
+			word = GUINT16_FROM_BE(word);
+			if(word == 0)
+			{	// 圧縮無し
+				(void)read_func(pixels, 1, layer->width * layer->height, stream);
+				for(k=0; k<layer->width * layer->height; k++)
+				{
+					layer->pixels[k*4+channel_index] = pixels[k];
+				}
+			}
+			else if(word == 1)
+			{	// Run Length圧縮
+				size_t point = 0;
+				(void)read_func(length_table, sizeof(*length_table), layer->height, stream);
+				for(k=0; k<layer->height; k++)
+				{
+					length_table[k] = GUINT16_FROM_BE(length_table[k]);
+					(void)read_func(&rle_data[point], 1, length_table[k], stream);
+					point += length_table[k];
+				}
+				DecodeRunLengthData(rle_data, length_table, layer->height, layer->width, pixels);
+				for(k=0; k<layer->width * layer->height; k++)
+				{
+					layer->pixels[k*4+channel_index] = pixels[k];
+				}
+			}
+			else
+			{
+				j--;
+				continue;
+			}
+			//(void)seek_func(stream, block_end, SEEK_SET);
+		}
+		layer = layer->next;
+	}
+
+	MEM_FREE_FUNC(rle_data);
+	MEM_FREE_FUNC(pixels);
+	MEM_FREE_FUNC(length_table);
+	MEM_FREE_FUNC(channel_indices);
+	MEM_FREE_FUNC(channel_bytes);
+
+	return bottom;
+}
+
 /*************************************************
 * WritePhotoShopDocument関数                     *
 * PSD形式で書きだす                              *
@@ -3493,8 +4171,8 @@ void WriteOriginalFormat(
 *************************************************/
 void WritePhotoShopDocument(
 	void* stream,
-	stream_func write_func,
-	seek_func seek_func,
+	stream_func_t write_func,
+	seek_func_t seek_func,
 	long (*tell_func)(void*),
 	DRAW_WINDOW* window
 )
@@ -3507,6 +4185,19 @@ void WritePhotoShopDocument(
 	char* name;
 	// ピクセルデータ
 	uint8 *byte_data = (uint8*)MEM_ALLOC_FUNC(window->pixel_buf_size);
+	// RLE圧縮後のデータ
+	uint8 *rle_data = (uint8*)MEM_ALLOC_FUNC(window->height * (window->width + 10 + (window->width/100)));
+	// RLE圧縮後のデータバイト数
+	int compressed_data_length;
+	// チャンネルのデータのバイト数書き込み位置
+	long (*channel_length_position)[4] =
+		(long (*)[4])MEM_ALLOC_FUNC(sizeof(*channel_length_position)*window->num_layer);
+	// RLEテーブルのデータ
+	uint16 *length_table = (uint16*)MEM_ALLOC_FUNC(sizeof(*length_table)*window->height);
+	// チャンネルデータのバイト数書き込み位置
+	long length_table_position;
+	// チャンネルデータのバイト数
+	int channel_data_length;
 	// レイヤーデータのバイト数
 	size_t data_size;
 	// 4バイトバッファ
@@ -3589,6 +4280,9 @@ void WritePhotoShopDocument(
 	// レイヤーデータ書き出し
 	for(i=0; i<window->num_layer; i++)
 	{
+		// 書き出すチャンネルのインデックス
+		int channel;
+
 		// 名前をシステムコードに変換
 		name = g_convert(layer->name, -1, window->app->system_code, "UTF-8",
 			NULL, NULL, NULL);
@@ -3619,17 +4313,33 @@ void WritePhotoShopDocument(
 			word = 0xFFFF;
 			(void)write_func(&word, sizeof(word), 1, stream);
 			// LengthOfChannelData
+			channel_length_position[i][3] = tell_func(stream);
 			dw = sizeof(word) + layer->width*layer->height;
 			dw = GUINT32_TO_BE(dw);
 			(void)write_func(&dw, sizeof(dw), 1, stream);
 		}
 		for(j=0; j<3; j++)
 		{
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+			if(j == 0)
+			{
+				channel = 2;
+			}
+			else if(j == 2)
+			{
+				channel = 0;
+			}
+			else
+#endif
+			{
+				channel = j;
+			}
 			// ChannelID
 			word = j;
 			word = GUINT16_TO_BE(word);
 			(void)write_func(&word, sizeof(word), 1, stream);
 			// LengthOfChannelData
+			channel_length_position[i][channel] = tell_func(stream);
 			dw = sizeof(word) + layer->width*layer->height;
 			dw = GUINT32_TO_BE(dw);
 			(void)write_func(&dw, sizeof(dw), 1, stream);
@@ -3770,18 +4480,42 @@ void WritePhotoShopDocument(
 		{
 			// 書き出すチャンネルのインデックス
 			int channel;
-
+ 
 			if(layer->channel == 4)
 			{
+				channel_data_length = sizeof(uint16);
 				// Compression
+				word = 1;
+				word = GUINT16_TO_BE(word);
 				(void)write_func(&word, sizeof(word), 1, stream);
+
+				length_table_position = tell_func(stream);
+				// 一度ダミーのテーブルを書き出しておく
+				(void)write_func(length_table, sizeof(uint16), layer->height, stream);
+				channel_data_length += layer->height * sizeof(uint16);
 
 				// ピクセルデータ
 				for(j=0; j<layer->width*layer->height; j++)
 				{
 					byte_data[j] = layer->pixels[j*layer->channel+3];
 				}
-				(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+				compressed_data_length = GetCompressChannelData(byte_data,
+					layer->width, layer->height, layer->width, length_table, rle_data);
+				channel_data_length += compressed_data_length;
+				(void)write_func(rle_data, 1, compressed_data_length, stream);
+				(void)seek_func(stream, length_table_position, SEEK_SET);
+				for(j=0; j<layer->height; j++)
+				{
+					word = length_table[j];
+					word = GUINT16_TO_BE(word);
+					(void)write_func(&word, sizeof(word), 1, stream);
+				}
+				(void)seek_func(stream, channel_length_position[i][3], SEEK_SET);
+				dw = channel_data_length;
+				dw = GUINT32_TO_BE(dw);
+				(void)write_func(&dw, sizeof(dw), 1, stream);
+				(void)seek_func(stream, 0, SEEK_END);
+				//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 			}
 
 			(void)memcpy(window->temp_layer->pixels, window->mixed_layer->pixels, window->pixel_buf_size);
@@ -3792,6 +4526,8 @@ void WritePhotoShopDocument(
 			// チャンネルデータ書き出し
 			for(j=0; j<3; j++)
 			{
+				channel_data_length = sizeof(uint16);
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
 				if(j == 0)
 				{
 					channel = 2;
@@ -3801,12 +4537,20 @@ void WritePhotoShopDocument(
 					channel = 0;
 				}
 				else
+#endif
 				{
 					channel = j;
 				}
 
 				// Compression
+				word = 1;
+				word = GUINT16_TO_BE(word);
 				(void)write_func(&word, sizeof(word), 1, stream);
+
+				length_table_position = tell_func(stream);
+				// 一度ダミーのテーブルを書き出しておく
+				(void)write_func(length_table, sizeof(uint16), layer->height, stream);
+				channel_data_length += layer->height * sizeof(uint16);
 
 				// ピクセルデータ
 				for(k=0; k<layer->width*layer->height; k++)
@@ -3814,7 +4558,23 @@ void WritePhotoShopDocument(
 					byte_data[k] = window->temp_layer->pixels[k*layer->channel+channel];
 					//byte_data[k] = layer->pixels[k*layer->channel+j];
 				}
-				(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+				compressed_data_length = GetCompressChannelData(byte_data,
+					layer->width, layer->height, layer->width, length_table, rle_data);
+				channel_data_length += compressed_data_length;
+				(void)write_func(rle_data, 1, compressed_data_length, stream);
+				(void)seek_func(stream, length_table_position, SEEK_SET);
+				for(k=0; k<layer->height; k++)
+				{
+					word = length_table[k];
+					word = GUINT16_TO_BE(word);
+					(void)write_func(&word, sizeof(word), 1, stream);
+				}
+				(void)seek_func(stream, channel_length_position[i][channel], SEEK_SET);
+				dw = channel_data_length;
+				dw = GUINT32_TO_BE(dw);
+				(void)write_func(&dw, sizeof(dw), 1, stream);
+				(void)seek_func(stream, 0, SEEK_END);
+				//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 			}
 		}
 		else
@@ -3837,20 +4597,46 @@ void WritePhotoShopDocument(
 
 			if(layer->channel == 4)
 			{
+				channel_data_length = sizeof(uint16);
 				// Compression
+				word = 1;
+				word = GUINT16_TO_BE(word);
 				(void)write_func(&word, sizeof(word), 1, stream);
+
+				length_table_position = tell_func(stream);
+				// 一度ダミーのテーブルを書き出しておく
+				(void)write_func(length_table, sizeof(uint16), layer->height, stream);
+				channel_data_length += layer->height * sizeof(uint16);
 
 				// ピクセルデータ
 				for(j=0; j<layer->width*layer->height; j++)
 				{
 					byte_data[j] = window->temp_layer->pixels[j*layer->channel+3];
 				}
-				(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+				compressed_data_length = GetCompressChannelData(byte_data,
+					layer->width, layer->height, layer->width, length_table, rle_data);
+				channel_data_length += compressed_data_length;
+				(void)write_func(rle_data, 1, compressed_data_length, stream);
+				(void)seek_func(stream, length_table_position, SEEK_SET);
+				for(j=0; j<layer->height; j++)
+				{
+					word = length_table[j];
+					word = GUINT16_TO_BE(word);
+					(void)write_func(&word, sizeof(word), 1, stream);
+				}
+				(void)seek_func(stream, channel_length_position[i][3], SEEK_SET);
+				dw = channel_data_length;
+				dw = GUINT32_TO_BE(dw);
+				(void)write_func(&dw, sizeof(dw), 1, stream);
+				(void)seek_func(stream, 0, SEEK_END);
+				//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 			}
 			// チャンネルデータ書き出し
 			for(j=0; j<3; j++)
 			{
 				int channel_id = j;
+				channel_data_length = sizeof(uint16);
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
 				if(channel_id == 0)
 				{
 					channel_id = 2;
@@ -3859,16 +4645,40 @@ void WritePhotoShopDocument(
 				{
 					channel_id = 0;
 				}
+#endif
 
 				// Compression
+				word = 1;
+				word = GUINT16_TO_BE(word);
 				(void)write_func(&word, sizeof(word), 1, stream);
+
+				length_table_position = tell_func(stream);
+				// 一度ダミーのテーブルを書き出しておく
+				(void)write_func(length_table, sizeof(uint16), layer->height, stream);
+				channel_data_length += layer->height * sizeof(uint16);
 
 				// ピクセルデータ
 				for(k=0; k<layer->width*layer->height; k++)
 				{
 					byte_data[k] = window->mask_temp->pixels[k*layer->channel+channel_id];
 				}
-				(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+				compressed_data_length = GetCompressChannelData(byte_data,
+					layer->width, layer->height, layer->width, length_table, rle_data);
+				channel_data_length += compressed_data_length;
+				(void)write_func(rle_data, 1, compressed_data_length, stream);
+				(void)seek_func(stream, length_table_position, SEEK_SET);
+				for(k=0; k<layer->height; k++)
+				{
+					word = length_table[k];
+					word = GUINT16_TO_BE(word);
+					(void)write_func(&word, sizeof(word), 1, stream);
+				}
+				(void)seek_func(stream, channel_length_position[i][channel_id], SEEK_SET);
+				dw = channel_data_length;
+				dw = GUINT32_TO_BE(dw);
+				(void)write_func(&dw, sizeof(dw), 1, stream);
+				(void)seek_func(stream, 0, SEEK_END);
+				//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 			}
 		}
 
@@ -3901,18 +4711,44 @@ void WritePhotoShopDocument(
 	layer = window->mixed_layer;
 	if(layer->channel == 4)
 	{
+		channel_data_length = sizeof(uint16);
 		// Compression
-		word = 0;
+		word = 1;
+		word = GUINT16_TO_BE(word);
 		(void)write_func(&word, sizeof(word), 1, stream);
+
+		length_table_position = tell_func(stream);
+		// 一度ダミーのテーブルを書き出しておく
+		(void)write_func(length_table, sizeof(uint16), layer->height, stream);
+		channel_data_length += layer->height * sizeof(uint16);
+
 		for(j=0; j<layer->width*layer->height; j++)
 		{
 			byte_data[j] = layer->pixels[j*layer->channel+3];
 		}
-		(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+		compressed_data_length = GetCompressChannelData(byte_data,
+			layer->width, layer->height, layer->width, length_table, rle_data);
+		channel_data_length += compressed_data_length;
+		(void)write_func(rle_data, 1, compressed_data_length, stream);
+		(void)seek_func(stream, length_table_position, SEEK_SET);
+		for(j=0; j<layer->height; j++)
+		{
+			word = length_table[j];
+			word = GUINT16_TO_BE(word);
+			(void)write_func(&word, sizeof(word), 1, stream);
+		}
+		(void)seek_func(stream, channel_length_position[i][3], SEEK_SET);
+		dw = channel_data_length;
+		dw = GUINT32_TO_BE(dw);
+		(void)write_func(&dw, sizeof(dw), 1, stream);
+		(void)seek_func(stream, 0, SEEK_END);
+		//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 	}
 	for(j=0; j<3; j++)
 	{
 		int channel_id = j;
+		channel_data_length = sizeof(uint16);
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
 		if(channel_id == 0)
 		{
 			channel_id = 2;
@@ -3921,17 +4757,38 @@ void WritePhotoShopDocument(
 		{
 			channel_id = 0;
 		}
+#endif
 
 		// Compression
-		word = 0;
+		word = 1;
+		word = GUINT16_TO_BE(word);
 		(void)write_func(&word, sizeof(word), 1, stream);
 		for(k=0; k<layer->width*layer->height; k++)
 		{
 			byte_data[k] = layer->pixels[k*layer->channel+channel_id];
 		}
-		(void)write_func(byte_data, 1, layer->width*layer->height, stream);
+		compressed_data_length = GetCompressChannelData(byte_data,
+			layer->width, layer->height, layer->width, length_table, rle_data);
+		channel_data_length += compressed_data_length;
+		(void)write_func(rle_data, 1, compressed_data_length, stream);
+		(void)seek_func(stream, length_table_position, SEEK_SET);
+		for(k=0; k<layer->height; k++)
+		{
+			word = length_table[k];
+			word = GUINT16_TO_BE(word);
+			(void)write_func(&word, sizeof(word), 1, stream);
+		}
+		(void)seek_func(stream, channel_length_position[i][channel_id], SEEK_SET);
+		dw = channel_data_length;
+		dw = GUINT32_TO_BE(dw);
+		(void)write_func(&dw, sizeof(dw), 1, stream);
+		(void)seek_func(stream, 0, SEEK_END);
+		//(void)write_func(byte_data, 1, layer->width*layer->height, stream);
 	}
 	//DeleteLayer(&layer);
+	MEM_FREE_FUNC(length_table);
+	MEM_FREE_FUNC(rle_data);
+	MEM_FREE_FUNC(channel_length_position);
 	MEM_FREE_FUNC(byte_data);
 
 	(void)write_func(&word, 1, 1, stream);
@@ -4201,7 +5058,7 @@ static void UpdatePreviewCallBack(GtkFileChooser *file_chooser, GtkWidget *image
 			png_data = CreateMemoryStream(data_size);
 			(void)FileRead(png_data->buff_ptr, 1, data_size, stream);
 
-			pixels = ReadPNGStream((void*)png_data, (stream_func)MemRead,
+			pixels = ReadPNGStream((void*)png_data, (stream_func_t)MemRead,
 				&width, &height, &stride);
 			pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, width, height);
 			buf_pixels = gdk_pixbuf_get_pixels(pixbuf);
@@ -4235,7 +5092,7 @@ static void UpdatePreviewCallBack(GtkFileChooser *file_chooser, GtkWidget *image
 		uint8 b;
 		int y;
 
-		pixels = ReadTlgStream((void*)stream, (stream_func)FileRead, (seek_func)FileSeek,
+		pixels = ReadTlgStream((void*)stream, (stream_func_t)FileRead, (seek_func_t)FileSeek,
 			(long (*)(void*))FileSeekTell, &width, &height, &channel);
 
 		if(pixels == NULL)

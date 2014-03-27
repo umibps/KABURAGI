@@ -472,7 +472,7 @@ void OpenAsReferenceImage(char* file_path, REFERENCE_WINDOW* reference)
 		data_size = (size_t)ftell(fp);
 		rewind(fp);
 
-		mixed = ReadOriginalFormatMixedData(fp, (stream_func)fread, data_size, app, file_name);
+		mixed = ReadOriginalFormatMixedData(fp, (stream_func_t)fread, data_size, app, file_name);
 		if(mixed != NULL)
 		{
 			uint8 *pixels = (uint8*)MEM_ALLOC_FUNC(mixed->stride * mixed->height);

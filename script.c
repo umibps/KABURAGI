@@ -2683,7 +2683,7 @@ static int ScriptBrushImagePatternNew(lua_State* lua)
 		return 0;
 	}
 
-	pixels = ReadPNGStream((void*)stream, (stream_func)FileRead,
+	pixels = ReadPNGStream((void*)stream, (stream_func_t)FileRead,
 		&width, &height, &stride);
 	script->brush_data->width = (int)width,	script->brush_data->height = (int)height;
 	script->brush_data->stride = stride;
@@ -3293,7 +3293,7 @@ SCRIPT* CreateScript(APPLICATION* app, const char* file_path)
 		ret->before_data = CreateMemoryStream(
 			app->draw_window[app->active_window]->pixel_buf_size);
 		WriteOriginalFormat((void*)ret->before_data,
-			(stream_func)MemWrite, app->draw_window[app->active_window], 0, app->preference.compress);
+			(stream_func_t)MemWrite, app->draw_window[app->active_window], 0, app->preference.compress);
 	}
 
 	// アプリケーションの情報を登録しておく
@@ -3650,7 +3650,7 @@ void AddScriptHistory(SCRIPT* script)
 	// スクリプト実行後のデータ作成用のバッファを用意
 	after_data = CreateMemoryStream(window->pixel_buf_size);
 	// データ作成
-	WriteOriginalFormat(after_data, (stream_func)MemWrite, window,
+	WriteOriginalFormat(after_data, (stream_func_t)MemWrite, window,
 		0, script->app->preference.compress);
 
 	// 履歴データを作成

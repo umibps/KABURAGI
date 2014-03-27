@@ -417,6 +417,32 @@ void* StructArrayReserve(STRUCT_ARRAY* struct_array)
 	return ret;
 }
 
+void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size)
+{
+	size_t alloc_size;
+
+	if(struct_array->buffer_size == new_size)
+	{
+		return;
+	}
+	if(struct_array->block_size > 1)
+	{
+		alloc_size = ((new_size + struct_array->block_size - 1)
+			/ struct_array->block_size) * struct_array->block_size;
+	}
+	else
+	{
+		alloc_size = new_size;
+	}
+	struct_array->buffer = (uint8*)MEM_REALLOC_FUNC(
+		struct_array->buffer, struct_array->data_size * alloc_size);
+	if(alloc_size < struct_array->num_data)
+	{
+		struct_array->num_data = alloc_size-1;
+	}
+	struct_array->buffer_size = alloc_size;
+}
+
 void StructArrayRemoveByIndex(
 	STRUCT_ARRAY* struct_array,
 	size_t index,
@@ -706,6 +732,26 @@ INLINE void MulMatrixVector4Transpose(const float matrix[16], const float vector
 	ret[3] = matrix[3] * vector[0] + matrix[7] * vector[1] + matrix[11] * vector[2] + matrix[15] * vector[3];
 
 	COPY_VECTOR4(result, ret);
+}
+
+INLINE void MulMatrixScalar4x4(float matrix[16], float scale)
+{
+	matrix[0] *= scale;
+	matrix[1] *= scale;
+	matrix[2] *= scale;
+	matrix[3] *= scale;
+	matrix[4] *= scale;
+	matrix[5] *= scale;
+	matrix[6] *= scale;
+	matrix[7] *= scale;
+	matrix[8] *= scale;
+	matrix[9] *= scale;
+	matrix[10] *= scale;
+	matrix[11] *= scale;
+	matrix[12] *= scale;
+	matrix[13] *= scale;
+	matrix[14] *= scale;
+	matrix[15] *= scale;
 }
 
 INLINE float CalcDetermineMatrix4x4(float matrix[16])

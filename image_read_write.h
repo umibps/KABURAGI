@@ -37,7 +37,7 @@ typedef enum _eIMAGE_DATA_TYPE
 ***********************************************************/
 extern uint8* ReadPNGStream(
 	void* stream,
-	stream_func read_func,
+	stream_func_t read_func,
 	gint32* width,
 	gint32* height,
 	gint32* stride
@@ -59,7 +59,7 @@ extern uint8* ReadPNGStream(
 **************************************************************************/
 extern void ReadPNGHeader(
 	void* stream,
-	stream_func read_func,
+	stream_func_t read_func,
 	gint32* width,
 	gint32* height,
 	gint32* stride,
@@ -87,7 +87,7 @@ extern void ReadPNGHeader(
 **************************************************************************/
 extern uint8* ReadPNGDetailData(
 	void* stream,
-	stream_func read_func,
+	stream_func_t read_func,
 	gint32* width,
 	gint32* height,
 	gint32* stride,
@@ -113,7 +113,7 @@ extern uint8* ReadPNGDetailData(
 *********************************************/
 extern void WritePNGStream(
 	void* stream,
-	stream_func write_func,
+	stream_func_t write_func,
 	void (*flush_func)(void*),
 	uint8* pixels,
 	int32 width,
@@ -144,7 +144,7 @@ extern void WritePNGStream(
 ********************************************************/
 extern void WritePNGDetailData(
 	void* stream,
-	stream_func write_func,
+	stream_func_t write_func,
 	void (*flush_func)(void*),
 	uint8* pixels,
 	int32 width,
@@ -224,7 +224,7 @@ extern void WriteJpegFile(
 ***********************************************************/
 extern DRAW_WINDOW* ReadOriginalFormat(
 	void* stream,
-	stream_func read_func,
+	stream_func_t read_func,
 	size_t stream_size,
 	APPLICATION* app,
 	const char* data_name
@@ -244,7 +244,7 @@ extern DRAW_WINDOW* ReadOriginalFormat(
 ***********************************************************/
 extern LAYER* ReadOriginalFormatMixedData(
 	void* stream,
-	stream_func read_func,
+	stream_func_t read_func,
 	size_t stream_size,
 	APPLICATION* app,
 	const char* data_name
@@ -274,10 +274,28 @@ extern void ReadOriginalFormatMemoryStream(
 *******************************************/
 extern void WriteOriginalFormat(
 	void* stream,
-	stream_func write_func,
+	stream_func_t write_func,
 	DRAW_WINDOW* window,
 	int add_thumbnail,
 	int compress
+);
+
+/*************************************************
+* ReadPhotoShopDocument関数                      *
+* PSD形式を読み込む                              *
+* 引数                                           *
+* stream		: 書き込み先のストリーム         *
+* write_func	: 書き込み用の関数ポインタ       *
+* seek_func		: シーク用の関数ポインタ         *
+* tell_func		: シーク位置取得用の関数ポインタ *
+* 返り値                                         *
+*	正常終了時:一番下のレイヤー, 異常終了時:NULL *
+*************************************************/
+extern LAYER* ReadPhotoShopDocument(
+	void* stream,
+	stream_func_t read_func,
+	seek_func_t seek_func,
+	long (*tell_func)(void*)
 );
 
 /*************************************************
@@ -292,8 +310,8 @@ extern void WriteOriginalFormat(
 *************************************************/
 extern void WritePhotoShopDocument(
 	void* stream,
-	stream_func write_func,
-	seek_func seek_func,
+	stream_func_t write_func,
+	seek_func_t seek_func,
 	long (*tell_func)(void*),
 	DRAW_WINDOW* window
 );

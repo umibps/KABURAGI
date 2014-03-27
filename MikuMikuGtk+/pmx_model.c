@@ -327,7 +327,7 @@ static void ClampPmxFlags(PMX_FLAGS* flags)
 	ClampByteData(&flags->rigid_body_index_size, 1, 4);
 }
 
-static void CopyPmaxFlags2DataInfo(PMX_FLAGS* flags, PMX_DATA_INFO* info)
+static void CopyPmaxFlags2DataInfo(PMX_FLAGS* flags, MODEL_DATA_INFO* info)
 {
 	info->codec = (flags->codec == 1) ? TEXT_TYPE_UTF8 : TEXT_TYPE_UTF16;
 	info->additional_uv_size = flags->additional_uv_size;
@@ -343,7 +343,7 @@ int PmxModelPreparse(
 	PMX_MODEL* model,
 	uint8* data,
 	size_t data_size,
-	PMX_DATA_INFO* info
+	MODEL_DATA_INFO* info
 )
 {
 	MEMORY_STREAM stream = {data, 0, data_size, 1};
@@ -876,7 +876,7 @@ void PmxModelPerformUpdate(PMX_MODEL* model, int force_sync)
 
 int LoadPmxModel(PMX_MODEL* model, uint8* data, size_t data_size)
 {
-	PMX_DATA_INFO info = {0};
+	MODEL_DATA_INFO info = {0};
 	if(PmxModelPreparse(model, data, data_size, &info) != FALSE)
 	{
 		PmxModelRelease(model);

@@ -130,7 +130,7 @@ void AutoSave(DRAW_WINDOW* window)
 			}
 		}
 
-		WriteOriginalFormat((void*)fp, (stream_func)fwrite, window, 0, 3);
+		WriteOriginalFormat((void*)fp, (stream_func_t)fwrite, window, 0, 3);
 #ifdef _DEBUG
 		(void)printf("Execute Auto Save.\n");
 #endif
@@ -1394,7 +1394,7 @@ void AddChangeDrawWindowResolutionHistory(
 	layers_data = CreateMemoryStream(stream_size);
 	// 現在の状態をメモリストリームに書き出す
 	WriteOriginalFormat((void*)layers_data,
-		(stream_func)MemWrite, window, 0, window->app->preference.compress);
+		(stream_func_t)MemWrite, window, 0, window->app->preference.compress);
 
 	// 現在の状態のデータサイズを記憶する
 	history_data.before_data_size = layers_data->data_point;
@@ -1548,7 +1548,7 @@ void AddChangeDrawWindowSizeHistory(
 	layers_data = CreateMemoryStream(stream_size);
 	// 現在の状態をメモリストリームに書き出す
 	WriteOriginalFormat((void*)layers_data,
-		(stream_func)MemWrite, window, 0, window->app->preference.compress);
+		(stream_func_t)MemWrite, window, 0, window->app->preference.compress);
 
 	// 現在の状態のデータサイズを記憶する
 	history_data.before_data_size = layers_data->data_point;

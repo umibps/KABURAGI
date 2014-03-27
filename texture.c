@@ -72,7 +72,7 @@ void LoadTextureLoop(TEXTURES* textures, char* directly, int* buff_size)
 				textures->texture[textures->num_texture].name =
 					MEM_STRDUP_FUNC(name);
 
-				pixels = ReadPNGStream((void*)stream, (stream_func)FileRead, &width,
+				pixels = ReadPNGStream((void*)stream, (stream_func_t)FileRead, &width,
 					&height, &stride);
 
 				if(pixels != NULL)

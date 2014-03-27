@@ -214,6 +214,7 @@ extern void StructArrayDestroy(
 );
 extern void StructArrayAppend(STRUCT_ARRAY* struct_array, void* data);
 extern void* StructArrayReserve(STRUCT_ARRAY* struct_array);
+extern void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size);
 extern void StructArrayRemoveByIndex(
 	STRUCT_ARRAY* struct_array,
 	size_t index,
@@ -251,6 +252,7 @@ extern INLINE void LoadIdentityMatrix4x4(float matrix[16]);
 extern INLINE void MulMatrix4x4(const float matrix1[16], const float matrix2[16], float result[16]);
 extern INLINE void MulMatrixVector4(const float matrix[16], const float vector[4], float result[4]);
 extern INLINE void MulMatrixVector4Transpose(const float matrix[16], const float vector[4], float result[4]);
+extern INLINE void MulMatrixScalar4x4(float matrix[16], float scale);
 extern INLINE int InvertMatrix4x4(float matrix[16], float invert_matrix[16]);
 extern void TransposeMatrix4x4(float matrix[16], float transpose[16]);
 extern INLINE void ScaleMatrix4x4(float matrix[16], float scale[3]);

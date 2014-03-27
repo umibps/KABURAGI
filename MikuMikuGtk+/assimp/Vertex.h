@@ -48,6 +48,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef AI_VERTEX_H_INC
 #define AI_VERTEX_H_INC
 
+#ifdef _MSC_VER
+# include <functional>
+#endif
 
 namespace Assimp	{
 	

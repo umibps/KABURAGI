@@ -42,7 +42,7 @@ typedef double FLOAT_T;
 
 #define ROOT2 1.4142135623730950488016887242097
 
-typedef size_t (*stream_func)(void*, size_t, size_t, void*);
-typedef int (*seek_func)(void*, long, int);
+typedef size_t (*stream_func_t)(void*, size_t, size_t, void*);
+typedef int (*seek_func_t)(void*, long, int);
 
 #endif	// #ifndef _INCLUDE_TYPES_H_

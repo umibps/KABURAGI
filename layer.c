@@ -261,6 +261,53 @@ void DeleteLayer(LAYER** layer)
 	*layer = NULL;
 }
 
+/*********************************************
+* DeleteTempLayer関数                        *
+* 一時的に作成したレイヤーを削除する         *
+* 引数                                       *
+* layer	: 削除するレイヤーポインタのアドレス *
+*********************************************/
+void DeleteTempLayer(LAYER** layer)
+{
+	if((*layer)->layer_type == TYPE_VECTOR_LAYER)
+	{
+		DeleteVectorLayer(&(*layer)->layer_data.vector_layer_p);
+	}
+	else if((*layer)->layer_type == TYPE_TEXT_LAYER)
+	{
+		DeleteTextLayer(&(*layer)->layer_data.text_layer_p);
+	}
+	else if((*layer)->layer_type == TYPE_LAYER_SET)
+	{
+		DeleteLayerSet(*layer, (*layer)->window);
+	}
+
+	if((*layer)->next != NULL)
+	{
+		(*layer)->next->prev = (*layer)->prev;
+	}
+	if((*layer)->prev != NULL)
+	{
+		(*layer)->prev->next = (*layer)->next;
+	}
+
+	cairo_destroy((*layer)->cairo_p);
+	cairo_surface_destroy((*layer)->surface_p);
+	MEM_FREE_FUNC((*layer)->name);
+
+	if((*layer)->widget != NULL)
+	{
+		(*layer)->window->num_layer--;
+		(*layer)->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	}
+
+	MEM_FREE_FUNC((*layer)->pixels);
+
+	MEM_FREE_FUNC(*layer);
+
+	*layer = NULL;
+}
+
 /*********************************
 * DELETE_LAYER_HISTORY構造体     *
 * レイヤー削除の履歴データを格納 *
@@ -1077,7 +1124,7 @@ static void AddNewLayerWithImageRedo(DRAW_WINDOW* window, void* p)
 	stream.data_point = 0;
 	stream.block_size = 1;
 	pixels = ReadPNGStream(
-		(void*)&stream, (stream_func)MemRead, &width, &height, &stride
+		(void*)&stream, (stream_func_t)MemRead, &width, &height, &stride
 	);
 
 	// 追加したレイヤーに画像データをコピー
@@ -1138,7 +1185,7 @@ void AddNewLayerWithImageHistory(
 
 	// ピクセルデータを圧縮
 	image = CreateMemoryStream(height*stride*2);
-	WritePNGStream(image, (stream_func)MemWrite, NULL,
+	WritePNGStream(image, (stream_func_t)MemWrite, NULL,
 		pixels, width, height, stride, channel, 0, DATA_COMPRESSION_LEVEL);
 
 	// 前のレイヤーの名前の長さをセット
@@ -1531,7 +1578,7 @@ static void LayerMergeDownUndo(DRAW_WINDOW* window, void* p)
 	// PNG読み込みで最後までシークされているのを戻す
 	stream.data_point = data_point + history.image_data_size;
 	// 結合前のレイヤーデータを読み込んで
-	pixels = ReadPNGStream(&stream, (stream_func)MemRead,
+	pixels = ReadPNGStream(&stream, (stream_func_t)MemRead,
 		&width, &height, &stride);
 
 	// ピクセルデータをコピー
@@ -1640,12 +1687,12 @@ void AddLayerMergeDownHistory(
 	(void)MemWrite(target->prev->name, 1, history.prev_name_length, history_data);
 
 	data_size = history_data->data_point;
-	WritePNGStream(history_data, (stream_func)MemWrite, NULL, target->pixels,
+	WritePNGStream(history_data, (stream_func_t)MemWrite, NULL, target->pixels,
 		target->width, target->height, target->stride, target->channel, 0, DATA_COMPRESSION_LEVEL);
 	history.image_data_size = history_data->data_point - data_size;
 
 	data_size = history_data->data_point;
-	WritePNGStream(history_data, (stream_func)MemWrite, NULL, target->prev->pixels,
+	WritePNGStream(history_data, (stream_func_t)MemWrite, NULL, target->prev->pixels,
 		target->prev->width, target->prev->height, target->prev->stride, target->prev->channel,
 		0, DATA_COMPRESSION_LEVEL);
 	history.prev_image_data_size = history_data->data_point - data_size;

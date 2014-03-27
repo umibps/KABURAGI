@@ -1347,12 +1347,12 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 	gtk_window_move(GTK_WINDOW(app->window), app->window_x, app->window_y);
 	gtk_window_resize(GTK_WINDOW(app->window), app->window_width, app->window_height);
 	// ウィンドウが閉じるときのコールバック関数をセット
-	g_signal_connect(G_OBJECT(app->window), "delete_event",
+	(void)g_signal_connect(G_OBJECT(app->window), "delete_event",
 		G_CALLBACK(OnCloseMainWindow), app);
 	// キーボードのコールバック関数をセット
-	g_signal_connect(G_OBJECT(app->window), "key-press-event",
+	(void)g_signal_connect(G_OBJECT(app->window), "key-press-event",
 		G_CALLBACK(KeyPressEvent), app);
-	g_signal_connect(G_OBJECT(app->window), "key-release-event",
+	(void)g_signal_connect(G_OBJECT(app->window), "key-release-event",
 		G_CALLBACK(KeyPressEvent), app);
 
 	// パターンを初期化
@@ -2004,7 +2004,7 @@ void RecoverBackUp(APPLICATION* app)
 					app->flags |= APPLICATION_IN_OPEN_OPERATION;
 					//app->active_window = app->window_num;
 					app->draw_window[app->window_num] =
-						ReadOriginalFormat(fp, (stream_func)fread, data_size, app, file_name);
+						ReadOriginalFormat(fp, (stream_func_t)fread, data_size, app, file_name);
 					app->flags &= ~(APPLICATION_IN_OPEN_OPERATION);
 
 					if(app->draw_window[app->window_num] != NULL)
@@ -2090,7 +2090,7 @@ void OpenFile(char *file_path, APPLICATION* app)
 		message_id = gtk_statusbar_push(GTK_STATUSBAR(app->status_bar),
 			context_id, app->labels->window.loading);
 		// イベントを回してメッセージを表示
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gdk_window_process_updates(app->status_bar->window, TRUE);
 #else
 		gdk_window_process_updates(gtk_widget_get_window(app->status_bar), TRUE);
@@ -2102,7 +2102,7 @@ void OpenFile(char *file_path, APPLICATION* app)
 			gtk_main_iteration();
 			if(queued_event != NULL)
 			{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 				if(queued_event->any.window == app->status_bar->window
 #else
 				if(queued_event->any.window == gtk_widget_get_window(app->status_bar)
@@ -2142,7 +2142,7 @@ void OpenFile(char *file_path, APPLICATION* app)
 		app->flags |= APPLICATION_IN_OPEN_OPERATION;
 		//app->active_window = app->window_num;
 		app->draw_window[app->window_num] =
-			ReadOriginalFormat(fp, (stream_func)fread, data_size, app, file_name);
+			ReadOriginalFormat(fp, (stream_func_t)fread, data_size, app, file_name);
 		app->flags &= ~(APPLICATION_IN_OPEN_OPERATION);
 
 		if(app->draw_window[app->window_num] == NULL)
@@ -2331,6 +2331,161 @@ void OpenFile(char *file_path, APPLICATION* app)
 
 		g_free(system_path);
 	}
+	else if(StringCompareIgnoreCase(str, ".psd") == 0)
+	{
+		// ファイル読み込みストリーム
+		gchar *system_path = g_locale_from_utf8(file_path, -1, NULL, NULL, NULL);
+		FILE *fp = fopen(system_path, "rb");
+		// キャンバスデータ
+		DRAW_WINDOW *window;
+		// PSDデータのレイヤー
+		LAYER *layer;
+
+		layer = ReadPhotoShopDocument((void*)fp, (stream_func_t)fread,
+			(seek_func_t)fseek, (long (*)(void*))ftell);
+		if(layer != NULL)
+		{
+			// KABURAGIは全てのレイヤーの位置が同じ
+				// かつ、同じサイズなので調整を行う
+			LAYER *target;
+			LAYER *canvas_layer;
+			int32 min_x = layer->x, min_y = layer->y;
+			int32 max_x = layer->x + layer->width, max_y = layer->y + layer->height;
+			int32 width, height;
+			uint8 alpha;
+			target = layer->next;
+			while(target != NULL)
+			{
+				if(min_x > target->x)
+				{
+					min_x = target->x;
+				}
+				if(min_y > target->y)
+				{
+					min_y = target->y;
+				}
+				if(max_x < target->x + target->width)
+				{
+					max_x = target->x + target->width;
+				}
+				if(max_y < target->y + target->height)
+				{
+					max_y = target->y + target->height;
+				}
+				target = target->next;
+			}
+			width = max_x - min_x;
+			height = max_y - min_y;
+
+			// ファイルパスからファイル名だけを取り出す
+			file_name = str = file_path;
+			while(*str != '\0')
+			{
+				if(*str == '/' || *str == '\\')
+				{
+					file_name = str+1;
+				}
+
+				str = g_utf8_next_char(str);
+			}
+			app->draw_window[app->window_num] = window =
+				CreateDrawWindow(width, height, 4, file_name,
+					app->note_book, app->window_num, app);
+			DeleteLayer(&window->layer);
+			window->layer = CreateLayer(0, 0, window->width, window->height,
+				4, TYPE_NORMAL_LAYER, NULL, NULL,
+				layer->name, window);
+			window->layer->flags = layer->flags;
+			target = layer->next;
+			canvas_layer = window->layer;
+			while(target != NULL)
+			{
+				canvas_layer->next = CreateLayer(0, 0, window->width, window->height, 4, TYPE_NORMAL_LAYER,
+					canvas_layer, NULL, target->name, window);
+				canvas_layer = canvas_layer->next;
+				canvas_layer->flags = target->flags;
+				canvas_layer->alpha = target->alpha;
+				target = target->next;
+			}
+			target = layer;
+			window->num_layer = 0;
+			// レイヤー数の数え上げと透明色の調整
+			while(target != NULL)
+			{
+				window->num_layer++;
+				for(i=0; i<target->width * target->height; i++)
+				{
+					alpha = target->pixels[i*4+3];
+					target->pixels[i*4+0] = MINIMUM(alpha, target->pixels[i*4+0]);
+					target->pixels[i*4+1] = MINIMUM(alpha, target->pixels[i*4+1]);
+					target->pixels[i*4+2] = MINIMUM(alpha, target->pixels[i*4+2]);
+				}
+				target = target->next;
+			}
+			target = layer;
+			canvas_layer = window->layer;
+			while(target != NULL)
+			{
+				int copy_start_x, copy_start_y;
+				copy_start_x = target->x - min_x;
+				copy_start_y = target->y - min_y;
+				for(i=0; i<target->height; i++)
+				{
+					(void)memcpy(&canvas_layer->pixels[(copy_start_y+i)*canvas_layer->stride + copy_start_x*4],
+						&target->pixels[i*target->stride], target->stride);
+				}
+				canvas_layer = canvas_layer->next;
+				target = target->next;
+			}
+
+			// 読み込みに使ったレイヤー情報を削除
+			target = layer;
+			while(target != NULL)
+			{
+				layer = target->next;
+				DeleteTempLayer(&target);
+				target = layer;
+			}
+			(void)fclose(fp);
+
+			app->active_window = app->window_num;
+			app->window_num++;
+
+			layer = window->layer;
+			for(i=0; i<window->num_layer; i++)
+			{
+				if(layer == NULL)
+				{
+					window->num_layer = i;
+					break;
+				}
+				LayerViewAddLayer(layer, window->layer, app->layer_window.view, i+1);
+				layer = layer->next;
+			}
+
+			// ファイルパスを設定
+			window->file_path = MEM_STRDUP_FUNC(file_path);
+
+			// ナビゲーションの表示を更新
+			ChangeNavigationDrawWindow(&app->navigation_window, window);
+
+			// 一番下のレイヤーをアクティブ表示に
+			LayerViewSetActiveLayer(
+				window->active_layer, app->layer_window.view
+			);
+
+			// 無効にしていた一部のメニューを有効に
+			for(i=0; i<app->menus.num_disable_if_no_open; i++)
+			{
+				gtk_widget_set_sensitive(app->menus.disable_if_no_open[i], TRUE);
+			}
+			gtk_widget_set_sensitive(app->layer_window.layer_control.mode, TRUE);
+			gtk_widget_set_sensitive(app->layer_window.layer_control.lock_opacity, TRUE);
+
+			// ウィンドウのタイトルを画像名に
+			gtk_window_set_title(GTK_WINDOW(app->window), file_name);
+		}
+	}
 	else
 	{
 		GError *error = NULL;
@@ -2452,7 +2607,7 @@ void OpenFile(char *file_path, APPLICATION* app)
 				uint8 *icc_profile_data;
 				int32 icc_profile_size;
 
-				ReadPNGHeader((void*)fp, (stream_func)fread, NULL, NULL, NULL,
+				ReadPNGHeader((void*)fp, (stream_func_t)fread, NULL, NULL, NULL,
 					&resolution, NULL, &icc_profile_data, &icc_profile_size);
 
 				if(resolution != 0)
@@ -2943,7 +3098,7 @@ void FillForeGroundColorUndo(DRAW_WINDOW* window, void* p)
 	stream.data_size = history->data_size;
 	stream.data_point = 0;
 
-	pixels = ReadPNGStream(&stream, (stream_func)MemRead, &width, &height, &stride);
+	pixels = ReadPNGStream(&stream, (stream_func_t)MemRead, &width, &height, &stride);
 	(void)memcpy(target->pixels, pixels, target->stride*target->height);
 
 	MEM_FREE_FUNC(pixels);
@@ -2970,7 +3125,7 @@ void AddFillForeGourndColorHistory(LAYER* target, uint8 color[3])
 	FILL_FORE_GROUND_COLOR_HISTORY history;
 
 	// ピクセルデータをPNG圧縮
-	WritePNGStream(image, (stream_func)MemWrite, NULL, target->pixels,
+	WritePNGStream(image, (stream_func_t)MemWrite, NULL, target->pixels,
 		target->width, target->height, target->stride, 4, 0, target->window->app->preference.compress);
 
 	(void)memcpy(history.color, color, 3);
@@ -3038,7 +3193,7 @@ void FillPatternUndo(DRAW_WINDOW* window, void* p)
 	stream.data_size = history->before_data_size;
 	stream.data_point = 0;
 
-	pixels = ReadPNGStream(&stream, (stream_func)MemRead, &width, &height, &stride);
+	pixels = ReadPNGStream(&stream, (stream_func_t)MemRead, &width, &height, &stride);
 	(void)memcpy(target->pixels, pixels, target->stride*target->height);
 
 	MEM_FREE_FUNC(pixels);
@@ -3064,7 +3219,7 @@ void FillPatternRedo(DRAW_WINDOW* window, void* p)
 	stream.data_size = history->after_data_size;
 	stream.data_point = 0;
 
-	pixels = ReadPNGStream(&stream, (stream_func)MemRead, &width, &height, &stride);
+	pixels = ReadPNGStream(&stream, (stream_func_t)MemRead, &width, &height, &stride);
 	(void)memcpy(target->pixels, pixels, target->stride*target->height);
 
 	MEM_FREE_FUNC(pixels);
@@ -3078,11 +3233,11 @@ void AddFillPatternHistory(LAYER* target, LAYER* after)
 	FILL_PATTERN_HISTORY_DATA history = {0};
 
 	// 塗り潰し前のピクセルデータをPNG圧縮
-	WritePNGStream(before_image, (stream_func)MemWrite, NULL, target->pixels,
+	WritePNGStream(before_image, (stream_func_t)MemWrite, NULL, target->pixels,
 		target->width, target->height, target->stride, 4, 0, target->window->app->preference.compress);
 	
 	// 塗り潰し後のピクセルデータをPNG圧縮
-	WritePNGStream(after_image, (stream_func)MemWrite, NULL, after->pixels,
+	WritePNGStream(after_image, (stream_func_t)MemWrite, NULL, after->pixels,
 		target->width, target->height, target->stride, 4, 0, target->window->app->preference.compress);
 
 	history.before_data_size = before_image->data_point;
