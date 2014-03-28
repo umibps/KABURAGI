@@ -10,7 +10,9 @@
 # define BUILD64BIT 1
 #endif
 
-#define USE_3D_LAYER 1
+#ifndef USE_3D_LAYER
+# define USE_3D_LAYER 1
+#endif
 
 #define USE_TBB 1
 

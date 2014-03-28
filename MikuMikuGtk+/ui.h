@@ -22,6 +22,9 @@ typedef struct _APPLICATION_WIDGETS
 	GtkWidget *connect_model;
 	GtkWidget *connect_bone;
 	GtkWidget *bone_tree_view;
+	GtkWidget *morph_group_selector;
+	GtkWidget *detail_morph_selector;
+	GtkAdjustment *morph_weight;
 	int ui_disabled;
 } APPLICATION_WIDGETS;
 

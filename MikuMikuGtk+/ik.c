@@ -120,7 +120,7 @@ void ReadIk(IK* ik, uint8* data, POINTER_ARRAY* bones)
 		chunk.num_links = (uint8)bone_iks->num_data;
 		for(i=0; i<chunk.num_links; i++)
 		{
-			BONE_INTERFACE *bone = (BONE_INTERFACE*)bones->buffer[bone_iks->buffer[i]];
+			BONE *bone = (BONE*)bones->buffer[bone_iks->buffer[i]];
 			PointerArrayAppend(bone_iks2, bone);
 		}
 		IkSetAngleConstraint(ik, chunk.angle_constraint);

@@ -529,7 +529,7 @@ static void ExecuteLoadModel(APPLICATION* application)
 #if GTK_MAJOR_VERSION <= 2
 			gtk_combo_box_append_text(GTK_COMBO_BOX(application->widgets.model_combo_box), model->name);
 #else
-			gtk_combo_box_text_append_text(GTK_COMBO_BOX(application->widgets.model_combo_box), model->name);
+			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(application->widgets.model_combo_box), model->name);
 #endif
 			gtk_combo_box_set_active(GTK_COMBO_BOX(application->widgets.model_combo_box),
 				(int)project->scene->models->num_data);
@@ -725,7 +725,7 @@ static void FillParentModelComboBox(GtkWidget* combo, SCENE* scene, APPLICATION*
 		{
 			if(scene->models->buffer[i] != (void*)scene->selected_model)
 			{
-				gtk_combo_box_text_append_text(GTK_COMBO_BOX(combo), ((MODEL_INTERFACE*)scene->models->buffer[i])->name);
+				gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), ((MODEL_INTERFACE*)scene->models->buffer[i])->name);
 			}
 			if(scene->selected_model != NULL)
 			{
@@ -782,7 +782,7 @@ static void FillParentBoneComboBox(GtkWidget* combo, SCENE* scene, APPLICATION* 
 				char **names = GetChildBoneNames(scene->selected_model->parent_model, application);
 				for(i=0; names[i] != NULL; i++)
 				{
-					gtk_combo_box_text_append_text(GTK_COMBO_BOX(combo), names[i]);
+					gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), names[i]);
 					if(scene->selected_model->parent_bone != NULL)
 					{
 						if(strcmp(names[i], scene->selected_model->parent_bone->name) == 0)
@@ -852,7 +852,7 @@ static void OnChangeSelectedParentBone(GtkWidget* combo, APPLICATION* applicatio
 #if GTK_MAJOR_VERSION <= 2
 		name = gtk_combo_box_get_active_text(GTK_COMBO_BOX(combo));
 #else
-		name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX(combo));
+		name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
 #endif
 		if(scene->selected_model->parent_model != NULL)
 		{
@@ -1094,6 +1094,196 @@ void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* app
 	}
 }
 
+static int SelectorIndex2MorphGroup(int index)
+{
+	switch(index-1)
+	{
+	case 0:
+		return MORPH_CATEGORY_EYE;
+	case 1:
+		return MORPH_CATEGORY_LIP;
+	case 2:
+		return MORPH_CATEGORY_EYEBLOW;
+	case 3:
+		return MORPH_CATEGORY_OTHER;
+	}
+	return -1;
+}
+
+static void FillDetailMorphSelector(
+	GtkWidget* combo,
+	int selected_group,
+	SCENE* scene,
+	APPLICATION* application
+)
+{
+	GtkTreeModel *tree_model;
+	MORPH_INTERFACE **morphs;
+	MORPH_INTERFACE *morph;
+	int num_morphs;
+	int group;
+	int i;
+
+	tree_model = gtk_combo_box_get_model(GTK_COMBO_BOX(combo));
+	gtk_list_store_clear(GTK_LIST_STORE(tree_model));
+	if(selected_group < 1 || scene == NULL || scene->selected_model == NULL)
+	{
+		return;
+	}
+	group = SelectorIndex2MorphGroup(selected_group);
+
+	morphs = (MORPH_INTERFACE**)scene->selected_model->get_morphs(scene->selected_model, &num_morphs);
+	if(morphs == NULL)
+	{
+		return;
+	}
+	for(i=0; i<num_morphs; i++)
+	{
+		morph = morphs[i];
+		if(morph->category == group)
+		{
+#if GTK_MAJOR_VERSION <= 2
+			gtk_combo_box_append_text(GTK_COMBO_BOX(combo), morph->name);
+#else
+			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), morph->name);
+#endif
+		}
+	}
+	MEM_FREE_FUNC(morphs);
+}
+
+void MorphSelectorSetMorphs(GtkWidget* selector, void* model_interface, void* application_context)
+{
+	APPLICATION *application = (APPLICATION*)application_context;
+	MODEL_INTERFACE *model = (MODEL_INTERFACE*)model_interface;
+	PROJECT *project;
+	SCENE *scene;
+
+	if(application->num_projects == 0)
+	{
+		return;
+	}
+	project = application->projects[application->active_project];
+	if(project == NULL)
+	{
+		return;
+	}
+	scene = project->scene;
+
+	application->widgets.ui_disabled = TRUE;
+	FillDetailMorphSelector(application->widgets.detail_morph_selector,
+		gtk_combo_box_get_active(GTK_COMBO_BOX(selector)), scene, application);
+	application->widgets.ui_disabled = FALSE;
+}
+
+static void OnChangeMorphGroup(GtkWidget* combo, APPLICATION* application)
+{
+	PROJECT *project;
+	SCENE *scene;
+
+	if(application->num_projects == 0)
+	{
+		FillDetailMorphSelector(application->widgets.detail_morph_selector,
+			0, NULL, application);
+		return;
+	}
+	project = application->projects[application->active_project];
+	if(project == NULL || project->scene == NULL)
+	{
+		FillDetailMorphSelector(application->widgets.detail_morph_selector,
+			0, NULL, application);
+		return;
+	}
+	scene = project->scene;
+
+	application->widgets.ui_disabled = TRUE;
+	FillDetailMorphSelector(application->widgets.detail_morph_selector,
+		gtk_combo_box_get_active(GTK_COMBO_BOX(combo)), scene, application);
+	application->widgets.ui_disabled = FALSE;
+}
+
+static void OnChangeDetailMorph(GtkWidget* combo, APPLICATION* application)
+{
+	PROJECT *project;
+	SCENE *scene;
+	MORPH_INTERFACE *morph;
+	char *morph_name;
+
+	if(application->num_projects == 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	project = application->projects[application->active_project];
+	if(project == NULL)
+	{
+		return;
+	}
+	scene = project->scene;
+
+	if(scene->selected_model == NULL)
+	{
+		return;
+	}
+
+#if GTK_MAJOR_VERSION <= 2
+	morph_name = gtk_combo_box_get_active_text(GTK_COMBO_BOX(application->widgets.detail_morph_selector));
+#else
+	morph_name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(application->widgets.detail_morph_selector));
+#endif
+	if(morph_name == NULL)
+	{
+		return;
+	}
+
+	morph = (MORPH_INTERFACE*)scene->selected_model->find_morph(scene->selected_model, morph_name);
+	if(morph != NULL)
+	{
+		application->widgets.ui_disabled = TRUE;
+		gtk_adjustment_set_value(application->widgets.morph_weight, morph->weight * 100);
+		application->widgets.ui_disabled = FALSE;
+	}
+}
+
+static void OnChangeMorphWeight(GtkAdjustment* adjust, APPLICATION* application)
+{
+	PROJECT *project;
+	SCENE *scene;
+	MORPH_INTERFACE *morph;
+	char *morph_name;
+
+	if(application->num_projects == 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	project = application->projects[application->active_project];
+	if(project == NULL)
+	{
+		return;
+	}
+	scene = project->scene;
+
+	if(scene->selected_model == NULL)
+	{
+		return;
+	}
+
+#if GTK_MAJOR_VERSION <= 2
+	morph_name = gtk_combo_box_get_active_text(GTK_COMBO_BOX(application->widgets.detail_morph_selector));
+#else
+	morph_name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(application->widgets.detail_morph_selector));
+#endif
+	if(morph_name == NULL)
+	{
+		return;
+	}
+
+	morph = (MORPH_INTERFACE*)scene->selected_model->find_morph(scene->selected_model, morph_name);
+	if(morph != NULL)
+	{
+		morph->set_weight(morph, (FLOAT_T)(gtk_adjustment_get_value(adjust) * 0.01));
+	}
+}
+
 void* ModelControlWidgetNew(void* application_context)
 {
 	APPLICATION *application = (APPLICATION*)application_context;
@@ -1170,7 +1360,7 @@ void* ModelControlWidgetNew(void* application_context)
 	}
 #else
 	application->widgets.model_combo_box = control[0] = gtk_combo_box_text_new();
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX(control[0]), application->label.control.no_select);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control[0]), application->label.control.no_select);
 	if(scene != NULL)
 	{
 		for(i=0; i<(int)scene->models->num_data; i++)
@@ -1372,6 +1562,8 @@ void* ModelControlWidgetNew(void* application_context)
 	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
 		G_CALLBACK(OnChangeModelEdgeSize), application);
 
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 	label = gtk_label_new(application->label.control.bone);
 	child_note_book_box = gtk_vbox_new(FALSE, 0);
 	gtk_notebook_append_page(GTK_NOTEBOOK(child_note_book), child_note_book_box, label);
@@ -1396,6 +1588,48 @@ void* ModelControlWidgetNew(void* application_context)
 	selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(application->widgets.bone_tree_view));
 	(void)g_signal_connect(G_OBJECT(selection), "changed",
 		G_CALLBACK(OnChangedSelectedBone), application);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	label = gtk_label_new(application->label.control.morph);
+	child_note_book_box = gtk_vbox_new(FALSE, 0);
+	gtk_notebook_append_page(GTK_NOTEBOOK(child_note_book), child_note_book_box, label);
+	application->widgets.morph_group_selector = control[0] =
+#if GTK_MAJOR_VERSION <= 2
+		gtk_combo_box_new_text();
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control[0]), application->label.control.no_select);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control[0]), application->label.control.morph_group.eye);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control[0]), application->label.control.morph_group.lip);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control[0]), application->label.control.morph_group.eye_blow);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control[0]), application->label.control.morph_group.other);
+#else
+		gtk_combo_box_text_new();
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control[0]), application->label.control.morph_group.no_select);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control[0]), application->label.control.morph_group.eye);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control[0]), application->label.control.morph_group.lip);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control[0]), application->label.control.morph_group.eye_blow);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control[0]), application->label.control.morph_group.other);
+#endif
+	gtk_box_pack_start(GTK_BOX(child_note_book_box), control[0], FALSE, FALSE, 0);
+	(void)g_signal_connect(G_OBJECT(control[0]), "changed",
+		G_CALLBACK(OnChangeMorphGroup), application);
+	application->widgets.detail_morph_selector = control[1] =
+#if GTK_MAJOR_VERSION <= 2
+		gtk_combo_box_new_text();
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control[1]), application->label.control.no_select);
+#else
+		gtk_combo_box_text_new();
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control[1]), application->label.control.morph_group.no_select);
+#endif
+	gtk_box_pack_start(GTK_BOX(child_note_book_box), control[1], FALSE, FALSE, 0);
+	(void)g_signal_connect(G_OBJECT(control[1]), "changed",
+		G_CALLBACK(OnChangeDetailMorph), application);
+	application->widgets.morph_weight = adjustment =
+		GTK_ADJUSTMENT(gtk_adjustment_new(0, 0, 100, 1, 5, 0));
+	control[0] = SpinScaleNew(adjustment, application->label.control.weight, 0);
+	gtk_box_pack_start(GTK_BOX(child_note_book_box), control[0], FALSE, FALSE, 0);
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangeMorphWeight), application);
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1841,12 +2075,12 @@ gboolean RenderForPixelDataDrawing(
 	allocation = widget->allocation;
 #endif
 
-	if(allocation.width < data->width || allocation.height < data->height)
+	if(allocation.width != data->width || allocation.height != data->height)
 	{
 		return TRUE;
 	}
 
-	RenderEngines(data->project, data->width, data->height);
+	RenderEngines(data->project, allocation.width, allocation.height);
 
 	if(gdk_gl_drawable_is_double_buffered(drawable) != FALSE)
 	{

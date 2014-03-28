@@ -525,17 +525,6 @@ void BtTransformMultiVector3(void* transform, const float* vector, float* ret)
 	ret[2] = vec.getZ();
 }
 
-void BtTransformMultiQuaternion(void* transform, const float* quaternion, float* ret)
-{
-	btTransform *trans = static_cast<btTransform*>(trans);
-	btQuaternion q = btQuaternion(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
-	q = (*trans) * q;
-	ret[0] = q.getX();
-	ret[1] = q.getY();
-	ret[2] = q.getZ();
-	ret[3] = q.getW();
-}
-
 void BtTransformSetBasis(void* transform, const float* basis)
 {
 	btTransform *trans = static_cast<btTransform*>(transform);

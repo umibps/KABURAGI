@@ -20,6 +20,7 @@ UI_LABEL LoadDefaultUiLabel(void)
 			"Direction",
 			"Model",
 			"Bone",
+			"Morph",
 			"Load Models",
 			"Load Pose",
 			"Control Model",
@@ -29,6 +30,7 @@ UI_LABEL LoadDefaultUiLabel(void)
 			"Scale",
 			"Color",
 			"Opacity",
+			"Rate",
 			"Edge Size",
 			"Distance",
 			"Field of View",
@@ -40,6 +42,12 @@ UI_LABEL LoadDefaultUiLabel(void)
 				"Select",
 				"Move",
 				"Rotate"
+			},
+			{
+				"Eye",
+				"Lip",
+				"Eye Blow",
+				"Others"
 			}
 		}
 	};

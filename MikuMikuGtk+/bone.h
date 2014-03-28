@@ -2,7 +2,6 @@
 #define _INCLUDED_BONE_H_
 
 #include "types.h"
-#include "memory_stream.h"
 #include "model.h"
 #include "animation.h"
 #include "ght_hash_table.h"
@@ -39,7 +38,6 @@ typedef struct _BONE_INTERFACE
 } BONE_INTERFACE;
 
 #define BONE_NAME_SIZE 20
-#define BONE_CATEGORY_NAME_SIZE 50
 
 #define PMX_BUFFER_SIZE 32
 
@@ -96,6 +94,34 @@ typedef struct _DEFAULT_BONE
 	struct _APPLICATION *application_context;
 } DEFAULT_BONE;
 
+typedef struct _BONE
+{
+	BONE_INTERFACE interface_data;
+	eBONE_TYPE bone_type;
+	MODEL *model;
+	uint8 name[BONE_NAME_SIZE+1];
+	uint8 english_name[BONE_NAME_SIZE+1];
+	uint8 name_size;
+	uint8 category_index;
+	uint16 category_name_size;
+	int16 id;
+	eBONE_MOVE_TYPE type;
+	void *local_transform;
+	void *local2origin_transform;
+	float origin_position[3];
+	float position[3];
+	float offset[3];
+	float rotation[4];
+	float rotate_coef;
+	struct _BONE *parent_bone;
+	struct _BONE *child_bone;
+	struct _BONE *target_bone;
+	int16 parent_bone_id;
+	int16 child_bone_id;
+	int16 target_bone_id;
+	uint16 flags;
+} BONE;
+
 typedef struct _PMX_IK_CONSTRAINT
 {
 	struct _PMX_BONE *joint_bone;
@@ -137,47 +163,6 @@ typedef struct _PMX_BONE
 	int global_id;
 	uint16 flags;
 } PMX_BONE;
-
-typedef enum _ePMD2_BONE_TYPE
-{
-	PMD2_BONE_TYPE_ROTATE,
-	PMD2_BONE_TYPE_ROTATE_AND_MOVE,
-	PMD2_BONE_TYPE_IK_ROOT,
-	PMD2_BONE_TYPE_UNKOWN,
-	PMD2_BONE_TYPE_IK_JOINT,
-	PMD2_BONE_TYPE_UNDER_ROTATE,
-	PMD2_BONE_TYPE_IK_EFFECTOR,
-	PMD2_BONE_TYPE_INVISIBLE,
-	PMD2_BONE_TYPE_TWIST,
-	PMD2_BONE_TYPE_FOLLOW_ROTATE,
-	MAX_PMD2_BONE_TYPE
-} ePMD2_BONE_TYPE;
-
-typedef enum _ePMD2_BONE_FLAGS
-{
-	PMD2_BONE_FLAG_ENABLE_INVERSE_KINEMATICS = 0x01
-} ePMD2_BONE_FLAGS;
-
-typedef struct _PMD2_BONE
-{
-	BONE_INTERFACE interface_data;
-	ePMD2_BONE_TYPE type;
-	struct _PMD2_MODEL *model;
-	struct _APPLICATION *application;
-	struct _PMD2_BONE *parent_bone;
-	struct _PMD2_BONE *target_bone;
-	struct _PMD2_BONE *child_bone;
-	VECTOR3 fixed_axis;
-	VECTOR3 origin;
-	VECTOR3 offset;
-	VECTOR3 local_translation;
-	QUATERNION rotation;
-	void *world_transform;
-	int parent_bone_index;
-	int target_bone_index;
-	int child_bone_index;
-	unsigned int flags;
-} PMD2_BONE;
 
 typedef struct _ASSET_ROOT_BONE
 {
@@ -240,7 +225,7 @@ typedef struct _BONE_KEYFRAME
 
 typedef struct _BONE_KEYFRAME_LIST
 {
-	BONE_INTERFACE *bone;
+	BONE *bone;
 	STRUCT_ARRAY *keyframes;
 	float position[3];
 	QUATERNION rotation;
@@ -263,6 +248,12 @@ typedef struct _BONE_ANIMATION
 
 extern void UpdateBoneLocalTransform(void* bone, int index, void* dummy);
 
+extern void InitializePmdBone(BONE* bone);
+extern BONE* PmdBoneNew(void);
+extern void ReleaseBone(BONE* bone);
+extern void DeleteBone(BONE* bone);
+extern void PmdBoneUpdateTransform(BONE* bone, const QUATERNION q);
+
 extern int LoadPmxBones(STRUCT_ARRAY* bones);
 
 extern void ReleasePmxBone(PMX_BONE* bone);
@@ -276,18 +267,5 @@ extern void PmxBoneResetIkLink(PMX_BONE* bone);
 extern void PmxBonePerformTransform(PMX_BONE* bone);
 
 extern void PmxBoneSolveInverseKinematics(PMX_BONE* bone);
-
-extern int LoadPmd2Bones(STRUCT_ARRAY* bones);
-
-extern void ReadPmd2Bone(
-	PMD2_BONE* bone,
-	MEMORY_STREAM_PTR stream,
-	MODEL_DATA_INFO* info,
-	size_t* data_size
-);
-
-extern void Pmd2BoneGetLocalTransoform(PMD2_BONE* bone, void* world2local_transform);
-
-extern void Pmd2BoneReadEnglishName(PMD2_BONE* bone, MEMORY_STREAM_PTR stream, int index);
 
 #endif	// #ifndef _INCLUDED_BONE_H_

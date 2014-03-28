@@ -107,6 +107,8 @@ void InitializeAssetModel(
 	model->materials = StructArrayNew(sizeof(ASSET_MATERIAL), DEFAULT_BUFFER_SIZE);
 	model->vertices = StructArrayNew(sizeof(ASSET_VERTEX), DEFAULT_BUFFER_SIZE);
 
+	model->interface_data.get_morphs =
+		(void** (*)(void*, int*))DummyFuncNoReturn2;
 	model->interface_data.get_world_position =
 		(void (*)(void*, float*))AssetModelGetWorldTranslation;
 	model->interface_data.get_world_translation =

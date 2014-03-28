@@ -75,7 +75,7 @@ int PmxSoftBodyPreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 )
 {
 	MEMORY_STREAM stream = {data, 0, rest, 1};
@@ -142,7 +142,7 @@ void PmxSoftBodyRead(
 	PMX_SOFT_BODY* body,
 	uint8* data,
 	size_t* data_size,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 )
 {
 	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};

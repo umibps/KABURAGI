@@ -53,6 +53,22 @@ void** PmxModelGetBones(PMX_MODEL* model, int* num_bones)
 	return ret;
 }
 
+void** PmxModelGetMorphs(PMX_MODEL* model, int* num_morphs)
+{
+	PMX_MORPH *morphs = (PMX_MORPH*)model->morphs->buffer;
+	void **ret;
+	int i;
+
+	*num_morphs = (int)model->morphs->num_data;
+	ret = (void**)MEM_ALLOC_FUNC(sizeof(*ret)*(*num_morphs));
+	for(i=0; i<*num_morphs; i++)
+	{
+		ret[i] = (void*)&morphs[i];
+	}
+
+	return ret;
+}
+
 void** PmxModelGetMaterials(PMX_MODEL* model, int* num_materials)
 {
 	PMX_MATERIAL *materials = (PMX_MATERIAL*)model->materials->buffer;
@@ -241,6 +257,8 @@ void InitializePmxModel(
 		(void (*)(void*, void**, void*, void*))PmxModelGetMatrixBuffer;
 	model->interface_data.get_bones =
 		(void** (*)(void*, int*))PmxModelGetBones;
+	model->interface_data.get_morphs =
+		(void** (*)(void*, int*))PmxModelGetMorphs;
 	model->interface_data.get_materials =
 		(void** (*)(void*, int*))PmxModelGetMaterials;
 	model->interface_data.get_rigid_bodies =
@@ -327,7 +345,7 @@ static void ClampPmxFlags(PMX_FLAGS* flags)
 	ClampByteData(&flags->rigid_body_index_size, 1, 4);
 }
 
-static void CopyPmaxFlags2DataInfo(PMX_FLAGS* flags, MODEL_DATA_INFO* info)
+static void CopyPmaxFlags2DataInfo(PMX_FLAGS* flags, PMX_DATA_INFO* info)
 {
 	info->codec = (flags->codec == 1) ? TEXT_TYPE_UTF8 : TEXT_TYPE_UTF16;
 	info->additional_uv_size = flags->additional_uv_size;
@@ -343,7 +361,7 @@ int PmxModelPreparse(
 	PMX_MODEL* model,
 	uint8* data,
 	size_t data_size,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 )
 {
 	MEMORY_STREAM stream = {data, 0, data_size, 1};
@@ -876,7 +894,7 @@ void PmxModelPerformUpdate(PMX_MODEL* model, int force_sync)
 
 int LoadPmxModel(PMX_MODEL* model, uint8* data, size_t data_size)
 {
-	MODEL_DATA_INFO info = {0};
+	PMX_DATA_INFO info = {0};
 	if(PmxModelPreparse(model, data, data_size, &info) != FALSE)
 	{
 		PmxModelRelease(model);

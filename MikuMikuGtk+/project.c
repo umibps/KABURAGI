@@ -129,9 +129,11 @@ void GetContextMatrix(float *value, MODEL_INTERFACE* model, int flags, PROJECT* 
 			MulMatrix4x4(mul_matrix, matrix, matrix);
 			if(bone != NULL)
 			{
+				// アクセサリーの拡大率を変更すると位置が合わなくなるので調整
+				float scale_value = 1.0f / model->scale_factor;
 				bone->get_world_transform(bone, transform);
 				BtTransformGetOpenGLMatrix(transform, mul_matrix);
-				MulMatrixScalar4x4(mul_matrix, 1.0f / model->scale_factor);
+				mul_matrix[12] *= scale_value,	mul_matrix[13] *= scale_value, mul_matrix[14] *= scale_value;
 				MulMatrix4x4(matrix, mul_matrix, matrix);
 			}
 			MulMatrix4x4(project->camera_world_matrix, matrix, matrix);

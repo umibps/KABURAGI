@@ -22,6 +22,7 @@ typedef struct _UI_LABEL
 		char *direction;
 		char *model;
 		char *bone;
+		char *morph;
 		char *load_model;
 		char *load_pose;
 		char *control_model;
@@ -31,6 +32,7 @@ typedef struct _UI_LABEL
 		char *scale;
 		char *color;
 		char *opacity;
+		char *weight;
 		char *edge_size;
 		char *distance;
 		char *field_of_view;
@@ -44,6 +46,13 @@ typedef struct _UI_LABEL
 			char *move;
 			char *rotate;
 		} edit_mode;
+		struct
+		{
+			char *eye;
+			char *lip;
+			char *eye_blow;
+			char *other;
+		} morph_group;
 	} control;
 } UI_LABEL;
 

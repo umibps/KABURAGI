@@ -1449,9 +1449,11 @@ void ChangeActiveLayer(DRAW_WINDOW* window, LAYER* layer)
 				);
 			}
 			break;
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 		case TYPE_3D_LAYER:
 			CreateChange3DLayerUI(layer->window->app, &layer->window->app->tool_window);
 			break;
+#endif
 		}
 
 		gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(layer->window->app->tool_window.brush_scroll),

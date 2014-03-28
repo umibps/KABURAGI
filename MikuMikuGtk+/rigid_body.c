@@ -30,25 +30,6 @@ typedef struct _PMX_RIGID_BODY_UNIT
 	uint8 type;
 } PMX_RIGID_BODY_UNIT;
 
-#define PMD2_RIGID_BODY_UNIT_SIZE 83
-typedef struct _PMD2_RIGID_BODY_UNIT
-{
-	uint8 name[PMD2_RIGID_BODY_NAME_SIZE];
-	uint16 bone_id;
-	uint8 collision_group_id;
-	uint16 collision_mask;
-	uint8 shape_type;
-	float size[3];
-	float position[3];
-	float rotation[3];
-	float mass;
-	float linear_damping;
-	float angular_damping;
-	float restitution;
-	float friction;
-	uint8 type;
-} PMD2_RIGID_BODY_UNIT;
-
 void InitializeBaseRigidBody(BASE_RIGID_BODY* body, void* parent, void* application_context)
 {
 	APPLICATION *application = (APPLICATION*)application_context;
@@ -331,7 +312,7 @@ int PmxRigidBodyPreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 )
 {
 	MEMORY_STREAM stream = {data, 0, rest, 1};
@@ -415,7 +396,7 @@ int PmxRigidBodyLoad(STRUCT_ARRAY* bodies, STRUCT_ARRAY* bones)
 void PmxRigidBodyRead(
 	PMX_RIGID_BODY* body,
 	uint8* data,
-	MODEL_DATA_INFO* info,
+	PMX_DATA_INFO* info,
 	size_t* data_size
 )
 {
@@ -479,103 +460,4 @@ void PmxRigidBodyRead(
 
 void PmxRigidBodyMergeMorph(PMX_RIGID_BODY* body, MORPH_IMPULSE* impulse, FLOAT_T weight)
 {
-}
-
-int Pmd2RigidBodyPreparse(
-	MEMORY_STREAM_PTR stream,
-	size_t* data_size,
-	MODEL_DATA_INFO* info
-)
-{
-	int32 size;
-	if(MemRead(&size, sizeof(size), 1, stream) == 0
-		|| PMD2_RIGID_BODY_UNIT_SIZE * size > stream->data_point + stream->data_size)
-	{
-		return FALSE;
-	}
-	info->rigid_bodies_count = size;
-	info->rigid_bodies = &stream->buff_ptr[stream->data_point];
-	(void)MemSeek(stream, size * PMD2_RIGID_BODY_UNIT_SIZE, SEEK_CUR);
-	return TRUE;
-}
-
-int LoadPmd2RigidBodies(STRUCT_ARRAY* rigid_bodies, STRUCT_ARRAY* bones)
-{
-	PMD2_RIGID_BODY *bodies = (PMD2_RIGID_BODY*)rigid_bodies->buffer;
-	PMD2_RIGID_BODY *body;
-	const int num_bodies = (int)rigid_bodies->num_data;
-	PMD2_BONE *b = (PMD2_BONE*)bones->buffer;
-	const int num_bones = (int)bones->num_data;
-	int bone_index;
-	int i;
-
-	for(i=0; i<num_bodies; i++)
-	{
-		body = &bodies[i];
-		bone_index = body->bone_index;
-		if(bone_index >= 0)
-		{
-			if(bone_index == 0xffff)
-			{
-				MODEL_INTERFACE *model = body->parent_model;
-				BONE_INTERFACE *bone = (BONE_INTERFACE*)model->find_bone(model, "center");
-				BaseRigidBodyBuild(body, bone, i);
-			}
-			else if(bone_index >= num_bones)
-			{
-				return FALSE;
-			}
-			else
-			{
-				PMD2_BONE *bone = &b[bone_index];
-				BaseRigidBodyBuild(body, bone, i);
-			}
-		}
-		else
-		{
-			MODEL_INTERFACE *model = body->parent_model;
-			BaseRigidBodyBuild(body, &model->scene->project->application_context->default_data.bone, i);
-		}
-	}
-	return TRUE;
-}
-
-void ReadPmd2RigidBody(
-	PMD2_RIGID_BODY* body,
-	MEMORY_STREAM_PTR stream,
-	MODEL_DATA_INFO* info,
-	size_t* data_size
-)
-{
-	PMD2_RIGID_BODY_UNIT unit;
-	(void)MemRead(unit.name, sizeof(unit.name), 1, stream);
-	(void)MemRead(&unit.bone_id, sizeof(unit.bone_id), 1, stream);
-	(void)MemRead(&unit.collision_group_id, sizeof(unit.collision_group_id), 1, stream);
-	(void)MemRead(&unit.collision_mask, sizeof(unit.collision_mask), 1, stream);
-	(void)MemRead(&unit.shape_type, sizeof(unit.shape_type), 1, stream);
-	(void)MemRead(unit.size, sizeof(unit.size), 1, stream);
-	(void)MemRead(unit.position, sizeof(unit.position), 1, stream);
-	(void)MemRead(unit.rotation, sizeof(unit.rotation), 1, stream);
-	(void)MemRead(&unit.mass, sizeof(unit.mass), 1, stream);
-	(void)MemRead(&unit.linear_damping, sizeof(unit.linear_damping), 1, stream);
-	(void)MemRead(&unit.angular_damping, sizeof(unit.angular_damping), 1, stream);
-	(void)MemRead(&unit.restitution, sizeof(unit.restitution), 1, stream);
-	(void)MemRead(&unit.friction, sizeof(unit.friction), 1, stream);
-	(void)MemRead(&unit.type, sizeof(unit.type), 1, stream);
-	body->name = EncodeText(body->encode, unit.name, sizeof(unit.name));
-	body->bone_index = unit.bone_id;
-	body->collision_group_id = unit.collision_group_id;
-	body->collision_group_mask = unit.collision_mask;
-	body->group_id = 0x0001 << body->collision_group_id;
-	body->shape_type = (eCOLLISION_SHAPE_TYPE)unit.type;
-	COPY_VECTOR3(body->size, unit.size);
-	SET_POSITION(body->position, unit.position);
-	COPY_VECTOR3(body->rotation, unit.rotation);
-	body->mass = unit.mass;
-	body->linear_damping = unit.linear_damping;
-	body->angular_damping = unit.angular_damping;
-	body->restitution = unit.restitution;
-	body->friction = unit.friction;
-	body->type = (eRIGID_BODY_OBJECT_TYPE)unit.type;
-	*data_size = PMD2_RIGID_BODY_UNIT_SIZE;
 }

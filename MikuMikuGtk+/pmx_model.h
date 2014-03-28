@@ -122,6 +122,50 @@ typedef enum _ePMX_FLAGS
 	PMX_FLAG_ENABLE_PHYSICS = 0x02
 } ePMX_FLAGS;
 
+typedef struct _PMX_DATA_INFO
+{
+	TEXT_ENCODE *encoding;
+	eTEXT_TYPE codec;
+	float version;
+	uint8 *base;
+	uint8 *name;
+	size_t additional_uv_size;
+	size_t vertex_index_size;
+	size_t texture_index_size;
+	size_t material_index_size;
+	size_t bone_index_size;
+	size_t morph_index_size;
+	size_t rigid_body_index_size;
+	int name_size;
+	uint8 *english_name;
+	int english_name_size;
+	uint8 *comment;
+	int comment_size;
+	uint8 *english_comment;
+	int english_comment_size;
+	uint8 *vertices;
+	size_t vertices_count;
+	uint8 *indices;
+	size_t indices_count;
+	uint8 *textures;
+	size_t textures_count;
+	uint8 *materials;
+	size_t materials_count;
+	uint8 *bones;
+	size_t bones_count;
+	uint8 *morphs;
+	size_t morphs_count;
+	uint8 *labels;
+	size_t labels_count;
+	uint8 *rigid_bodies;
+	size_t rigid_bodies_count;
+	uint8 *joints;
+	size_t joints_count;
+	uint8 *soft_bodies;
+	size_t soft_bodies_count;
+	uint8 *end;
+} PMX_DATA_INFO;
+
 typedef struct _PMX_MODEL
 {
 	MODEL_INTERFACE interface_data;
@@ -149,7 +193,7 @@ typedef struct _PMX_MODEL
 	float aa_bb_min[3];
 	float position[3];
 	QUATERNION rotation;
-	MODEL_DATA_INFO data_info;
+	PMX_DATA_INFO data_info;
 
 	unsigned int flags;
 } PMX_MODEL;
@@ -164,13 +208,13 @@ extern int PmxVertexPreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 );
 
 extern void PmxVertexRead(
 	PMX_VERTEX* vertex,
 	uint8* data,
-	MODEL_DATA_INFO* info,
+	PMX_DATA_INFO* info,
 	size_t* data_size
 );
 
@@ -182,13 +226,13 @@ extern int PmxMaterialPreparse(
 	uint8 *data,
 	size_t *data_size,
 	size_t rest,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 );
 
 extern void PmxMaterialRead(
 	PMX_MATERIAL* material,
 	uint8* data,
-	MODEL_DATA_INFO* info,
+	PMX_DATA_INFO* info,
 	size_t* data_size
 );
 
@@ -200,13 +244,13 @@ extern int PmxBonePreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 );
 
 extern void ReadPmxBone(
 	PMX_BONE* bone,
 	uint8* data,
-	MODEL_DATA_INFO* info,
+	PMX_DATA_INFO* info,
 	size_t* data_size
 );
 
@@ -218,25 +262,25 @@ extern int PmxMorphPreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 );
 
 extern void PmxMorphRead(
 	PMX_MORPH* morph,
 	uint8* data,
 	size_t* data_size,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 );
 
 extern void InitializePmxModelLabel(PMX_MODEL_LABEL* label, PMX_MODEL* model);
 
-extern int PmxModelLabelPreparse(uint8* data, size_t* data_size, size_t rest, MODEL_DATA_INFO* info);
+extern int PmxModelLabelPreparse(uint8* data, size_t* data_size, size_t rest, PMX_DATA_INFO* info);
 
 extern void PmxModelLabelRead(
 	PMX_MODEL_LABEL* label,
 	uint8* data,
 	size_t* data_size,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 );
 
 extern void InitializePmxRigidBody(PMX_RIGID_BODY* body, PMX_MODEL* model, void* application_context);
@@ -245,13 +289,13 @@ extern int PmxRigidBodyPreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 );
 
 extern void PmxRigidBodyRead(
 	PMX_RIGID_BODY* body,
 	uint8* data,
-	MODEL_DATA_INFO* info,
+	PMX_DATA_INFO* info,
 	size_t* data_size
 );
 
@@ -263,10 +307,10 @@ extern int PmxJointPreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 );
 
-extern void PmxJointRead(PMX_JOINT* joint, uint8* data, MODEL_DATA_INFO* info, size_t* data_size);
+extern void PmxJointRead(PMX_JOINT* joint, uint8* data, PMX_DATA_INFO* info, size_t* data_size);
 
 extern void InitializePmxSoftBody(PMX_SOFT_BODY* body, PMX_MODEL* model);
 
@@ -274,14 +318,14 @@ extern int PmxSoftBodyPreparse(
 	uint8* data,
 	size_t* data_size,
 	size_t rest,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 );
 
 extern void PmxSoftBodyRead(
 	PMX_SOFT_BODY* body,
 	uint8* data,
 	size_t* data_size,
-	MODEL_DATA_INFO* info
+	PMX_DATA_INFO* info
 );
 
 extern void PmxModelGetIndexBuffer(PMX_MODEL* model, PMX_DEFAULT_INDEX_BUFFER** buffer);
