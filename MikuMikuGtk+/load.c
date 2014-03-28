@@ -71,7 +71,6 @@ MODEL_INTERFACE* LoadModel(
 		{
 			model->interface_data.set_enable_physics(model, TRUE);
 		}
-		BoneTreeViewSetBones(application->widgets.bone_tree_view, (MODEL_INTERFACE*)model, (void*)application);
 
 		return (MODEL_INTERFACE*)model;
 	}

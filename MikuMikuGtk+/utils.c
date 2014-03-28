@@ -1503,6 +1503,17 @@ void DummyFuncGetZeroVector4(void* dummy, float* vector)
 	vector[0] = vector[1] = vector[2] = vector[3] = 0;
 }
 
+void DummyFuncGetIdentityQuaternion(void* dummy, float* quaternion)
+{
+	quaternion[0] = quaternion[1] = quaternion[2] = 0;
+	quaternion[3] = 1;
+}
+
+void DummyFuncGetIdentityTransform(void* dummy, void* transform)
+{
+	BtTransformSetIdentity(transform);
+}
+
 void DummyFuncGetWhiteColor(void* dummy,float* color)
 {
 	color[0] = color[1] = color[2] = color[3] = 1;

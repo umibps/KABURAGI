@@ -354,6 +354,8 @@ extern float DummyFuncFloatOneReturn(void* dummy);
 extern FLOAT_T DummyFuncFloatTOneReturn(void* dummy);
 extern void DummyFuncGetZeroVector3(void* dummy, float* vector);
 extern void DummyFuncGetZeroVector4(void* dummy, float* vector);
+extern void DummyFuncGetIdentityQuaternion(void* dummy, float* quaternion);
+extern void DummyFuncGetIdentityTransform(void* dummy, void* transform);
 extern void DummyFuncGetWhiteColor(void* dummy,float* color);
 
 #ifdef __cplusplus

@@ -1342,9 +1342,24 @@ void AssetRootBoneGetWorldTransform(ASSET_ROOT_BONE* bone, void* transform)
 	BtTransformSet(transform, bone->world_transform);
 }
 
+void AssetRootBoneGetLocalTranslation(ASSET_ROOT_BONE* bone, float* translation)
+{
+	COPY_VECTOR3(translation, bone->model->position);
+}
+
 void AssetRootBoneSetLocalTranslation(ASSET_ROOT_BONE* bone, const float* translation)
 {
 	AssetModelSetWorldPositionInternal(bone->model, translation);
+}
+
+void AssetRootBoneGetLocalRotation(ASSET_ROOT_BONE* bone, float* rotation)
+{
+	COPY_VECTOR4(rotation, bone->model->rotation);
+}
+
+void AssetRootBoneGetLocalTransform(ASSET_ROOT_BONE* bone, void* transform)
+{
+	BtTransformSet(transform, bone->world_transform);
 }
 
 void AssetRootBoneSetLocalRotation(ASSET_ROOT_BONE* bone, const float* rotation)
@@ -1363,6 +1378,7 @@ void InitializeAssetRootBone(
 
 	bone->interface_data.name = "RootBoneAsset";
 	bone->interface_data.local_transform = BtTransformNew(basis);
+	bone->model = model;
 	bone->world_transform = BtTransformNew(basis);
 	BtTransformSetOrigin(bone->interface_data.local_transform, model->position);
 	BtTransformSetRotation(bone->interface_data.local_transform, model->rotation);
@@ -1371,14 +1387,20 @@ void InitializeAssetRootBone(
 		(void (*)(void*, float*))DummyFuncGetZeroVector3;
 	bone->interface_data.get_world_transform =
 		(void (*)(void*, void*))AssetRootBoneGetWorldTransform;
+	bone->interface_data.get_local_transform =
+		(void (*)(void*, void*))AssetRootBoneGetLocalTransform;
+	bone->interface_data.get_local_translation =
+		(void (*)(void*, float*))AssetRootBoneGetLocalTranslation;
 	bone->interface_data.set_local_translation = 
 		(void (*)(void*, float*))AssetRootBoneSetLocalTranslation;
+	bone->interface_data.get_local_rotation =
+		(void (*)(void*, float*))AssetRootBoneGetLocalRotation;
 	bone->interface_data.set_local_rotation =
 		(void (*)(void*, float*))AssetRootBoneSetLocalRotation;
 	bone->interface_data.is_movable =
 		(int (*)(void*))DummyFuncTrueReturn;
 	bone->interface_data.is_rotatable =
-		(int (*)(void*))DummyFuncTrueReturn;
+		(int (*)(void*))DummyFuncZeroReturn;
 	bone->interface_data.is_interactive =
 		(int (*)(void*))DummyFuncTrueReturn;
 	bone->interface_data.is_visible =
@@ -1387,6 +1409,11 @@ void InitializeAssetRootBone(
 		(int (*)(void*))DummyFuncZeroReturn;
 	bone->interface_data.has_inverse_kinematics =
 		(int (*)(void*))DummyFuncZeroReturn;
+}
+
+void AssetScaleBoneGetLocalTranslation(ASSET_SCALE_BONE* bone, float* translation)
+{
+	COPY_VECTOR3(translation, bone->position);
 }
 
 void AssetScaleBoneSetLocalTranslation(ASSET_SCALE_BONE* bone, const float* translation)
@@ -1419,10 +1446,16 @@ void InitializeAssetScaleBone(
 	bone->position[1] = model->interface_data.scale_factor;
 	bone->position[2] = model->interface_data.scale_factor;
 	bone->interface_data.name = "ScaleBoneAsset";
+	bone->interface_data.get_local_translation =
+		(void (*)(void*, float*))AssetScaleBoneGetLocalTranslation;
+	bone->interface_data.get_local_rotation =
+		(void (*)(void*, float*))DummyFuncGetIdentityQuaternion;
 	bone->interface_data.get_destination_origin =
 		(void (*)(void*, float*))DummyFuncGetZeroVector3;
 	bone->interface_data.get_world_transform =
 		(void (*)(void*, void*))AssetScaleBoneGetWorldTransform;
+	bone->interface_data.get_local_transform =
+		(void (*)(void*, void*))DummyFuncGetIdentityTransform;
 	bone->interface_data.is_movable =
 		(int (*)(void*))DummyFuncTrueReturn;
 	bone->interface_data.is_rotatable =

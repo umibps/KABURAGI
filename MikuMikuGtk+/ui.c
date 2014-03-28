@@ -655,6 +655,7 @@ static void OnChangeSelectedModel(GtkWidget* combo, APPLICATION* application)
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[1]), set_value[1]);
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[2]), set_value[2]);
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.edge_size), scene->selected_model->edge_width);
+		BoneTreeViewSetBones(application->widgets.bone_tree_view, scene->selected_model, application);
 		application->widgets.ui_disabled = FALSE;
 	}
 }
