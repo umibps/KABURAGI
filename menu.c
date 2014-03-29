@@ -2014,7 +2014,10 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 		else
 		{
 			app->current_tool = TYPE_NORMAL_LAYER;
-			ChangeActiveLayer(app->draw_window[app->active_window], app->draw_window[app->active_window]->active_layer);
+			if(menu_item != NULL)
+			{
+				ChangeActiveLayer(app->draw_window[app->active_window], app->draw_window[app->active_window]->active_layer);
+			}
 		}
 	}
 
