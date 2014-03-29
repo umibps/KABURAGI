@@ -2065,11 +2065,6 @@ gboolean RenderForPixelDataDrawing(
 	GdkGLContext *context = gtk_widget_get_gl_context(widget);
 	GdkGLDrawable *drawable = gtk_widget_get_gl_drawable(widget);
 
-	if(gdk_gl_drawable_gl_begin(drawable, context) == FALSE)
-	{
-		return TRUE;
-	}
-
 #if GTK_MAJOR_VERSION >= 3
 	gtk_widget_get_allocation(widget, &allocation);
 #else
@@ -2077,6 +2072,11 @@ gboolean RenderForPixelDataDrawing(
 #endif
 
 	if(allocation.width < data->width || allocation.height < data->height)
+	{
+		return TRUE;
+	}
+
+	if(gdk_gl_drawable_gl_begin(drawable, context) == FALSE)
 	{
 		return TRUE;
 	}
