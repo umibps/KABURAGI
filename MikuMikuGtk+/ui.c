@@ -2076,12 +2076,12 @@ gboolean RenderForPixelDataDrawing(
 	allocation = widget->allocation;
 #endif
 
-	if(allocation.width != data->width || allocation.height != data->height)
+	if(allocation.width < data->width || allocation.height < data->height)
 	{
 		return TRUE;
 	}
 
-	RenderEngines(data->project, allocation.width, allocation.height);
+	RenderEngines(data->project, data->width, data->height);
 
 	if(gdk_gl_drawable_is_double_buffered(drawable) != FALSE)
 	{
