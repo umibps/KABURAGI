@@ -2076,7 +2076,7 @@ gboolean RenderForPixelDataDrawing(
 	allocation = widget->allocation;
 #endif
 
-	if(allocation.width != data->width || allocation.height != data->height)
+	if(allocation.width < data->width || allocation.height < data->height)
 	{
 		return TRUE;
 	}
