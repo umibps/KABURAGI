@@ -346,7 +346,7 @@ extern void DummyFuncNoReturn(void* dummy);
 extern void DummyFuncNoReturn2(void* dummy1, void* dummy2);
 extern int DummyFuncZeroReturn(void* dummy);
 extern void* DummyFuncNullReturn(void* dummy);
-extern void DummyFuncNullReturn2(void* dummy1, void* dummy2);
+extern void* DummyFuncNullReturn2(void* dummy1, void* dummy2);
 extern int DummyFuncTrueReturn(void* dummy);
 extern int DummyFuncMinusOneReturn(void* dummy);
 extern float DummyFuncFloatZeroReturn(void* dummy);

@@ -398,7 +398,7 @@ int main(int argc, char** argv)
 
 		application.labels = &labels;
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_set_locale();
 #endif
 		gtk_init(&argc, &argv);
@@ -407,8 +407,10 @@ int main(int argc, char** argv)
 		application.current_path = g_path_get_dirname(raw_path);
 		initialize_file_path = g_build_filename(application.current_path, INITIALIZE_FILE_PATH, NULL);
 
-	//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
+#if defined(CHECK_MEMORY_POOL) && CHECK_MEMORY_POOL != 0
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
 	//_CrtSetBreakAlloc(300);
+#endif
 
 		InitializeApplication(&application, initialize_file_path);
 		g_free(initialize_file_path);

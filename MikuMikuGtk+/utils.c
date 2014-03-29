@@ -1463,7 +1463,7 @@ void* DummyFuncNullReturn(void* dummy)
 	return NULL;
 }
 
-void DummyFuncNullReturn2(void* dummy1, void* dummy2)
+void* DummyFuncNullReturn2(void* dummy1, void* dummy2)
 {
 	return NULL;
 }
