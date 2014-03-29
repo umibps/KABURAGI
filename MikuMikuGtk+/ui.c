@@ -2048,8 +2048,10 @@ void* CameraLightControlWidgetNew(void* application_context)
 typedef struct _RENDER_FOR_PIXEL_DATA
 {
 	uint8 *pixels;
-	int width;
-	int height;
+	int width,	height;
+	int original_width,	original_height;
+	int sub_width,	sub_height;
+	int retry_count;
 	PROJECT *project;
 	void *user_data;
 	void (*finished)(void*, unsigned char*);
@@ -2061,6 +2063,7 @@ gboolean RenderForPixelDataDrawing(
 	RENDER_FOR_PIXEL_DATA* data
 )
 {
+#define MAX_RETRY_COUNT 5
 	GtkAllocation allocation;
 	GdkGLContext *context = gtk_widget_get_gl_context(widget);
 	GdkGLDrawable *drawable = gtk_widget_get_gl_drawable(widget);
@@ -2071,8 +2074,17 @@ gboolean RenderForPixelDataDrawing(
 	allocation = widget->allocation;
 #endif
 
-	if(allocation.width < data->width || allocation.height < data->height)
+	if((allocation.width < data->width || allocation.height < data->height)
+		&& data->retry_count <= MAX_RETRY_COUNT)
 	{
+		data->retry_count++;
+		if(data->retry_count == MAX_RETRY_COUNT)
+		{
+			gtk_widget_set_size_request(widget, data->sub_width, data->sub_height);
+			gtk_widget_show(widget);
+			data->width = data->sub_width;
+			data->height = data->sub_height;
+		}
 		return TRUE;
 	}
 
@@ -2098,6 +2110,50 @@ gboolean RenderForPixelDataDrawing(
 	glReadPixels(0, 0, data->width, data->height, GL_RGBA,
 		GL_UNSIGNED_BYTE, data->pixels);
 
+	// RGBAデータのα値は全て0xffになるはずなのでチェック
+		// (5くらいは余裕を持つ?)
+	if(data->pixels[3] < 250 && data->retry_count <= MAX_RETRY_COUNT * 2)
+	{
+		data->retry_count++;
+		if(data->retry_count >= MAX_RETRY_COUNT
+			&& (allocation.width > data->sub_width || allocation.height > data->sub_height))
+		{
+			gtk_widget_set_size_request(widget, data->sub_width, data->sub_height);
+			gtk_widget_show(widget);
+			data->width = data->sub_width;
+			data->height = data->sub_height;
+		}
+		return TRUE;
+	}
+
+	// 狙いのサイズで取得できなかったら画像の拡大・縮小で対応
+	if(data->original_width != data->width || data->original_height != data->height)
+	{
+		uint8 *small_image = (uint8*)MEM_ALLOC_FUNC(data->width * 4 * data->height);
+		cairo_surface_t *small_surface = cairo_image_surface_create_for_data(
+			small_image, CAIRO_FORMAT_ARGB32, data->width, data->height, data->width * 4);
+		cairo_pattern_t *pattern = cairo_pattern_create_for_surface(small_surface);
+		cairo_surface_t *target_surface = cairo_image_surface_create_for_data(
+			data->pixels, CAIRO_FORMAT_ARGB32, data->original_width, data->original_height, data->original_width * 4);
+		cairo_t *target_cairo = cairo_create(target_surface);
+		cairo_matrix_t matrix;
+
+		(void)memcpy(small_image, data->pixels, data->width * 4 * data->height);
+		(void)memset(data->pixels, 0, data->original_width * 4 * data->original_height);
+		cairo_matrix_init_scale(&matrix, (FLOAT_T)data->original_width / data->width,
+			(FLOAT_T)data->original_height / data->height);
+		cairo_pattern_set_matrix(pattern, &matrix);
+		cairo_pattern_set_filter(pattern, CAIRO_FILTER_BEST);
+		cairo_set_source(target_cairo, pattern);
+		cairo_paint(target_cairo);
+
+		cairo_destroy(target_cairo);
+		cairo_surface_destroy(target_surface);
+		cairo_pattern_destroy(pattern);
+		cairo_surface_destroy(small_surface);
+		MEM_FREE_FUNC(small_image);
+	}
+
 	(void)g_signal_handlers_disconnect_by_func(G_OBJECT(widget),
 		G_CALLBACK(RenderForPixelDataDrawing), data);
 	data->finished(data->user_data, data->pixels);
@@ -2105,6 +2161,7 @@ gboolean RenderForPixelDataDrawing(
 	MEM_FREE_FUNC(data);
 
 	return FALSE;
+#undef MAX_RETRY_COUNT
 }
 
 void RenderForPixelData(
@@ -2118,11 +2175,20 @@ void RenderForPixelData(
 {
 	RENDER_FOR_PIXEL_DATA *data;
 	PROJECT *project = (PROJECT*)project_context;
+	GtkAllocation sub_size;
 
 	data = (RENDER_FOR_PIXEL_DATA*)MEM_ALLOC_FUNC(sizeof(*data));
 	data->pixels = pixels;
-	data->width = width;
-	data->height = height;
+	data->width = data->original_width = width;
+	data->height = data->original_height = height;
+#if GTK_MAJOR_VERSION <= 2
+	sub_size = project->widgets.drawing_area->allocation;
+#else
+	gtk_widget_get_allocation(project->widgets.drawing_area, &sub_size);
+#endif
+	data->sub_width = sub_size.width;
+	data->sub_height = sub_size.height;
+	data->retry_count = 0;
 	data->project = project;
 	data->user_data = user_data;
 	data->finished = after_render;
