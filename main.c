@@ -134,7 +134,9 @@ cairo_image_surface_create_from_png (const char	*filename)
 #  ifdef _DEBUG
 #   pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
 #  else
-#   pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
+#   if _MSC_VER >= 1600
+#    pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
+#   endif
 #  endif
 #   if GTK_MAJOR_VERSION <= 2
 #    pragma comment(lib, "atk-1.0.lib")

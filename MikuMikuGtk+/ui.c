@@ -2063,7 +2063,7 @@ gboolean RenderForPixelDataDrawing(
 	RENDER_FOR_PIXEL_DATA* data
 )
 {
-#define MAX_RETRY_COUNT 5
+#define MAX_RETRY_COUNT 8
 	GtkAllocation allocation;
 	GdkGLContext *context = gtk_widget_get_gl_context(widget);
 	GdkGLDrawable *drawable = gtk_widget_get_gl_drawable(widget);
@@ -2078,8 +2078,9 @@ gboolean RenderForPixelDataDrawing(
 		&& data->retry_count <= MAX_RETRY_COUNT)
 	{
 		data->retry_count++;
-		if(data->retry_count == MAX_RETRY_COUNT)
+		if(data->retry_count == MAX_RETRY_COUNT && data->width != data->sub_width)
 		{
+			data->retry_count = 0;
 			gtk_widget_set_size_request(widget, data->sub_width, data->sub_height);
 			gtk_widget_show(widget);
 			data->width = data->sub_width;
