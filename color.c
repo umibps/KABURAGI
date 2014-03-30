@@ -1337,15 +1337,15 @@ static GtkWidget* CreatePallete(COLOR_CHOOSER* chooser)
 		GDK_EXPOSURE_MASK | GDK_BUTTON_PRESS_MASK);
 	gtk_widget_set_size_request(chooser->pallete_widget,
 		PALLETE_WIDTH*PALLETE_BOX_SIZE+PALLETE_WIDTH+1, PALLETE_BOX_SIZE*PALLETE_HEIGHT+PALLETE_HEIGHT+1);
-	gtk_container_set_resize_mode(GTK_CONTAINER(chooser->pallete_widget), GTK_RESIZE_QUEUE);
+	gtk_container_set_resize_mode(GTK_CONTAINER(pallete_scroll), GTK_RESIZE_QUEUE);
 	
-	g_signal_connect(G_OBJECT(chooser->pallete_widget), "button_press_event",
+	(void)g_signal_connect(G_OBJECT(chooser->pallete_widget), "button_press_event",
 		G_CALLBACK(PalleteButtonPressCallBack), chooser);
-#if MAJOR_VERSION == 1
-	g_signal_connect(G_OBJECT(chooser->pallete_widget), "expose_event",
+#if GTK_MAJOR_VERSION <= 2
+	(void)g_signal_connect(G_OBJECT(chooser->pallete_widget), "expose_event",
 		G_CALLBACK(DisplayPallete), chooser);
 #else
-	g_signal_connect(G_OBJECT(chooser->pallete_widget), "draw",
+	(void)g_signal_connect(G_OBJECT(chooser->pallete_widget), "draw",
 		G_CALLBACK(DisplayPallete), chooser);
 #endif
 

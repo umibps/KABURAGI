@@ -89,6 +89,19 @@ void ParentItemSelected(GtkWidget* widget, gpointer* data)
 }
 
 /*********************************************************
+* OnDestroyMainMenu関数                                  *
+* メインメニューが削除されたときに呼び出される           *
+* 引数                                                   *
+* app		: アプリケーションを管理する構造体のアドレス *
+*********************************************************/
+static void OnDestroyMainMenu(APPLICATION* app)
+{
+	app->menus.disable_if_single_layer[app->layer_window.layer_control.delete_menu_index] = NULL;
+	app->menus.disable_if_single_layer[app->layer_window.layer_control.merge_down_menu_index] = NULL;
+	app->menus.disable_if_single_layer[app->layer_window.layer_control.flatten_menu_index] = NULL;
+}
+
+/*********************************************************
 * GetMainMenu関数                                        *
 * メインメニューを作成する                               *
 * 引数                                                   *
@@ -135,6 +148,9 @@ GtkWidget* GetMainMenu(
 
 	// メニューバーを作成
 	menu_bar = gtk_menu_bar_new();
+	// メニューバー削除時のコールバック関数をセット
+	(void)g_signal_connect_swapped(G_OBJECT(menu_bar), "destroy",
+		G_CALLBACK(OnDestroyMainMenu), app);
 
 	// 「ファイル」メニュー
 	(void)sprintf(buff, "_%s(_F)", app->labels->menu.file);
@@ -518,6 +534,7 @@ GtkWidget* GetMainMenu(
 
 	// 「レイヤーを削除」
 	(void)sprintf(buff, "%s", app->labels->menu.delete_layer);
+	app->layer_window.layer_control.delete_menu_index = app->menus.num_disable_if_single_layer;
 	app->menus.disable_if_single_layer[app->menus.num_disable_if_single_layer] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
@@ -527,6 +544,7 @@ GtkWidget* GetMainMenu(
 
 	// 「下のレイヤーと結合」
 	(void)sprintf(buff, "%s", app->labels->menu.merge_down_layer);
+	app->layer_window.layer_control.merge_down_menu_index = app->menus.num_disable_if_single_layer;
 	app->menus.merge_down_menu =
 		app->menus.disable_if_single_layer[app->menus.num_disable_if_single_layer] =
 			menu_item = gtk_menu_item_new_with_mnemonic(buff);
@@ -537,6 +555,7 @@ GtkWidget* GetMainMenu(
 
 	// 「画像を統合」
 	(void)sprintf(buff, "%s", app->labels->menu.merge_all_layer);
+	app->layer_window.layer_control.flatten_menu_index = app->menus.num_disable_if_single_layer;
 	app->menus.disable_if_single_layer[app->menus.num_disable_if_single_layer] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",

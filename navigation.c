@@ -596,6 +596,17 @@ static gboolean OnDeleteNavigationWindow(GtkWidget* window, GdkEvent* event_info
 	app->navigation_window.window_x = x, app->navigation_window.window_y = y;
 	app->navigation_window.window_width = width, app->navigation_window.window_height = height;
 
+	return FALSE;
+}
+
+/*************************************************************
+* OnDestroyNavigationWidget関数                              *
+* ナビゲーションのウィジェットが削除されるときに呼び出される *
+* 引数                                                       *
+* app	: アプリケーションを管理する構造体のアドレス         *
+*************************************************************/
+static void OnDestroyNavigationWidget(APPLICATION* app)
+{
 	MEM_FREE_FUNC(app->navigation_window.pixels);
 	MEM_FREE_FUNC(app->navigation_window.reverse_buff);
 
@@ -605,8 +616,7 @@ static gboolean OnDeleteNavigationWindow(GtkWidget* window, GdkEvent* event_info
 	app->navigation_window.window = NULL;
 	app->navigation_window.draw_area = NULL;
 	app->navigation_window.vbox = NULL;
-
-	return FALSE;
+	app->navi_layer_pane = NULL;
 }
 
 /*********************************************************************
@@ -665,6 +675,9 @@ void InitializeNavigation(
 		navigation->window = NULL;
 		gtk_paned_add1(GTK_PANED(box), vbox);
 	}
+	// ウィジェット削除時のコールバック関数をセット
+	(void)g_signal_connect_swapped(G_OBJECT(vbox), "destroy",
+		G_CALLBACK(OnDestroyNavigationWidget), app);
 
 	// 画像の表示領域を作成
 	navigation->draw_area = gtk_drawing_area_new();

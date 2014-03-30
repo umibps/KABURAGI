@@ -43,24 +43,25 @@ static gboolean OnCloseLayerWindow(GtkWidget* widget, GdkEvent* event_info, APPL
 	gtk_window_get_position(GTK_WINDOW(widget), &x, &y);
 	gtk_window_get_size(GTK_WINDOW(widget), &width, &height);
 
-	app->menus.disable_if_no_open[app->layer_window.change_bg_index] = NULL;
-	app->menus.disable_if_no_open[app->layer_window.layer_control.opacity_index] = NULL;
-	app->menus.disable_if_no_open[app->layer_window.layer_control.new_box_index] = NULL;
-	app->menus.disable_if_single_layer[app->layer_window.layer_control.merge_index] = NULL;
-
-	app->layer_window.change_bg_button = NULL;
-
 	app->layer_window.window_x = x, app->layer_window.window_y = y;
 	app->layer_window.window_width = width, app->layer_window.window_height = height;
-
-	g_object_unref(app->layer_window.eye);
-	g_object_unref(app->layer_window.pin);
-	g_object_unref(app->layer_window.close);
-	g_object_unref(app->layer_window.open);
 
 	app->layer_window.window = NULL;
 
 	return FALSE;
+}
+
+static void OnDestroyLayerViewWidget(APPLICATION* app)
+{
+	app->menus.disable_if_no_open[app->layer_window.change_bg_index] = NULL;
+	app->menus.disable_if_no_open[app->layer_window.layer_control.opacity_index] = NULL;
+	app->menus.disable_if_no_open[app->layer_window.layer_control.new_box_index] = NULL;
+	app->menus.disable_if_single_layer[app->layer_window.layer_control.merge_index] = NULL;
+	app->layer_window.change_bg_button = NULL;
+	g_object_unref(app->layer_window.eye);
+	g_object_unref(app->layer_window.pin);
+	g_object_unref(app->layer_window.close);
+	g_object_unref(app->layer_window.open);
 }
 
 static void ChangeLayerBlendModeCallBack(GtkComboBox *combo_box, APPLICATION* app)
@@ -675,7 +676,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	}
 #endif
 	// コンボボックスの値変更時のコールバック関数を設定
-	g_signal_connect(G_OBJECT(window->layer_control.mode), "changed", G_CALLBACK(ChangeLayerBlendModeCallBack), app);
+	(void)g_signal_connect(G_OBJECT(window->layer_control.mode), "changed", G_CALLBACK(ChangeLayerBlendModeCallBack), app);
 
 	// ウィンドウ作成時は有効なイメージがないはずなので無効にしておく
 	gtk_widget_set_sensitive(window->layer_control.mode, app->window_num > 0);
@@ -955,6 +956,10 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	window->close = gdk_pixbuf_new_from_file(file_path, NULL);
 	g_free(file_path);
 
+	// ウィジェット削除時のコールバック関数をセット
+	(void)g_signal_connect_swapped(G_OBJECT(vbox), "destroy",
+		G_CALLBACK(OnDestroyLayerViewWidget), app);
+
 	return vbox;
 #undef UI_FONT_SIZE
 }
@@ -1213,19 +1218,19 @@ static gint LayerWidgetButtonPressCallBack(GtkWidget *widget, GdkEventButton* ev
 		menu_item = gtk_menu_item_new_with_label(
 			layer->window->app->labels->layer_window.add_normal);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(ExecuteMakeColorLayer), layer->window->app);
 
 		menu_item = gtk_menu_item_new_with_label(
 			layer->window->app->labels->layer_window.add_vector);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(ExecuteMakeVectorLayer), layer->window->app);
 
 		menu_item = gtk_menu_item_new_with_label(
 			layer->window->app->labels->layer_window.add_layer_set);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(ExecuteMakeLayerSet), layer->window->app);
 
 		menu_item = gtk_separator_menu_item_new();
@@ -1234,13 +1239,13 @@ static gint LayerWidgetButtonPressCallBack(GtkWidget *widget, GdkEventButton* ev
 		menu_item = gtk_menu_item_new_with_mnemonic(
 			layer->window->app->labels->menu.copy_layer);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(ExecuteCopyLayer), layer->window->app);
 
 		menu_item = gtk_menu_item_new_with_mnemonic(
 			layer->window->app->labels->menu.delete_layer);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(DeleteActiveLayer), layer->window->app);
 
 		if(layer->window->num_layer < 2)
@@ -1254,13 +1259,13 @@ static gint LayerWidgetButtonPressCallBack(GtkWidget *widget, GdkEventButton* ev
 		menu_item = gtk_menu_item_new_with_mnemonic(
 			layer->window->app->labels->layer_window.alpha_to_select);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(LayerAlpha2SelectionArea), layer->window);
 
 		menu_item = gtk_menu_item_new_with_mnemonic(
 			layer->window->app->labels->layer_window.alpha_add_select);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(LayerAlphaAddSelectionArea), layer->window);
 
 		gtk_menu_popup(GTK_MENU(menu), NULL, NULL, NULL,
@@ -1326,9 +1331,9 @@ static gint LayerViewChangeName(GtkWidget* widget, gpointer p)
 	gtk_widget_show_all(layer->widget->parameters);
 	gtk_widget_add_events(layer->widget->name,
 		GDK_BUTTON_PRESS_MASK | GDK_BUTTON1_MOTION_MASK);
-	g_signal_connect(G_OBJECT(layer->widget->name), "button_press_event",
+	(void)g_signal_connect(G_OBJECT(layer->widget->name), "button_press_event",
 		G_CALLBACK(LayerWidgetNameClickedCallBack), layer);
-	g_signal_connect(G_OBJECT(layer->widget->name), "motion-notify-event",
+	(void)g_signal_connect(G_OBJECT(layer->widget->name), "motion-notify-event",
 		G_CALLBACK(LayerWidgetMotionNotify), layer);
 
 	if(layer == layer->window->app->draw_window[layer->window->app->active_window]->active_layer)
@@ -1394,9 +1399,9 @@ static gboolean LayerWidgetNameClickedCallBack(GtkWidget *widget, GdkEventButton
 
 				gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
 
-				g_signal_connect(G_OBJECT(entry), "activate",
+				(void)g_signal_connect(G_OBJECT(entry), "activate",
 					G_CALLBACK(LayerViewChangeName), layer);
-				g_signal_connect(G_OBJECT(entry), "focus-out-event",
+				(void)g_signal_connect(G_OBJECT(entry), "focus-out-event",
 					G_CALLBACK(LayerViewEntryFocusOut), layer);
 
 				layer->widget->flags |= LAYER_WINDOW_IN_CHANGE_NAME;
@@ -1422,13 +1427,13 @@ static gboolean LayerWidgetNameClickedCallBack(GtkWidget *widget, GdkEventButton
 		menu_item = gtk_menu_item_new_with_mnemonic(
 			layer->window->app->labels->layer_window.add_vector);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(ExecuteMakeVectorLayer), layer->window->app);
 
 		menu_item = gtk_menu_item_new_with_label(
 			layer->window->app->labels->layer_window.add_layer_set);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(ExecuteMakeLayerSet), layer->window->app);
 
 		menu_item = gtk_separator_menu_item_new();
@@ -1437,7 +1442,7 @@ static gboolean LayerWidgetNameClickedCallBack(GtkWidget *widget, GdkEventButton
 		menu_item = gtk_menu_item_new_with_mnemonic(
 			layer->window->app->labels->menu.delete_layer);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(DeleteActiveLayer), layer->window->app);
 
 		if(layer->window->num_layer < 2)
@@ -1451,13 +1456,13 @@ static gboolean LayerWidgetNameClickedCallBack(GtkWidget *widget, GdkEventButton
 		menu_item = gtk_menu_item_new_with_mnemonic(
 			layer->window->app->labels->layer_window.alpha_to_select);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(LayerAlpha2SelectionArea), layer->window);
 
 		menu_item = gtk_menu_item_new_with_mnemonic(
 			layer->window->app->labels->layer_window.alpha_add_select);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(LayerAlphaAddSelectionArea), layer->window);
 
 		gtk_menu_popup(GTK_MENU(menu), NULL, NULL, NULL,
@@ -1593,21 +1598,21 @@ void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_
 
 	gtk_widget_add_events(layer->widget->name,
 		GDK_BUTTON_PRESS_MASK);// | GDK_BUTTON1_MOTION_MASK);
-	g_signal_connect(G_OBJECT(layer->widget->name), "button_press_event",
+	(void)g_signal_connect(G_OBJECT(layer->widget->name), "button_press_event",
 		G_CALLBACK(LayerWidgetNameClickedCallBack), layer);
 	gtk_widget_add_events(layer->widget->box,
 		GDK_BUTTON_PRESS_MASK);// | GDK_BUTTON1_MOTION_MASK);
-	g_signal_connect(G_OBJECT(layer->widget->box), "button_press_event",
+	(void)g_signal_connect(G_OBJECT(layer->widget->box), "button_press_event",
 		G_CALLBACK(LayerWidgetButtonPressCallBack), layer);
 	gtk_widget_add_events(layer->widget->thumbnail,
 		GDK_BUTTON_PRESS_MASK);// | GDK_BUTTON1_MOTION_MASK);
-	g_signal_connect(G_OBJECT(layer->widget->thumbnail), "button_press_event",
+	(void)g_signal_connect(G_OBJECT(layer->widget->thumbnail), "button_press_event",
 		G_CALLBACK(LayerWidgetButtonPressCallBack), layer);
-#if MAJOR_VERSION == 1
-	g_signal_connect(G_OBJECT(layer->widget->thumbnail), "expose_event",
+#if GTK_MAJOR_VERSION <= 2
+	(void)g_signal_connect(G_OBJECT(layer->widget->thumbnail), "expose_event",
 		G_CALLBACK(UpadateLayerThumbnail), layer);
 #else
-	g_signal_connect(G_OBJECT(layer->widget->thumbnail), "draw",
+	(void)g_signal_connect(G_OBJECT(layer->widget->thumbnail), "draw",
 		G_CALLBACK(UpadateLayerThumbnail), layer);
 #endif
 	gtk_widget_add_events(layer->widget->thumbnail,
@@ -1626,7 +1631,10 @@ void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_
 	{
 		for(i=0; i<layer->window->app->menus.num_disable_if_single_layer; i++)
 		{
-			gtk_widget_set_sensitive(layer->window->app->menus.disable_if_single_layer[i], TRUE);
+			if(layer->window->app->menus.disable_if_single_layer[i] != NULL)
+			{
+				gtk_widget_set_sensitive(layer->window->app->menus.disable_if_single_layer[i], TRUE);
+			}
 		}
 	}
 }

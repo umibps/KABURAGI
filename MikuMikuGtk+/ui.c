@@ -1285,6 +1285,26 @@ static void OnChangeMorphWeight(GtkAdjustment* adjust, APPLICATION* application)
 	}
 }
 
+void OnDestroyModelControlWidget(APPLICATION* application)
+{
+	application->widgets.model_combo_box = NULL;
+	application->widgets.model_scale = NULL;
+	application->widgets.model_opacity = NULL;
+	application->widgets.model_position[0] = NULL;
+	application->widgets.model_position[1] = NULL;
+	application->widgets.model_position[2] = NULL;
+	application->widgets.model_rotation[0] = NULL;
+	application->widgets.model_rotation[1] = NULL;
+	application->widgets.model_rotation[2] = NULL;
+	application->widgets.edge_size = NULL;
+	application->widgets.connect_model = NULL;
+	application->widgets.connect_bone = NULL;
+	application->widgets.bone_tree_view = NULL;
+	application->widgets.morph_group_selector = NULL;
+	application->widgets.detail_morph_selector = NULL;
+	application->widgets.morph_weight = NULL;
+}
+
 void* ModelControlWidgetNew(void* application_context)
 {
 	APPLICATION *application = (APPLICATION*)application_context;
@@ -1315,6 +1335,8 @@ void* ModelControlWidgetNew(void* application_context)
 	}
 
 	vbox = gtk_vbox_new(FALSE, 0);
+	(void)g_signal_connect_swapped(G_OBJECT(vbox), "destroy",
+		G_CALLBACK(OnDestroyModelControlWidget), application);
 
 	layout_box = gtk_vbox_new(FALSE, 0);
 	path = g_build_filename(application->paths.image_directory_path, "add_model.png", NULL);
@@ -1791,7 +1813,7 @@ static void ResetLightButtonClicked(GtkWidget* button, APPLICATION* application)
 static void SetCameraPositionWidget(APPLICATION* application)
 {
 	PROJECT *project = application->projects[application->active_project];
-	if(application->num_projects <= 0)
+	if(application->num_projects <= 0 || application->widgets.camera_look_at[0] == NULL)
 	{
 		return;
 	}
@@ -1820,7 +1842,7 @@ static void SetLightColorDirectionWidget(APPLICATION* application)
 {
 	PROJECT *project = application->projects[application->active_project];
 	GdkColor color;
-	if(application->num_projects <= 0)
+	if(application->num_projects <= 0 || application->widgets.light_color == NULL)
 	{
 		return;
 	}
@@ -1834,6 +1856,22 @@ static void SetLightColorDirectionWidget(APPLICATION* application)
 	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.light_direction[1]), project->scene->light.vertex.position[1]);
 	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.light_direction[2]), project->scene->light.vertex.position[2]);
 	application->widgets.ui_disabled = FALSE;
+}
+
+void OnDestroyCameraLightControlWidget(APPLICATION* application)
+{
+	application->widgets.camera_look_at[0] = NULL;
+	application->widgets.camera_look_at[1] = NULL;
+	application->widgets.camera_look_at[2] = NULL;
+	application->widgets.camera_angle[0] = NULL;
+	application->widgets.camera_angle[1] = NULL;
+	application->widgets.camera_angle[2] = NULL;
+	application->widgets.camera_distance = NULL;
+	application->widgets.camera_fov = NULL;
+	application->widgets.light_direction[0] = NULL;
+	application->widgets.light_direction[1] = NULL;
+	application->widgets.light_direction[2] = NULL;
+	application->widgets.light_color = NULL;
 }
 
 void* CameraLightControlWidgetNew(void* application_context)
@@ -1860,6 +1898,8 @@ void* CameraLightControlWidgetNew(void* application_context)
 
 	note_book = gtk_notebook_new();
 	gtk_box_pack_start(GTK_BOX(vbox), note_book, TRUE, TRUE, 0);
+	(void)g_signal_connect_swapped(G_OBJECT(vbox), "destroy",
+		G_CALLBACK(OnDestroyCameraLightControlWidget), application);
 
 	// ƒJƒƒ‰ƒ^ƒu
 	label = gtk_label_new(application->label.control.camera);

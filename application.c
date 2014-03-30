@@ -1906,7 +1906,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 		{
 			gtk_paned_set_position(GTK_PANED(app->left_pane), app->left_pane_position);
 		}
-		g_object_unref(child);
+		g_list_free(child);
 
 		child = gtk_container_get_children(GTK_CONTAINER(right_box));
 		if(child == NULL)
@@ -1917,7 +1917,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 		{
 			gtk_paned_set_position(GTK_PANED(app->right_pane), app->right_pane_position);
 		}
-		g_object_unref(child);
+		g_list_free(child);
 
 		// ウィンドウが表示された時にもう一度ペーンの位置を調整
 		realize->signal_id = g_signal_connect(G_OBJECT(app->window), "size-allocate",
