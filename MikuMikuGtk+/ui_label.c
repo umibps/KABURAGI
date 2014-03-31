@@ -1,4 +1,5 @@
 #include "ui_label.h"
+#include "application.h"
 
 UI_LABEL LoadDefaultUiLabel(void)
 {
@@ -53,4 +54,10 @@ UI_LABEL LoadDefaultUiLabel(void)
 	};
 
 	return default_label;
+}
+
+UI_LABEL* GetUILabel(void* application_context)
+{
+	APPLICATION *application = (APPLICATION*)application_context;
+	return &application->label;
 }

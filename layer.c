@@ -2356,6 +2356,12 @@ LAYER* CreateLayerCopy(LAYER* src)
 		ret->layer_data.text_layer_p->text = MEM_STRDUP_FUNC(
 			src->layer_data.text_layer_p->text);
 	}
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	else
+	{
+		ret->layer_type = TYPE_NORMAL_LAYER;
+	}
+#endif
 
 	return ret;
 }

@@ -1927,6 +1927,26 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 	// 3Dモデリングの準備
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	app->modeling = ApplicationContextNew(app->window_width, app->window_height);
+	// ラベルの文字列を読み込む
+	if(app->language_file_path != NULL)
+	{
+		if(app->language_file_path[0] == '.'
+			&& app->language_file_path[1] == '/')
+		{
+			file_path = g_build_filename(app->current_path,
+				&app->language_file_path[2], NULL);
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+			Load3dModelingLabels(app, file_path);
+#endif
+			g_free(file_path);
+		}
+		else
+		{
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+			Load3dModelingLabels(app, app->language_file_path);
+#endif
+		}
+	}
 #endif
 
 	// 初期化済みのフラグを立てる

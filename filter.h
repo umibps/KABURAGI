@@ -19,6 +19,7 @@ typedef enum _eFILTER_FUNC_ID
 	FILTER_FUNC_BRIGHTNESS_CONTRAST,
 	FILTER_FUNC_HUE_SATURATION,
 	FILTER_FUNC_LUMINOSITY2OPACITY,
+	FILTER_FUNC_COLOR2ALPHA,
 	FILTER_FUNC_COLORIZE_WITH_UNDER,
 	FILTER_FUNC_GRADATION_MAP,
 	FILTER_FUNC_FILL_WITH_VECTOR,
@@ -70,7 +71,15 @@ extern void ExecuteChangeHueSaturationFilter(APPLICATION* app);
 extern void ExecuteLuminosity2OpacityFilter(APPLICATION* app);
 
 /*****************************************************
-* ColorizeWithUnderFilter関数                        *
+* ExecuteColor2AlphaFilter関数                       *
+* 指定色を透明度へ変換を実行                         *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+extern void ExecuteColor2AlphaFilter(APPLICATION* app);
+
+/*****************************************************
+* ExecuteColorizeWithUnderFilter関数                 *
 * 下のレイヤーで着色を実行                           *
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *

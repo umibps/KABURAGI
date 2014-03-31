@@ -3301,6 +3301,150 @@ void ExecuteLuminosity2OpacityFilter(APPLICATION* app)
 	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 }
 
+typedef struct _COLOR2ALPHA
+{
+	uint8 color[3];
+	uint8 threshold;
+} COLOR2ALPHA;
+
+/*****************************************
+* Color2AlphaFilter関数                  *
+* 指定色を透明にする                     *
+* 引数                                   *
+* window	: 描画領域の情報             *
+* layers	: 処理を行うレイヤー配列     *
+* num_layer	: 処理を行うレイヤーの数     *
+* data		: フィルターの詳細設定データ *
+*****************************************/
+static void Color2AlphaFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* data)
+{
+	// フィルターの詳細設定の内容にアクセスできるようにキャスト
+	COLOR2ALPHA *setting = (COLOR2ALPHA*)data;
+	// 指定色
+	uint8 color[3];
+	// 一定以上のα値を持つピクセルは不透明にする
+	uint8 upper_threshold;
+	// 指定色との差
+	int difference;
+	// ピクセルのα値
+	int alpha;
+	// ピクセルのインデックス
+	int index;
+	// for文用のカウンタ
+	unsigned int i;
+	int j;
+
+	(void)memcpy(color, setting->color, sizeof(color));
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+	{
+		uint8 r;
+		r = color[0];
+		color[0] = color[2];
+		color[2] = r;
+	}
+#endif
+	upper_threshold = 0xff - setting->threshold;
+
+	for(i=0; i<num_layer; i++)
+	{
+		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
+		{
+			for(j=0; j<layers[i]->width * layers[i]->height; j++)
+			{
+				index = j*4;
+				difference = abs((int)setting->color[0] - (int)layers[i]->pixels[index+0]);
+				difference += abs((int)setting->color[1] - (int)layers[i]->pixels[index+1]);
+				difference += abs((int)setting->color[2] - (int)layers[i]->pixels[index+2]);
+				if(difference > 0xff)
+				{
+					difference = 0xff;
+				}
+				alpha = layers[i]->pixels[index+3] - (0xff - difference);
+				if(alpha < setting->threshold)
+				{
+					alpha = setting->threshold;
+				}
+				else if(alpha > upper_threshold)
+				{
+					alpha = 0xff;
+				}
+				layers[i]->pixels[index+0] = MINIMUM(alpha, layers[i]->pixels[index+0]);
+				layers[i]->pixels[index+1] = MINIMUM(alpha, layers[i]->pixels[index+1]);
+				layers[i]->pixels[index+2] = MINIMUM(alpha, layers[i]->pixels[index+2]);
+				layers[i]->pixels[index+3] = alpha;
+			}
+		}
+	}
+}
+
+/*****************************************************
+* ExecuteColor2AlphaFilter関数                       *
+* 指定色を透明度へ変換を実行                         *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+void ExecuteColor2AlphaFilter(APPLICATION* app)
+{
+	DRAW_WINDOW* window =	// 処理する描画領域
+		app->draw_window[app->active_window];
+	// フィルターの設定データ
+	COLOR2ALPHA filter_data = {0};
+	// 透明にする色
+	GdkColor color;
+	// レイヤーの数
+	uint16 num_layer;
+	// 処理を実行するレイヤー
+	LAYER** layers = GetLayerChain(window, &num_layer);
+	// フィルターの設定用ダイアログウィジェット
+	GtkWidget *dialog;
+	// 色指定ウィジェット
+	GtkWidget *color_button;
+	// 閾値設定ウィジェット
+	GtkWidget *threshold_spin_button;
+
+	dialog = gtk_dialog_new_with_buttons(
+		app->labels->menu.color2alpha,
+		GTK_WINDOW(app->window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_OK, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		NULL
+	);
+	// デフォルトは白
+	color.red = 0xffff;
+	color.green = 0xffff;
+	color.blue = 0xffff;
+	color_button = gtk_color_button_new_with_color(&color);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		color_button, FALSE, FALSE, 0);
+	threshold_spin_button = gtk_spin_button_new_with_range(0, 0xff, 1);
+	gtk_spin_button_set_digits(GTK_SPIN_BUTTON(threshold_spin_button), 0);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		threshold_spin_button, FALSE, FALSE, 0);
+
+	gtk_widget_show_all(dialog);
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{
+		// 設定されたデータを取得
+		gtk_color_button_get_color(GTK_COLOR_BUTTON(color_button), &color);
+		filter_data.color[0] = color.red / 256;
+		filter_data.color[1] = color.green / 256;
+		filter_data.color[2] = color.blue / 256;
+		filter_data.threshold = (uint8)gtk_spin_button_get_value_as_int(
+			GTK_SPIN_BUTTON(threshold_spin_button));
+		// 先に履歴データを残す
+		AddFilterHistory(app->labels->menu.color2alpha, &filter_data, sizeof(filter_data),
+			FILTER_FUNC_COLOR2ALPHA, layers, num_layer, window);
+
+		// 変換実行
+		Color2AlphaFilter(window, layers, num_layer, &filter_data);
+	}
+
+	MEM_FREE_FUNC(layers);
+
+	// キャンバスを更新
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+}
+
 typedef enum _eCOLORIZE_WITH_UNDER_TARGET
 {
 	COLORIZE_WITH_UNDER_LAYER,
@@ -3478,7 +3622,7 @@ static void ColorizeWithUnderSetTarget(GtkWidget* radio_button, COLORIZE_WITH_UN
 }
 
 /*****************************************************
-* ColorizeWithUnderFilter関数                        *
+* ExecuteColorizeWithUnderFilter関数                 *
 * 下のレイヤーで着色を実行                           *
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
@@ -3521,7 +3665,7 @@ void ExecuteColorizeWithUnderFilter(APPLICATION* app)
 	label = gtk_label_new(app->labels->tool_box.scale);
 	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
 	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(5, 1, 30, 1, 1, 0));
-	g_signal_connect(G_OBJECT(adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(AdjustmentChangeValueCallBackInt16), &filter_data.size);
 	control = gtk_spin_button_new(adjust, 1, 0);
 	gtk_box_pack_start(GTK_BOX(hbox), control, FALSE, FALSE, 0);
@@ -3532,7 +3676,7 @@ void ExecuteColorizeWithUnderFilter(APPLICATION* app)
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
 		label, FALSE, FALSE, 0);
 	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(0, -180, 180, 1, 1, 0));
-	g_signal_connect(G_OBJECT(adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(AdjustmentChangeValueCallBackInt16), &filter_data.add_h);
 	control = gtk_hscale_new(adjust);
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
@@ -3542,7 +3686,7 @@ void ExecuteColorizeWithUnderFilter(APPLICATION* app)
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
 		label, FALSE, FALSE, 0);
 	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(0, -100, 100, 1, 1, 0));
-	g_signal_connect(G_OBJECT(adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(AdjustmentChangeValueCallBackInt16), &filter_data.add_s);
 	control = gtk_hscale_new(adjust);
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
@@ -3552,21 +3696,21 @@ void ExecuteColorizeWithUnderFilter(APPLICATION* app)
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
 		label, FALSE, FALSE, 0);
 	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(0, -100, 100, 1, 1, 0));
-	g_signal_connect(G_OBJECT(adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(AdjustmentChangeValueCallBackInt16), &filter_data.add_v);
 	control = gtk_hscale_new(adjust);
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
 		control, FALSE, FALSE, 0);
 
 	control = gtk_radio_button_new_with_label(NULL, app->labels->layer_window.under_layer);
-	g_signal_connect(G_OBJECT(control), "toggled",
+	(void)g_signal_connect(G_OBJECT(control), "toggled",
 		G_CALLBACK(ColorizeWithUnderSetTarget), &filter_data);
 	g_object_set_data(G_OBJECT(control), "filter_target", GINT_TO_POINTER(COLORIZE_WITH_UNDER_LAYER));
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
 		control, FALSE, FALSE, 0);
 	control = gtk_radio_button_new_with_label(gtk_radio_button_get_group(
 		GTK_RADIO_BUTTON(control)), app->labels->layer_window.mixed_under_layer);
-	g_signal_connect(G_OBJECT(control), "toggled",
+	(void)g_signal_connect(G_OBJECT(control), "toggled",
 		G_CALLBACK(ColorizeWithUnderSetTarget), &filter_data);
 	g_object_set_data(G_OBJECT(control), "filter_target", GINT_TO_POINTER(COLORIZE_WITH_MIXED_UNDER));
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
@@ -4336,6 +4480,7 @@ filter_func g_filter_funcs[] =
 	ChangeBrightContrastFilter,
 	ChangeHueSaturationFilter,
 	Luminosity2OpacityFilter,
+	Color2AlphaFilter,
 	ColorizeWithUnderFilter,
 	GradationMapFilter,
 	FillWithVectorLineFilter

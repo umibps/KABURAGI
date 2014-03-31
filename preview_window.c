@@ -20,9 +20,13 @@ static gboolean OnClosePreviewWindow(GtkWidget* window, GdkEvent* event_info, PR
 	preview->window_width = width, preview->window_height = height;
 
 	cairo_destroy(preview->cairo_p);
+	preview->cairo_p = NULL;
 	cairo_surface_destroy(preview->surface_p);
+	preview->surface_p = NULL;
 	MEM_FREE_FUNC(preview->pixels);
+	preview->pixels = NULL;
 	MEM_FREE_FUNC(preview->reverse_buff);
+	preview->reverse_buff = NULL;
 
 	app->flags |= APPLICATION_IN_DELETE_EVENT;
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(preview->menu_item), FALSE);

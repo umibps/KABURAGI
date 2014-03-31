@@ -424,35 +424,23 @@ int PmxModelPreparse(
 	TextEncodeSetSource(model->encoding, GetTextTypeString(flags.codec));
 
 	// 日本語名
-	if((info->name_size = GetTextFromStream(
-		(char*)&data[stream.data_point], &info->name)) == 0)
-	{
-		return FALSE;
-	}
+	info->name_size = GetTextFromStream(
+		(char*)&data[stream.data_point], &info->name);
 	stream.data_point += sizeof(int32) + info->name_size;
 
 	// 英語名
-	if((info->english_name_size = GetTextFromStream(
-		(char*)&data[stream.data_point], &info->english_name)) == 0)
-	{
-		return FALSE;
-	}
+	info->english_name_size = GetTextFromStream(
+		(char*)&data[stream.data_point], &info->english_name);
 	stream.data_point += sizeof(int32) + info->english_name_size;
 
 	// 日本語のコメント
-	if((info->comment_size = GetTextFromStream(
-		(char*)&data[stream.data_point], &info->comment)) == 0)
-	{
-		return FALSE;
-	}
+	info->comment_size = GetTextFromStream(
+		(char*)&data[stream.data_point], &info->comment);
 	stream.data_point += sizeof(int32) + info->comment_size;
 
 	// 英語のコメント
-	if((info->english_comment_size = GetTextFromStream(
-		(char*)&data[stream.data_point], &info->english_comment)) == 0)
-	{
-		return FALSE;
-	}
+	info->english_comment_size = GetTextFromStream(
+		(char*)&data[stream.data_point], &info->english_comment);
 	stream.data_point += sizeof(int32) + info->english_comment_size;
 
 	// 頂点データ

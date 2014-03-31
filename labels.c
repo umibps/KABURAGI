@@ -185,6 +185,8 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	labels->menu.new_vector = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER", "NEW_LAYER_SET", temp_str, MAX_STR_SIZE);
 	labels->menu.new_layer_set = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER", "NEW_3D_MODELING", temp_str, MAX_STR_SIZE);
+	labels->menu.new_3d_modeling = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER", "COPY", temp_str, MAX_STR_SIZE);
 	labels->menu.copy_layer = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER", "DELETE", temp_str, MAX_STR_SIZE);
@@ -271,6 +273,8 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	labels->menu.hue_saturtion = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "LUMINOSITY_TO_OPACITY", temp_str, MAX_STR_SIZE);
 	labels->menu.luminosity2opacity = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FILTERS", "COLOR_TO_ALPHA", temp_str, MAX_STR_SIZE);
+	labels->menu.color2alpha = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "COLORIZE_WITH_UNDER", temp_str, MAX_STR_SIZE);
 	labels->menu.colorize_with_under = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "GRADATION_MAP", temp_str, MAX_STR_SIZE);
@@ -495,6 +499,10 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	labels->tool_box.write_pallete = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "CLEAR_PALLETE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.clear_pallete = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "START_EDIT_3D_MODEL", temp_str, MAX_STR_SIZE);
+	labels->tool_box.start_edit_3d = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "END_EDIT_3D_MODEL", temp_str, MAX_STR_SIZE);
+	labels->tool_box.end_edit_3d = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// レイヤーウィンドウ
 	length = IniFileGetString(file, "LAYER_WINDOW", "TITLE", temp_str, MAX_STR_SIZE);
@@ -505,6 +513,8 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	labels->layer_window.new_vector = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "LAYER_SET", temp_str, MAX_STR_SIZE);
 	labels->layer_window.new_layer_set = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER_WINDOW", "3D_MODELING", temp_str, MAX_STR_SIZE);
+	labels->layer_window.new_3d_modeling = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "TEXT_LAYER", temp_str, MAX_STR_SIZE);
 	labels->layer_window.new_text = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "ADD_NORMAL_LAYER", temp_str, MAX_STR_SIZE);
@@ -513,6 +523,8 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	labels->layer_window.add_vector = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "ADD_LAYER_SET", temp_str, MAX_STR_SIZE);
 	labels->layer_window.add_layer_set = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER_WINDOW", "ADD_3D_MODELING", temp_str, MAX_STR_SIZE);
+	labels->layer_window.add_3d_modeling = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "RENAME", temp_str, MAX_STR_SIZE);
 	labels->layer_window.rename = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "REORDER", temp_str, MAX_STR_SIZE);
@@ -696,7 +708,120 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	g_object_unref(fp);
 	g_object_unref(stream);
 	g_object_unref(file_info);
+#undef MAX_STR_SIZE
 }
+
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
+{
+#define MAX_STR_SIZE 512
+	// 初期化ファイル解析用
+	INI_FILE_PTR file;
+	// ファイル読み込みストリーム
+	GFile* fp = g_file_new_for_path(lang_file_path);
+	GFileInputStream* stream = g_file_read(fp, NULL, NULL);
+	// ファイルサイズ取得用
+	GFileInfo *file_info;
+	// 設定するラベルデータ
+	UI_LABEL *labels;
+	// ファイルサイズ
+	size_t data_size;
+	char temp_str[MAX_STR_SIZE], lang[MAX_STR_SIZE];
+	size_t length;
+
+	// ファイルオープンに失敗したら終了
+	if(stream == NULL)
+	{
+		g_object_unref(fp);
+		return;
+	}
+
+	// ファイルサイズを取得
+	file_info = g_file_input_stream_query_info(stream,
+		G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
+	data_size = (size_t)g_file_info_get_size(file_info);
+	
+	file = CreateIniFile(stream,
+		(size_t (*)(void*, size_t, size_t, void*))FileRead, data_size, INI_READ);
+
+	// 文字コードを取得
+	(void)IniFileGetString(file, "CODE", "CODE_TYPE", lang, MAX_STR_SIZE);
+
+	// 3Dモデル用のラベルデータを取得
+	labels = GetUILabel(app->modeling);
+
+	labels->menu.file = app->labels->menu.file;
+	length = IniFileGetString(file, "3D_MODELING", "ADD_MODEL_ACCESSORY", temp_str, MAX_STR_SIZE);
+	labels->menu.add_model_accessory = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	labels->menu.edit = app->labels->menu.edit;
+	labels->menu.undo = app->labels->menu.undo;
+	labels->menu.redo = app->labels->menu.redo;
+
+	length = IniFileGetString(file, "3D_MODELING", "ENVIRONMENT", temp_str, MAX_STR_SIZE);
+	labels->control.environment = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "CAMERA", temp_str, MAX_STR_SIZE);
+	labels->control.camera = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "LIGHT", temp_str, MAX_STR_SIZE);
+	labels->control.light = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "POSITION", temp_str, MAX_STR_SIZE);
+	labels->control.position = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "ROTATION", temp_str, MAX_STR_SIZE);
+	labels->control.rotation = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "MODEL", temp_str, MAX_STR_SIZE);
+	labels->control.model = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "BONE", temp_str, MAX_STR_SIZE);
+	labels->control.bone = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "MORPH", temp_str, MAX_STR_SIZE);
+	labels->control.morph = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "LOAD_MODEL", temp_str, MAX_STR_SIZE);
+	labels->control.load_model = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "LOAD_POSE", temp_str, MAX_STR_SIZE);
+	labels->control.load_pose = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "CONTROL_MODEL", temp_str, MAX_STR_SIZE);
+	labels->control.control_model = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "NO_SELECT", temp_str, MAX_STR_SIZE);
+	labels->control.no_select = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "RESET", temp_str, MAX_STR_SIZE);
+	labels->control.reset = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "APPLY_CENTER_POSITION", temp_str, MAX_STR_SIZE);
+	labels->control.apply_center_position = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	labels->control.scale = app->labels->tool_box.scale;
+	length = IniFileGetString(file, "3D_MODELING", "COLOR", temp_str, MAX_STR_SIZE);
+	labels->control.color = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	labels->control.opacity = app->labels->layer_window.opacity;
+	length = IniFileGetString(file, "3D_MODELING", "WEIGHT", temp_str, MAX_STR_SIZE);
+	labels->control.weight = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "EDGE_SIZE", temp_str, MAX_STR_SIZE);
+	labels->control.edge_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "DISTANCE", temp_str, MAX_STR_SIZE);
+	labels->control.distance = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "FIELD_OF_VIEW", temp_str, MAX_STR_SIZE);
+	labels->control.field_of_view = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "MODEL_CONNECT_TO", temp_str, MAX_STR_SIZE);
+	labels->control.model_connect_to = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "ENABLE_PHYSICS", temp_str, MAX_STR_SIZE);
+	labels->control.enable_physics = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "DISPLAY_GRID", temp_str, MAX_STR_SIZE);
+	labels->control.display_grid = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "RENDER_EDGE_ONLY", temp_str, MAX_STR_SIZE);
+	labels->control.render_edge_only = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	labels->control.edit_mode.select = app->labels->menu.select;
+	length = IniFileGetString(file, "3D_MODELING", "MOVE", temp_str, MAX_STR_SIZE);
+	labels->control.edit_mode.move = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	labels->control.edit_mode.rotate = labels->control.rotation;
+	length = IniFileGetString(file, "3D_MODELING", "EYE", temp_str, MAX_STR_SIZE);
+	labels->control.morph_group.eye = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "LIP", temp_str, MAX_STR_SIZE);
+	labels->control.morph_group.lip = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "EYEBLOW", temp_str, MAX_STR_SIZE);
+	labels->control.morph_group.eye_blow = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "OTHER", temp_str, MAX_STR_SIZE);
+	labels->control.morph_group.other = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+
+	file->delete_func(file);
+#undef MAX_STR_SIZE
+}
+#endif
 
 #ifdef __cplusplus
 }

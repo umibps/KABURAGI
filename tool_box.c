@@ -2105,7 +2105,7 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	window->brush_table = (GtkWidget*)ModelControlWidgetNew(
 		app->modeling);
 	gtk_widget_destroy(window->ui);
-	return_button = gtk_button_new_with_label("End 3D Modeling");
+	return_button = gtk_button_new_with_label(app->labels->tool_box.end_edit_3d);
 	(void)g_signal_connect(G_OBJECT(return_button), "pressed",
 		G_CALLBACK(End3DLayerButtonPressed), app);
 	window->ui = gtk_vbox_new(FALSE, 0);
@@ -2212,7 +2212,7 @@ void CreateChange3DLayerUI(
 {
 	GtkWidget *button;
 	window->brush_table = gtk_vbox_new(FALSE, 0);
-	button = gtk_button_new_with_label("Start 3D Modeling");
+	button = gtk_button_new_with_label(app->labels->tool_box.start_edit_3d);
 	(void)g_signal_connect(G_OBJECT(button), "pressed",
 		G_CALLBACK(Change3DLayerButtonPressed), app);
 	gtk_box_pack_start(GTK_BOX(window->brush_table), button, FALSE, FALSE, 0);

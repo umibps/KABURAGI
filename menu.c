@@ -501,7 +501,7 @@ GtkWidget* GetMainMenu(
 
 	// 「3Dレイヤー」
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	(void)sprintf(buff, "%s", "3D Modeling");
+	(void)sprintf(buff, "%s", app->labels->menu.new_3d_modeling);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
@@ -762,6 +762,15 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteLuminosity2OpacityFilter), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	app->menus.num_disable_if_no_open++;
+
+	// 「輝度を透明度に」
+	(void)sprintf(buff, "%s", app->labels->menu.color2alpha);
+	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteColor2AlphaFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
 
@@ -1503,7 +1512,7 @@ void ExecuteMake3DLayer(APPLICATION* app)
 		// (レイヤー名の重複を避ける)
 	do
 	{
-		(void)sprintf(layer_name, "%s %d", app->labels->layer_window.new_layer_set, counter);
+		(void)sprintf(layer_name, "%s %d", app->labels->layer_window.new_3d_modeling, counter);
 		counter++;
 	} while(CorrectLayerName(
 		app->draw_window[app->active_window]->layer, layer_name) == 0);

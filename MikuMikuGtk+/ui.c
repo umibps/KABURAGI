@@ -515,25 +515,28 @@ static void ExecuteLoadModel(APPLICATION* application)
 
 		system_path = g_locale_from_utf8(path, -1, NULL, NULL, NULL);
 		model = LoadModel(application, system_path, file_type);
-		if(model->type == MODEL_TYPE_PMX_MODEL)
+		if(model != NULL)
 		{
-			ok = ShowModelComment(model, application->projects[application->active_project]);
-			if(ok == FALSE)
+			if(model->type == MODEL_TYPE_PMX_MODEL)
 			{
-				SceneRemoveModel(project->scene, model);
+				ok = ShowModelComment(model, application->projects[application->active_project]);
+				if(ok == FALSE)
+				{
+					SceneRemoveModel(project->scene, model);
+				}
 			}
-		}
 
-		if(ok != FALSE)
-		{
+			if(ok != FALSE)
+			{
 #if GTK_MAJOR_VERSION <= 2
-			gtk_combo_box_append_text(GTK_COMBO_BOX(application->widgets.model_combo_box), model->name);
+				gtk_combo_box_append_text(GTK_COMBO_BOX(application->widgets.model_combo_box), model->name);
 #else
-			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(application->widgets.model_combo_box), model->name);
+				gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(application->widgets.model_combo_box), model->name);
 #endif
-			gtk_combo_box_set_active(GTK_COMBO_BOX(application->widgets.model_combo_box),
-				(int)project->scene->models->num_data);
-			FillParentModelComboBox(application->widgets.connect_model, project->scene, application);
+				gtk_combo_box_set_active(GTK_COMBO_BOX(application->widgets.model_combo_box),
+					(int)project->scene->models->num_data);
+				FillParentModelComboBox(application->widgets.connect_model, project->scene, application);
+			}
 		}
 
 		g_free(system_path);

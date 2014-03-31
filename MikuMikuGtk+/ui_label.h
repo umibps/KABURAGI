@@ -58,4 +58,6 @@ typedef struct _UI_LABEL
 
 extern UI_LABEL LoadDefaultUiLabel(void);
 
+extern UI_LABEL* GetUILabel(void* application_context);
+
 #endif	// #ifndef _INCLUDED_UI_LABEL_H_

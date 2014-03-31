@@ -50,8 +50,8 @@ typedef struct _APPLICATON_LABELS
 		gchar *canvas, *change_resolution, *change_canvas_size,
 			*flip_canvas_horizontally, *flip_canvas_vertically,
 			*switch_bg_color, *change_2nd_bg_color, *canvas_icc;
-		gchar *layer, *new_color, *new_vector, *new_layer_set, *copy_layer,
-			*delete_layer, *fill_layer_fg_color, *fill_layer_pattern,
+		gchar *layer, *new_color, *new_vector, *new_layer_set, *new_3d_modeling,
+			*copy_layer, *delete_layer, *fill_layer_fg_color, *fill_layer_pattern,
 			*rasterize_layer, *merge_down_layer, *merge_all_layer, *visible2layer,
 			*visible_copy;
 		gchar *select, *select_none, *select_invert, *select_all, *selection_extend,
@@ -60,8 +60,8 @@ typedef struct _APPLICATON_LABELS
 			*rotate, *reset_rotate, *display_filter, *no_filter, *gray_scale,
 			*gray_scale_yiq;
 		gchar *filters, *blur, *motion_blur, *bright_contrast, *hue_saturtion,
-			*luminosity2opacity, *colorize_with_under, *gradation_map, *detect_max,
-			*tranparancy_as_white, *fill_with_vector;
+			*luminosity2opacity, *color2alpha, *colorize_with_under, *gradation_map,
+			*detect_max, *tranparancy_as_white, *fill_with_vector;
 		gchar *script;
 		gchar *help, *version;
 	} menu;
@@ -90,7 +90,8 @@ typedef struct _APPLICATON_LABELS
 			*preference, *name, *copy_brush, *change_brush, *delete_brush, *texture,
 			*texture_strength, *no_texture, *pallete_add, *pallete_delete,
 			*load_pallete, *load_pallete_after, *write_pallete, *clear_pallete,
-			*pick_mode, *single_pixels, *average_color, *open_path, *close_path;
+			*pick_mode, *single_pixels, *average_color, *open_path, *close_path,
+			*start_edit_3d, *end_edit_3d;
 		gchar *brush_default_names[NUM_BRUSH_TYPE];
 		SELECT_TARGET_LABELS select;
 		CONTROL_POINT_LABELS control;
@@ -99,9 +100,9 @@ typedef struct _APPLICATON_LABELS
 	struct
 	{
 		gchar *title, *new_layer, *new_vector, *new_layer_set, *new_text,
-			*add_normal, *add_vector, *add_layer_set, *rename, *reorder,
-			*alpha_to_select, *alpha_add_select, *pasted_layer, *under_layer,
-			*mixed_under_layer;
+			*new_3d_modeling, *add_normal, *add_vector, *add_layer_set,
+			*add_3d_modeling, *rename, *reorder, *alpha_to_select,
+			*alpha_add_select, *pasted_layer, *under_layer, *mixed_under_layer;
 		gchar *blend_mode, *opacity, *mask_with_under, *lock_opacity;
 		gchar *blend_modes[LAYER_BLEND_SLELECTABLE_NUM];
 	} layer_window;

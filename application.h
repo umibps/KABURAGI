@@ -43,6 +43,7 @@
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 # include "MikuMikuGtk+/mikumikugtk.h"
+# include "MikuMikuGtk+/ui_label.h"
 #endif
 
 #ifdef __cplusplus
@@ -1010,6 +1011,16 @@ extern void InitializeScripts(SCRIPTS* scripts, const char* scripts_path);
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
 extern void ExecuteScript(GtkWidget* menu_item, APPLICATION* app);
+
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+/*****************************************************************
+* Load3dModelingLabels関数                                       *
+* 3Dモデル操作時のラベルデータを読み込む                         *
+* app				: アプリケーションを管理する構造体のアドレス *
+* lang_file_path	: ラベルのテキストデータファイルのパス       *
+*****************************************************************/
+extern void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path);
+#endif
 
 #ifdef __cplusplus
 }
