@@ -11,6 +11,7 @@
 #include "shadow_map.h"
 #include "debug_drawer.h"
 #include "pmx_model.h"
+#include "pmd_model.h"
 #include "asset_model.h"
 #include "grid.h"
 #include "history.h"
@@ -110,6 +111,7 @@ typedef struct _PROJECT
 	unsigned int flags;
 
 	PMX_DEFAULT_BUFFER_IDENT pmx_default_buffer_ident;
+	PMD2_DEFAULT_BUFFER_IDENT pmd2_default_buffer_ident;
 
 	struct _APPLICATION *application_context;
 } PROJECT;

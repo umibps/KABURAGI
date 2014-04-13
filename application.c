@@ -1926,7 +1926,8 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 
 	// 3Dƒ‚ƒfƒŠƒ“ƒO‚Ì€”õ
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	app->modeling = ApplicationContextNew(app->window_width, app->window_height);
+	app->modeling = ApplicationContextNew(app->window_width, app->window_height,
+		app->current_path);
 	// ƒ‰ƒxƒ‹‚Ì•¶Žš—ñ‚ð“Ç‚Ýž‚Þ
 	if(app->language_file_path != NULL)
 	{

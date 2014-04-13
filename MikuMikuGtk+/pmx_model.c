@@ -291,6 +291,8 @@ void InitializePmxModel(
 		(void (*)(void*, void*))PmxModelResetMotionState;
 	model->interface_data.set_enable_physics =
 		(void (*)(void*, int))PmxModelSetEnablePhysics;
+	model->interface_data.rigid_body_transform_new =
+		(void* (*)(struct _BASE_RIGID_BODY*))BaseRigidBodyTransformNew;
 }
 
 void ReleasePmxModel(PMX_MODEL* model)
@@ -684,7 +686,7 @@ static void PmxModelParseMaterials(PMX_MODEL* model)
 		PmxMaterialRead(material, data_pointer, &model->data_info, &data_size);
 		data_pointer += data_size;
 
-		range = material->index_range;
+		range = material->interface_data.index_range;
 		offset_to = (int)offset + range.count;
 		range.start = num_indices;
 		range.end = 0;
@@ -1159,7 +1161,7 @@ void PmxDefaultStaticVertexBufferUpdateBoneIndexHashes(
 	for(i=0; i<num_materials; i++)
 	{
 		MATERIAL_INTERFACE *material = (MATERIAL_INTERFACE*)&materials[i];
-		const int num_indices = material->get_index_range((void*)material).count;
+		const int num_indices = material->index_range.count;
 		int num_bone_indices;
 
 		bone_indices = ght_create(DEFAULT_BUFFER_SIZE);
@@ -1200,7 +1202,7 @@ void PmxDefaultStaticVertexBufferUpdate(PMX_DEFAULT_STATIC_VERTEX_BUFFER* buffer
 	{
 		MATERIAL_INTERFACE *material = (MATERIAL_INTERFACE*)&materials[i];
 		ght_hash_table_t *bone_index_hash = (ght_hash_table_t*)buffer->bone_index_hashes->buffer[i];
-		const int num_indices = material->get_index_range(material).count;
+		const int num_indices = material->index_range.count;
 
 		for(j=0; j<num_indices; j++)
 		{
@@ -1211,29 +1213,11 @@ void PmxDefaultStaticVertexBufferUpdate(PMX_DEFAULT_STATIC_VERTEX_BUFFER* buffer
 		offset += num_indices;
 	}
 	PointerArrayRelease(buffer->bone_index_hashes, (void (*)(void*))ght_finalize);
-
-#ifdef _DEBUG
-/*
-	{
-		FILE *fp = fopen("my_staticx64.csv", "wt");
-
-		for(i=0; i<buffer->model->vertices->num_data; i++)
-		{
-			fprintf(fp, "index, %d\n", i);
-			fprintf(fp, "texture, %f\n, %f\n, %f\n", unit[i].texture_coord[0], unit[i].texture_coord[1], unit[i].texture_coord[2]);
-			fprintf(fp, "bone, %f\n, %f\n, %f\n, %f\n", unit[i].bone_indices[0], unit[i].bone_indices[1], unit[i].bone_indices[2], unit[i].bone_indices[3]);
-			fprintf(fp, "weight, %f\n, %f\n, %f\n, %f\n", unit[i].bone_weights[0], unit[i].bone_weights[1], unit[i].bone_weights[2], unit[i].bone_weights[3]);
-		}
-
-		fclose(fp);
-	}
-*/
-#endif
 }
 
 PMX_DEFAULT_STATIC_VERTEX_BUFFER* PmxDefaultStaticVertexBufferNew(PMX_MODEL* model)
 {
-	PMX_DEFAULT_STATIC_VERTEX_BUFFER* ret;
+	PMX_DEFAULT_STATIC_VERTEX_BUFFER *ret;
 
 	ret = (PMX_DEFAULT_STATIC_VERTEX_BUFFER*)MEM_ALLOC_FUNC(sizeof(*ret));
 	(void)memset(ret, 0, sizeof(*ret));
@@ -1367,31 +1351,6 @@ void PmxDefaultDynamicVertexBufferPerformTransform(
 	DeleteParallelProcessor(processor);
 	COPY_VECTOR3(aa_bb_min, skinning.aa_bb_min);
 	COPY_VECTOR3(aa_bb_max, skinning.aa_bb_max);
-
-#ifdef _DEBUG
-	/*
-	{
-		static int count = 0;
-		char file_name[128];
-		FILE *fp;
-		int i;
-		sprintf(file_name, "my_dynamicx64%d.csv", count);
-		count++;
-		fp = fopen(file_name, "wt");
-		for(i=0; i<buffer->model->vertices->num_data; i++)
-		{
-			fprintf(fp, "index, %d\n", i);
-			fprintf(fp, "position, %f\n, %f\n, %f\n", unit[i].position[0], unit[i].position[1], unit[i].position[2]);
-			fprintf(fp, "normal, %f\n, %f\n, %f\n", unit[i].normal[0], unit[i].normal[1], unit[i].normal[2], unit[i].normal[3]);
-			fprintf(fp, "delta, %f\n, %f\n, %f\n", unit[i].delta[0], unit[i].delta[1], unit[i].delta[2]);
-			fprintf(fp, "edge, %f\n, %f\n, %f\n", unit[i].edge[0], unit[i].edge[1], unit[i].edge[2], unit[i].edge[3]);
-			fprintf(fp, "uva1, %f\n, %f\n, %f\n, %f\n", unit[i].uva1[0], unit[i].uva1[1], unit[i].uva1[2], unit[i].uva1[3]);
-		}
-		fclose(fp);
-	}
-	*/
-#endif
-
 }
 
 void DeletePmxDefaultDynamicVertexBuffer(PMX_DEFAULT_DYNAMIC_VERTEX_BUFFER* buffer)
@@ -1641,7 +1600,7 @@ void InitializePmxDefaultMatrixBuffer(PMX_DEFAULT_MATRIX_BUFFER* buffer)
 	for(i=0; i<num_materials; i++)
 	{
 		PMX_MATERIAL *material = &materials[i];
-		const int num_indices = material->index_range.count;
+		const int num_indices = material->interface_data.index_range.count;
 		bone_indices->num_data = 0;
 		//Uint32ArrayAppend(bone_indices, (uint32)-1);
 		for(j=0; j<num_indices; j++)

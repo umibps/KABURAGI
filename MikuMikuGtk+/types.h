@@ -41,7 +41,7 @@ typedef float QUATERNION[4];
 
 #define IDENTITY_QUATERNION {0, 0, 0, 1}
 
-#define TRANSFORM_SIZE (sizeof(float)*(4*3+6))
+#define TRANSFORM_SIZE (sizeof(float)*4*(3+1))
 
 typedef float QUAD_WORD[4];
 

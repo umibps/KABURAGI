@@ -6,6 +6,7 @@
 
 #include "application.h"
 #include "pmx_model.h"
+#include "pmd_model.h"
 #include "memory.h"
 
 MODEL_INTERFACE* LoadModel(
@@ -71,6 +72,45 @@ MODEL_INTERFACE* LoadModel(
 		{
 			model->interface_data.set_enable_physics(model, TRUE);
 		}
+
+		return (MODEL_INTERFACE*)model;
+	}
+	else if(StringCompareIgnoreCase(file_type, ".pmd") == 0)
+	{
+		PMD2_MODEL *model = (PMD2_MODEL*)MEM_ALLOC_FUNC(sizeof(*model));
+		char *utf8_path = Locale2UTF8(system_path);
+		char *model_path = GetDirectoryName(utf8_path);
+
+		fp = fopen(system_path, "rb");
+
+		if(fp == NULL)
+		{
+			MEM_FREE_FUNC(utf8_path);
+			MEM_FREE_FUNC(model_path);
+			MEM_FREE_FUNC(model);
+			return FALSE;
+		}
+
+		(void)fseek(fp, 0, SEEK_END);
+		file_size = ftell(fp);
+		rewind(fp);
+		data = (uint8*)MEM_ALLOC_FUNC(file_size);
+		(void)fread(data, 1, file_size, fp);
+		(void)fclose(fp);
+
+		InitializePmd2Model(model, scene, model_path);
+		if(LoadPmd2Model(model, data, file_size) == FALSE)
+		{
+			return NULL;
+		}
+
+		PointerArrayAppend(scene->models, model);
+		PointerArrayAppend(scene->engines, SceneCreateRenderEngine(
+			project->scene, RENDER_ENGINE_PMX, (MODEL_INTERFACE*)model, 0, project));
+
+		Pmd2ModelJoinWorld(model, project->world.world);
+		scene->selected_model = (MODEL_INTERFACE*)model;
+		SceneSetEmptyMotion(scene, (MODEL_INTERFACE*)model);
 
 		return (MODEL_INTERFACE*)model;
 	}

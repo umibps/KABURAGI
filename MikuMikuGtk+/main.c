@@ -96,7 +96,16 @@ int main(int argc, char** argv)
 	// OpenGL‚Ì‰Šú‰»
 	gtk_gl_init(&argc, &argv);
 
-	mikumiku = MikuMikuGtkNew(410, 692, TRUE, NULL);
+	{
+		char *application_path;
+		char *utf8_path;
+		utf8_path = g_locale_to_utf8(argv[0], -1, NULL, NULL, NULL);
+		application_path = g_path_get_dirname(utf8_path);
+
+		mikumiku = MikuMikuGtkNew(410, 692, TRUE, NULL, application_path);
+		g_free(utf8_path);
+		g_free(application_path);
+	}
 	(void)g_signal_connect(mikumiku->projects[mikumiku->active_project]->widgets.drawing_area,
 		"expose-event", G_CALLBACK(ProjectDisplayEvent), mikumiku->projects[mikumiku->active_project]);
 	(void)g_signal_connect(mikumiku->projects[mikumiku->active_project]->widgets.drawing_area,

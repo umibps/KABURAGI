@@ -14,10 +14,10 @@
 #include "load_image.h"
 #include "bullet.h"
 
-void* ApplicationContextNew(int default_width, int default_height)
+void* ApplicationContextNew(int default_width, int default_height, const char* application_path)
 {
 	APPLICATION *application = MikuMikuGtkNew(
-		default_width, default_height, FALSE, NULL);
+		default_width, default_height, FALSE, NULL, application_path);
 
 	return (void*)application;
 }
@@ -44,7 +44,8 @@ APPLICATION* MikuMikuGtkNew(
 	int widget_width,
 	int widget_height,
 	int make_first_project,
-	const char* initialize_file_path
+	const char* initialize_file_path,
+	const char* application_path
 )
 {
 	static const float basis[] = IDENTITY_MATRIX3x3;
@@ -79,6 +80,8 @@ APPLICATION* MikuMikuGtkNew(
 
 	ret->texture_chache_map = ght_create(DEFAULT_BUFFER_SIZE*2);
 	ght_set_hash(ret->texture_chache_map, (ght_fn_hash_t)GetStringHash);
+
+	ret->application_path = MEM_STRDUP_FUNC(application_path);
 
 	return ret;
 }

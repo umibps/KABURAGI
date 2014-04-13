@@ -440,8 +440,8 @@ DRAW_WINDOW* CreateDrawWindow(
 	// 描画領域を入れるスクロールを作成
 	ret->scroll = gtk_scrolled_window_new(NULL, NULL);
 	// スクロールがリサイズされた時のコールバック関数を設定
-	(void)g_signal_connect(G_OBJECT(ret->scroll), "configure-event",
-		G_CALLBACK(ScrollConfigureEvent), ret);
+	(void)g_signal_connect(G_OBJECT(ret->scroll), "size-allocate",
+		G_CALLBACK(ScrollSizeChangeEvent), ret);
 	// サイズを設定
 	gtk_widget_set_size_request(ret->window, (gint)disp_size, (gint)disp_size);
 	// 中央配置の設定
@@ -499,18 +499,18 @@ DRAW_WINDOW* CreateDrawWindow(
 		G_CALLBACK(ButtonReleaseEvent), ret);
 	ret->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(ret->window), "scroll_event",
 		G_CALLBACK(MouseWheelEvent), ret);
-#if MAJOR_VERSION > 1
-	g_signal_connect(G_OBJECT(ret->window), "touch-event",
+#if GTK_MAJOR_VERSION >= 3
+	(void)g_signal_connect(G_OBJECT(ret->window), "touch-event",
 		G_CALLBACK(TouchEvent), ret);
 #endif
-	(void)g_signal_connect(G_OBJECT(ret->window), "enter_notify_event",
+	ret->callbacks.enter = g_signal_connect(G_OBJECT(ret->window), "enter_notify_event",
 		G_CALLBACK(EnterNotifyEvent), ret);
-	(void)g_signal_connect(G_OBJECT(ret->window), "leave_notify_event",
+	ret->callbacks.leave = g_signal_connect(G_OBJECT(ret->window), "leave_notify_event",
 		G_CALLBACK(LeaveNotifyEvent), ret);
 	// 描画領域を表示
 	gtk_container_add(GTK_CONTAINER(alignment), ret->window);
 	gtk_widget_show_all(ret->scroll);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gtk_notebook_set_page(GTK_NOTEBOOK(note_book), window_id);
 #else
 	gtk_notebook_set_current_page(GTK_NOTEBOOK(note_book), window_id);
@@ -535,7 +535,7 @@ DRAW_WINDOW* CreateDrawWindow(
 		g_timer_start(ret->auto_save_timer);
 	}
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	// 拡張デバイスを有効に
 	gtk_widget_set_extension_events(ret->window, GDK_EXTENSION_EVENTS_ALL);
 #endif
@@ -706,7 +706,7 @@ DRAW_WINDOW* CreateTempDrawWindow(
 	// レイヤー合成のフラグを立てる
 	ret->flags = DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 
-#if MAJOR_VERSION == 1
+#if 0 // GTK_MAJOR_VERSION <= 2
 	// 拡張デバイスを有効に
 	gtk_widget_set_extension_events(ret->window, GDK_EXTENSION_EVENTS_ALL);
 #endif
@@ -780,6 +780,110 @@ DRAW_WINDOW* CreateTempDrawWindow(
 	(void)memcpy(ret->under_active->pixels, ret->back_ground, ret->pixel_buf_size);
 
 	return ret;
+}
+
+/*********************************
+* Change2FocalMode関数           *
+* 局所キャンバスモードに移行する *
+* 引数                           *
+* parent_window	: 親キャンバス   *
+*********************************/
+void Change2FocalMode(DRAW_WINDOW* parent_window)
+{
+	// 局所キャンバス
+	DRAW_WINDOW *focal_window;
+	// レイヤー登録用
+	LAYER *prev_layer = NULL;
+	LAYER *src_layer;
+	LAYER *target;
+	// 局所キャンバスのサイズ
+	int focal_width, focal_height, focal_stride;
+	// コピー開始座標
+	int start_x, start_y;
+	// for文用のカウンタ
+	int x, y;
+
+	// 選択範囲が無ければ終了
+	if((parent_window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+	{
+		return;
+	}
+
+	// 選択範囲部分にフォーカスする
+	start_x = parent_window->selection_area.min_x;
+	start_y = parent_window->selection_area.min_y;
+	focal_width = parent_window->selection_area.max_x - parent_window->selection_area.min_x;
+	focal_height = parent_window->selection_area.max_y - parent_window->selection_area.min_y;
+	focal_stride = focal_width * parent_window->channel;
+
+	// キャンバス生成
+	focal_window = parent_window->focal_window = CreateTempDrawWindow(focal_width, focal_height,
+		parent_window->channel, parent_window->file_name, NULL, 0, parent_window->app);
+	focal_window->focal_window = parent_window;
+	focal_window->flags |= DRAW_WINDOW_IS_FOCAL_WINDOW;
+
+	// 親キャンバスのレイヤー情報をコピーする
+	for(src_layer = parent_window->layer; src_layer != NULL; src_layer = src_layer->next)
+	{
+		prev_layer = CreateLayer(0, 0, focal_window->width, focal_window->height, focal_window->channel,
+			src_layer->layer_type, prev_layer, NULL, src_layer->name, focal_window);
+		for(y=0; y<focal_height; y++)
+		{
+			(void)memcpy(&prev_layer->pixels[y*prev_layer->stride],
+				&src_layer->pixels[(start_y+y)*src_layer->stride+start_x*src_layer->channel], focal_stride);
+			if(src_layer->layer_type == TYPE_LAYER_SET)
+			{
+				LAYER *child = prev_layer->prev;
+				target = src_layer->prev;
+				while(target->layer_set == src_layer)
+				{
+					child->layer_set = prev_layer;
+					child = child->prev;
+					target = target->prev;
+				}
+			}
+		}
+		focal_window->num_layer++;
+	}
+	// 一番下のレイヤーを新しいキャンバスに設定
+	while(prev_layer->prev != NULL)
+	{
+		prev_layer = prev_layer->prev;
+	}
+	focal_window->layer = prev_layer;
+
+	// キャンバスへのコールバック関数を変更
+	focal_window->window = parent_window->window;
+	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.display);
+	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.mouse_button_press);
+	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.mouse_move);
+	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.mouse_button_release);
+	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.mouse_wheel);
+	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.configure);
+	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.enter);
+	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.leave);
+#if GTK_MAJOR_VERSION <= 2
+	focal_window->callbacks.display = g_signal_connect(G_OBJECT(focal_window->window), "expose_event",
+		G_CALLBACK(DisplayDrawWindow), focal_window);
+#else
+	focal_window->callbacks.display = g_signal_connect(G_OBJECT(focal_window->window), "draw",
+		G_CALLBACK(DisplayDrawWindow), focal_window);
+#endif
+	focal_window->callbacks.mouse_button_press = g_signal_connect(G_OBJECT(focal_window->window), "button_press_event",
+		G_CALLBACK(ButtonPressEvent), focal_window);
+	focal_window->callbacks.mouse_move = g_signal_connect(G_OBJECT(focal_window->window), "motion_notify_event",
+		G_CALLBACK(MotionNotifyEvent), focal_window);
+	focal_window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(focal_window->window), "button_release_event",
+		G_CALLBACK(ButtonReleaseEvent), focal_window);
+	focal_window->callbacks.enter = g_signal_connect(G_OBJECT(focal_window->window), "enter_notify_event",
+		G_CALLBACK(EnterNotifyEvent), focal_window);
+	focal_window->callbacks.leave = g_signal_connect(G_OBJECT(focal_window->window), "leave_notify_event",
+		G_CALLBACK(LeaveNotifyEvent), focal_window);
+	focal_window->callbacks.configure = g_signal_connect(G_OBJECT(focal_window->window), "configure_event",
+		G_CALLBACK(DrawWindowConfigurEvent), focal_window);
+	// ウィジェットのサイズを変更
+	gtk_widget_set_size_request(focal_window->window, focal_window->width, focal_window->height);
+	gtk_widget_show_all(focal_window->window);
 }
 
 /***************************************
@@ -1836,33 +1940,27 @@ gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_inf
 	return FALSE;
 }
 
-gboolean ScrollConfigureEvent(GtkWidget* scroll, GdkEventConfigure* event_info, DRAW_WINDOW* window)
+void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* window)
 {
 	LAYER *layer = window->active_layer;
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	if(layer->layer_type == TYPE_3D_LAYER)
+	if(layer->layer_type == TYPE_3D_LAYER
+		&& (window->flags & DRAW_WINDOW_EDITTING_3D_MODEL) != 0)
 	{
-		GtkAllocation allocation;
-# if GTK_MAJOR_VERSION >= 3
-		gtk_widget_get_allocation(scroll, &allocation);
-# else
-		allocation = scroll->allocation;
-# endif
-		if(allocation.width > SCROLLED_WINDOW_MARGIN)
+		int width = size->width;
+		int height = size->height;
+		if(width > SCROLLED_WINDOW_MARGIN)
 		{
-			allocation.width -= SCROLLED_WINDOW_MARGIN;
+			width -= SCROLLED_WINDOW_MARGIN;
 		}
-		if(allocation.height > SCROLLED_WINDOW_MARGIN)
+		if(height > SCROLLED_WINDOW_MARGIN)
 		{
-			allocation.height -= SCROLLED_WINDOW_MARGIN;
+			height -= SCROLLED_WINDOW_MARGIN;
 		}
-		gtk_widget_set_size_request(layer->window->window,
-			allocation.width, allocation.height);
+		gtk_widget_set_size_request(layer->window->window, width, height);
 		gtk_widget_show_all(layer->window->window);
 	}
 #endif
-
-	return FALSE;
 }
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0

@@ -469,6 +469,7 @@ static void ExecuteLoadModel(APPLICATION* application)
 	filter = gtk_file_filter_new();
 	gtk_file_filter_set_name(filter, "Model File");
 	gtk_file_filter_add_pattern(filter, "*.pmx");
+	gtk_file_filter_add_pattern(filter, "*.pmd");
 	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(chooser), filter);
 
 	filter = gtk_file_filter_new();
@@ -487,11 +488,11 @@ static void ExecuteLoadModel(APPLICATION* application)
 
 		filter = gtk_file_chooser_get_filter(GTK_FILE_CHOOSER(chooser));
 		filter_name = gtk_file_filter_get_name(filter);
-		if(strcmp(filter_name, "Model File") == 0)
+		/*if(strcmp(filter_name, "Model File") == 0)
 		{
 			file_type = ".pmx";
 		}
-		else
+		else*/
 		{
 			gchar *str = path;
 			file_type = path;
@@ -517,7 +518,7 @@ static void ExecuteLoadModel(APPLICATION* application)
 		model = LoadModel(application, system_path, file_type);
 		if(model != NULL)
 		{
-			if(model->type == MODEL_TYPE_PMX_MODEL)
+			if(model->type == MODEL_TYPE_PMX_MODEL || model->type == MODEL_TYPE_PMD_MODEL)
 			{
 				ok = ShowModelComment(model, application->projects[application->active_project]);
 				if(ok == FALSE)
@@ -1042,6 +1043,7 @@ void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* app
 		}
 		else
 		{
+			bone = label->get_bone(label, 0);
 			parent->label = label->name;
 			PointerArrayAppend(added_bones, bone);
 		}
@@ -2121,13 +2123,19 @@ gboolean RenderForPixelDataDrawing(
 		&& data->retry_count <= MAX_RETRY_COUNT)
 	{
 		data->retry_count++;
-		if(data->retry_count == MAX_RETRY_COUNT && data->width != data->sub_width)
+		if(data->retry_count == MAX_RETRY_COUNT &&
+			(data->width != data->sub_width || data->height != data->sub_height))
 		{
 			data->retry_count = 0;
-			gtk_widget_set_size_request(widget, data->sub_width, data->sub_height);
+			data->width = (data->width * 2) / 3;
+			data->height = (data->height * 2) / 3;
+			if(data->width < data->sub_width || data->height < data->sub_height)
+			{
+				data->width = data->sub_width;
+				data->height = data->sub_height;
+			}
+			gtk_widget_set_size_request(widget, data->width, data->height);
 			gtk_widget_show(widget);
-			data->width = data->sub_width;
-			data->height = data->sub_height;
 		}
 		return TRUE;
 	}
@@ -2184,8 +2192,8 @@ gboolean RenderForPixelDataDrawing(
 
 		(void)memcpy(small_image, data->pixels, data->width * 4 * data->height);
 		(void)memset(data->pixels, 0, data->original_width * 4 * data->original_height);
-		cairo_matrix_init_scale(&matrix, (FLOAT_T)data->original_width / data->width,
-			(FLOAT_T)data->original_height / data->height);
+		cairo_matrix_init_scale(&matrix, data->width / (FLOAT_T)data->original_width,
+			data->height / (FLOAT_T)data->original_height);
 		cairo_pattern_set_matrix(pattern, &matrix);
 		cairo_pattern_set_filter(pattern, CAIRO_FILTER_BEST);
 		cairo_set_source(target_cairo, pattern);

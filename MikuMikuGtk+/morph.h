@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "utils.h"
+#include "memory_stream.h"
 
 #define MORPH_BUFFER_SIZE 8
 
@@ -35,7 +36,7 @@ typedef enum _eMORPH_CATEGORY
 
 typedef struct _MORPH_BONE
 {
-	void *bone;
+	struct _BONE_INTERFACE *bone;
 	float position[3];
 	QUATERNION rotation;
 	int index;
@@ -66,7 +67,7 @@ typedef struct _MORPH_MATERIAL
 
 typedef struct _MORPH_UV
 {
-	void *vertex;
+	struct _VERTEX_INTERFACE *vertex;
 	float position[4];
 	uint32 index;
 	int offset;
@@ -74,7 +75,7 @@ typedef struct _MORPH_UV
 
 typedef struct _MORPH_VERTEX
 {
-	void *vertex;
+	struct _VERTEX_INTERFACE *vertex;
 	float position[3];
 	uint32 index;
 	uint32 base;
@@ -82,14 +83,14 @@ typedef struct _MORPH_VERTEX
 
 typedef struct _MORPH_FLIP
 {
-	void *morph;
+	struct _MORPH_INTERFACE *morph;
 	FLOAT_T fixed_weight;
 	int index;
 } MORPH_FLIP;
 
 typedef struct _MORPH_IMPULSE
 {
-	void *rigid_body;
+	struct _BASE_RIGID_BODY *rigid_body;
 	float velocity[3];
 	float torque[3];
 	int index;
@@ -98,6 +99,7 @@ typedef struct _MORPH_IMPULSE
 
 typedef struct _MORPH_INTERFACE
 {
+	int index;
 	char *name;
 	char *english_name;
 	eMORPH_CATEGORY category;
@@ -124,9 +126,21 @@ typedef struct _PMX_MORPH
 	STRUCT_ARRAY *impulses;
 	struct _PMX_MODEL *parent_model;
 	FLOAT_T internal_weight;
-	int index;
+	FLOAT_T last_update_weight;
 	int flags;
 } PMX_MORPH;
+
+#define PMD_MORPH_NAME_SIZE 20
+
+typedef struct _PMD2_MORPH
+{
+	MORPH_INTERFACE interface_data;
+	struct _PMD2_MODEL *model;
+	eMORPH_CATEGORY category;
+	STRUCT_ARRAY *vertices;
+	POINTER_ARRAY *vertex_refs;
+	struct _APPLICATION *application;
+} PMD2_MORPH;
 
 typedef struct _ASSET_OPACITY_MORPH
 {
@@ -151,5 +165,13 @@ extern void PmxMorphUpdate(PMX_MORPH* morph);
 extern void PmxMorphSyncWeight(PMX_MORPH* morph);
 
 extern void PmxMorphSetInternalWeight(PMX_MORPH* morph, const FLOAT_T weight);
+
+extern int LoadPmd2Morphs(STRUCT_ARRAY *morphs, STRUCT_ARRAY* vertices);
+
+extern void ReadPmd2Morph(PMD2_MORPH* morph, MEMORY_STREAM_PTR stream, size_t* data_size);;
+
+extern void Pmd2MorphReadEnglishName(PMD2_MORPH* morph, uint8* data, int index);
+
+extern void Pmd2MorphUpdate(PMD2_MORPH* morph);
 
 #endif	// #ifndef _INCLUDED_MORPH_H_

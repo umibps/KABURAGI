@@ -176,14 +176,17 @@ extern "C" {
 extern BYTE_ARRAY* ByteArrayNew(size_t block_size);
 extern void ByteArrayAppend(BYTE_ARRAY* barray, uint8 data);
 extern void ByteArrayDesteroy(BYTE_ARRAY** barray);
+extern void ByteArrayResize(BYTE_ARRAY* barray, size_t new_size);
 
 extern WORD_ARRAY* WordArrayNew(size_t block_size);
 extern void WordArrayAppend(WORD_ARRAY* warray, uint16 data);
 extern void WordArrayDestroy(WORD_ARRAY** warray);
+extern void WordArrayResize(WORD_ARRAY* warray, size_t new_size);
 
 extern UINT32_ARRAY* Uint32ArrayNew(size_t block_size);
 extern void Uint32ArrayAppend(UINT32_ARRAY* uarray, uint32 data);
 extern void Uint32ArrayDestroy(UINT32_ARRAY** uarray);
+extern void Uint32ArrayResize(UINT32_ARRAY* uint32_array, size_t new_size);
 
 extern POINTER_ARRAY* PointerArrayNew(size_t block_size);
 extern void PointerArrayRelease(
@@ -214,6 +217,7 @@ extern void StructArrayDestroy(
 );
 extern void StructArrayAppend(STRUCT_ARRAY* struct_array, void* data);
 extern void* StructArrayReserve(STRUCT_ARRAY* struct_array);
+extern void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size);
 extern void StructArrayRemoveByIndex(
 	STRUCT_ARRAY* struct_array,
 	size_t index,

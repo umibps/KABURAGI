@@ -86,7 +86,7 @@ void SkinningVertexStart(PARALLEL_SKINNING_VERTEX* skinning)
 
 void SkinningVertexProcess(VERTEX_INTERFACE* vertex, int index, PARALLEL_SKINNING_VERTEX* skinning)
 {
-	MATERIAL_INTERFACE *material = (MATERIAL_INTERFACE*)vertex->get_material(vertex);
+	MATERIAL_INTERFACE *material = vertex->material;
 	if(material != NULL)
 	{
 		float position[3];

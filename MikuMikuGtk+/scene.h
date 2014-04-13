@@ -10,6 +10,7 @@
 #include "render_engine.h"
 #include "shadow_map.h"
 #include "pmx_model.h"
+#include "pmd_model.h"
 #include "asset_model.h"
 #include "keyframe.h"
 
@@ -161,6 +162,8 @@ extern KEYFRAME_INTERFACE* SceneGetCurrentKeyframe(
 	eKEYFRAME_TYPE keyframe_type,
 	void* detail_data
 );
+
+extern void InitializePmd2Model(PMD2_MODEL* model, SCENE* scene, const char* model_path);
 
 extern void InitializeAssetModel(
 	ASSET_MODEL* model,

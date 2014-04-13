@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <assimp/scene.h>
 #include "types.h"
+#include "text_encode.h"
 
 typedef enum _eMODEL_TYPE
 {
@@ -51,6 +52,7 @@ typedef struct _MODEL_INTERFACE
 	void (*perform_update)(void*, int);
 	void (*reset_motion_state)(void*, void*);
 	void (*set_enable_physics)(void*, int);
+	void* (*rigid_body_transform_new)(struct _BASE_RIGID_BODY*);
 	struct _SCENE *scene;
 } MODEL_INTERFACE;
 

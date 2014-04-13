@@ -125,6 +125,32 @@ void ByteArrayDestroy(BYTE_ARRAY** barray)
 	*barray = NULL;
 }
 
+void ByteArrayResize(BYTE_ARRAY* barray, size_t new_size)
+{
+	size_t alloc_size;
+
+	if(barray->buffer_size == new_size)
+	{
+		return;
+	}
+	if(barray->block_size > 1)
+	{
+		alloc_size = ((new_size + barray->block_size - 1)
+			/ barray->block_size) * barray->block_size;
+	}
+	else
+	{
+		alloc_size = new_size;
+	}
+	barray->buffer = (uint8*)MEM_REALLOC_FUNC(
+		barray->buffer, sizeof(uint8) * alloc_size);
+	if(alloc_size < barray->num_data)
+	{
+		barray->num_data = alloc_size-1;
+	}
+	barray->buffer_size = alloc_size;
+}
+
 WORD_ARRAY* WordArrayNew(size_t block_size)
 {
 	WORD_ARRAY *ret;
@@ -166,6 +192,32 @@ void WordArrayDestroy(WORD_ARRAY** warray)
 	*warray = NULL;
 }
 
+void WordArrayResize(WORD_ARRAY* warray, size_t new_size)
+{
+	size_t alloc_size;
+
+	if(warray->buffer_size == new_size)
+	{
+		return;
+	}
+	if(warray->block_size > 1)
+	{
+		alloc_size = ((new_size + warray->block_size - 1)
+			/ warray->block_size) * warray->block_size;
+	}
+	else
+	{
+		alloc_size = new_size;
+	}
+	warray->buffer = (uint16*)MEM_REALLOC_FUNC(
+		warray->buffer, sizeof(uint16) * alloc_size);
+	if(alloc_size < warray->num_data)
+	{
+		warray->num_data = alloc_size-1;
+	}
+	warray->buffer_size = alloc_size;
+}
+
 UINT32_ARRAY* Uint32ArrayNew(size_t block_size)
 {
 	UINT32_ARRAY *ret;
@@ -204,6 +256,32 @@ void Uint32ArrayDestroy(UINT32_ARRAY** uarray)
 	MEM_FREE_FUNC((*uarray)->buffer);
 	MEM_FREE_FUNC(*uarray);
 	*uarray = NULL;
+}
+
+void Uint32ArrayResize(UINT32_ARRAY* uint32_array, size_t new_size)
+{
+	size_t alloc_size;
+
+	if(uint32_array->buffer_size == new_size)
+	{
+		return;
+	}
+	if(uint32_array->block_size > 1)
+	{
+		alloc_size = ((new_size + uint32_array->block_size - 1)
+			/ uint32_array->block_size) * uint32_array->block_size;
+	}
+	else
+	{
+		alloc_size = new_size;
+	}
+	uint32_array->buffer = (uint32*)MEM_REALLOC_FUNC(
+		uint32_array->buffer, sizeof(uint32) * alloc_size);
+	if(alloc_size < uint32_array->num_data)
+	{
+		uint32_array->num_data = alloc_size-1;
+	}
+	uint32_array->buffer_size = alloc_size;
 }
 
 POINTER_ARRAY* PointerArrayNew(size_t block_size)
@@ -415,6 +493,32 @@ void* StructArrayReserve(STRUCT_ARRAY* struct_array)
 	}
 
 	return ret;
+}
+
+void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size)
+{
+	size_t alloc_size;
+
+	if(struct_array->buffer_size == new_size)
+	{
+		return;
+	}
+	if(struct_array->block_size > 1)
+	{
+		alloc_size = ((new_size + struct_array->block_size - 1)
+			/ struct_array->block_size) * struct_array->block_size;
+	}
+	else
+	{
+		alloc_size = new_size;
+	}
+	struct_array->buffer = (uint8*)MEM_REALLOC_FUNC(
+		struct_array->buffer, struct_array->data_size * alloc_size);
+	if(alloc_size < struct_array->num_data)
+	{
+		struct_array->num_data = alloc_size-1;
+	}
+	struct_array->buffer_size = alloc_size;
 }
 
 void StructArrayRemoveByIndex(

@@ -7,6 +7,7 @@
 #include "memory_stream.h"
 #include "bullet.h"
 #include "pmx_model.h"
+#include "pmd_model.h"
 #include "asset_model.h"
 #include "memory.h"
 
@@ -88,293 +89,6 @@ typedef struct _IK_UNIT
 } IK_UNIT;
 
 #define IK_UNIT_SIZE 12
-
-BONE* PmdCenterBone(POINTER_ARRAY* bone_list)
-{
-	const uint8 name[] = CENTER_BONE_NAME;
-	const size_t length = sizeof(name);
-	size_t num_bones = bone_list->num_data;
-	size_t i;
-
-	for(i=0; i<num_bones; i++)
-	{
-		BONE *bone = (BONE*)bone_list->buffer[i];
-		if(strcmp((const char*)bone->name, (const char*)name) == 0)
-		{
-			return bone;
-		}
-	}
-
-	return (BONE*)bone_list->buffer[0];
-}
-
-size_t PmdBoneStride(void)
-{
-	return PMD_BONE_UNIT_SIZE;
-}
-
-void InitializePmdBone(BONE* bone)
-{
-	static const float identity[] = IDENTITY_MATRIX;
-	(void)memset(bone, 0, sizeof(*bone));
-	bone->bone_type = BONE_TYPE_PMD;
-	bone->id = -1;
-	bone->type = BONE_TYPE_UNKOWN;
-	bone->rotation[3] = 1;
-	bone->parent_bone_id = -1;
-	bone->child_bone_id = -1;
-	bone->target_bone_id = -1;
-
-	bone->local_transform = BtTransformNew(identity);
-	bone->local2origin_transform = BtTransformNew(identity);
-}
-
-BONE* PmdBoneNew(void)
-{
-	BONE *ret;
-	ret = (BONE*)MEM_ALLOC_FUNC(sizeof(*ret));
-	InitializePmdBone(ret);
-	return ret;
-}
-
-void ReleaseBone(BONE* bone)
-{
-	DeleteBtTransform(bone->local_transform);
-	DeleteBtTransform(bone->local2origin_transform);
-}
-
-void DeleteBone(BONE* bone)
-{
-	DeleteBtTransform(bone->local_transform);
-	DeleteBtTransform(bone->local2origin_transform);
-
-	MEM_FREE_FUNC(bone);
-}
-
-void ReadPmdBone(BONE* bone, uint8* data, int16 id)
-{
-	BONE_UNIT chunk;
-	static const uint8 knee_name[] = {0x82, 0xD0, 0x82, 0xB4, 0x0};
-	MEMORY_STREAM stream = {0};
-	float origin[3];
-	uint8 type;
-
-	stream.buff_ptr = data;
-	stream.block_size = 1;
-	stream.data_size = sizeof(chunk);
-
-	(void)MemRead(bone->name, sizeof(chunk.name), 1, &stream);
-	(void)MemRead(&bone->parent_bone_id, sizeof(chunk.parent_bone_id), 1, &stream);
-	(void)MemRead(&bone->child_bone_id, sizeof(chunk.child_bone_id), 1, &stream);
-	(void)MemRead(&type, sizeof(chunk.type), 1, &stream);
-	bone->type = (eBONE_MOVE_TYPE)type;
-	(void)MemRead(&bone->target_bone_id, sizeof(chunk.target_bone_id), 1, &stream);
-	(void)MemRead(bone->position, sizeof(chunk.position), 1, &stream);
-
-	if(strstr((char*)bone->name, (const char*)knee_name) != NULL)
-	{
-		bone->flags |= BONE_FLAG_CONSTRAINTED_X_COORDINATE_FOR_IK;
-	}
-	if(type == BONE_TYPE_FOLLOW_ROTATE)
-	{
-		bone->rotate_coef = bone->target_bone_id * 0.01f;
-	}
-
-	// bone->origin_position[2] = - bone->origin_position[2];
-	BtTransformSetOrigin(bone->local_transform, bone->origin_position);
-	origin[0] = - bone->origin_position[0];
-	origin[1] = - bone->origin_position[1];
-	origin[2] = - bone->origin_position[2];
-	BtTransformSetOrigin(bone->local2origin_transform, origin);
-
-	bone->id = id;
-}
-
-void PmdBoneWrite(BONE* bone, uint8* data)
-{
-	MEMORY_STREAM stream = {0};
-	float origin[3];
-	uint8 type;
-
-	stream.buff_ptr = data;
-	stream.block_size = 1;
-	stream.data_size = sizeof(BONE_UNIT);
-
-	(void)MemWrite(bone->name, 1, sizeof(bone->name), &stream);
-	(void)MemWrite(&bone->parent_bone_id, sizeof(bone->parent_bone_id), 1, &stream);
-	(void)MemWrite(&bone->child_bone_id, sizeof(bone->child_bone_id), 1, &stream);
-	type = bone->type;
-	(void)MemWrite(&type, sizeof(type), 1, &stream);
-
-	origin[0] = bone->origin_position[0];
-	origin[1] = bone->origin_position[1];
-	origin[2] = bone->origin_position[2];
-	//origin[2] = - bone->origin_position[2];
-	(void)MemWrite(origin, sizeof(origin), 1, &stream);
-}
-
-void PmdBoneBuild(BONE* bone, STRUCT_ARRAY* bones, BONE* root_bone)
-{
-	const int num_bones = (int)bones->num_data;
-
-	static const uint8 legs_offset[] = {0x97, 0xBC, 0x91, 0xAB, 0x83, 0x49, 0x83, 0x74, 0x83, 0x5A, 0x0};
-	static const uint8 right_leg_offset[] = {0x89, 0x45, 0x91, 0xAB, 0x83, 0x49, 0x83, 0x74, 0x83, 0x5A, 0x0};
-	static const uint8 left_leg_offset[] = {0x8D, 0xB6, 0x91, 0xAB, 0x83, 0x49, 0x74, 0x83, 0x5A, 0x0};
-
-	uint8 root_name[] = ROOT_BONE_NAME;
-
-	// ボーンが親を持ちかつ、アクティブなボーンのとき
-	if(bone->parent_bone_id != -1 && bone->parent_bone_id < num_bones)
-	{
-		bone->parent_bone = (BONE*)&bones->buffer[bone->parent_bone_id*sizeof(BONE)];
-		bone->flags &= ~(BONE_FLAG_PARENT_IS_ROOT);
-		bone->flags |= BONE_FLAG_HAS_PARENT;
-	}
-	// ボーンが親を持たず、かつ見つからないとき
-	else if(num_bones >= 0)
-	{
-		bone->parent_bone = root_bone;
-		bone->flags |= BONE_FLAG_PARENT_IS_ROOT;
-		bone->flags &= ~(BONE_FLAG_HAS_PARENT);
-	}
-	// ボーンが親を持たず、かつ見つからないとき
-	else
-	{
-		bone->flags &= ~(BONE_FLAG_HAS_PARENT | BONE_FLAG_PARENT_IS_ROOT);
-	}
-
-	// ボーンが子を持ち、アクティブなボーンのとき
-	if(bone->child_bone_id != -1 && bone->child_bone_id < num_bones)
-	{
-		bone->child_bone = (BONE*)bones->buffer[bone->child_bone_id];
-	}
-
-	// 対象となるボーンを持ち、かつアクティブなボーンのとき
-	if(bone->type == BONE_TYPE_UNDER_IK || bone->type == BONE_TYPE_UNDER_ROTATE)
-	{
-		if(bone->target_bone_id >= 0 && bone->target_bone_id < (int16)bones->num_data)
-		{
-			bone->target_bone = (BONE*)bones->buffer[bone->target_bone_id];
-		}
-	}
-
-	if(bone->parent_bone != NULL)
-	{
-		
-		bone->offset[0] = bone->origin_position[0] - bone->parent_bone->origin_position[0];
-		bone->offset[1] = bone->origin_position[1] - bone->parent_bone->origin_position[1];
-		bone->offset[2] = bone->origin_position[2] - bone->parent_bone->origin_position[2];
-	}
-	else
-	{
-		bone->offset[0] = bone->origin_position[0];
-		bone->offset[1] = bone->origin_position[1];
-		bone->offset[2] = bone->origin_position[2];
-	}
-	if(strcmp((const char*)bone->name, (const char*)root_name) == 0
-		|| strcmp((const char*)bone->name, (const char*)legs_offset) == 0
-		|| strcmp((const char*)bone->name, (const char*)right_leg_offset) == 0
-		|| strcmp((const char*)bone->name, (const char*)left_leg_offset) == 0
-	)
-	{
-		bone->flags |= BONE_FLAG_MOTION_INDEPENDENT;
-		return;
-	}
-	bone->flags &= ~(BONE_FLAG_MOTION_INDEPENDENT);
-}
-
-void PmdBoneUpdateTransform(BONE* bone, const QUATERNION q)
-{
-	float origin[3];
-	origin[0] = bone->position[0] + bone->offset[0];
-	origin[1] = bone->position[1] + bone->offset[1];
-	origin[2] = bone->position[2] + bone->offset[2];
-	BtTransformSetOrigin(bone->local_transform, origin);
-	BtTransformSetRotation(bone->local_transform, q);
-
-	if(bone->parent_bone != NULL)
-	{
-		BtTransformMulti(bone->parent_bone->local_transform, bone->local_transform, bone->local_transform);
-	}
-}
-
-void PmdBoneUpdate(BONE* bone)
-{
-	QUATERNION q;
-	switch(bone->type)
-	{
-	case BONE_TYPE_UNDER_ROTATE:
-		q[0] = bone->rotation[0];
-		q[1] = bone->rotation[1];
-		q[2] = bone->rotation[2];
-		q[3] = bone->rotation[3];
-		MultiQuaternion(q, bone->target_bone->rotation);
-		PmdBoneUpdateTransform(bone, q);
-		break;
-	case BONE_TYPE_FOLLOW_ROTATE:
-		{
-			const float zero[] = {0, 0, 0, 0};
-			float slerp[4];
-
-			QuaternionSlerp(slerp, zero, bone->child_bone->rotation, bone->rotate_coef);
-			MultiQuaternion(q, slerp);
-		}
-		PmdBoneUpdateTransform(bone, q);
-		break;
-	case BONE_TYPE_ROTATE:
-	case BONE_TYPE_IK_DESTINATION:
-	case BONE_TYPE_UNKOWN:
-	case BONE_TYPE_UNDER_IK:
-	case BONE_TYPE_IK_TARGET:
-	case BONE_TYPE_INVISIBLE:
-	case BONE_TYPE_TWIST:
-	default:
-		break;
-	}
-}
-
-int IsMovableBone(BONE* bone)
-{
-	switch(bone->type)
-	{
-	case BONE_TYPE_ROTATE_AND_MOVE:
-	case BONE_TYPE_IK_DESTINATION:
-	case BONE_TYPE_UNDER_IK:
-		return TRUE;
-	case BONE_TYPE_ROTATE:
-	case BONE_TYPE_UNKOWN:
-	case BONE_TYPE_UNDER_ROTATE:
-	case BONE_TYPE_IK_TARGET:
-	case BONE_TYPE_INVISIBLE:
-	case BONE_TYPE_TWIST:
-	case BONE_TYPE_FOLLOW_ROTATE:
-	default:
-		return FALSE;
-	}
-
-	return FALSE;
-}
-
-int IsVisibleBone(BONE* bone)
-{
-	switch(bone->type)
-	{
-	case BONE_TYPE_UNKOWN:
-	case BONE_TYPE_IK_TARGET:
-	case BONE_TYPE_INVISIBLE:
-	case BONE_TYPE_FOLLOW_ROTATE:
-		return FALSE;
-	case BONE_TYPE_ROTATE:
-	case BONE_TYPE_ROTATE_AND_MOVE:
-	case BONE_TYPE_UNDER_IK:
-	case BONE_TYPE_UNDER_ROTATE:
-	case BONE_TYPE_TWIST:
-	default:
-		return TRUE;
-	}
-
-	return TRUE;
-}
 
 static void PmxBoneSetLocalOrientation(PMX_BONE* bone, const float* value);
 
@@ -1114,18 +828,12 @@ void PmxBonePerformTransform(PMX_BONE* bone)
 		COPY_VECTOR4(bone->local_inherent_rotation, rotation);
 		MultiQuaternion(bone->local_inherent_rotation, bone->local_rotation);
 		MultiQuaternion(bone->local_inherent_rotation, bone->local_morph_rotation);
-		//COPY_VECTOR4(bone->local_inherent_rotation, bone->local_morph_rotation);
-		//MultiQuaternion(bone->local_inherent_rotation, bone->local_rotation);
-		//MultiQuaternion(bone->local_inherent_rotation, rotation);
 		QuaternionNormalize(bone->local_inherent_rotation);
 	}
 
 	MultiQuaternion(rotation, bone->local_rotation);
 	MultiQuaternion(rotation, bone->local_morph_rotation);
 	MultiQuaternion(rotation, bone->joint_rotation);
-	//MultiQuaternion(rotation, bone->joint_rotation);
-	//MultiQuaternion(rotation, bone->local_morph_rotation);
-	//MultiQuaternion(rotation, bone->local_rotation);
 	QuaternionNormalize(rotation);
 
 	if((bone->flags & PMX_BONE_FLAG_HAS_INHERENT_TRANSLATION) != 0)
@@ -1335,6 +1043,306 @@ void PmxBoneSolveInverseKinematics(PMX_BONE* bone)
 	}
 
 	PmxBoneSetLocalOrientation(effector_bone, original_target_rotation);
+}
+
+static void Pmd2BoneGetWorldTransform(PMD2_BONE* bone, void* transform)
+{
+	BtTransformSet(transform, bone->world_transform);
+}
+
+static void Pmd2BoneGetLocalTranslation(PMD2_BONE* bone, float* translation)
+{
+	COPY_VECTOR3(translation, bone->local_translation);
+}
+
+static void Pmd2BoneGetLocalRotation(PMD2_BONE* bone, float* rotation)
+{
+	COPY_VECTOR4(rotation, bone->rotation);
+}
+
+static void Pmd2BoneGetFixedAxis(PMD2_BONE* bone, float* axis)
+{
+	COPY_VECTOR3(axis, bone->fixed_axis);
+}
+
+static void Pmd2BoneGetDestinationOrigin(PMD2_BONE* bone, float* origin)
+{
+	if(bone->parent_bone != NULL)
+	{
+		COPY_VECTOR3(origin, bone->parent_bone->origin);
+	}
+	else
+	{
+		origin[0] = origin[1] = origin[2] = 0;
+	}
+}
+
+static int Pmd2BoneIsMovable(PMD2_BONE* bone)
+{
+	switch(bone->type)
+	{
+	case PMD2_BONE_TYPE_ROTATE_AND_MOVE:
+	case PMD2_BONE_TYPE_IK_ROOT:
+	case PMD2_BONE_TYPE_IK_JOINT:
+		return TRUE;
+	//case PMD2_BONE_TYPE_UNKOWN:
+	//case PMD2_BONE_TYPE_UNDER_ROTATE:
+	//case PMD2_BONE_TYPE_IK_EFFECTOR:
+	//case PMD2_BONE_TYPE_INVISIBLE:
+	//case PMD2_BONE_TYPE_TWIST:
+	//case PMD2_BONE_TYPE_FOLLOW_ROTATE:
+	//default:
+	//	;
+	}
+	return FALSE;
+}
+
+static int Pmd2BoneIsRotateable(PMD2_BONE* bone)
+{
+	switch(bone->type)
+	{
+	case PMD2_BONE_TYPE_ROTATE:
+	case PMD2_BONE_TYPE_ROTATE_AND_MOVE:
+	case PMD2_BONE_TYPE_IK_ROOT:
+	case PMD2_BONE_TYPE_IK_JOINT:
+	case PMD2_BONE_TYPE_UNDER_ROTATE:
+	case PMD2_BONE_TYPE_TWIST:
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static int Pmd2BoneHasFixedAxis(PMD2_BONE* bone)
+{
+	return bone->type == PMD2_BONE_TYPE_TWIST;
+}
+
+static int Pmd2BoneHasInverseKinematics(PMD2_BONE* bone)
+{
+	return bone->type == PMD2_BONE_TYPE_IK_ROOT;
+}
+
+static void Pmd2BoneSetInverseKinematicsEnable(PMD2_BONE* bone, int enable)
+{
+	int current_state = bone->flags & PMD2_BONE_FLAG_ENABLE_INVERSE_KINEMATICS;
+	if(BOOL_COMPARE(current_state, enable) == 0)
+	{
+		if(enable != FALSE)
+		{
+			bone->flags &= ~(PMD2_BONE_FLAG_ENABLE_INVERSE_KINEMATICS);
+		}
+		else
+		{
+			bone->flags |= PMD2_BONE_FLAG_ENABLE_INVERSE_KINEMATICS;
+		}
+	}
+}
+
+void InitializePmd2Bone(PMD2_BONE* bone, MODEL_INTERFACE* model, void* application_context)
+{
+	const float basis[] = IDENTITY_MATRIX3x3;
+	(void)memset(bone, 0, sizeof(*bone));
+	bone->model = (PMD2_MODEL*)model;
+	bone->rotation[3] = 1;
+	bone->interface_data.local_transform = BtTransformNew(basis);
+	bone->interface_data.index = -1;
+	bone->world_transform = BtTransformNew(basis);
+	bone->application = (APPLICATION*)application_context;
+	bone->flags |= PMD2_BONE_FLAG_ENABLE_INVERSE_KINEMATICS;
+
+	bone->interface_data.get_local_transform = (void (*)(void*, void*))Pmd2BoneGetLocalTransform;
+	bone->interface_data.set_local_transform = (void (*)(void*, void*))Pmd2BoneSetLocalTransform;
+	bone->interface_data.get_world_transform = (void (*)(void*, void*))Pmd2BoneGetWorldTransform;
+	bone->interface_data.get_local_translation = (void (*)(void*, float*))Pmd2BoneGetLocalTranslation;
+	bone->interface_data.get_local_rotation = (void (*)(void*, float*))Pmd2BoneGetLocalRotation;
+	bone->interface_data.get_fixed_axis = (void (*)(void*, float*))Pmd2BoneGetFixedAxis;
+	bone->interface_data.get_destination_origin = (void (*)(void*, float*))Pmd2BoneGetDestinationOrigin;
+	bone->interface_data.get_effector_bones = (void (*)(void*, POINTER_ARRAY*))DummyFuncNoReturn2;
+	bone->interface_data.is_movable = (int (*)(void*))Pmd2BoneIsMovable;
+	bone->interface_data.is_rotatable = (int (*)(void*))Pmd2BoneIsRotateable;
+	bone->interface_data.is_interactive = (int (*)(void*))Pmd2BoneIsRotateable;
+	bone->interface_data.is_visible = (int (*)(void*))Pmd2BoneIsRotateable;
+	bone->interface_data.has_fixed_axis = (int (*)(void*))Pmd2BoneHasFixedAxis;
+	bone->interface_data.has_inverse_kinematics = (int (*)(void*))Pmd2BoneHasInverseKinematics;
+	bone->interface_data.set_inverse_kinematics_enable =
+		(void (*)(void*, int))Pmd2BoneSetInverseKinematicsEnable;
+}
+
+int Pmd2BonePreparse(
+	MEMORY_STREAM_PTR stream,
+	PMD_DATA_INFO* info
+)
+{
+	uint16 size;
+	if(MemRead(&size, sizeof(size), 1, stream) == 0
+		|| size * PMD_BONE_UNIT_SIZE + stream->data_point > stream->data_size)
+	{
+		return FALSE;
+	}
+	info->bones_count = size;
+	info->bones = &stream->buff_ptr[stream->data_point];
+	return MemSeek(stream, size * PMD_BONE_UNIT_SIZE, SEEK_CUR) == 0;
+}
+
+int LoadPmd2Bones(STRUCT_ARRAY* bones)
+{
+	PMD2_BONE *b = (PMD2_BONE*)bones->buffer;
+	PMD2_BONE *bone;
+	const int num_bones = (int)bones->num_data;
+	int index;
+	int i;
+
+	for(i=0; i<num_bones; i++)
+	{
+		bone = &b[i];
+		index = bone->parent_bone_index;
+		if(index >= 0)
+		{
+			if(index >= num_bones)
+			{
+				return FALSE;
+			}
+			else
+			{
+				PMD2_BONE *parent = &b[index];
+				bone->offset[0] -= parent->origin[0];
+				bone->offset[1] -= parent->origin[1];
+				bone->offset[2] -= parent->origin[2];
+				bone->parent_bone = parent;
+			}
+		}
+		index = bone->target_bone_index;
+		if(index >= 0)
+		{
+			if(index >= num_bones)
+			{
+				return FALSE;
+			}
+			else
+			{
+				bone->target_bone = &b[index];
+			}
+		}
+		index = bone->child_bone_index;
+		if(index >= 0)
+		{
+			if(index >= num_bones)
+			{
+				return FALSE;
+			}
+			else
+			{
+				bone->child_bone = &b[index];
+			}
+		}
+		bone->interface_data.index = i;
+	}
+	return TRUE;
+}
+
+void ReadPmd2Bone(
+	PMD2_BONE* bone,
+	MEMORY_STREAM_PTR stream,
+	PMD_DATA_INFO* info,
+	size_t* data_size
+)
+{
+	BONE_UNIT unit;
+
+	(void)MemRead(unit.name, 1, sizeof(unit.name), stream);
+	(void)MemRead(&unit.parent_bone_id, sizeof(unit.parent_bone_id), 1, stream);
+	(void)MemRead(&unit.child_bone_id, sizeof(unit.child_bone_id), 1, stream);
+	(void)MemRead(&unit.type, sizeof(unit.type), 1, stream);
+	(void)MemRead(&unit.target_bone_id, sizeof(unit.target_bone_id), 1, stream);
+	(void)MemRead(&unit.position, sizeof(unit.position), 1, stream);
+	bone->interface_data.name = EncodeText(&bone->application->encode,
+		(char*)unit.name, sizeof(unit.name));
+	bone->child_bone_index = unit.child_bone_id;
+	bone->parent_bone_index = unit.parent_bone_id;
+	bone->target_bone_index = unit.target_bone_id;
+	bone->type = (ePMD2_BONE_TYPE)unit.type;
+	SET_POSITION(bone->origin, unit.position);
+	COPY_VECTOR3(bone->offset, bone->origin);
+	*data_size = PMD_BONE_UNIT_SIZE;
+}
+
+void Pmd2BoneGetLocalTransformMulti(PMD2_BONE* bone, void* world_transform, void* output)
+{
+	uint8 transform[TRANSFORM_SIZE];
+	float origin[3] = { - bone->origin[0], - bone->origin[1], - bone->origin[2]};
+	BtTransformSetIdentity(transform);
+	BtTransformSetOrigin(transform, origin);
+	BtTransformMulti(world_transform, transform, output);
+}
+
+void Pmd2BoneGetLocalTransform(PMD2_BONE* bone, void* world2local_transform)
+{
+	Pmd2BoneGetLocalTransformMulti(bone, bone->world_transform, world2local_transform);
+}
+
+void Pmd2BoneSetLocalTransform(PMD2_BONE* bone, void* local_transform)
+{
+	BtTransformSet(bone->interface_data.local_transform, local_transform);
+}
+
+void Pmd2BonePerformTransform(PMD2_BONE* bone)
+{
+	float origin[3];
+	if(bone->type == PMD2_BONE_TYPE_UNDER_ROTATE && bone->target_bone != NULL)
+	{
+		QUATERNION rotation;
+		COPY_VECTOR4(rotation, bone->rotation);
+		MultiQuaternion(rotation, bone->target_bone->rotation);
+		BtTransformSetRotation(bone->world_transform, rotation);
+	}
+	else if(bone->type == PMD2_BONE_TYPE_FOLLOW_ROTATE && bone->child_bone != NULL)
+	{
+		float coef = bone->target_bone_index * 0.01f;
+		QUATERNION rotation = IDENTITY_QUATERNION;
+		QuaternionSlerp(rotation, rotation, bone->rotation, coef);
+		BtTransformSetRotation(bone->world_transform, rotation);
+	}	
+	else
+	{
+		BtTransformSetRotation(bone->world_transform, bone->rotation);
+	}
+	origin[0] = bone->offset[0] + bone->local_translation[0];
+	origin[1] = bone->offset[1] + bone->local_translation[1];
+	origin[2] = bone->offset[2] + bone->local_translation[2];
+	BtTransformSetOrigin(bone->world_transform, origin);
+	if(bone->parent_bone != NULL)
+	{
+		BtTransformMulti(bone->parent_bone->world_transform, bone->world_transform, bone->world_transform);
+	}
+	Pmd2BoneGetLocalTransform(bone, bone->interface_data.local_transform);
+}
+
+void Pmd2BoneReadEnglishName(PMD2_BONE* bone, MEMORY_STREAM_PTR stream, int index)
+{
+	if(index >= 0)
+	{
+		char name[BONE_NAME_SIZE+1];
+		(void)MemSeek(stream, BONE_NAME_SIZE*index, SEEK_SET);
+		(void)MemRead(name, BONE_NAME_SIZE, 1, stream);
+		bone->interface_data.english_name = EncodeText(
+			&bone->application->encode, name, BONE_NAME_SIZE);
+	}
+}
+
+int Pmd2BoneIsAxisXAligned(PMD2_BONE* bone)
+{
+	if(bone->interface_data.name != NULL)
+	{
+		if(StringCompareIgnoreCase(bone->interface_data.name, "rightknee") == 0)
+		{
+			return TRUE;
+		}
+		if(StringCompareIgnoreCase(bone->interface_data.name, "leftknee") == 0)
+		{
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 void AssetRootBoneGetWorldTransform(ASSET_ROOT_BONE* bone, void* transform)

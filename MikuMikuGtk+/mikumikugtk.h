@@ -1,7 +1,7 @@
 #ifndef _INCLUDED_MIKU_MIKU_GTK_H_
 #define _INCLUDED_MIKU_MIKU_GTK_H_
 
-extern void* ApplicationContextNew(int default_width, int default_height);
+extern void* ApplicationContextNew(int default_width, int default_height, const char* application_path);
 
 extern void* ProjectContextNew(void* application_context, int width, int height, void** widget);
 

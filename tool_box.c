@@ -2017,6 +2017,8 @@ static void AfterPixelDataGet(APPLICATION* app, uint8* pixels)
 		G_CALLBACK(DrawWindowConfigurEvent), draw_window);
 	DrawWindowChangeZoom(draw_window, draw_window->zoom);
 	app->flags &= ~(APPLICATION_IN_SWITCH_DRAW_WINDOW);
+
+	draw_window->flags &= ~(DRAW_WINDOW_EDITTING_3D_MODEL);
 }
 
 static void End3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
@@ -2059,6 +2061,8 @@ static void End3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 		draw_window->callbacks.configure = g_signal_connect(G_OBJECT(draw_window->window), "configure-event",
 			G_CALLBACK(DrawWindowConfigurEvent), draw_window);
 		DrawWindowChangeZoom(draw_window, draw_window->zoom);
+
+		draw_window->flags &= ~(DRAW_WINDOW_EDITTING_3D_MODEL);
 	}
 	else
 	{
@@ -2203,6 +2207,8 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	gtk_box_pack_start(GTK_BOX(app->vbox), app->menu_bar, FALSE, FALSE, 0);
 	gtk_box_reorder_child(GTK_BOX(app->vbox), app->menu_bar, 0);
 	gtk_widget_show_all(app->menu_bar);
+
+	draw_window->flags |= DRAW_WINDOW_EDITTING_3D_MODEL;
 }
 
 void CreateChange3DLayerUI(

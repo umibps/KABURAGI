@@ -26,21 +26,10 @@ typedef struct _VERTEX_INTERFACE
 	void (*get_uv)(void*, int, float*);
 	FLOAT_T edge_size;
 	void (*perform_skinning)(void*, float*, float*);
-	void* (*get_material)(void*);
+	struct _MATERIAL_INTERFACE *material;
 	eBASE_VERTEX_TYPE type;
 	int index;
 } VERTEX_INTERFACE;
-
-typedef struct _VERTEX
-{
-	float position[3];
-	float normal[3];
-	float texture_coord[3];
-	float u, v;
-	int16 bone1, bone2;
-	float wieght;
-	int edge;
-} VERTEX;
 
 typedef struct _PARALLEL_SKINNING_VERTEX
 {
@@ -63,7 +52,6 @@ typedef struct _PMX_VERTEX
 	VERTEX_INTERFACE interface_data;
 	struct _PMX_MODEL *model;
 	struct _PMX_BONE *bone[PMX_VERTEX_MAX_BONES];
-	struct _PMX_MATERIAL *material;
 	float origin_uvs[PMX_VERTEX_MAX_MORPHS][4];
 	float morph_uvs[PMX_VERTEX_MAX_MORPHS][4];
 	float origin[3];
@@ -76,6 +64,21 @@ typedef struct _PMX_VERTEX
 	FLOAT_T weight[PMX_VERTEX_MAX_BONES];
 	int bone_indices[PMX_VERTEX_MAX_BONES];
 } PMX_VERTEX;
+
+#define PMD_VERTEX_MAX_BONES 2
+
+typedef struct _PMD2_VERTEX
+{
+	VERTEX_INTERFACE interface_data;
+	struct _PMD2_MODEL *model;
+	VECTOR3 origin;
+	VECTOR3 normal;
+	VECTOR3 tex_coord;
+	VECTOR3 morph_delta;
+	FLOAT_T weight;
+	struct _BONE_INTERFACE *bone[PMD_VERTEX_MAX_BONES];
+	int bone_indices[PMD_VERTEX_MAX_BONES];
+} PMD2_VERTEX;
 
 typedef struct _ASSET_VERTEX
 {
@@ -108,6 +111,12 @@ typedef struct _VERTEX_BUNDLE_LAYOUT
 } VERTEX_BUNDLE_LAYOUT;
 
 extern void ResetVertex(void* vertex, int index, void* dummy);
+
+extern int LoadPmd2Vertices(STRUCT_ARRAY* vertices, STRUCT_ARRAY* bones);
+
+extern void Pmd2VertexPerformSkinning(PMD2_VERTEX* vertex, float* position, float* normal);
+
+extern void Pmd2VertexMergeMorph(PMD2_VERTEX* vertex, float* value, FLOAT_T weight);
 
 extern VERTEX_BUNDLE* VertexBundleNew(void);
 

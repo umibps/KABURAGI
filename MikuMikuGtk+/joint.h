@@ -40,6 +40,9 @@ typedef struct _BASE_JOINT
 
 typedef BASE_JOINT PMX_JOINT;
 
+#define PMD_JOINT_NAME_SIZE 20
+typedef BASE_JOINT PMD2_JOINT;
+
 extern void ReleaseBaseJoint(BASE_JOINT* joint);
 
 extern void BaseJointJoinWorld(BASE_JOINT* joint, void* world);
@@ -49,5 +52,7 @@ extern void BaseJointLeaveWorld(BASE_JOINT* joint, void* world);
 extern void BaseJointUpdateTransform(BASE_JOINT* joint);
 
 extern int LoadPmxJoints(STRUCT_ARRAY* joints, STRUCT_ARRAY* bodies);
+
+extern int LoadPmd2Joints(STRUCT_ARRAY* joints, STRUCT_ARRAY* rigid_bodies);
 
 #endif	// #ifndef _INCLUDED_JOINT_H_

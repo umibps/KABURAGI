@@ -76,7 +76,7 @@ ght_uint32_t ght_one_at_a_time_hash(ght_hash_key_t *p_key)
 
   assert(p_key);
 
-  for (i=0; i<p_key->i_size; ++i)
+  for (i=0; i<(int)p_key->i_size; ++i)
     {
       i_hash += ((unsigned char*)p_key->p_key)[i];
       i_hash += (i_hash << 10);
@@ -116,7 +116,7 @@ ght_uint32_t ght_rotating_hash(ght_hash_key_t *p_key)
 
   assert(p_key);
 
-  for (i=0; i<p_key->i_size; ++i)
+  for (i=0; i<(int)p_key->i_size; ++i)
     {
       i_hash = (i_hash<<4)^(i_hash>>28)^((unsigned char*)p_key->p_key)[i];
     }

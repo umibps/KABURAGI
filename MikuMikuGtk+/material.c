@@ -8,6 +8,7 @@
 #include <limits.h>
 #include "material.h"
 #include "pmx_model.h"
+#include "pmd_model.h"
 #include "asset_model.h"
 #include "memory_stream.h"
 #include "utils.h"
@@ -74,7 +75,7 @@ void MaterialRGBA3CalculateMultiWeight(MATERIAL_RGBA3* rgba, const float* value,
 	rgba->multi[0] = (float)(1 - (1 - value[0]) * weight);
 	rgba->multi[1] = (float)(1 - (1 - value[1]) * weight);
 	rgba->multi[2] = (float)(1 - (1 - value[2]) * weight);
-	rgba->multi[2] = (float)(1 - (1 - value[3]) * weight);
+	rgba->multi[3] = (float)(1 - (1 - value[3]) * weight);
 }
 
 void MaterialRGBA3CalculateAddWeight(MATERIAL_RGBA3* rgba, const float* value, FLOAT_T weight)
@@ -100,20 +101,12 @@ void MaterialRGBA3Reset(MATERIAL_RGBA3* rgba)
 	MaterialRGBA3Calculate(rgba);
 }
 
-MATERIAL_INDEX_RANGE DefaultMaterialGetIndexRange(DEFAULT_MATERIAL* material)
-{
-	MATERIAL_INDEX_RANGE index = {0};
-
-	return index;
-}
-
 void InitializeDefaultMaterial(DEFAULT_MATERIAL* material, APPLICATION* application_context)
 {
 	(void)memset(material, 0, sizeof(*material));
 
 	material->interface_data.index = -1;
 	material->interface_data.set_index_range = (void (*)(void*, void*))DummyFuncNoReturn2;
-	material->interface_data.get_index_range = (MATERIAL_INDEX_RANGE (*)(void*))DefaultMaterialGetIndexRange;
 	material->interface_data.get_toon_texture_index = (int (*)(void*))DummyFuncMinusOneReturn;
 	material->interface_data.get_edge_size = (FLOAT_T (*)(void*))DummyFuncFloatTOneReturn;
 	material->interface_data.get_ambient = (void (*)(void*, float*))DummyFuncGetZeroVector4;
@@ -132,17 +125,12 @@ void InitializeDefaultMaterial(DEFAULT_MATERIAL* material, APPLICATION* applicat
 	material->application_context = application_context;
 }
 
-static MATERIAL_INDEX_RANGE PmxMaterialGetIndexRange(PMX_MATERIAL* material)
-{
-	return material->index_range;
-}
-
 static void PmxMaterialSetIndexRange(PMX_MATERIAL* material, MATERIAL_INDEX_RANGE* range)
 {
-	if(memcmp(&material->index_range, range, sizeof(*range)) != 0)
+	if(memcmp(&material->interface_data.index_range, range, sizeof(*range)) != 0)
 	{
 		// ADD_QUEUE_EVENT
-		material->index_range = *range;
+		material->interface_data.index_range = *range;
 	}
 }
 
@@ -279,8 +267,6 @@ void InitializePmxMaterial(PMX_MATERIAL* material)
 	MaterialRGBA3Calculate(&material->toon_texture_blend);
 
 	material->interface_data.index = -1;
-	material->interface_data.get_index_range =
-		(MATERIAL_INDEX_RANGE (*)(void*))PmxMaterialGetIndexRange;
 	material->interface_data.set_index_range =
 		(void (*)(void*, MATERIAL_INDEX_RANGE*))PmxMaterialSetIndexRange;
 	material->interface_data.get_toon_texture_index =
@@ -431,7 +417,7 @@ int LoadPmxMaterials(
 			}
 			else
 			{
-				m->interface_data.main_texture = textures->buffer[texture_index];
+				m->interface_data.main_texture = (char*)textures->buffer[texture_index];
 			}
 		}
 
@@ -445,7 +431,7 @@ int LoadPmxMaterials(
 			}
 			else
 			{
-				m->interface_data.sphere_texture = textures->buffer[texture_index];
+				m->interface_data.sphere_texture = (char*)textures->buffer[texture_index];
 			}
 		}
 
@@ -459,12 +445,12 @@ int LoadPmxMaterials(
 			}
 			else
 			{
-				m->interface_data.toon_texture = textures->buffer[texture_index];
+				m->interface_data.toon_texture = (char*)textures->buffer[texture_index];
 			}
 		}
 
 		m->interface_data.index = i;
-		actual_indices += m->index_range.count;
+		actual_indices += m->interface_data.index_range.count;
 	}
 
 	return actual_indices == expected_indices;
@@ -544,7 +530,7 @@ void PmxMaterialRead(
 	stream.data_point += sizeof(int32) + length;
 
 	(void)MemRead(&num_name_size, sizeof(num_name_size), 1, &stream);
-	material->index_range.count = num_name_size;
+	material->interface_data.index_range.count = num_name_size;
 
 	*data_size = stream.data_point;
 }
@@ -612,6 +598,205 @@ void PmxMaterialMergeMorph(PMX_MATERIAL* material, MORPH_MATERIAL* morph, FLOAT_
 		MaterialRGBA3Calculate(&material->main_texture_blend);
 		MaterialRGBA3Calculate(&material->sphere_texture_blend);
 		MaterialRGBA3Calculate(&material->toon_texture_blend);
+	}
+}
+
+#define PMD2_MATERIAL_UNIT_SIZE 70
+typedef struct _PMD2_MATERIAL_UNIT
+{
+	float diffuse[3];
+	float opacity;
+	float shininess;
+	float specular[3];
+	float ambient[3];
+	uint8 toon_texture_index;
+	uint8 edge;
+	int32 num_indices;
+	uint8 texture_name[PMD2_MATERIAL_NAME_SIZE];
+} PMD2_MATERIAL_UNIT;
+
+static void Pmd2MaterialGetEdgeColor(PMD2_MATERIAL* material, float* color)
+{
+	COPY_VECTOR4(color, material->edge_color);
+}
+
+static void Pmd2MaterialGetAmbient(PMD2_MATERIAL* material, float* ambient)
+{
+	COPY_VECTOR4(ambient, material->ambient);
+}
+
+static void Pmd2MaterialGetDiffuse(PMD2_MATERIAL* material, float* diffuse)
+{
+	COPY_VECTOR4(diffuse, material->diffuse);
+}
+
+static void Pmd2MaterialGetSpecular(PMD2_MATERIAL* material, float* specular)
+{
+	COPY_VECTOR4(specular, material->specular);
+}
+
+static float Pmd2MaterialGetShininess(PMD2_MATERIAL* material)
+{
+	return material->shininess;
+}
+
+#define Pmd2MaterialIsSelfShadowEnabled PmxMaterialIsSelfShadowEnabled
+#define Pmd2MaterialIsEdgeEnabled PmxMaterialIsEdgeEnabled
+
+void InitializePmd2Material(
+	PMD2_MATERIAL* material,
+	PMD2_MODEL* model,
+	void* application_context
+)
+{
+	(void)memset(material, 0, sizeof(*material));
+	material->model = model;
+	material->interface_data.index = -1;
+	material->application = (APPLICATION*)application_context;
+	material->interface_data.get_edge_color = (void (*)(void*, float*))Pmd2MaterialGetEdgeColor;
+	material->interface_data.get_ambient = (void (*)(void*, float*))Pmd2MaterialGetAmbient;
+	material->interface_data.get_diffuse = (void (*)(void*, float*))Pmd2MaterialGetDiffuse;
+	material->interface_data.get_specular = (void (*)(void*, float*))Pmd2MaterialGetSpecular;
+	material->interface_data.get_shininess = (float (*)(void*))Pmd2MaterialGetShininess;
+	material->interface_data.get_main_texture_blend = (void (*)(void*, float*))DummyFuncGetWhiteColor;
+	material->interface_data.get_sphere_texture_blend = (void (*)(void*, float*))DummyFuncGetWhiteColor;
+	material->interface_data.get_toon_texture_blend = (void (*)(void*, float*))DummyFuncGetWhiteColor;
+	material->interface_data.get_edge_size = (FLOAT_T (*)(void*))DummyFuncFloatTOneReturn;
+	material->interface_data.is_self_shadow_enabled = (int (*)(void*))Pmd2MaterialIsSelfShadowEnabled;
+	material->interface_data.is_edge_enabled = (int (*)(void*))Pmd2MaterialIsEdgeEnabled;
+}
+
+int Pmd2MaterialPreparse(
+	MEMORY_STREAM_PTR stream,
+	size_t* data_size,
+	PMD_DATA_INFO* info
+)
+{
+	int32 size;
+	if(MemRead(&size, sizeof(size), 1, stream) == 0 ||
+		PMD2_MATERIAL_UNIT_SIZE * size > stream->data_size)
+	{
+		return FALSE;
+	}
+	info->materials_count = size;
+	info->materials = &stream->buff_ptr[stream->data_point];
+	(void)MemSeek(stream, size * PMD2_MATERIAL_UNIT_SIZE, SEEK_CUR);
+	return TRUE;
+}
+
+int LoadPmd2Materials(STRUCT_ARRAY* materials, POINTER_ARRAY* textures, int expected_indices)
+{
+	PMD2_MATERIAL *m = (PMD2_MATERIAL*)materials->buffer;
+	PMD2_MATERIAL *material;
+	const int num_materials = (int)materials->num_data;
+	const int num_textures = (int)textures->num_data;
+	int toon_texture_index;
+	int actual_indices = 0;
+	int i;
+
+	for(i=0; i<num_materials; i++)
+	{
+		material = &m[i];
+		toon_texture_index = material->toon_texture_index;
+		if(toon_texture_index >= 0)
+		{
+			if(toon_texture_index >= num_textures)
+			{
+				return FALSE;
+			}
+			else
+			{
+				material->interface_data.toon_texture =
+					(char*)textures->buffer[toon_texture_index];
+			}
+		}
+		material->interface_data.index = i;
+		actual_indices += material->interface_data.index_range.count;
+	}
+	return actual_indices == expected_indices;
+}
+
+void ReadPmd2Material(PMD2_MATERIAL* material, MEMORY_STREAM_PTR stream, size_t* data_size)
+{
+	PMD2_MATERIAL_UNIT unit;
+	const char *separator = "*";
+	const char *sph = ".sph";
+	const char *spa = ".spa";
+	char *texture;
+	size_t name_length;
+	(void)MemRead(unit.diffuse, sizeof(unit.diffuse), 1, stream);
+	(void)MemRead(&unit.opacity, sizeof(unit.opacity), 1, stream);
+	(void)MemRead(&unit.shininess, sizeof(unit.shininess), 1, stream);
+	(void)MemRead(unit.specular, sizeof(unit.specular), 1, stream);
+	(void)MemRead(unit.ambient, sizeof(unit.ambient), 1, stream);
+	(void)MemRead(&unit.toon_texture_index, sizeof(unit.toon_texture_index), 1, stream);
+	(void)MemRead(&unit.edge, sizeof(unit.edge), 1, stream);
+	(void)MemRead(&unit.num_indices, sizeof(unit.num_indices), 1, stream);
+	(void)MemRead(unit.texture_name, sizeof(unit.texture_name), 1, stream);
+	texture = EncodeText(&material->application->encode, (char*)unit.texture_name, sizeof(unit.texture_name));
+	name_length = strlen(texture);
+	if(strstr(texture, separator) != NULL)
+	{
+		size_t length;
+		char *main_texture;
+		int num_tokens;
+		char **tokens = SplitString(texture, separator, &num_tokens);
+		main_texture = tokens[0];
+		length = strlen(main_texture);
+		if(length >= 4 && StringCompareIgnoreCase(&main_texture[length-4], sph) == 0)
+		{
+			material->interface_data.sphere_texture = MEM_STRDUP_FUNC(main_texture);
+			material->interface_data.sphere_texture_render_mode = MATERIAL_MULTI_TEXTURE;
+		}
+		else
+		{
+			material->interface_data.main_texture = MEM_STRDUP_FUNC(main_texture);
+		}
+		Pmd2ModelAddTexture(material->model, main_texture);
+		if(num_tokens == 2)
+		{
+			char *sub_texture = tokens[1];
+			length = strlen(sub_texture);
+			if(StringCompareIgnoreCase(&sub_texture[length-4], sph) == 0)
+			{
+				material->interface_data.sphere_texture = MEM_STRDUP_FUNC(sub_texture);
+				material->interface_data.sphere_texture_render_mode = MATERIAL_MULTI_TEXTURE;
+			}
+			else if(StringCompareIgnoreCase(&sub_texture[length-4], spa) == 0)
+			{
+				material->interface_data.sphere_texture = MEM_STRDUP_FUNC(sub_texture);
+				material->interface_data.sphere_texture_render_mode = MATERIAL_ADD_TEXTURE;
+			}
+		}
+		MEM_FREE_FUNC(tokens);
+	}
+	else if(StringCompareIgnoreCase(&texture[name_length-4], sph) == 0)
+	{
+		material->interface_data.sphere_texture = MEM_STRDUP_FUNC(texture);
+		material->interface_data.sphere_texture_render_mode = MATERIAL_MULTI_TEXTURE;
+	}
+	else
+	{
+		material->interface_data.main_texture = MEM_STRDUP_FUNC(texture);
+	}
+	COPY_VECTOR3(material->ambient, unit.ambient);
+	material->ambient[3] = 1;
+	COPY_VECTOR3(material->diffuse, unit.diffuse);
+	material->diffuse[3] = 1;
+	COPY_VECTOR3(material->specular, unit.specular);
+	material->specular[3] = 1;
+	material->interface_data.index_range.count = unit.num_indices;
+	material->enable_edge = unit.edge != 0;
+	material->toon_texture_index = AdjustSharedToonTextureIndex(unit.toon_texture_index);
+	*data_size = PMD2_MATERIAL_UNIT_SIZE;
+}
+
+void Pmd2MaterialSetIndexRange(PMD2_MATERIAL* material, MATERIAL_INDEX_RANGE *range)
+{
+	if(memcmp(&material->interface_data.index_range, range, sizeof(*range)) != 0)
+	{
+		// ADD_QUEUE_EVENT
+		material->interface_data.index_range = *range;
 	}
 }
 

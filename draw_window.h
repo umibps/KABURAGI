@@ -27,7 +27,9 @@ typedef enum _eDRAW_WINDOW_FLAGS
 	DRAW_WINDOW_UPDATE_PART = 0x20,
 	DRAW_WINDOW_DRAWING_STRAIGHT = 0x40,
 	DRAW_WINDOW_SECOND_BG = 0x80,
-	DRAW_WINDOW_TOOL_CHANGING = 0x100
+	DRAW_WINDOW_TOOL_CHANGING = 0x100,
+	DRAW_WINDOW_EDITTING_3D_MODEL = 0x200,
+	DRAW_WINDOW_IS_FOCAL_WINDOW = 0x400
 } eDRAW_WINDOW_FLAGS;
 
 typedef struct _UPDATE_RECTANGLE
@@ -46,6 +48,8 @@ typedef struct _CALLBACK_IDS
 	unsigned int mouse_button_release;
 	unsigned int mouse_wheel;
 	unsigned int configure;
+	unsigned int enter;
+	unsigned int leave;
 } CALLBACK_IDS;
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
@@ -199,6 +203,9 @@ typedef struct _DRAW_WINDOW
 	cmsHPROFILE input_icc;
 	// ICCプロファイルによる色変換用
 	cmsHTRANSFORM icc_transform;
+
+	// 局所キャンバス
+	struct _DRAW_WINDOW *focal_window;
 
 	// アプリケーション全体管理用構造体へのポインタ
 	struct _APPLICATION* app;
@@ -580,7 +587,7 @@ extern LAYER* GetBlendedUnderLayer(LAYER* target, DRAW_WINDOW* window, int use_b
 extern void DivideLinesUndo(DRAW_WINDOW* window, void* p);
 extern void DivideLinesRedo(DRAW_WINDOW* window, void* p);
 
-extern gboolean ScrollConfigureEvent(GtkWidget* scroll, GdkEventConfigure* event_info, DRAW_WINDOW* window);
+extern void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* window);
 
 extern gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_info, DRAW_WINDOW* window);
 

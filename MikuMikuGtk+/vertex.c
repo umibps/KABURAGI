@@ -1,6 +1,7 @@
 #include <string.h>
 #include "vertex.h"
 #include "pmx_model.h"
+#include "pmd_model.h"
 #include "asset_model.h"
 #include "model_helper.h"
 #include "memory.h"
@@ -42,11 +43,11 @@ typedef struct _PMX_S_DEF_UNIT
 
 void PmxVertexSetMaterial(PMX_VERTEX* vertex, PMX_MATERIAL* material)
 {
-	if(vertex->material != material)
+	if(vertex->interface_data.material != (MATERIAL_INTERFACE*)material)
 	{
 		// ADD_QUEUE_EVENT
-		vertex->material = (material != NULL) ? material :
-			(PMX_MATERIAL*)&vertex->model->interface_data.scene->project->application_context->default_data.material;
+		vertex->interface_data.material = (material != NULL) ? (MATERIAL_INTERFACE*)material :
+			(MATERIAL_INTERFACE*)&vertex->model->interface_data.scene->project->application_context->default_data.material;
 	}
 }
 
@@ -184,11 +185,6 @@ void PmxVertexGetUVs(PMX_VERTEX* vertex, int index, float* uv)
 	COPY_VECTOR4(uv, vertex->morph_uvs[index]);
 }
 
-PMX_MATERIAL* PmxVertexGetMaterial(PMX_VERTEX* vertex)
-{
-	return vertex->material;
-}
-
 void InitializePmxVertex(PMX_VERTEX* vertex, PMX_MODEL* model)
 {
 	int i;
@@ -204,7 +200,8 @@ void InitializePmxVertex(PMX_VERTEX* vertex, PMX_MODEL* model)
 		vertex->bone_indices[i] = -1;
 	}
 
-	vertex->material = (PMX_MATERIAL*)&model->interface_data.scene->project->application_context->default_data.material;
+	vertex->interface_data.material =
+		(MATERIAL_INTERFACE*)&model->interface_data.scene->project->application_context->default_data.material;
 
 	vertex->interface_data.set_material =
 		(void (*)(void*, void*))PmxVertexSetMaterial;
@@ -218,8 +215,6 @@ void InitializePmxVertex(PMX_VERTEX* vertex, PMX_MODEL* model)
 		(void (*)(void*, int, float*))PmxVertexGetUVs;
 	vertex->interface_data.perform_skinning =
 		(void (*)(void*, float*, float*))PmxVertexPerformSkinning;
-	vertex->interface_data.get_material =
-		(void* (*)(void*))PmxVertexGetMaterial;
 }
 
 int PmxVertexPreparse(
@@ -520,6 +515,188 @@ void PmxVertexMergeMorphByVertex(PMX_VERTEX* vertex, MORPH_VERTEX* morph, FLOAT_
 	vertex->morph_delta[0] += (float)(morph->position[0] * weight);
 	vertex->morph_delta[1] += (float)(morph->position[1] * weight);
 	vertex->morph_delta[2] += (float)(morph->position[2] * weight);
+}
+
+#define PMD2_VERTEX_UNIT_SIZE 38
+typedef struct _PMD2_VERTEX_UNIT
+{
+	float position[3];
+	float normal[3];
+	float uv[2];
+	int16 bones[2];
+	uint8 weight;
+	uint8 edge;
+} PMD2_VERTEX_UNIT;
+
+static void ResetPmd2Vertex(PMD2_VERTEX* vertex)
+{
+	vertex->morph_delta[0] = 0;
+	vertex->morph_delta[1] = 0;
+	vertex->morph_delta[2] = 0;
+}
+
+static BONE_INTERFACE* Pmd2VertexGetBone(PMD2_VERTEX* vertex, int index)
+{
+	return (CHECK_BOUND(index, 0, PMD_VERTEX_MAX_BONES)) ? vertex->bone[index] : NULL;
+}
+
+static void Pmd2VertexGetDelta(PMD2_VERTEX* vertex, float* delta)
+{
+	COPY_VECTOR3(delta, vertex->morph_delta);
+}
+
+static void Pmd2VertexGetUV(PMD2_VERTEX* vertex, int index, float* uv)
+{
+	uv[0] = uv[1] = uv[2] = uv[3] = 0;
+}
+
+static void Pmd2VertexSetMaterial(PMD2_VERTEX* vertex, MATERIAL_INTERFACE* material)
+{
+	if(vertex->interface_data.material != material)
+	{
+		// ADD_QUEUE_EVENT
+		vertex->interface_data.material = material;
+	}
+}
+
+void InitializePmd2Vertex(
+	PMD2_VERTEX* vertex, 
+	PMD2_MODEL* model,
+	MATERIAL_INTERFACE* default_material
+)
+{
+	int i;
+	(void)memset(vertex, 0, sizeof(*vertex));
+	vertex->model = model;
+	for(i=0; i<PMD_VERTEX_MAX_BONES; i++)
+	{
+		vertex->bone[i] =
+			(BONE_INTERFACE*)&model->interface_data.scene->project->application_context->default_data.bone;
+		vertex->bone_indices[i] = -1;
+	}
+	vertex->interface_data.index = -1;
+	vertex->interface_data.material = default_material;
+	vertex->interface_data.type = BASE_VERTEX_TYPE_B_DEF2;
+
+	vertex->interface_data.reset = (void (*)(void*))
+		ResetPmd2Vertex;
+	vertex->interface_data.set_material = (void (*)(void*, void*))Pmd2VertexSetMaterial;
+	vertex->interface_data.get_bone = (void* (*)(void*, int))Pmd2VertexGetBone;
+	vertex->interface_data.get_delta = (void (*)(void*, float*))Pmd2VertexGetDelta;
+	vertex->interface_data.get_uv = (void (*)(void*, int, float*))Pmd2VertexGetUV;
+	vertex->interface_data.perform_skinning = (void (*)(void*, float*, float*))
+		Pmd2VertexPerformSkinning;
+}
+
+int Pmd2VertexPreparse(
+	MEMORY_STREAM_PTR stream,
+	size_t* data_size,
+	PMD_DATA_INFO* info
+)
+{
+	size_t start = stream->data_point;
+	int32 size;
+	if(MemRead(&size, sizeof(size), 1, stream) == 0)
+	{
+		return FALSE;
+	}
+	info->vertices_count = size;
+	info->vertices = &stream->buff_ptr[stream->data_point];
+	(void)MemSeek(stream, size * PMD2_VERTEX_UNIT_SIZE, SEEK_CUR);
+
+	*data_size = stream->data_point - start;
+	return TRUE;
+}
+
+int LoadPmd2Vertices(STRUCT_ARRAY* vertices, STRUCT_ARRAY* bones)
+{
+	PMD2_VERTEX *v = (PMD2_VERTEX*)vertices->buffer;
+	PMD2_VERTEX *vertex;
+	PMD2_BONE *b = (PMD2_BONE*)bones->buffer;
+	const int num_vertices = (int)vertices->num_data;
+	const int num_bones = (int)bones->num_data;
+	int i, j;
+	for(i=0; i<num_vertices; i++)
+	{
+		vertex = &v[i];
+		vertex->interface_data.index = i;
+		for(j=0; j<PMD_VERTEX_MAX_BONES; j++)
+		{
+			int bone_index = vertex->bone_indices[j];
+			if(bone_index >= 0)
+			{
+				if(bone_index >= num_bones)
+				{
+					return FALSE;
+				}
+				else
+				{
+					vertex->bone[j] = (BONE_INTERFACE*)&b[bone_index];
+				}
+			}
+		}
+	}
+	
+	return TRUE;
+}
+
+void ReadPmd2Vertex(
+	PMD2_VERTEX* vertex,
+	MEMORY_STREAM_PTR stream,
+	PMD_DATA_INFO* info,
+	size_t* data_size
+)
+{
+	PMD2_VERTEX_UNIT unit;
+	size_t start = stream->data_point;
+	(void)MemRead(unit.position, sizeof(unit.position), 1, stream);
+	(void)MemRead(unit.normal, sizeof(unit.normal), 1, stream);
+	(void)MemRead(unit.uv, sizeof(unit.uv), 1, stream);
+	(void)MemRead(unit.bones, sizeof(unit.bones), 1, stream);
+	(void)MemRead(&unit.weight, sizeof(unit.weight), 1, stream);
+	(void)MemRead(&unit.edge, sizeof(unit.edge), 1, stream);
+	SET_POSITION(vertex->origin, unit.position);
+	SET_POSITION(vertex->normal, unit.normal);
+	vertex->tex_coord[0] = unit.uv[0];
+	vertex->tex_coord[1] = unit.uv[1];
+	vertex->tex_coord[2] = 0;
+	vertex->bone_indices[0] = unit.bones[0];
+	vertex->bone_indices[1] = unit.bones[1];
+	vertex->weight = unit.weight * (FLOAT_T)0.01;
+	vertex->interface_data.edge_size = (unit.edge == 0) ? 1 : 0;
+	*data_size = stream->data_point - start;
+}
+
+void Pmd2VertexPerformSkinning(PMD2_VERTEX* vertex, float* position, float* normal)
+{
+	VECTOR3 vertex_position;
+	float basis[9];
+	VECTOR3 v1;
+	VECTOR3 n1;
+	VECTOR3 v2;
+	VECTOR3 n2;
+
+	vertex_position[0] = vertex->origin[0] + vertex->morph_delta[0];
+	vertex_position[1] = vertex->origin[1] + vertex->morph_delta[1];
+	vertex_position[2] = vertex->origin[2] + vertex->morph_delta[2];
+	BtTransformMultiVector3(vertex->bone[0]->local_transform, vertex_position, v1);
+	BtTransformGetBasis(vertex->bone[0]->local_transform, basis);
+	COPY_VECTOR3(n1, vertex->normal);
+	MulMatrixVector3(n1, basis);
+	BtTransformMultiVector3(vertex->bone[1]->local_transform, vertex_position, v2);
+	BtTransformGetBasis(vertex->bone[1]->local_transform, basis);
+	COPY_VECTOR3(n2, vertex->normal);
+	MulMatrixVector3(n2, basis);
+	SetInterpolateVector3(position, v2, v1, (float)vertex->weight);
+	SetInterpolateVector3(normal, n2, n1, (float)vertex->weight);
+}
+
+void Pmd2VertexMergeMorph(PMD2_VERTEX* vertex, float* value, FLOAT_T weight)
+{
+	float w = (float)weight;
+	vertex->morph_delta[0] += value[0] * w;
+	vertex->morph_delta[1] += value[1] * w;
+	vertex->morph_delta[2] += value[2] * w;
 }
 
 void InitializeAssetVertex(

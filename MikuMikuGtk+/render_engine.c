@@ -169,7 +169,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 		char *texture_path;
 
 		bridge.flags = TEXTURE_FLAG_TEXTURE_2D | TEXTURE_FLAG_ASYNC_LOADING_TEXTURE;
-		if((texture_path = material->main_texture) != NULL)
+		if((texture_path = material->main_texture) != NULL && *material->main_texture != '\0')
 		{
 			(void)strcpy(file_path, ((MODEL_INTERFACE*)engine->interface_data.model)->model_path);
 			(void)strcat(file_path, "/");
@@ -224,7 +224,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 		}
 		else if((texture_path = material->toon_texture) != NULL)
 		{
-			(void)strcpy(file_path, ((MODEL_INTERFACE*)engine->interface_data.model)->model_path);
+			(void)strcpy(file_path, engine->interface_data.model->model_path);
 			(void)strcat(file_path, "/");
 			(void)strcat(file_path, texture_path);
 
@@ -236,7 +236,27 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			}
 			else
 			{
-				return FALSE;
+				(void)strcpy(file_path, engine->project_context->application_context->application_path);
+				(void)strcat(file_path, "/image/");
+				(void)strcat(file_path, texture_path);
+
+				if(UploadTexture(file_path, &bridge, engine->project_context->application_context) != FALSE)
+				{
+					t = bridge.texture;
+					if(texture->main_texture == NULL)
+					{
+						texture->main_texture = t;
+					}
+					else
+					{
+						texture->toon_texture = t;
+					}
+					(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
+				}
+				else
+				{
+					return FALSE;
+				}
 			}
 		}
 	}
@@ -527,7 +547,7 @@ int PmxRenderEngineUpload(PMX_RENDER_ENGINE* engine, void* user_data)
 	VertexBundleUnbind(VERTEX_BUNDLE_VERTEX_BUFFER);
 	VertexBundleUnbind(VERTEX_BUNDLE_INDEX_BUFFER);
 
-	((MODEL_INTERFACE*)engine->interface_data.model)->set_visible(engine->interface_data.model, TRUE);
+	engine->interface_data.model->set_visible(engine->interface_data.model, TRUE);
 	PmxRenderEngineUpdate(engine);
 	PmxRenderEngineUpdate(engine);
 
@@ -588,7 +608,7 @@ void PmxRenderEngineRenderModel(PMX_RENDER_ENGINE* engine)
 	opacity = ((MODEL_INTERFACE*)engine->interface_data.model)->opacity;
 	ObjectProgramSetOpacity(&engine->model_program.program, opacity);
 
-	materials = (MATERIAL_INTERFACE**)((MODEL_INTERFACE*)engine->interface_data.model)->get_materials(engine->interface_data.model, &num_materials);
+	materials = (MATERIAL_INTERFACE**)engine->interface_data.model->get_materials(engine->interface_data.model, &num_materials);
 	has_model_transparent = !FuzzyZero(opacity - 1.0f);
 	PmxRenderEngineBindVertexBundle(engine);
 	light_color[0] = engine->scene->light.vertex.color[0] * DIV_PIXEL;
@@ -651,7 +671,7 @@ void PmxRenderEngineRenderModel(PMX_RENDER_ENGINE* engine)
 			cull_face_state = TRUE;
 		}
 
-		num_indices = material->get_index_range(material).count;
+		num_indices = material->index_range.count;
 		glDrawElements(GL_TRIANGLES, num_indices, engine->index_type, (GLvoid*)offset);
 
 		offset += num_indices * size;
@@ -695,7 +715,7 @@ void PmxRenderEngineRenderShadow(PMX_RENDER_ENGINE* engine)
 	for(i=0; i<num_materials; i++)
 	{
 		MATERIAL_INTERFACE *material = materials[i];
-		const int num_indices = material->get_index_range(material).count;
+		const int num_indices = material->index_range.count;
 		if(material->has_shadow(material))
 		{
 			if(is_vertex_shader_skinning != FALSE)
@@ -754,7 +774,7 @@ void PmxRenderEngineRenderEdge(PMX_RENDER_ENGINE* engine)
 	for(i=0; i<num_materials; i++)
 	{
 		MATERIAL_INTERFACE *material = materials[i];
-		const int num_indices = material->get_index_range(material).count;
+		const int num_indices = material->index_range.count;
 		material->get_edge_color(material, value);
 		PmxEdgeProgramSetColor(&engine->edge_program, value);
 		if(material->is_edge_enabled(material))
@@ -803,7 +823,7 @@ void PmxRenderEngineRenderZPlot(PMX_RENDER_ENGINE* engine)
 	for(i=0; i<num_materials; i++)
 	{
 		MATERIAL_INTERFACE *material = materials[i];
-		const int num_indices = material->get_index_range(material).count;
+		const int num_indices = material->index_range.count;
 		if(material->has_shadow_map(material))
 		{
 			if(is_vertex_shader_skinning != FALSE)
@@ -911,7 +931,7 @@ void PmxRenderEngineRenderWhiteModel(PMX_RENDER_ENGINE* engine)
 		PmxModelProgramSetToonTexture(&engine->model_program, NULL);
 		ObjectProgramSetDepthTexture(&engine->model_program.program, 0);
 
-		num_indices = material->get_index_range(material).count;
+		num_indices = material->index_range.count;
 		glDrawElements(GL_TRIANGLES, num_indices, engine->index_type, (GLvoid*)offset);
 
 		offset += num_indices * size;

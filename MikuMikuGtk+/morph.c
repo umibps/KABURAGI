@@ -2,6 +2,7 @@
 #include <limits.h>
 #include "morph.h"
 #include "pmx_model.h"
+#include "pmd_model.h"
 #include "asset_model.h"
 #include "memory_stream.h"
 #include "application.h"
@@ -63,6 +64,7 @@ void PmxMorphSetWegiht(PMX_MORPH* morph, FLOAT_T weight)
 	{
 		// ADD_QUEUE_EVENT
 		morph->interface_data.weight = weight;
+		PmxMorphSetInternalWeight(morph, weight);
 	}
 	morph->flags |= PMX_MORPH_FLAG_DIRTY;
 }
@@ -79,7 +81,7 @@ void InitializePmxMorph(PMX_MORPH* morph, PMX_MODEL* model)
 	morph->impulses = StructArrayNew(sizeof(MORPH_IMPULSE), MORPH_BUFFER_SIZE);
 	morph->parent_model = model;
 	morph->interface_data.type = MORPH_TYPE_UNKNOWN;
-	morph->index = -1;
+	morph->interface_data.index = -1;
 	morph->interface_data.set_weight =
 		(void (*)(void*, FLOAT_T))PmxMorphSetWegiht;
 }
@@ -290,7 +292,7 @@ static int PmxMorphLoadUVs(PMX_MORPH* morph, STRUCT_ARRAY* vertices, int offset)
 		{
 			if(vertex_index < num_vertices)
 			{
-				uv->vertex = &v[vertex_index];
+				uv->vertex = (VERTEX_INTERFACE*)&v[vertex_index];
 				uv->offset = offset;
 			}
 			else
@@ -473,7 +475,7 @@ int PmxMorphLoad(
 		default:
 			return FALSE;
 		}
-		morph->index = i;
+		morph->interface_data.index = i;
 	}
 
 	return TRUE;
@@ -763,6 +765,12 @@ void PmxMorphUpdateBoneMorphs(PMX_MORPH* morph, const FLOAT_T value)
 	MORPH_BONE *bones = (MORPH_BONE*)morph->bones->buffer;
 	int i;
 
+	if(FuzzyZero((float)(morph->last_update_weight - value)) != 0)
+	{
+		return;
+	}
+	morph->last_update_weight = value;
+
 	for(i=0; i<num_morphs; i++)
 	{
 		MORPH_BONE *bone = &bones[i];
@@ -779,6 +787,12 @@ void PmxMorphUpdateUVMorphs(PMX_MORPH* morph, const FLOAT_T value)
 	const int num_morphs = (int)morph->uvs->num_data;
 	MORPH_UV *uvs = (MORPH_UV*)morph->uvs->buffer;
 	int i;
+
+	if(FuzzyZero((float)(morph->last_update_weight - value)) != 0)
+	{
+		return;
+	}
+	morph->last_update_weight = value;
 
 	for(i=0; i<num_morphs; i++)
 	{
@@ -798,6 +812,12 @@ void PmxMorphUpdateMaterialMorphs(PMX_MORPH* morph, const FLOAT_T value)
 	PMX_MATERIAL *m;
 	int i, j;
 
+	if(FuzzyZero((float)(morph->last_update_weight - value)) != 0)
+	{
+		return;
+	}
+	morph->last_update_weight = value;
+
 	for(i=0; i<num_morphs; i++)
 	{
 		MORPH_MATERIAL *material = &materials[i];
@@ -815,6 +835,12 @@ void PmxMorphUpdateGroupMorphs(PMX_MORPH* morph, const FLOAT_T value, int flip_o
 	const int num_morphs = (int)morph->groups->num_data;
 	MORPH_GROUP *groups = (MORPH_GROUP*)morph->groups->buffer;
 	int i;
+
+	if(FuzzyZero((float)(morph->last_update_weight - value)) != 0)
+	{
+		return;
+	}
+	morph->last_update_weight = value;
 
 	for(i=0; i<num_morphs; i++)
 	{
@@ -839,6 +865,12 @@ void PmxMorphUpdateFlipMorphs(PMX_MORPH* morph, FLOAT_T value)
 {
 	const int num_morphs = (int)morph->flips->num_data;
 	MORPH_FLIP *flips = (MORPH_FLIP*)morph->flips->buffer;
+
+	if(FuzzyZero((float)(morph->last_update_weight - value)) != 0)
+	{
+		return;
+	}
+	morph->last_update_weight = value;
 
 	if(num_morphs > 0)
 	{
@@ -867,6 +899,12 @@ void PmxMorphUpdateImpulseMorphs(PMX_MORPH* morph, const FLOAT_T value)
 	MORPH_IMPULSE *impulses = (MORPH_IMPULSE*)morph->impulses->buffer;
 	int i;
 
+	if(FuzzyZero((float)(morph->last_update_weight - value)) != 0)
+	{
+		return;
+	}
+
+	morph->last_update_weight = value;
 	for(i=0; i<num_morphs; i++)
 	{
 		MORPH_IMPULSE *impulse = &impulses[i];
@@ -943,6 +981,189 @@ void PmxMorphSyncWeight(PMX_MORPH* morph)
 			break;
 		}
 		PmxMorphSetInternalWeight(morph, morph->interface_data.weight);
+	}
+}
+
+#define PMD2_MORPH_UNIT_SIZE 25
+
+typedef struct _PMD2_MORPH_UNIT
+{
+	uint8 name[PMD_MORPH_NAME_SIZE];
+	int32 num_vertices;
+	uint8 type;
+} PMD2_MORPH_UNIT;
+
+#define PMD2_VERTEX_MORPH_SIZE 16
+
+typedef struct _PMD2_VERTEX_MORPH_UNIT
+{
+	int32 vertex_index;
+	float position[3];
+} PMD2_VERTEX_MORPH_UNIT;
+
+void InitializePmd2Morph(
+	PMD2_MORPH *morph,
+	PMD2_MODEL *model,
+	void *application_context
+)
+{
+	(void)memset(morph, 0, sizeof(*morph));
+	morph->model = model;
+	morph->vertices = StructArrayNew(sizeof(MORPH_VERTEX), MORPH_BUFFER_SIZE);
+	morph->vertex_refs = PointerArrayNew(MORPH_BUFFER_SIZE);
+	morph->interface_data.index = -1;
+	morph->application = (APPLICATION*)application_context;
+}
+
+int Pmd2MorphPreparse(
+	MEMORY_STREAM_PTR stream,
+	size_t* data_size,
+	PMD_DATA_INFO* info
+)
+{
+	PMD2_MORPH_UNIT unit;
+	uint16 size;
+	size_t unit_size = 0;
+	size_t i;
+	if(MemRead(&size, sizeof(size), 1, stream) == 0)
+	{
+		return FALSE;
+	}
+	info->morphs_count = size;
+	info->morphs = &stream->buff_ptr[stream->data_point];
+	for(i=0; i<size; i++)
+	{
+		if(PMD2_MORPH_UNIT_SIZE > stream->data_size - stream->data_point)
+		{
+			return FALSE;
+		}
+		(void)MemRead(unit.name, sizeof(unit.name), 1, stream);
+		(void)MemRead(&unit.num_vertices, sizeof(unit.num_vertices), 1, stream);
+		(void)MemRead(&unit.type, sizeof(unit.type), 1, stream);
+		unit_size = unit.num_vertices * PMD2_VERTEX_MORPH_SIZE;
+		if(unit_size > stream->data_size - stream->data_point)
+		{
+			return FALSE;
+		}
+		(void)MemSeek(stream, (long)unit_size, SEEK_CUR);
+	}
+	return TRUE;
+}
+
+int LoadPmd2Morphs(STRUCT_ARRAY *morphs, STRUCT_ARRAY* vertices)
+{
+	PMD2_MORPH *m = (PMD2_MORPH*)morphs->buffer;
+	PMD2_MORPH *morph;
+	PMD2_MORPH *base_morph = NULL;
+	PMD2_VERTEX *v = (PMD2_VERTEX*)vertices->buffer;
+	PMD2_VERTEX *vertex;
+	const int num_vertices = (int)vertices->num_data;
+	MORPH_VERTEX *morph_vertices;
+	MORPH_VERTEX *morph_vertex;
+	MORPH_VERTEX *base_vertices;
+	const int num_morphs = (int)morphs->num_data;
+	int num_morph_vertices;
+	int num_base_morph_vertices;
+	int i, j;
+	for(i=0; i<num_morphs; i++)
+	{
+		morph = &m[i];
+		if(morph->category == MORPH_CATEGORY_BASE)
+		{
+			const int num_morph_vertices = (int)morph->vertices->num_data;
+			morph_vertices = (MORPH_VERTEX*)morph->vertices->buffer;
+			for(j=0; j<num_morph_vertices; j++)
+			{
+				morph_vertex = &morph_vertices[j];
+				if(CHECK_BOUND((int)morph_vertex->index, 0, num_vertices))
+				{
+					vertex = &v[morph_vertex->index];
+					COPY_VECTOR3(vertex->origin, morph_vertex->position);
+					PointerArrayAppend(morph->vertex_refs, vertex);
+				}
+			}
+			base_morph = morph;
+			break;
+		}
+		if(base_morph != NULL)
+		{
+			base_vertices = (MORPH_VERTEX*)base_morph->vertices->buffer;
+			for(i=0; i<num_morphs; i++)
+			{
+				morph = &m[i];
+				morph->interface_data.index = i;
+				if(morph->category != MORPH_CATEGORY_BASE)
+				{
+					morph_vertices = (MORPH_VERTEX*)morph->vertices->buffer;
+					num_morph_vertices = (int)morph->vertices->num_data;
+					num_base_morph_vertices = (int)base_morph->vertices->num_data;
+					for(j=0; j<num_morph_vertices; j++)
+					{
+						morph_vertex = &morph_vertices[j];
+						if(CHECK_BOUND((int)morph_vertex->index, 0, num_base_morph_vertices))
+						{
+							morph_vertex->base = base_vertices[morph_vertex->index].index;
+							PointerArrayAppend(morph->vertex_refs, &v[morph_vertex->base]);
+						}
+					}
+				}
+			}
+		}
+	}
+	return TRUE;
+}
+
+void ReadPmd2Morph(PMD2_MORPH* morph, MEMORY_STREAM_PTR stream, size_t* data_size)
+{
+	size_t start = stream->data_point;
+	PMD2_MORPH_UNIT unit;
+	PMD2_VERTEX_MORPH_UNIT vertex_unit;
+	MORPH_VERTEX *vertex;
+	int i;
+	(void)MemRead(unit.name, sizeof(unit.name), 1, stream);
+	(void)MemRead(&unit.num_vertices, sizeof(unit.num_vertices), 1, stream);
+	(void)MemRead(&unit.type, sizeof(unit.type), 1, stream);
+	for(i=0; i<unit.num_vertices; i++)
+	{
+		(void)MemRead(&vertex_unit.vertex_index, sizeof(vertex_unit.vertex_index),
+			1, stream);
+		(void)MemRead(vertex_unit.position, sizeof(vertex_unit.position),
+			1, stream);
+		if(CHECK_BOUND(vertex_unit.vertex_index, 0, 0xffff))
+		{
+			vertex = (MORPH_VERTEX*)StructArrayReserve(morph->vertices);
+			SET_POSITION(vertex->position, vertex_unit.position);
+			vertex->index = vertex_unit.vertex_index;
+		}
+	}
+	morph->interface_data.name = EncodeText(&morph->application->encode, unit.name,
+		sizeof(unit.name));
+	morph->category = (eMORPH_CATEGORY)unit.type;
+	*data_size = stream->data_point - start;
+}
+
+void Pmd2MorphReadEnglishName(PMD2_MORPH* morph, uint8* data, int index)
+{
+	if(data != NULL && index >= 0)
+	{
+		morph->interface_data.english_name =
+			EncodeText(&morph->application->encode, (char*)(&data[PMD_MORPH_NAME_SIZE*index]), PMD_MORPH_NAME_SIZE);
+	}
+}
+
+void Pmd2MorphUpdate(PMD2_MORPH* morph)
+{
+	const int num_vertices = (int)morph->vertex_refs->num_data;
+	MORPH_VERTEX *morph_vertices = (MORPH_VERTEX*)morph->vertices->buffer;
+	MORPH_VERTEX *morph_vertex;
+	PMD2_VERTEX **vertices = (PMD2_VERTEX**)morph->vertex_refs->buffer;
+	PMD2_VERTEX *vertex;
+	int i;
+	for(i=0; i<num_vertices; i++)
+	{
+		vertex = vertices[i];
+		morph_vertex = &morph_vertices[i];
+		Pmd2VertexMergeMorph(vertex, morph_vertex->position, morph->interface_data.weight);
 	}
 }
 

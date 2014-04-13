@@ -452,7 +452,7 @@ int ght_insert(ght_hash_table_t *p_ht,
 
   /* If this is a limited bucket hash table, potentially remove the last item */
   if (p_ht->bucket_limit != 0 &&
-      p_ht->p_nr[l_key] >= p_ht->bucket_limit)
+      p_ht->p_nr[l_key] >= (int)p_ht->bucket_limit)
     {
       ght_hash_entry_t *p;
 
@@ -688,7 +688,7 @@ void ght_finalize(ght_hash_table_t *p_ht)
   if (p_ht->pp_entries)
     {
       /* For each bucket, free all entries */
-      for (i=0; i<p_ht->i_size; i++)
+      for (i=0; i<(int)p_ht->i_size; i++)
 	{
 	  free_entry_chain(p_ht, p_ht->pp_entries[i]);
 	  p_ht->pp_entries[i] = NULL;
@@ -744,7 +744,7 @@ void ght_rehash(ght_hash_table_t *p_ht, unsigned int i_size)
     }
 
   /* Remove the old table... */
-  for (i=0; i<p_ht->i_size; i++)
+  for (i=0; i<(int)p_ht->i_size; i++)
     {
       if (p_ht->pp_entries[i])
 	{

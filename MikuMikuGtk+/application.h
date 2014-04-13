@@ -49,13 +49,16 @@ typedef struct _APPLICATION
 	unsigned int flags;
 
 	UI_LABEL label;
+
+	char *application_path;
 } APPLICATION;
 
 extern APPLICATION* MikuMikuGtkNew(
 	int widget_width,
 	int widget_height,
 	int make_first_project,
-	const char* initialize_file_path
+	const char* initialize_file_path,
+	const char* application_path
 );
 
 extern char* LoadShaderSource(
