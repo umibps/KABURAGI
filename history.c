@@ -85,7 +85,7 @@ void AddHistory(
 
 void ExecuteUndo(struct _APPLICATION* app)
 {
-	DRAW_WINDOW *window = app->draw_window[app->active_window];
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 
 	if(window->history.rest_undo > 0)
 	{
@@ -114,7 +114,7 @@ void ExecuteUndo(struct _APPLICATION* app)
 
 void ExecuteRedo(struct _APPLICATION *app)
 {
-	DRAW_WINDOW *window = app->draw_window[app->active_window];
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 
 	if(window->history.rest_redo > 0)
 	{

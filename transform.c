@@ -1576,9 +1576,9 @@ void AddTransformHistory(DRAW_WINDOW *window)
 *****************************************************/
 void ExecuteTransform(APPLICATION* app)
 {
-	app->draw_window[app->active_window]->transform =
-		CreateTransformData(app->draw_window[app->active_window]);
-	app->draw_window[app->active_window]->transform->trans_type = TRANSFORM_PATTERN;
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	window->transform = CreateTransformData(window);
+	window->transform->trans_type = TRANSFORM_PATTERN;
 
 	gtk_widget_destroy(app->tool_window.detail_ui);
 	app->tool_window.detail_ui = CreateTransformDetailUI(app);
@@ -1597,9 +1597,9 @@ void ExecuteTransform(APPLICATION* app)
 *******************************************************/
 void ExecuteProjection(APPLICATION* app)
 {
-	app->draw_window[app->active_window]->transform =
-		CreateTransformData(app->draw_window[app->active_window]);
-	app->draw_window[app->active_window]->transform->trans_type = TRANSFORM_PROJECTION;
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	window->transform = CreateTransformData(window);
+	window->transform->trans_type = TRANSFORM_PROJECTION;
 
 	gtk_widget_destroy(app->tool_window.detail_ui);
 	app->tool_window.detail_ui = CreateTransformDetailUI(app);

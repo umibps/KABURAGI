@@ -2252,7 +2252,7 @@ gboolean KeyPressEvent(
 )
 {
 	APPLICATION* application = (APPLICATION*)data;
-	DRAW_WINDOW* window = (DRAW_WINDOW*)application->draw_window[application->active_window];
+	DRAW_WINDOW* window = GetActiveDrawWindow(application);
 	int x, y;
 	int end_flag = 0;
 

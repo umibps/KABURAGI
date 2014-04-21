@@ -155,7 +155,7 @@ static gboolean DisplayNavigation(
 		return TRUE;
 	}
 
-	window = app->draw_window[app->active_window];
+	window = GetActiveDrawWindow(app);
 
 	// 描画領域のサイズを取得
 	gtk_widget_get_allocation(window->scroll, &draw_allocation);
@@ -255,7 +255,7 @@ static gboolean DisplayNavigation(
 	}
 
 	// 画像を拡大縮小してナビゲーションの画像へ
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_p = gdk_cairo_create(app->navigation_window.draw_area->window);
 #endif
 	cairo_set_operator(cairo_p, CAIRO_OPERATOR_OVER);
@@ -328,7 +328,7 @@ static gboolean DisplayNavigation(
 		// if(draw_allocation.width <= app->draw_window[app->active_window]->width * app->draw_window[app->active_window]->zoom * 0.01
 			// || draw_allocation.height <= app->draw_window[app->active_window]->height * app->draw_window[app->active_window]->zoom * 0.01)
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 #endif
 
@@ -369,7 +369,7 @@ static gboolean NavigationButtonPressCallBack(
 		return TRUE;
 	}
 
-	window = app->draw_window[app->active_window];
+	window = GetActiveDrawWindow(app);
 	size = window->disp_size;
 
 	// ナビゲーションが指定している範囲の幅・高さを計算
@@ -462,7 +462,7 @@ static gboolean NavigationMotionNotifyCallBack(
 		return TRUE;
 	}
 
-	window = app->draw_window[app->active_window];
+	window = GetActiveDrawWindow(app);
 	size = window->disp_size;
 
 	// ナビゲーションが指定している範囲の幅・高さを計算
@@ -517,19 +517,17 @@ static gboolean NavigationMotionNotifyCallBack(
 ***************************************************************************/
 static void ChangeNavigationZoomSlider(GtkAdjustment* slider, APPLICATION* app)
 {
+	DRAW_WINDOW *window;
 	if(app->window_num == 0)
 	{
 		return;
 	}
 
+	window = GetActiveDrawWindow(app);
 	// アクティブな描画領域に拡大縮小率を設定
-	app->draw_window[app->active_window]->zoom =
-		(uint16)gtk_adjustment_get_value(slider);
+	window->zoom = (uint16)gtk_adjustment_get_value(slider);
 
-	DrawWindowChangeZoom(
-		app->draw_window[app->active_window],
-		app->draw_window[app->active_window]->zoom
-	);
+	DrawWindowChangeZoom(window, window->zoom);
 }
 
 /*************************************************************************
@@ -550,7 +548,7 @@ static void ChangeNavigationRotateSlider(GtkAdjustment* slider, APPLICATION* app
 		return;
 	}
 
-	window = app->draw_window[app->active_window];
+	window = GetActiveDrawWindow(app);
 
 	// アクティブな描画領域に回転角度を設定
 	angle = window->angle =

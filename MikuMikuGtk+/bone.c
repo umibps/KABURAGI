@@ -1055,9 +1055,19 @@ static void Pmd2BoneGetLocalTranslation(PMD2_BONE* bone, float* translation)
 	COPY_VECTOR3(translation, bone->local_translation);
 }
 
+static void Pmd2BoneSetLocalTranslation(PMD2_BONE* bone, float* translation)
+{
+	COPY_VECTOR3(bone->local_translation, translation);
+}
+
 static void Pmd2BoneGetLocalRotation(PMD2_BONE* bone, float* rotation)
 {
 	COPY_VECTOR4(rotation, bone->rotation);
+}
+
+static void Pmd2BoneSetLocalRotation(PMD2_BONE* bone, float* rotation)
+{
+	COPY_VECTOR4(bone->rotation, rotation);
 }
 
 static void Pmd2BoneGetFixedAxis(PMD2_BONE* bone, float* axis)
@@ -1154,7 +1164,9 @@ void InitializePmd2Bone(PMD2_BONE* bone, MODEL_INTERFACE* model, void* applicati
 	bone->interface_data.set_local_transform = (void (*)(void*, void*))Pmd2BoneSetLocalTransform;
 	bone->interface_data.get_world_transform = (void (*)(void*, void*))Pmd2BoneGetWorldTransform;
 	bone->interface_data.get_local_translation = (void (*)(void*, float*))Pmd2BoneGetLocalTranslation;
+	bone->interface_data.set_local_translation = (void (*)(void*, float*))Pmd2BoneSetLocalTranslation;
 	bone->interface_data.get_local_rotation = (void (*)(void*, float*))Pmd2BoneGetLocalRotation;
+	bone->interface_data.set_local_rotation = (void (*)(void*, float*))Pmd2BoneSetLocalRotation;
 	bone->interface_data.get_fixed_axis = (void (*)(void*, float*))Pmd2BoneGetFixedAxis;
 	bone->interface_data.get_destination_origin = (void (*)(void*, float*))Pmd2BoneGetDestinationOrigin;
 	bone->interface_data.get_effector_bones = (void (*)(void*, POINTER_ARRAY*))DummyFuncNoReturn2;

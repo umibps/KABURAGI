@@ -1,6 +1,14 @@
 #ifndef _INCLUDED_APPLICATION_H_
 #define _INCLUDED_APPLICATION_H_
 
+#include "configure.h"
+
+#if !defined(USE_3D_LAYER) || USE_3D_LAYER == 0
+# define APPLICATION_NAME "KABURAGI"
+#else
+# define APPLICATION_NAME "MIKADO"
+#endif
+
 #define MAJOR_VERSION 1
 
 #if MAJOR_VERSION == 1
@@ -405,6 +413,16 @@ typedef struct _APPLICATION
 * init_file_path	: 初期化ファイルのパス                           *
 *********************************************************************/
 extern void InitializeApplication(APPLICATION* app, char* init_file_path);
+
+/*********************************************************
+* GetActiveDrawWindow関数                                *
+* アクティブな描画領域を取得する                         *
+* 引数                                                   *
+* app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	アクティブな描画領域                                 *
+*********************************************************/
+extern DRAW_WINDOW* GetActiveDrawWindow(APPLICATION* app);
 
 /*****************************************************
 * RecoverBackUp関数                                  *
@@ -1011,6 +1029,40 @@ extern void InitializeScripts(SCRIPTS* scripts, const char* scripts_path);
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
 extern void ExecuteScript(GtkWidget* menu_item, APPLICATION* app);
+
+/*********************************************************
+* Change2LoupeMode関数                                   *
+* ルーペモードへ移行する                                 *
+* 引数                                                   *
+* app		: アプリケーションを管理する構造体のアドレス *
+*********************************************************/
+extern void Change2LoupeMode(APPLICATION* app);
+
+/*********************************************************
+* ReturnFromLoupeMode関数                                *
+* ルーペモードから戻る                                   *
+* 引数                                                   *
+* app		: アプリケーションを管理する構造体のアドレス *
+*********************************************************/
+extern void ReturnFromLoupeMode(APPLICATION* app);
+
+/*********************************************************
+* LayerViewSetDrawWindow関数                             *
+* レイヤービューにキャンバスの全てのレイヤーをセットする *
+* 引数                                                   *
+* layer_window	: レイヤービューを持つウィンドウ         *
+* draw_window	: 描画領域                               *
+*********************************************************/
+extern void LayerViewSetDrawWindow(LAYER_WINDOW* layer_window, DRAW_WINDOW* draw_window);
+
+/*****************************************************************
+* LoupeButtonToggled関数                                         *
+* ルーペモード切り替えボタンがクリックされた時のコールバック関数 *
+* 引数                                                           *
+* button	: ボタンウィジェット                                 *
+* app		: アプリケーションを管理する構造体のアドレス         *
+*****************************************************************/
+extern void LoupeButtonToggled(GtkWidget* button, APPLICATION* app);
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 /*****************************************************************

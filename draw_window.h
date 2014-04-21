@@ -207,6 +207,9 @@ typedef struct _DRAW_WINDOW
 	// 局所キャンバス
 	struct _DRAW_WINDOW *focal_window;
 
+	// 追加データ
+	void *extra_data;
+
 	// アプリケーション全体管理用構造体へのポインタ
 	struct _APPLICATION* app;
 
@@ -590,6 +593,22 @@ extern void DivideLinesRedo(DRAW_WINDOW* window, void* p);
 extern void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* window);
 
 extern gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_info, DRAW_WINDOW* window);
+
+/*********************************
+* Change2FocalMode関数           *
+* 局所キャンバスモードに移行する *
+* 引数                           *
+* parent_window	: 親キャンバス   *
+*********************************/
+extern void Change2FocalMode(DRAW_WINDOW* parent_window);
+
+/*********************************
+* ReturnFromFocalMode関数        *
+* 局所キャンバスモードから戻る   *
+* 引数                           *
+* parent_window	: 親キャンバス   *
+*********************************/
+extern void ReturnFromFocalMode(DRAW_WINDOW* parent_window);
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 extern void InitializeGL(DRAW_WINDOW* window);

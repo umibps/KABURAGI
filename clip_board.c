@@ -109,8 +109,10 @@ static void ClipBoardImageRecieveCallBack(
 	}
 	else
 	{	// 描画領域に新たにレイヤーを作成してコピー
-			// 追加するレイヤー
-		LAYER* layer;
+			// 貼り付ける描画領域
+		DRAW_WINDOW *window = GetActiveDrawWindow(app);
+		// 追加するレイヤー
+		LAYER *layer;
 		// レイヤーの名前
 		char layer_name[256];
 		// コピー元の一行分のバイト数
@@ -119,30 +121,34 @@ static void ClipBoardImageRecieveCallBack(
 		int32 x = 0, y = 0;
 
 		// 選択範囲があるときは座標を設定
-		if((app->draw_window[app->active_window]->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
+		if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 		{
-			x = app->draw_window[app->active_window]->selection_area.min_x;
-			y = app->draw_window[app->active_window]->selection_area.min_y;
+			x = window->selection_area.min_x;
+			y = window->selection_area.min_y;
 		}
 
 		// レイヤーの名前を作成
 		i = 1;
 		(void)strcpy(layer_name, app->labels->layer_window.pasted_layer);
-		while(CorrectLayerName(app->draw_window[app->active_window]->layer, layer_name) == 0)
+		while(CorrectLayerName(window->layer, layer_name) == 0)
 		{
 			(void)sprintf(layer_name, "%s (%d)", app->labels->layer_window.pasted_layer, i);
 			i++;
 		}
 
 		// アクティブな描画領域にレイヤーを追加
-		layer = CreateLayer(0, 0, app->draw_window[app->active_window]->width,
-			app->draw_window[app->active_window]->height, 4, TYPE_NORMAL_LAYER,
-			app->draw_window[app->active_window]->active_layer,
-			app->draw_window[app->active_window]->active_layer->next,
+		layer = CreateLayer(0, 0, window->width,
+			window->height, 4, TYPE_NORMAL_LAYER,
+			window->active_layer,
+			window->active_layer->next,
 			layer_name,
-			app->draw_window[app->active_window]
+			window
 		);
-		app->draw_window[app->active_window]->num_layer++;
+		window->num_layer++;
+		if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+		{
+			layer->flags |= LAYER_FOCAL_NEW;
+		}
 
 		// 画像データを追加したレイヤーにコピー
 		if(x + width > layer->width)
@@ -166,11 +172,11 @@ static void ClipBoardImageRecieveCallBack(
 			original_stride, 4, app->labels->menu.open_as_layer);
 
 		// 追加したレイヤーをアクティブに
-		LayerViewAddLayer(layer, app->draw_window[app->active_window]->layer,
-			app->layer_window.view, app->draw_window[app->active_window]->num_layer);
+		LayerViewAddLayer(layer, window->layer,
+			app->layer_window.view, window->num_layer);
 		ChangeActiveLayer(app->draw_window[app->active_window], layer);
 		LayerViewSetActiveLayer(
-			app->draw_window[app->active_window]->active_layer, app->layer_window.view
+			window->active_layer, app->layer_window.view
 		);
 	}
 
@@ -205,7 +211,7 @@ void ExecuteCopy(APPLICATION* app)
 	// コピーするピクセルバッファ
 	GdkPixbuf* pixbuf;
 	// アクティブな描画領域
-	DRAW_WINDOW* window = app->draw_window[app->active_window];
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
 	// コピー先のピクセルデータ
 	uint8* pixels;
 	// コピー開始座標
@@ -275,7 +281,7 @@ void ExecuteCopyVisible(APPLICATION* app)
 	// コピーするピクセルバッファ
 	GdkPixbuf* pixbuf;
 	// アクティブな描画領域
-	DRAW_WINDOW* window = app->draw_window[app->active_window];
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
 	// 合成したレイヤー
 	LAYER *mixed = MixLayerForSave(window);
 	// コピー先のピクセルデータ
@@ -350,7 +356,7 @@ void ExecuteCut(APPLICATION* app)
 	// コピーするピクセルバッファ
 	GdkPixbuf* pixbuf;
 	// アクティブな描画領域
-	DRAW_WINDOW* window = app->draw_window[app->active_window];
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
 	// コピー先のピクセルデータ
 	uint8* pixels;
 	// コピー開始座標

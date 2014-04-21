@@ -7,6 +7,47 @@
 extern "C" {
 #endif
 
+	typedef struct _BYTE_ARRAY
+{
+	uint8 *buffer;
+	size_t num_data;
+	size_t buffer_size;
+	size_t block_size;
+} BYTE_ARRAY;
+
+typedef struct _WORD_ARRAY
+{
+	uint16 *buffer;
+	size_t num_data;
+	size_t buffer_size;
+	size_t block_size;
+} WORD_ARRAY;
+
+typedef struct _UINT32_ARRAY
+{
+	uint32 *buffer;
+	size_t num_data;
+	size_t buffer_size;
+	size_t block_size;
+} UINT32_ARRAY;
+
+typedef struct _POINTER_ARRAY
+{
+	void **buffer;
+	size_t num_data;
+	size_t buffer_size;
+	size_t block_size;
+} POINTER_ARRAY;
+
+typedef struct _STRUCT_ARRAY
+{
+	uint8 *buffer;
+	size_t num_data;
+	size_t buffer_size;
+	size_t block_size;
+	size_t data_size;
+} STRUCT_ARRAY;
+
 /**************************************
 * StringCompareIgnoreCaseä÷êî         *
 * ëÂï∂éö/è¨ï∂éöÇñ≥éãÇµÇƒï∂éöóÒÇî‰är *
@@ -37,6 +78,57 @@ extern void memset32(void* buff, uint32 value, size_t size);
 * size	: ñÑÇﬂÇÈÉoÉCÉgêî              *
 **************************************/
 extern void memset64(void* buff, uint64 value, size_t size);
+
+extern BYTE_ARRAY* ByteArrayNew(size_t block_size);
+extern void ByteArrayAppend(BYTE_ARRAY* barray, uint8 data);
+extern void ByteArrayDesteroy(BYTE_ARRAY** barray);
+extern void ByteArrayResize(BYTE_ARRAY* barray, size_t new_size);
+
+extern WORD_ARRAY* WordArrayNew(size_t block_size);
+extern void WordArrayAppend(WORD_ARRAY* warray, uint16 data);
+extern void WordArrayDestroy(WORD_ARRAY** warray);
+extern void WordArrayResize(WORD_ARRAY* warray, size_t new_size);
+
+extern UINT32_ARRAY* Uint32ArrayNew(size_t block_size);
+extern void Uint32ArrayAppend(UINT32_ARRAY* uarray, uint32 data);
+extern void Uint32ArrayDestroy(UINT32_ARRAY** uarray);
+extern void Uint32ArrayResize(UINT32_ARRAY* uint32_array, size_t new_size);
+
+extern POINTER_ARRAY* PointerArrayNew(size_t block_size);
+extern void PointerArrayRelease(
+	POINTER_ARRAY* pointer_array,
+	void (*destroy_func)(void*)
+);
+extern void PointerArrayDestroy(
+	POINTER_ARRAY** pointer_array,
+	void (*destroy_func)(void*)
+);
+void PointerArrayAppend(POINTER_ARRAY* pointer_array, void* data);
+extern void PointerArrayRemoveByIndex(
+	POINTER_ARRAY* pointer_array,
+	size_t index,
+	void (*destroy_func)(void*)
+);
+extern void PointerArrayRemoveByData(
+	POINTER_ARRAY* pointer_array,
+	void* data,
+	void (*destroy_func)(void*)
+);
+extern int PointerArrayDoesCointainData(POINTER_ARRAY* pointer_array, void* data);
+
+extern STRUCT_ARRAY* StructArrayNew(size_t data_size, size_t block_size);
+extern void StructArrayDestroy(
+	STRUCT_ARRAY** struct_array,
+	void (*destroy_func)(void*)
+);
+extern void StructArrayAppend(STRUCT_ARRAY* struct_array, void* data);
+extern void* StructArrayReserve(STRUCT_ARRAY* struct_array);
+extern void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size);
+extern void StructArrayRemoveByIndex(
+	STRUCT_ARRAY* struct_array,
+	size_t index,
+	void (*destroy_func)(void*)
+);
 
 #ifdef _MSC_VER
 extern int strncasecmp(const char* s1, const char* s2, size_t n);

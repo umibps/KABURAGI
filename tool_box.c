@@ -146,6 +146,10 @@ void CommonToolButtonClicked(GtkWidget* widget, gpointer data)
 	{
 		for(j=0; j<COMMON_TOOL_TABLE_WIDTH; j++)
 		{
+			if(app->tool_window.common_tools[i][j].tool_type == TYPE_LOUPE_TOOL)
+			{
+				continue;
+			}
 			if(&app->tool_window.common_tools[i][j] == core)
 			{
 				if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(
@@ -337,7 +341,7 @@ gboolean CommonToolButtonRightClicked(GtkWidget* button, GdkEventButton* event_i
 void BrushButtonClicked(GtkWidget* widget, gpointer data)
 {
 	BRUSH_CORE* core = (BRUSH_CORE*)data;
-	APPLICATION* app = g_object_get_data(G_OBJECT(widget), "application");
+	APPLICATION* app = (APPLICATION*)g_object_get_data(G_OBJECT(widget), "application");
 	int i, j;
 
 	if(app->window_num > 0)
@@ -449,7 +453,7 @@ void BrushButtonClicked(GtkWidget* widget, gpointer data)
 		GTK_SCROLLED_WINDOW(app->tool_window.detail_ui_scroll), app->tool_window.detail_ui);
 	gtk_widget_show_all(app->tool_window.detail_ui);
 
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 	for(i=0; i<MAX_TOUCH; i++)
 	{
 		if(app->tool_window.touch[i].brush_data != NULL)
@@ -494,6 +498,10 @@ void BrushButtonClicked(GtkWidget* widget, gpointer data)
 	{
 		for(j=0; j<COMMON_TOOL_TABLE_WIDTH; j++)
 		{
+			if(app->tool_window.common_tools[i][j].tool_type == TYPE_LOUPE_TOOL)
+			{
+				continue;
+			}
 			gtk_toggle_button_set_active(
 				GTK_TOGGLE_BUTTON(app->tool_window.common_tools[i][j].button), FALSE);
 		}
@@ -503,7 +511,7 @@ void BrushButtonClicked(GtkWidget* widget, gpointer data)
 static void ButtonImageFileSelectionChange(GtkWidget* combo, GtkWidget* image)
 {
 	gchar *directory_path = (gchar*)g_object_get_data(G_OBJECT(combo), "directory_path");
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gchar *file_path = g_build_filename(directory_path,
 		gtk_combo_box_get_active_text(GTK_COMBO_BOX(combo)), NULL);
 #else
@@ -628,7 +636,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 	g_dir_close(dir);
 
 	gtk_combo_box_set_active(GTK_COMBO_BOX(button_image_file), 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	file_path = g_build_filename(image_directory_path,
 		gtk_combo_box_get_active_text(GTK_COMBO_BOX(button_image_file)), NULL);
 #else
@@ -637,7 +645,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 #endif
 	button_image = gtk_image_new_from_file(file_path);
 	g_free(file_path);
-	g_signal_connect(G_OBJECT(button_image_file), "changed",
+	(void)g_signal_connect(G_OBJECT(button_image_file), "changed",
 		G_CALLBACK(ButtonImageFileSelectionChange), button_image);
 
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
@@ -687,7 +695,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 		if(gtk_combo_box_get_active(GTK_COMBO_BOX(brush_type)) == BRUSH_TYPE_SCRIPT_BRUSH)
 		{
 			gchar *dir_path = g_build_filename(app->current_path, "brushes", NULL);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			GtkWidget *combo = gtk_combo_box_new_text();
 #else
 			GtkWidget *combo = gtk_combo_box_text_new();
@@ -718,7 +726,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 				size_t name_length = strlen(file_name);
 				if(name_length >= 4 && StringCompareIgnoreCase(&file_name[name_length-4], ".lua") == 0)
 				{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 					gtk_combo_box_append_text(GTK_COMBO_BOX(combo), file_name);
 #else
 					gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), file_name);
@@ -733,7 +741,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 			if(gtk_dialog_run(GTK_DIALOG(initialize_dialog)) == GTK_RESPONSE_ACCEPT)
 			{
 				SCRIPT *script;
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 				file_path = g_build_filename(app->current_path, "brushes",
 					gtk_combo_box_get_active_text(GTK_COMBO_BOX(combo)), NULL);
 #else
@@ -760,7 +768,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 					{
 						gtk_widget_destroy(app->tool_window.brushes[0][0].button);
 					}
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 					(void)sprintf(str, "./image/%s",
 						gtk_combo_box_get_active_text(GTK_COMBO_BOX(button_image_file)));
 #else
@@ -768,7 +776,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 						gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(button_image_file)));
 #endif
 					core->image_file_path = MEM_STRDUP_FUNC(str);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 					file_path = g_build_filename(app->current_path, "image",
 						gtk_combo_box_get_active_text(GTK_COMBO_BOX(button_image_file)), NULL);
 #else
@@ -778,8 +786,8 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 					system_path = g_locale_from_utf8(file_path, -1, NULL, NULL, NULL);
 					core->button = CreateImageButton(system_path, core->name, app->tool_window.font_file);
 					g_object_set_data(G_OBJECT(core->button), "application", app);
-					g_signal_connect(G_OBJECT(core->button), "clicked", G_CALLBACK(BrushButtonClicked), core);
-					g_signal_connect(G_OBJECT(core->button), "button_press_event",
+					(void)g_signal_connect(G_OBJECT(core->button), "clicked", G_CALLBACK(BrushButtonClicked), core);
+					(void)g_signal_connect(G_OBJECT(core->button), "button_press_event",
 						G_CALLBACK(BrushButtonRightClicked), core);
 					gtk_widget_add_events(core->button, GDK_BUTTON_PRESS_MASK);
 					gtk_table_attach(GTK_TABLE(app->tool_window.brush_table), core->button,
@@ -815,7 +823,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 			{
 				gtk_widget_destroy(app->tool_window.brushes[0][0].button);
 			}
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			(void)sprintf(str, "./image/%s",
 				gtk_combo_box_get_active_text(GTK_COMBO_BOX(button_image_file)));
 #else
@@ -823,7 +831,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 				gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(button_image_file)));
 #endif
 			core->image_file_path = MEM_STRDUP_FUNC(str);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			file_path = g_build_filename(app->current_path, "image",
 				gtk_combo_box_get_active_text(GTK_COMBO_BOX(button_image_file)), NULL);
 #else
@@ -833,8 +841,8 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 			system_path = g_locale_from_utf8(file_path, -1, NULL, NULL, NULL);
 			core->button = CreateImageButton(system_path, core->name, app->tool_window.font_file);
 			g_object_set_data(G_OBJECT(core->button), "application", app);
-			g_signal_connect(G_OBJECT(core->button), "clicked", G_CALLBACK(BrushButtonClicked), core);
-			g_signal_connect(G_OBJECT(core->button), "button_press_event",
+			(void)g_signal_connect(G_OBJECT(core->button), "clicked", G_CALLBACK(BrushButtonClicked), core);
+			(void)g_signal_connect(G_OBJECT(core->button), "button_press_event",
 				G_CALLBACK(BrushButtonRightClicked), core);
 			gtk_widget_add_events(core->button, GDK_BUTTON_PRESS_MASK);
 			gtk_table_attach(GTK_TABLE(app->tool_window.brush_table), core->button,
@@ -905,8 +913,8 @@ void CopyBrushData(APPLICATION* app)
 		(void)memcpy(target->brush_data, src->brush_data, src->detail_data_size);
 		target->detail_data_size = src->detail_data_size;
 
-		g_signal_connect(G_OBJECT(target->button), "clicked", G_CALLBACK(BrushButtonClicked), target);
-		g_signal_connect(G_OBJECT(target->button), "button_press_event",
+		(void)g_signal_connect(G_OBJECT(target->button), "clicked", G_CALLBACK(BrushButtonClicked), target);
+		(void)g_signal_connect(G_OBJECT(target->button), "button_press_event",
 			G_CALLBACK(BrushButtonRightClicked), target);
 		gtk_widget_add_events(target->button, GDK_BUTTON_PRESS_MASK);
 
@@ -1067,8 +1075,8 @@ void ChangeBrushPreference(APPLICATION* app)
 			g_free(file_path);
 			g_object_set_data(G_OBJECT(target->button), "application", app);
 
-			g_signal_connect(G_OBJECT(target->button), "clicked", G_CALLBACK(BrushButtonClicked), target);
-			g_signal_connect(G_OBJECT(target->button), "button_press_event",
+			(void)g_signal_connect(G_OBJECT(target->button), "clicked", G_CALLBACK(BrushButtonClicked), target);
+			(void)g_signal_connect(G_OBJECT(target->button), "button_press_event",
 				G_CALLBACK(BrushButtonRightClicked), target);
 			gtk_widget_add_events(target->button, GDK_BUTTON_PRESS_MASK);
 
@@ -1768,6 +1776,11 @@ void VectorBrushButtonClicked(GtkWidget* widget, gpointer data)
 	{
 		for(j=0; j<COMMON_TOOL_TABLE_WIDTH; j++)
 		{
+			if(app->tool_window.common_tools[i][j].tool_type == TYPE_LOUPE_TOOL)
+			{
+				continue;
+			}
+
 			if(GTK_IS_TOGGLE_BUTTON(app->tool_window.vector_brushes[i][j].button) != FALSE)
 			{
 				gtk_toggle_button_set_active(
@@ -1804,7 +1817,7 @@ void CreateBrushTable(
 			if(brush_data[y][x].name == NULL)
 			{
 				button = gtk_button_new();
-				g_signal_connect(G_OBJECT(button), "clicked",
+				(void)g_signal_connect(G_OBJECT(button), "clicked",
 					G_CALLBACK(BrushBlankButtonCallBack), &brush_data[y][x]);
 				g_object_set_data(G_OBJECT(button), "table_x", GINT_TO_POINTER(x));
 				g_object_set_data(G_OBJECT(button), "table_y", GINT_TO_POINTER(y));
@@ -1842,7 +1855,7 @@ void CreateBrushTable(
 			}
 			g_object_set_data(G_OBJECT(button), "application", app);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			gtk_widget_set_extension_events(button, GDK_EXTENSION_EVENTS_ALL);
 #endif
 			brush_data[y][x].button = button;
@@ -1908,7 +1921,7 @@ void CreateVectorBrushTable(
 			}
 			g_object_set_data(G_OBJECT(button), "application", app);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			gtk_widget_set_extension_events(button, GDK_EXTENSION_EVENTS_ALL);
 #endif
 			brush_data[y][x].button = button;
@@ -2546,10 +2559,17 @@ GtkWidget *CreateToolBox(
 					button = CreateImageButton(file_path, NULL, NULL);
 					g_free(file_path);
 
-					(void)g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(CommonToolButtonClicked),
-						&common_tool_data[y][x]);
-					(void)g_signal_connect(G_OBJECT(button), "button_press_event",
-						G_CALLBACK(CommonToolButtonRightClicked), &common_tool_data[y][x]);
+					if(common_tool_data[y][x].tool_type == TYPE_LOUPE_TOOL)
+					{
+						(void)g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(LoupeButtonToggled), app);
+					}
+					else
+					{
+						(void)g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(CommonToolButtonClicked),
+							&common_tool_data[y][x]);
+						(void)g_signal_connect(G_OBJECT(button), "button_press_event",
+							G_CALLBACK(CommonToolButtonRightClicked), &common_tool_data[y][x]);
+					}
 					gtk_widget_set_tooltip_text(button, common_tool_data[y][x].name);
 				}
 				g_object_set_data(G_OBJECT(button), "application", app);

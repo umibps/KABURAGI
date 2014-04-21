@@ -27,7 +27,7 @@ extern "C" {
 #endif
 
 static void ExecuteNew(APPLICATION *app);
-
+void Change2LoupeMode(APPLICATION* app);
 /*********************************************************
 * ExecuteDisplayReverseHorizontally関数                  *
 * 表示を左右反転                                         *
@@ -1313,6 +1313,8 @@ static void ExecuteNew(APPLICATION* app)
 *****************************************************/
 void ExecuteMakeColorLayer(APPLICATION* app)
 {
+	// アクティブな描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// 作成したレイヤーのアドレス
 	LAYER* layer;
 	// 新規作成するレイヤーの名前
@@ -1328,11 +1330,10 @@ void ExecuteMakeColorLayer(APPLICATION* app)
 	{
 		(void)sprintf(layer_name, "%s %d", app->labels->layer_window.new_layer, counter);
 		counter++;
-	} while(CorrectLayerName(
-		app->draw_window[app->active_window]->layer, layer_name) == 0);
+	} while(CorrectLayerName(window->layer, layer_name) == 0);
 
 	// 現在のアクティブレイヤーが通常レイヤー以外ならばツール変更
-	if(app->draw_window[app->active_window]->active_layer->layer_type != TYPE_NORMAL_LAYER)
+	if(window->active_layer->layer_type != TYPE_NORMAL_LAYER)
 	{
 		gtk_widget_destroy(app->tool_window.brush_table);
 		CreateBrushTable(app, &app->tool_window, app->tool_window.brushes);
@@ -1345,25 +1346,31 @@ void ExecuteMakeColorLayer(APPLICATION* app)
 	layer =CreateLayer(
 		0,
 		0,
-		app->draw_window[app->active_window]->width,
-		app->draw_window[app->active_window]->height,
-		app->draw_window[app->active_window]->channel,
+		window->width,
+		window->height,
+		window->channel,
 		TYPE_NORMAL_LAYER,
-		app->draw_window[app->active_window]->active_layer,
-		app->draw_window[app->active_window]->active_layer->next,
+		window->active_layer,
+		window->active_layer->next,
 		layer_name,
-		app->draw_window[app->active_window]
+		window
 	);
 	// 作業レイヤーのピクセルデータを初期化
-	(void)memset(app->draw_window[app->active_window]->work_layer->pixels, 0, layer->stride*layer->height);
+	(void)memset(window->work_layer->pixels, 0, layer->stride*layer->height);
+
+	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		layer->flags |= LAYER_FOCAL_NEW;
+	}
 
 	// レイヤーの数を更新
-	app->draw_window[app->active_window]->num_layer++;
+	window->num_layer++;
 
 	// レイヤーウィンドウに追加してアクティブレイヤーに
-	LayerViewAddLayer(layer, app->draw_window[app->active_window]->layer,
-		app->layer_window.view, app->draw_window[app->active_window]->num_layer);
-	ChangeActiveLayer(app->draw_window[app->active_window], layer);
+	LayerViewAddLayer(layer, window->layer,
+		app->layer_window.view, window->num_layer);
+	ChangeActiveLayer(window, layer);
 	LayerViewSetActiveLayer(layer, app->layer_window.view);
 
 	// 「新規レイヤー」の履歴を登録
@@ -1378,6 +1385,8 @@ void ExecuteMakeColorLayer(APPLICATION* app)
 *****************************************************/
 void ExecuteMakeVectorLayer(APPLICATION *app)
 {
+	// アクティブな描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// 新規作成したレイヤーのアドレスを受け取る
 	LAYER* layer;
 	// 作成するレイヤーの名前
@@ -1393,11 +1402,10 @@ void ExecuteMakeVectorLayer(APPLICATION *app)
 	{
 		(void)sprintf(layer_name, "%s %d", app->labels->layer_window.new_vector, counter);
 		counter++;
-	} while(CorrectLayerName(
-		app->draw_window[app->active_window]->layer, layer_name) == 0);
+	} while(CorrectLayerName(window->layer, layer_name) == 0);
 
 	// アクティブレイヤーがベクトルレイヤーでなければツール変更
-	if(app->draw_window[app->active_window]->active_layer->layer_type != TYPE_VECTOR_LAYER)
+	if(window->active_layer->layer_type != TYPE_VECTOR_LAYER)
 	{
 		gtk_widget_destroy(app->tool_window.brush_table);
 		CreateVectorBrushTable(app, &app->tool_window, app->tool_window.vector_brushes);
@@ -1416,23 +1424,28 @@ void ExecuteMakeVectorLayer(APPLICATION *app)
 	layer = CreateLayer(
 		0,
 		0,
-		app->draw_window[app->active_window]->width,
-		app->draw_window[app->active_window]->height,
-		app->draw_window[app->active_window]->channel,
+		window->width,
+		window->height,
+		window->channel,
 		TYPE_VECTOR_LAYER,
-		app->draw_window[app->active_window]->active_layer,
-		app->draw_window[app->active_window]->active_layer->next,
+		window->active_layer,
+		window->active_layer->next,
 		layer_name,
-		app->draw_window[app->active_window]
+		window
 	);
 
+	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		layer->flags |= LAYER_FOCAL_NEW;
+	}
 	// レイヤー数を更新
-	app->draw_window[app->active_window]->num_layer++;
+	window->num_layer++;
 
 	// レイヤーウィンドウに登録してアクティブレイヤーに
-	LayerViewAddLayer(layer, app->draw_window[app->active_window]->layer,
-		app->layer_window.view, app->draw_window[app->active_window]->num_layer);
-	ChangeActiveLayer(app->draw_window[app->active_window], layer);
+	LayerViewAddLayer(layer, window->layer,
+		app->layer_window.view, window->num_layer);
+	ChangeActiveLayer(window, layer);
 	LayerViewSetActiveLayer(layer, app->layer_window.view);
 
 	// 「新規ベクトルレイヤー」の履歴を登録
@@ -1447,6 +1460,8 @@ void ExecuteMakeVectorLayer(APPLICATION *app)
 *****************************************************/
 void ExecuteMakeLayerSet(APPLICATION *app)
 {
+	// アクティブな描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// 新規作成したレイヤーのアドレスを受け取る
 	LAYER* layer;
 	// 作成するレイヤーの名前
@@ -1462,29 +1477,34 @@ void ExecuteMakeLayerSet(APPLICATION *app)
 	{
 		(void)sprintf(layer_name, "%s %d", app->labels->layer_window.new_layer_set, counter);
 		counter++;
-	} while(CorrectLayerName(
-		app->draw_window[app->active_window]->layer, layer_name) == 0);
+	} while(CorrectLayerName(window->layer, layer_name) == 0);
 
 	// レイヤー作成
 	layer = CreateLayer(
 		0,
 		0,
-		app->draw_window[app->active_window]->width,
-		app->draw_window[app->active_window]->height,
-		app->draw_window[app->active_window]->channel,
+		window->width,
+		window->height,
+		window->channel,
 		TYPE_LAYER_SET,
-		app->draw_window[app->active_window]->active_layer,
-		app->draw_window[app->active_window]->active_layer->next,
+		window->active_layer,
+		window->active_layer->next,
 		layer_name,
-		app->draw_window[app->active_window]
+		window
 	);
+
+	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		layer->flags |= LAYER_FOCAL_NEW;
+	}
 
 	// レイヤー数を更新
 	app->draw_window[app->active_window]->num_layer++;
 
 	// レイヤーウィンドウに登録してアクティブレイヤーに
-	LayerViewAddLayer(layer, app->draw_window[app->active_window]->layer,
-		app->layer_window.view, app->draw_window[app->active_window]->num_layer);
+	LayerViewAddLayer(layer, window->layer,
+		app->layer_window.view, window->num_layer);
 
 	// 「新規ベクトルレイヤー」の履歴を登録
 	AddNewLayerHistory(layer, layer->layer_type);
@@ -1499,6 +1519,8 @@ void ExecuteMakeLayerSet(APPLICATION *app)
 *****************************************************/
 void ExecuteMake3DLayer(APPLICATION* app)
 {
+	// アクティブな描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// 新規作成したレイヤーのアドレスを受け取る
 	LAYER* layer;
 	// 作成するレイヤーの名前
@@ -1514,29 +1536,34 @@ void ExecuteMake3DLayer(APPLICATION* app)
 	{
 		(void)sprintf(layer_name, "%s %d", app->labels->layer_window.new_3d_modeling, counter);
 		counter++;
-	} while(CorrectLayerName(
-		app->draw_window[app->active_window]->layer, layer_name) == 0);
+	} while(CorrectLayerName(window->layer, layer_name) == 0);
 
 	// レイヤー作成
 	layer = CreateLayer(
 		0,
 		0,
-		app->draw_window[app->active_window]->width,
-		app->draw_window[app->active_window]->height,
-		app->draw_window[app->active_window]->channel,
+		window->width,
+		window->height,
+		window->channel,
 		TYPE_3D_LAYER,
-		app->draw_window[app->active_window]->active_layer,
-		app->draw_window[app->active_window]->active_layer->next,
+		window->active_layer,
+		window->active_layer->next,
 		layer_name,
-		app->draw_window[app->active_window]
+		window
 	);
 
+	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		layer->flags |= LAYER_FOCAL_NEW;
+	}
+
 	// レイヤー数を更新
-	app->draw_window[app->active_window]->num_layer++;
+	window->num_layer++;
 
 	// レイヤーウィンドウに登録してアクティブレイヤーに
-	LayerViewAddLayer(layer, app->draw_window[app->active_window]->layer,
-		app->layer_window.view, app->draw_window[app->active_window]->num_layer);
+	LayerViewAddLayer(layer, window->layer,
+		app->layer_window.view, window->num_layer);
 
 	// 「新規ベクトルレイヤー」の履歴を登録
 	AddNewLayerHistory(layer, layer->layer_type);
@@ -1738,18 +1765,20 @@ void ExecuteDownLayer(APPLICATION* app)
 *****************************************************/
 void ExecuteZoomIn(APPLICATION *app)
 {
+	// アクティブな描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// アクティブな描画領域の拡大率変更
-	app->draw_window[app->active_window]->zoom += 10;
+	window->zoom += 10;
 	// 最大値を超えていたら修正
-	if(app->draw_window[app->active_window]->zoom > MAX_ZOOM)
+	if(window->zoom > MAX_ZOOM)
 	{
-		app->draw_window[app->active_window]->zoom = MAX_ZOOM;
+		window->zoom = MAX_ZOOM;
 	}
 
 	// ナビゲーションの拡大縮小率スライダを動かして
 		// 描画領域のリサイズ等を行う
 	gtk_adjustment_set_value(app->navigation_window.zoom_slider,
-		app->draw_window[app->active_window]->zoom);
+		window->zoom);
 }
 
 /*****************************************************
@@ -1760,18 +1789,20 @@ void ExecuteZoomIn(APPLICATION *app)
 *****************************************************/
 void ExecuteZoomOut(APPLICATION *app)
 {
+	// アクティブな描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// アクティブな描画領域の拡大率を変更
-	app->draw_window[app->active_window]->zoom -= 10;
+	window->zoom -= 10;
 	// 最小値を割っていたら修正
-	if(app->draw_window[app->active_window]->zoom < MIN_ZOOM)
+	if(window->zoom < MIN_ZOOM)
 	{
-		app->draw_window[app->active_window]->zoom = MIN_ZOOM;
+		window->zoom = MIN_ZOOM;
 	}
 
 	// ナビゲーションの拡大縮小率スライダを動かして
 		// 描画領域のリサイズ等を行う
 	gtk_adjustment_set_value(app->navigation_window.zoom_slider,
-		app->draw_window[app->active_window]->zoom);
+		window->zoom);
 }
 
 /*****************************************************
@@ -1782,6 +1813,8 @@ void ExecuteZoomOut(APPLICATION *app)
 *****************************************************/
 void ExecuteZoomReset(APPLICATION* app)
 {
+	// アクティブな描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// 描画領域がなければ終了
 	if(app->window_num == 0)
 	{
@@ -1789,12 +1822,12 @@ void ExecuteZoomReset(APPLICATION* app)
 	}
 
 	// アクティブな描画領域の拡大率をリセット
-	app->draw_window[app->active_window]->zoom = 100;
+	window->zoom = 100;
 
 	// ナビゲーションの拡大縮小率スライダを動かして
 		// 描画領域のリサイズ等を行う
 	gtk_adjustment_set_value(app->navigation_window.zoom_slider,
-		app->draw_window[app->active_window]->zoom);
+		window->zoom);
 }
 
 #define ROTATE_STEP 15
@@ -1817,7 +1850,7 @@ void ExecuteRotateClockwise(APPLICATION* app)
 		return;
 	}
 
-	window = app->draw_window[app->active_window];
+	window = GetActiveDrawWindow(app);
 
 	// 現在の角度を取得
 	angle = gtk_adjustment_get_value(app->navigation_window.rotate_slider) + ROTATE_STEP;
@@ -1850,7 +1883,7 @@ void ExecuteRotateCounterClockwise(APPLICATION* app)
 		return;
 	}
 
-	window = app->draw_window[app->active_window];
+	window = GetActiveDrawWindow(app);
 
 	// 現在の角度を取得
 	angle = gtk_adjustment_get_value(app->navigation_window.rotate_slider) - ROTATE_STEP;
@@ -1885,6 +1918,7 @@ void ExecuteRotateReset(APPLICATION* app)
 *********************************************************/
 void ExecuteDisplayReverseHorizontally(GtkWidget* menu_item, APPLICATION* app)
 {
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	GtkAdjustment *scroll_x_adjust;
 	GtkAllocation allocation;
 	double x, max_x;
@@ -1901,29 +1935,26 @@ void ExecuteDisplayReverseHorizontally(GtkWidget* menu_item, APPLICATION* app)
 
 	if(state == FALSE)
 	{
-		app->draw_window[app->active_window]->flags
-			&= ~(DRAW_WINDOW_DISPLAY_HORIZON_REVERSE);
+		window->flags &= ~(DRAW_WINDOW_DISPLAY_HORIZON_REVERSE);
 	}
 	else
 	{
-		app->draw_window[app->active_window]->flags
-			|= DRAW_WINDOW_DISPLAY_HORIZON_REVERSE;
+		window->flags |= DRAW_WINDOW_DISPLAY_HORIZON_REVERSE;
 	}
 
-#if MAJOR_VERSION > 1
-	gtk_widget_get_allocation(app->draw_window[app->active_window]->scroll, &allocation);
+#if GTK_MAJOR_VERSION >= 3
+	gtk_widget_get_allocation(window>scroll, &allocation);
 #else
-	allocation = app->draw_window[app->active_window]->scroll->allocation;
+	allocation = window->scroll->allocation;
 #endif
 	scroll_x_adjust = gtk_scrolled_window_get_hadjustment(
-		GTK_SCROLLED_WINDOW(app->draw_window[app->active_window]->scroll));
+		GTK_SCROLLED_WINDOW(window->scroll));
 	x = gtk_adjustment_get_value(scroll_x_adjust);
 	max_x = gtk_adjustment_get_upper(scroll_x_adjust);
 	gtk_adjustment_set_value(scroll_x_adjust, max_x - x - allocation.width);
 
 	// 画面更新することでナビゲーションとプレビューの内容を更新
-	app->draw_window[app->active_window]->flags
-		|= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
 }
 
 /*********************************************************

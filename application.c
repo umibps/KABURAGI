@@ -52,6 +52,24 @@ typedef struct _REALIZE_DATA
 } REALIZE_DATA;
 
 /*********************************************************
+* GetActiveDrawWindow関数                                *
+* アクティブな描画領域を取得する                         *
+* 引数                                                   *
+* app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	アクティブな描画領域                                 *
+*********************************************************/
+DRAW_WINDOW* GetActiveDrawWindow(APPLICATION* app)
+{
+	DRAW_WINDOW *ret = app->draw_window[app->active_window];
+	if(ret->focal_window != NULL)
+	{
+		return ret->focal_window;
+	}
+	return ret;
+}
+
+/*********************************************************
 * SplashWindowTimeOut関数                                *
 * 一定時間スプラッシュウィンドウを表示したら呼び出される *
 * 引数                                                   *
@@ -80,7 +98,7 @@ void InitializeSplashWindow(SPLASH_WINDOW* window)
 	// ウィンドウ作成
 	window->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	// ウィンドウタイトルを設定
-	gtk_window_set_title(GTK_WINDOW(window->window), "Paint Soft KABURAGI");
+	gtk_window_set_title(GTK_WINDOW(window->window), "Paint Soft " APPLICATION_NAME);
 	// スプラッシュウィンドウへ
 	gtk_window_set_type_hint(GTK_WINDOW(window->window), GDK_WINDOW_TYPE_HINT_SPLASHSCREEN);
 	// イメージをロード
@@ -930,12 +948,7 @@ static void OnChangeCurrentTab(
 {
 	// レイヤービューのウィジェットを全て削除
 		// レイヤービューのリスト
-	GList* view_list = gtk_container_get_children(GTK_CONTAINER(app->layer_window.view));
-	while(view_list != NULL)
-	{
-		gtk_widget_destroy(GTK_WIDGET(view_list->data));
-		view_list = view_list->next;
-	}
+	ClearLayerView(&app->layer_window);
 
 	// 描画領域変更中のフラグを立てる
 	app->flags |= APPLICATION_IN_SWITCH_DRAW_WINDOW;
@@ -943,57 +956,64 @@ static void OnChangeCurrentTab(
 	// 描画領域の新規作成中でなければ新たにアクティブになる描画領域のレイヤーをビューに追加
 	if((app->flags & APPLICATION_IN_MAKE_NEW_DRAW_AREA) == 0)
 	{
-		LAYER* layer;	// ビューに追加するレイヤー
-		int i;			// for文用のカウンタ
+		DRAW_WINDOW* window;	// アクティブにする描画領域
+		LAYER* layer;			// ビューに追加するレイヤー
+		int i;					// for文用のカウンタ
 
 		// アクティブな描画領域をセット
 		app->active_window = (int16)page;
+		window = GetActiveDrawWindow(app);
+
+		if(window->focal_window != NULL)
+		{
+			window = window->focal_window;
+		}
 
 		// 一番下のレイヤーを設定
-		layer = app->draw_window[app->active_window]->layer;
+		layer = window->layer;
 
 		// ビューに全てのレイヤーを追加
-		for(i=0; i<app->draw_window[app->active_window]->num_layer; i++)
+		for(i=0; i<window->num_layer; i++)
 		{
-			LayerViewAddLayer(layer, app->draw_window[app->active_window]->layer,
+			LayerViewAddLayer(layer, window->layer,
 				app->layer_window.view, i+1);
 			layer = layer->next;
 		}
 
 		// アクティブレイヤーをセット
-		LayerViewSetActiveLayer(app->draw_window[app->active_window]->active_layer, app->layer_window.view);
+		LayerViewSetActiveLayer(window->active_layer, app->layer_window.view);
 
 		// ナビゲーションの拡大縮小率を変更
 		gtk_adjustment_set_value(app->navigation_window.zoom_slider,
-			app->draw_window[app->active_window]->zoom);
+			window->zoom);
 
 		// 表示を反転の設定
 		gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(app->menu_data.reverse_horizontally),
-			app->draw_window[app->active_window]->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE);
+			window->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE);
 
 		// 背景色変更のメニューの状態を設定
 		gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(app->menus.change_back_ground_menu),
-			app->draw_window[app->active_window]->flags & DRAW_WINDOW_SECOND_BG);
+			window->flags & DRAW_WINDOW_SECOND_BG);
 		if(app->layer_window.change_bg_button != NULL)
 		{
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->layer_window.change_bg_button),
-				app->draw_window[app->active_window]->flags & DRAW_WINDOW_SECOND_BG);
+				window->flags & DRAW_WINDOW_SECOND_BG);
 		}
 
 		// 描画領域があればナビゲーション、レイヤーウィンドウを更新
 		if(app->window_num > 0)
 		{
-			ChangeNavigationDrawWindow(&app->navigation_window, app->draw_window[app->active_window]);
-			FillTextureLayer(app->draw_window[app->active_window]->texture, &app->textures);
-			g_object_set_data(G_OBJECT(app->draw_window[app->active_window]->active_layer->widget->box), "signal_id",
-				GUINT_TO_POINTER(g_signal_connect(G_OBJECT(app->draw_window[app->active_window]->active_layer->widget->box), "size-allocate",
+			ChangeNavigationDrawWindow(&app->navigation_window, window);
+			FillTextureLayer(window->texture, &app->textures);
+			g_object_set_data(G_OBJECT(window->active_layer->widget->box), "signal_id",
+				GUINT_TO_POINTER(g_signal_connect(G_OBJECT(window->active_layer->widget->box), "size-allocate",
 					G_CALLBACK(Move2ActiveLayer), app)));
-			ChangeActiveLayer(app->draw_window[app->active_window], app->draw_window[app->active_window]->active_layer);
+			ChangeActiveLayer(window, window->active_layer);
 			gtk_window_set_title(GTK_WINDOW(app->window), app->draw_window[app->active_window]->file_name);
 
 			// 表示用フィルターの状態を設定
 			app->display_filter.filter_func = app->tool_window.color_chooser->filter_func =
-				g_display_filter_funcs[app->draw_window[app->active_window]->display_filter_mode];
+				g_display_filter_funcs[window->display_filter_mode];
 			app->display_filter.filter_data = app->tool_window.color_chooser->filter_data = (void*)app;
 
 			gtk_widget_queue_draw(app->tool_window.color_chooser->widget);
@@ -1001,14 +1021,14 @@ static void OnChangeCurrentTab(
 			gtk_widget_queue_draw(app->tool_window.color_chooser->pallete_widget);
 
 			gtk_check_menu_item_set_active(
-				GTK_CHECK_MENU_ITEM(app->menus.display_filter_menus[app->draw_window[app->active_window]->display_filter_mode]),
+				GTK_CHECK_MENU_ITEM(app->menus.display_filter_menus[window->display_filter_mode]),
 				TRUE
 			);
 		}
 		else
 		{	// 描画領域が無ければメインウィンドウのキャプションを変更
 			char window_title[512];
-			(void)sprintf(window_title, "Paint Soft KABURAGI %d.%d.%d.%d",
+			(void)sprintf(window_title, "Paint Soft " APPLICATION_NAME " %d.%d.%d.%d",
 				MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
 			gtk_window_set_title(GTK_WINDOW(app->window), window_title);
 		}
@@ -1016,8 +1036,6 @@ static void OnChangeCurrentTab(
 
 	// 描画領域切り替え終了
 	app->flags &= ~(APPLICATION_IN_SWITCH_DRAW_WINDOW);
-
-	g_list_free(view_list);
 }
 
 /*******************************
@@ -1299,7 +1317,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 	gtk_window_set_auto_startup_notification(TRUE);
 
 	// アプリケーション名の設定
-	g_set_application_name("Paint Soft KABURAGI");
+	g_set_application_name("Paint Soft " APPLICATION_NAME);
 
 	// フルスクリーンの設定
 	if((app->flags & APPLICATION_FULL_SCREEN) != 0)
@@ -1317,7 +1335,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 	g_free(file_path);
 
 	// ウィンドウタイトルを作成する
-	(void)sprintf(window_title, "Paint Soft KABURAGI %d.%d.%d.%d",
+	(void)sprintf(window_title, "Paint Soft " APPLICATION_NAME " %d.%d.%d.%d",
 		MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
 
 	// ラベルの文字列を読み込む
@@ -3060,26 +3078,35 @@ void ExecuteClose(APPLICATION* app)
 *********************************************************/
 void DeleteActiveLayer(APPLICATION* app)
 {
+	// レイヤー削除を実行する描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// アクティブレイヤーの次のレイヤー、削除するレイヤー
-	LAYER* next_active, *delete_layer = app->draw_window[app->active_window]->active_layer;
+	LAYER* next_active, *delete_layer = window->active_layer;
 
 	//AUTO_SAVE(app->draw_window[app->active_window]);
 
 	// 削除履歴を残す
-	AddDeleteLayerHistory(app->draw_window[app->active_window], delete_layer);
+	AddDeleteLayerHistory(window, delete_layer);
 
-	if(app->draw_window[app->active_window]->layer == app->draw_window[app->active_window]->active_layer)
+	// 局所キャンバスモードなら消したレイヤーの名前を覚える
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		PointerArrayAppend((POINTER_ARRAY*)window->extra_data,
+			MEM_STRDUP_FUNC(delete_layer->name));
+	}
+
+	if(window->layer == window->active_layer)
 	{	// 一番下のレイヤーを削除する場合描画領域の一番下のレイヤーを入れ替え
 			// 削除後の一番下のレイヤーをアクティブにする
-		next_active = app->draw_window[app->active_window]->layer->next;
-		ChangeActiveLayer(app->draw_window[app->active_window], next_active);
+		next_active = window->layer->next;
+		ChangeActiveLayer(window, next_active);
 		DeleteLayer(&delete_layer);
-		app->draw_window[app->active_window]->layer = next_active;
+		window->layer = next_active;
 	}
 	else
 	{	// アクティブレイヤーを削除して削除されたレイヤーの下のレイヤーをアクティブに
-		next_active = app->draw_window[app->active_window]->active_layer->prev;
-		ChangeActiveLayer(app->draw_window[app->active_window], next_active);
+		next_active = window->active_layer->prev;
+		ChangeActiveLayer(window, next_active);
 		DeleteLayer(&delete_layer);
 	}
 
@@ -3471,7 +3498,7 @@ void FlattenImage(APPLICATION* app)
 *********************************************************/
 void ActiveLayerAlpha2SelectionArea(APPLICATION* app)
 {
-	LayerAlpha2SelectionArea(app->draw_window[app->active_window]);
+	LayerAlpha2SelectionArea(GetActiveDrawWindow(app));
 }
 
 /*********************************************************
@@ -3482,7 +3509,7 @@ void ActiveLayerAlpha2SelectionArea(APPLICATION* app)
 *********************************************************/
 void ActiveLayerAlphaAddSelectionArea(APPLICATION* app)
 {
-	LayerAlphaAddSelectionArea(app->draw_window[app->active_window]);
+	LayerAlphaAddSelectionArea(GetActiveDrawWindow(app));
 }
 
 /*********************************************************
@@ -3494,13 +3521,19 @@ void ActiveLayerAlphaAddSelectionArea(APPLICATION* app)
 void ExecuteCopyLayer(APPLICATION* app)
 {
 	// アクティブレイヤーのコピー作成
-	LAYER* layer = CreateLayerCopy(
-		app->draw_window[app->active_window]->active_layer);
-	app->draw_window[app->active_window]->num_layer++;
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	LAYER *layer = CreateLayerCopy(window->active_layer);
+	window->num_layer++;
 
-	LayerViewAddLayer(layer, app->draw_window[app->active_window]->layer,
-		app->layer_window.view, app->draw_window[app->active_window]->num_layer);
-	ChangeActiveLayer(app->draw_window[app->active_window], layer);
+	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		layer->flags |= LAYER_FOCAL_NEW;
+	}
+
+	LayerViewAddLayer(layer, window->layer,
+		app->layer_window.view, window->num_layer);
+	ChangeActiveLayer(window, layer);
 	LayerViewSetActiveLayer(layer, app->layer_window.view);
 }
 
@@ -3512,6 +3545,8 @@ void ExecuteCopyLayer(APPLICATION* app)
 *********************************************************/
 void ExecuteVisible2Layer(APPLICATION* app)
 {
+	// レイヤーを追加する描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	char layer_name[256];		// 作成するレイヤーの名前
 	LAYER *visible, *new_layer;	// 可視部のコピーと新規作成のレイヤー
 	int layer_id = 1;			// レイヤーの名前に付加する数値
@@ -3521,24 +3556,29 @@ void ExecuteVisible2Layer(APPLICATION* app)
 	{
 		(void)sprintf(layer_name, "%s%d", app->labels->menu.visible_copy, layer_id);
 		layer_id++;
-	} while(CorrectLayerName(app->draw_window[app->active_window]->layer, layer_name) == 0);
+	} while(CorrectLayerName(window->layer, layer_name) == 0);
 
 	// 可視部の合成を行う
-	visible = MixLayerForSave(app->draw_window[app->active_window]);
+	visible = MixLayerForSave(window);
 	// レイヤー作成
 	new_layer = CreateLayer(visible->x, visible->y, visible->width,
 		visible->height, visible->channel, TYPE_NORMAL_LAYER,
-		app->draw_window[app->active_window]->active_layer,
-		app->draw_window[app->active_window]->active_layer->next,
-		layer_name, app->draw_window[app->active_window]
+		window->active_layer, window->active_layer->next,
+		layer_name, window
 	);
 	// レイヤーのピクセルデータに合成したデータをコピー
 	(void)memcpy(new_layer->pixels, visible->pixels, visible->height*visible->stride);
-	app->draw_window[app->active_window]->num_layer++;
+	window->num_layer++;
+
+	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		new_layer->flags |= LAYER_FOCAL_NEW;
+	}
 
 	// レイヤーウィンドウに追加してアクティブ化
-	LayerViewAddLayer(new_layer, app->draw_window[app->active_window]->layer,
-		app->layer_window.view, app->draw_window[app->active_window]->num_layer);
+	LayerViewAddLayer(new_layer, window->layer,
+		app->layer_window.view, window->num_layer);
 
 	// 合成用に作ったレイヤーを削除
 	DeleteLayer(&visible);
@@ -3552,7 +3592,7 @@ void ExecuteVisible2Layer(APPLICATION* app)
 *********************************************************/
 void RasterizeActiveLayer(APPLICATION* app)
 {
-	RasterizeLayer(app->draw_window[app->active_window]->active_layer);
+	RasterizeLayer(GetActiveDrawWindow(app)->active_layer);
 }
 
 /*********************************************************
@@ -3564,7 +3604,7 @@ void RasterizeActiveLayer(APPLICATION* app)
 void ExecuteSelectAll(APPLICATION* app)
 {
 	// 描画領域の情報
-	DRAW_WINDOW* window = app->draw_window[app->active_window];
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
 
 	// 一時保存レイヤーに現在の選択範囲を写す
 	(void)memcpy(window->temp_layer->pixels, window->selection->pixels,
@@ -3917,6 +3957,7 @@ void DisplayVersion(APPLICATION* app)
 
 static void TextureChange(GtkIconView* icon_view, APPLICATION* app)
 {
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	GList *list = gtk_icon_view_get_selected_items(icon_view);
 	GtkTreePath *path;
 	gint *indices;
@@ -3949,7 +3990,7 @@ static void TextureChange(GtkIconView* icon_view, APPLICATION* app)
 
 	if(app->window_num > 0)
 	{
-		FillTextureLayer(app->draw_window[app->active_window]->texture, &app->textures);
+		FillTextureLayer(window->texture, &app->textures);
 	}
 
 	g_list_foreach(list, (GFunc)gtk_tree_path_free, NULL);
@@ -3962,7 +4003,7 @@ static void ChangeTextureStrength(GtkAdjustment* scale, APPLICATION* app)
 
 	if(app->window_num > 0)
 	{
-		FillTextureLayer(app->draw_window[app->active_window]->texture, &app->textures);
+		FillTextureLayer(GetActiveDrawWindow(app)->texture, &app->textures);
 	}
 }
 
@@ -3972,7 +4013,7 @@ static void ChangeTextureScale(GtkAdjustment* scale, APPLICATION* app)
 
 	if(app->window_num > 0)
 	{
-		FillTextureLayer(app->draw_window[app->active_window]->texture, &app->textures);
+		FillTextureLayer(GetActiveDrawWindow(app)->texture, &app->textures);
 	}
 }
 
@@ -3982,7 +4023,7 @@ static void ChangeTextureRotate(GtkAdjustment* scale, APPLICATION* app)
 
 	if(app->window_num > 0)
 	{
-		FillTextureLayer(app->draw_window[app->active_window]->texture, &app->textures);
+		FillTextureLayer(GetActiveDrawWindow(app)->texture, &app->textures);
 	}
 }
 
@@ -4116,6 +4157,28 @@ GtkWidget* CreateTextureChooser(TEXTURES* textures, APPLICATION* app)
 	gtk_widget_set_size_request(scroll, 320, 320);
 
 	return ret;
+}
+
+/*********************************************************
+* Change2LoupeMode関数                                   *
+* ルーペモードへ移行する                                 *
+* 引数                                                   *
+* app		: アプリケーションを管理する構造体のアドレス *
+*********************************************************/
+void Change2LoupeMode(APPLICATION* app)
+{
+	Change2FocalMode(app->draw_window[app->active_window]);
+}
+
+/*********************************************************
+* ReturnFromLoupeMode関数                                *
+* ルーペモードから戻る                                   *
+* 引数                                                   *
+* app		: アプリケーションを管理する構造体のアドレス *
+*********************************************************/
+void ReturnFromLoupeMode(APPLICATION* app)
+{
+	ReturnFromFocalMode(app->draw_window[app->active_window]);
 }
 
 #ifdef __cplusplus

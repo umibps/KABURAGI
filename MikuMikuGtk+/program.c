@@ -638,7 +638,7 @@ void AssetModelProgramSetIsSubSphereMap(ASSET_MODEL_PROGRAM* program, int value)
 
 void AssetModelProgramSetIsMainAdditive(ASSET_MODEL_PROGRAM* program, int value)
 {
-	glUniform1i(program->is_main_additive_uniform_location, 1);
+	glUniform1i(program->is_main_additive_uniform_location, value);
 }
 
 void AssetModelProgramSetIsSubAdditive(ASSET_MODEL_PROGRAM* program, int value)

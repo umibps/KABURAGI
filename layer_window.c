@@ -13,6 +13,7 @@
 #include "memory.h"
 #include "drag_and_drop.h"
 #include "input.h"
+#include "utils.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -68,15 +69,16 @@ static void ChangeLayerBlendModeCallBack(GtkComboBox *combo_box, APPLICATION* ap
 {
 	if((app->flags & APPLICATION_IN_OPEN_OPERATION) == 0)
 	{
+		DRAW_WINDOW *window = GetActiveDrawWindow(app);
 		GList *container_list = gtk_container_get_children(GTK_CONTAINER(
-			app->draw_window[app->active_window]->active_layer->widget->mode));
+			window->active_layer->widget->mode));
 		GtkWidget* label = GTK_WIDGET(container_list->data);
-		app->draw_window[app->active_window]->active_layer->layer_mode =
+		window->active_layer->layer_mode =
 			gtk_combo_box_get_active(combo_box);
 		gtk_label_set_label(GTK_LABEL(label),
-			app->labels->layer_window.blend_modes[app->draw_window[app->active_window]->active_layer->layer_mode]);
+			app->labels->layer_window.blend_modes[window->active_layer->layer_mode]);
 
-		app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
 
 		g_list_free(container_list);
 	}
@@ -86,17 +88,18 @@ static void ChangeLayerOpacityCallBack(GtkAdjustment* slider, APPLICATION* app)
 {
 	if((app->flags & APPLICATION_IN_OPEN_OPERATION) == 0)
 	{
+		DRAW_WINDOW *window = GetActiveDrawWindow(app);
 		GList *container_list = gtk_container_get_children(GTK_CONTAINER(
-			app->draw_window[app->active_window]->active_layer->widget->alpha));
+			window->active_layer->widget->alpha));
 		char buff[16];
-		app->draw_window[app->active_window]->active_layer->alpha =
+		window->active_layer->alpha =
 			(int8)gtk_adjustment_get_value(slider);
-		gtk_adjustment_set_value(slider, app->draw_window[app->active_window]->active_layer->alpha);
+		gtk_adjustment_set_value(slider, window->active_layer->alpha);
 
-		(void)sprintf(buff, "%d%%", app->draw_window[app->active_window]->active_layer->alpha);
+		(void)sprintf(buff, "%d%%", window->active_layer->alpha);
 		gtk_label_set_label(GTK_LABEL(container_list->data), buff);
 
-		app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 
 		g_list_free(container_list);
 	}
@@ -104,32 +107,34 @@ static void ChangeLayerOpacityCallBack(GtkAdjustment* slider, APPLICATION* app)
 
 static void SetLockLayerOpacity(GtkCheckButton* button, APPLICATION* app)
 {
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
 	{
-		app->draw_window[app->active_window]->active_layer->flags &=
+		window->active_layer->flags &=
 			~(LAYER_LOCK_OPACITY);
 	}
 	else
 	{
-		app->draw_window[app->active_window]->active_layer->flags |=
+		window->active_layer->flags |=
 			LAYER_LOCK_OPACITY;
 	}
 }
 
 static void SetLayerMaskingWithUnderLayer(GtkCheckButton* button, APPLICATION* app)
 {
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
 	{
-		app->draw_window[app->active_window]->active_layer->flags &=
+		window->active_layer->flags &=
 			~(LAYER_MASKING_WITH_UNDER_LAYER);
 	}
 	else
 	{
-		app->draw_window[app->active_window]->active_layer->flags |=
+		window->active_layer->flags |=
 			LAYER_MASKING_WITH_UNDER_LAYER;
 	}
 
-	app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 }
 
 static void LayerViewChangeLayerOrder(
@@ -231,7 +236,8 @@ static void LayerViewChangeLayerOrder(
 
 gboolean DragTimeOutCallBack(APPLICATION* app)
 {
-	LAYER *new_prev = NULL, *layer = app->draw_window[app->active_window]->layer;
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	LAYER *new_prev = NULL, *layer = window->layer;
 	LAYER *parent;
 	gint x, y;
 	int no_check;
@@ -322,8 +328,8 @@ gboolean DragTimeOutCallBack(APPLICATION* app)
 		gtk_widget_modify_bg(app->layer_window.drag_position_separator, GTK_STATE_NORMAL, &color);
 		gtk_box_reorder_child(GTK_BOX(app->layer_window.view),
 			app->layer_window.drag_position_separator,
-			GetLayerID(app->draw_window[app->active_window]->layer,
-				new_prev, app->draw_window[app->active_window]->num_layer) + 1
+			GetLayerID(window->layer,
+				new_prev, window->num_layer) + 1
 		);
 	}
 
@@ -435,15 +441,17 @@ gboolean DragTimeOutCallBack(APPLICATION* app)
 
 gboolean LayerWidgetDragBegin(GtkWidget *widget, GdkDragContext *context, APPLICATION* app)
 {
+	DRAW_WINDOW *window;
 	if(app->window_num == 0)
 	{
 		return FALSE;
 	}
 
+	window = GetActiveDrawWindow(app);
 	app->layer_window.flags |= LAYER_WINDOW_IN_DRAG_OPERATION;
-	app->layer_window.drag_prev = app->draw_window[app->active_window]->active_layer->prev;
+	app->layer_window.drag_prev = window->active_layer->prev;
 	app->layer_window.drop_layer_set = NULL;
-	app->layer_window.before_layer_set = app->draw_window[app->active_window]->active_layer->layer_set;
+	app->layer_window.before_layer_set = window->active_layer->layer_set;
 
 	app->layer_window.timer_id = g_timeout_add(1000/60, (GSourceFunc)DragTimeOutCallBack, app);
 
@@ -469,7 +477,7 @@ static void LayerWidgetDragDataSet(
 {
 	if(target_type == DRAG_ID_LAYER_WIDGET)
 	{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_selection_data_set(selection, selection->target, sizeof(void*)*8,
 			(const guchar*)&data, sizeof(void*));
 #else
@@ -492,16 +500,17 @@ void LayerWidgetDragDataReceived(
 	APPLICATION* app
 )
 {
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	gboolean drag_success = FALSE;
 	gboolean delete_data = FALSE;
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(selection != NULL && selection->length > 0)
 #else
 	if(selection != NULL && gtk_selection_data_get_length > 0)
 #endif
 	{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		if(context->action == GDK_ACTION_MOVE)
 #else
 		if(gdk_drag_context_get_actions(context) == GDK_ACTION_MOVE)
@@ -512,8 +521,7 @@ void LayerWidgetDragDataReceived(
 			{
 				gtk_widget_destroy(app->layer_window.drag_position_separator);
 				app->layer_window.drag_position_separator = NULL;
-				LayerViewChangeLayerOrder(&app->layer_window,
-					app->draw_window[app->active_window], y);
+				LayerViewChangeLayerOrder(&app->layer_window, window, y);
 				drag_success = TRUE;
 				delete_data = TRUE;
 
@@ -539,7 +547,7 @@ gboolean LayerWidgetDropData(
 	gboolean valid_drop_site = FALSE;
 	GdkAtom target_type;
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(context->targets != NULL)
 	{
 		target_type = GDK_POINTER_TO_ATOM(
@@ -564,6 +572,7 @@ static void LayerWidgetDragEnd(GtkWidget* widget, GdkDragContext* context, APPLI
 {
 	if((app->layer_window.flags & LAYER_WINDOW_IN_DRAG_OPERATION) != 0)
 	{
+		DRAW_WINDOW *window = GetActiveDrawWindow(app);
 		gint y;
 
 		gtk_widget_destroy(app->layer_window.drag_position_separator);
@@ -571,8 +580,7 @@ static void LayerWidgetDragEnd(GtkWidget* widget, GdkDragContext* context, APPLI
 		gtk_widget_get_pointer(app->layer_window.view, NULL, &y);
 		//gdk_window_get_pointer(app->layer_window.view->window, NULL, &y, NULL);
 
-		LayerViewChangeLayerOrder(&app->layer_window,
-			app->draw_window[app->active_window], y);
+		LayerViewChangeLayerOrder(&app->layer_window, window, y);
 
 		app->layer_window.flags &= ~(LAYER_WINDOW_IN_DRAG_OPERATION);
 
@@ -582,6 +590,7 @@ static void LayerWidgetDragEnd(GtkWidget* widget, GdkDragContext* context, APPLI
 
 static void OnClickedChangeBackGroundButton(GtkWidget* button, APPLICATION* app)
 {
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	char buff[256];
 	gboolean button_state = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button));
 
@@ -589,27 +598,27 @@ static void OnClickedChangeBackGroundButton(GtkWidget* button, APPLICATION* app)
 	{
 		if(button_state == FALSE)
 		{
-			(void)memset(app->draw_window[app->active_window]->back_ground,
-				0xff, app->draw_window[app->active_window]->pixel_buf_size);
-			app->draw_window[app->active_window]->flags &= ~(DRAW_WINDOW_SECOND_BG);
+			(void)memset(window->back_ground,
+				0xff, window->pixel_buf_size);
+			window->flags &= ~(DRAW_WINDOW_SECOND_BG);
 		}
 		else
 		{
 			int i;
 
-			for(i=0; i<app->draw_window[app->active_window]->width * app->draw_window[app->active_window]->height; i++)
+			for(i=0; i<window->width * window->height; i++)
 			{
-				app->draw_window[app->active_window]->back_ground[i*4+0] = app->draw_window[app->active_window]->second_back_ground[0];
-				app->draw_window[app->active_window]->back_ground[i*4+1] = app->draw_window[app->active_window]->second_back_ground[1];
-				app->draw_window[app->active_window]->back_ground[i*4+2] = app->draw_window[app->active_window]->second_back_ground[2];
-				app->draw_window[app->active_window]->back_ground[i*4+3] = 0xff;
+				window->back_ground[i*4+0] = window->second_back_ground[0];
+				window->back_ground[i*4+1] = window->second_back_ground[1];
+				window->back_ground[i*4+2] = window->second_back_ground[2];
+				window->back_ground[i*4+3] = 0xff;
 			}
 
-			app->draw_window[app->active_window]->flags |= DRAW_WINDOW_SECOND_BG;
+			window->flags |= DRAW_WINDOW_SECOND_BG;
 		}
 
-		app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
-		gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+		gtk_widget_queue_draw(window->window);
 
 		app->flags |= APPLICATION_IN_SWITCH_DRAW_WINDOW;
 		gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(app->menus.change_back_ground_menu),
@@ -1512,6 +1521,12 @@ static gint LayerViewChangeChain(IMAGE_CHECK_BUTTON* button, void* data)
 	return FALSE;
 }
 
+static void OnDestroyLayerWidget(LAYER* layer)
+{
+	MEM_FREE_FUNC(layer->widget);
+	layer->widget = NULL;
+}
+
 void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_layer)
 {
 	GtkWidget *hbox = gtk_hbox_new(FALSE, 0);
@@ -1526,13 +1541,19 @@ void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_
 
 	GtkStyle *style = gtk_widget_get_style(view);
 
+	(void)g_signal_connect_swapped(G_OBJECT(hbox), "destroy",
+		G_CALLBACK(OnDestroyLayerWidget), layer);
+
 	while(parent != NULL)
 	{
 		hierarchy++;
 		parent = parent->layer_set;
 	}
 
-	layer->widget = (LAYER_WIDGET*)MEM_ALLOC_FUNC(sizeof(*layer->widget));
+	if(layer->widget == NULL)
+	{
+		layer->widget = (LAYER_WIDGET*)MEM_ALLOC_FUNC(sizeof(*layer->widget));
+	}
 	(void)memset(layer->widget, 0, sizeof(*layer->widget));
 	layer->widget->eye = CreateImageCheckButton(
 		layer->window->app->layer_window.eye,
@@ -1637,6 +1658,64 @@ void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_
 			}
 		}
 	}
+}
+
+/*************************************************
+* ClearLayerView関数                             *
+* レイヤービューのウィジェットを全て削除する     *
+* 引数                                           *
+* layer_window	: レイヤービューを持つウィンドウ *
+*************************************************/
+void ClearLayerView(LAYER_WINDOW* layer_window)
+{
+	GList *view_list = gtk_container_get_children(GTK_CONTAINER(layer_window->view));
+	GList *target = view_list;
+	while(target != NULL)
+	{
+		gtk_widget_destroy(GTK_WIDGET(target->data));
+		target = target->next;
+	}
+	g_list_free(view_list);
+}
+
+/*********************************************************
+* LayerViewSetDrawWindow関数                             *
+* レイヤービューにキャンバスの全てのレイヤーをセットする *
+* 引数                                                   *
+* layer_window	: レイヤービューを持つウィンドウ         *
+* draw_window	: 描画領域                               *
+*********************************************************/
+void LayerViewSetDrawWindow(LAYER_WINDOW* layer_window, DRAW_WINDOW* draw_window)
+{
+	// アプリケーション全体を管理するデータ
+	APPLICATION *app = draw_window->app;
+	// レイヤービューにセットするレイヤー
+	LAYER *layer;
+	// ウィジェット表示処理用のリスト
+	GList *child_widgets;
+	GList *target;
+	// カウンタ
+	int counter;
+
+	for(counter=0, layer=draw_window->layer; layer != NULL; layer = layer->next, counter++)
+	{
+		LayerViewAddLayer(layer, draw_window->layer,
+			layer_window->view, counter+1);
+	}
+
+	child_widgets = gtk_container_get_children(GTK_CONTAINER(layer_window->view));
+	target = child_widgets;
+	for(layer=draw_window->layer; layer != NULL; layer = layer->next)
+	{
+		if(layer->layer_set == NULL || (layer->layer_set->flags & LAYER_SET_CLOSE) == 0)
+		{
+			gtk_widget_show_all(GTK_WIDGET(target->data));
+		}
+		target = target->next;
+	}
+	g_list_free(child_widgets);
+
+	LayerViewSetActiveLayer(draw_window->active_layer, layer_window->view);
 }
 
 #ifdef __cplusplus

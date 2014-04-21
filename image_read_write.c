@@ -1253,6 +1253,7 @@ LAYER* ReadOriginalFormatLayers(
 		case TYPE_LAYER_SET:	// レイヤーセット
 			{
 				LAYER *target = layer->prev;
+				next_data_point = (uint32)stream->data_point;
 				current_hierarchy = hierarchy[i]+1;
 
 				for(k=i-1; k>=0 && current_hierarchy == hierarchy[k]; k--)
@@ -3329,6 +3330,8 @@ void WriteOriginalFormat(
 			(void)write_func(image->buff_ptr, 1, image->data_point, stream);
 
 			break;
+		case TYPE_LAYER_SET:	// レイヤーセット
+			break;
 		}
 
 		// 追加情報を書き込む
@@ -4955,7 +4958,7 @@ void WriteTiff(
 	TIFFSetField(out, TIFFTAG_IMAGEWIDTH, window->width);
 	TIFFSetField(out, TIFFTAG_IMAGELENGTH, window->height);
 	TIFFSetField(out, TIFFTAG_COMPRESSION, compress ? COMPRESSION_LZW : COMPRESSION_NONE);
-	TIFFSetField(out, TIFFTAG_SOFTWARE, "PaintSoftKABURAGI");
+	TIFFSetField(out, TIFFTAG_SOFTWARE, "PaintSoft" APPLICATION_NAME);
 
 	resolution = window->resolution;
 	TIFFSetField(out, TIFFTAG_XRESOLUTION, &resolution);

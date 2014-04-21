@@ -62,10 +62,6 @@ static int GetLine(const char* data, char* next_line, char* buff)
 	do
 	{
 		count += length = GetLineInternal(&data[count], buff);
-		/*if(data[count] != '\0')
-		{
-			count++;
-		}*/
 	} while(data[count] != '\0' && (*buff == '\r' || *buff == '\n'));
 
 	length = (int)strlen(buff);

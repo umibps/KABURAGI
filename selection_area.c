@@ -881,7 +881,7 @@ int AddSelectionAreaByColor(
 
 void UnSetSelectionArea(APPLICATION* app)
 {
-	DRAW_WINDOW* window = app->draw_window[app->active_window];
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
 	int32 min_x, min_y, max_x, max_y;
 
 	// ‘I‘ğ”ÍˆÍ‚ª‚È‚¯‚ê‚ÎI—¹

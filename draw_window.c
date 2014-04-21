@@ -17,6 +17,7 @@
 #include "selection_area.h"
 #include "memory_stream.h"
 #include "image_read_write.h"
+#include "utils.h"
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 # include "MikuMikuGtk+/ui.h"
@@ -432,7 +433,7 @@ DRAW_WINDOW* CreateDrawWindow(
 	gtk_widget_set_events(ret->window,
 		GDK_EXPOSURE_MASK | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_SCROLL_MASK
 		| GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_RELEASE_MASK
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 			| GDK_TOUCH_MASK
 #endif
 	);
@@ -468,6 +469,7 @@ DRAW_WINDOW* CreateDrawWindow(
 		G_CALLBACK(ScrollSizeChange), ret);
 	ret->callbacks.configure = g_signal_connect(G_OBJECT(ret->window), "configure-event",
 		G_CALLBACK(DrawWindowConfigurEvent), ret);
+	g_object_set_data(G_OBJECT(ret->window), "draw-window", ret);
 	// 背景色を設定
 	if((app->flags & APPLICATION_SET_BACK_GROUND_COLOR) != 0)
 	{
@@ -790,6 +792,8 @@ DRAW_WINDOW* CreateTempDrawWindow(
 *********************************/
 void Change2FocalMode(DRAW_WINDOW* parent_window)
 {
+	// アプリケーション全体を管理するデータ
+	APPLICATION *app = parent_window->app;
 	// 局所キャンバス
 	DRAW_WINDOW *focal_window;
 	// レイヤー登録用
@@ -801,7 +805,7 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 	// コピー開始座標
 	int start_x, start_y;
 	// for文用のカウンタ
-	int x, y;
+	int y;
 
 	// 選択範囲が無ければ終了
 	if((parent_window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
@@ -818,15 +822,25 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 
 	// キャンバス生成
 	focal_window = parent_window->focal_window = CreateTempDrawWindow(focal_width, focal_height,
-		parent_window->channel, parent_window->file_name, NULL, 0, parent_window->app);
+		parent_window->channel, parent_window->file_name, NULL, 0, app);
 	focal_window->focal_window = parent_window;
+	focal_window->scroll = parent_window->scroll;
+	focal_window->extra_data = (void*)PointerArrayNew(8);
+
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	focal_window->first_project = parent_window->first_project;
+#endif
 	focal_window->flags |= DRAW_WINDOW_IS_FOCAL_WINDOW;
 
 	// 親キャンバスのレイヤー情報をコピーする
 	for(src_layer = parent_window->layer; src_layer != NULL; src_layer = src_layer->next)
 	{
 		prev_layer = CreateLayer(0, 0, focal_window->width, focal_window->height, focal_window->channel,
-			src_layer->layer_type, prev_layer, NULL, src_layer->name, focal_window);
+			(eLAYER_TYPE)src_layer->layer_type, prev_layer, NULL, src_layer->name, focal_window);
+		prev_layer->layer_mode = src_layer->layer_mode;
+		prev_layer->flags = src_layer->flags;
+		prev_layer->alpha = src_layer->alpha;
+
 		for(y=0; y<focal_height; y++)
 		{
 			(void)memcpy(&prev_layer->pixels[y*prev_layer->stride],
@@ -841,6 +855,15 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 					child = child->prev;
 					target = target->prev;
 				}
+
+				if(parent_window->active_layer_set == src_layer)
+				{
+					focal_window->active_layer_set = prev_layer;
+				}
+			}
+			if(src_layer == parent_window->active_layer)
+			{
+				focal_window->active_layer = prev_layer;
 			}
 		}
 		focal_window->num_layer++;
@@ -851,6 +874,10 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 		prev_layer = prev_layer->prev;
 	}
 	focal_window->layer = prev_layer;
+
+	// レイヤービューをリセット
+	ClearLayerView(&app->layer_window);
+	LayerViewSetDrawWindow(&app->layer_window, focal_window);
 
 	// キャンバスへのコールバック関数を変更
 	focal_window->window = parent_window->window;
@@ -881,9 +908,150 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 		G_CALLBACK(LeaveNotifyEvent), focal_window);
 	focal_window->callbacks.configure = g_signal_connect(G_OBJECT(focal_window->window), "configure_event",
 		G_CALLBACK(DrawWindowConfigurEvent), focal_window);
+	focal_window->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(focal_window->window), "scroll_event",
+		G_CALLBACK(MouseWheelEvent), focal_window);
 	// ウィジェットのサイズを変更
-	gtk_widget_set_size_request(focal_window->window, focal_window->width, focal_window->height);
-	gtk_widget_show_all(focal_window->window);
+	focal_window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	DrawWindowChangeZoom(focal_window, focal_window->zoom);
+
+	// ナビゲーションの表示を切り替え
+	ChangeNavigationDrawWindow(&app->navigation_window, focal_window);
+	FillTextureLayer(focal_window->texture, &app->textures);
+}
+
+/*********************************
+* ReturnFromFocalMode関数        *
+* 局所キャンバスモードから戻る   *
+* 引数                           *
+* parent_window	: 親キャンバス   *
+*********************************/
+void ReturnFromFocalMode(DRAW_WINDOW* parent_window)
+{
+	// アプリケーション全体を管理するデータ
+	APPLICATION *app = parent_window->app;
+	// 局所キャンバス
+	DRAW_WINDOW *focal_window = parent_window->focal_window;
+	// レイヤー情報移動用
+	LAYER *prev_layer = NULL;
+	LAYER *src_layer;
+	LAYER *dst_layer;
+	LAYER *target;
+	LAYER *check_layer;
+	// 局所キャンバスのサイズ
+	int focal_width, focal_height, focal_stride;
+	// コピー開始座標
+	int start_x, start_y;
+	// for文用のカウンタ
+	int y;
+	int i;
+
+	// 局所キャンバスが無ければ終了
+	if(focal_window == NULL)
+	{
+		return;
+	}
+
+	for(i=0; i<(int)((POINTER_ARRAY*)focal_window->extra_data)->num_data; i++)
+	{
+		target = SearchLayer(parent_window->layer, (char*)((POINTER_ARRAY*)focal_window->extra_data)->buffer[i]);
+		if(target != NULL)
+		{
+			DeleteLayer(&target);
+		}
+	}
+
+	// 選択範囲部分にピクセルデータを戻す
+	start_x = parent_window->selection_area.min_x;
+	start_y = parent_window->selection_area.min_y;
+	focal_width = parent_window->selection_area.max_x - parent_window->selection_area.min_x;
+	focal_height = parent_window->selection_area.max_y - parent_window->selection_area.min_y;
+	focal_stride = focal_width * parent_window->channel;
+	src_layer = focal_window->layer;
+	dst_layer = parent_window->layer;
+	parent_window->num_layer = 0;
+	while(src_layer != NULL)
+	{
+		if((src_layer->flags & LAYER_FOCAL_NEW) != 0)
+		{
+			dst_layer = CreateLayer(0, 0, parent_window->width, parent_window->height, parent_window->channel,
+				(eLAYER_TYPE)src_layer->layer_type, dst_layer->prev, dst_layer, src_layer->name, parent_window);
+		}
+		dst_layer->layer_mode = src_layer->layer_mode;
+		dst_layer->flags = src_layer->flags & (~(LAYER_FOCAL_NEW));
+		dst_layer->alpha = src_layer->alpha;
+		switch(src_layer->layer_type)
+		{
+		case TYPE_NORMAL_LAYER:
+			for(y=0; y<focal_height; y++)
+			{
+				(void)memcpy(&dst_layer->pixels[(start_y+y)*dst_layer->stride + start_x*dst_layer->channel],
+					&src_layer->pixels[y*src_layer->stride], focal_stride);
+			}
+			break;
+		case TYPE_LAYER_SET:
+			target = dst_layer->prev;
+			check_layer = src_layer->prev;
+			while(check_layer != NULL && check_layer->layer_set == src_layer)
+			{
+				target->layer_set = dst_layer;
+				target = target->prev;
+				check_layer = check_layer->prev;
+			}
+			if(focal_window->active_layer_set == src_layer)
+			{
+				parent_window->active_layer_set = dst_layer;
+			}
+			break;
+		}
+		dst_layer = dst_layer->next;
+		src_layer = src_layer->next;
+		parent_window->num_layer++;
+	}
+
+	// レイヤービューをリセット
+	ClearLayerView(&app->layer_window);
+	LayerViewSetDrawWindow(&app->layer_window, parent_window);
+
+	// コールバック関数を設定し直す
+	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.display);
+	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.mouse_button_press);
+	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.mouse_move);
+	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.mouse_button_release);
+	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.mouse_wheel);
+	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.configure);
+	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.enter);
+	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.leave);
+#if GTK_MAJOR_VERSION <= 2
+	parent_window->callbacks.display = g_signal_connect(G_OBJECT(parent_window->window), "expose_event",
+		G_CALLBACK(DisplayDrawWindow), parent_window);
+#else
+	parent_window->callbacks.display = g_signal_connect(G_OBJECT(parent_window->window), "draw",
+		G_CALLBACK(DisplayDrawWindow), parent_window);
+#endif
+	parent_window->callbacks.mouse_button_press = g_signal_connect(G_OBJECT(parent_window->window), "button_press_event",
+		G_CALLBACK(ButtonPressEvent), parent_window);
+	parent_window->callbacks.mouse_move = g_signal_connect(G_OBJECT(parent_window->window), "motion_notify_event",
+		G_CALLBACK(MotionNotifyEvent), parent_window);
+	parent_window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(parent_window->window), "button_release_event",
+		G_CALLBACK(ButtonReleaseEvent), parent_window);
+	parent_window->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(parent_window->window), "scroll_event",
+		G_CALLBACK(MouseWheelEvent), parent_window);
+	parent_window->callbacks.enter = g_signal_connect(G_OBJECT(parent_window->window), "enter_notify_event",
+		G_CALLBACK(EnterNotifyEvent), parent_window);
+	parent_window->callbacks.leave = g_signal_connect(G_OBJECT(parent_window->window), "leave_notify_event",
+		G_CALLBACK(LeaveNotifyEvent), parent_window);
+	parent_window->callbacks.configure = g_signal_connect(G_OBJECT(parent_window->window), "configure_event",
+		G_CALLBACK(DrawWindowConfigurEvent), parent_window);
+	// ウィジェットのサイズを変更
+	parent_window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	DrawWindowChangeZoom(parent_window, parent_window->zoom);
+
+	PointerArrayDestroy(&((POINTER_ARRAY*)focal_window->extra_data), (void (*)(void*))MEM_FREE_FUNC);
+	DeleteDrawWindow(&parent_window->focal_window);
+
+	// ナビゲーションの表示を切り替え
+	ChangeNavigationDrawWindow(&app->navigation_window, parent_window);
+	FillTextureLayer(parent_window->texture, &app->textures);
 }
 
 /***************************************
@@ -900,12 +1068,18 @@ void DeleteDrawWindow(DRAW_WINDOW** window)
 	int i;
 
 	// 時間で呼ばれるコールバック関数を停止
-	(void)g_source_remove((*window)->timer_id);
+	if((*window)->timer_id != 0)
+	{
+		(void)g_source_remove((*window)->timer_id);
+	}
 	if((*window)->auto_save_id != 0)
 	{
 		(void)g_source_remove((*window)->auto_save_id);
 	}
-	g_timer_destroy((*window)->timer);
+	if((*window)->timer != NULL)
+	{
+		g_timer_destroy((*window)->timer);
+	}
 
 	// ブラシ描画用のサーフェース、イメージを削除
 	cairo_destroy((*window)->alpha_cairo);
@@ -929,6 +1103,7 @@ void DeleteDrawWindow(DRAW_WINDOW** window)
 		next_delete = delete_layer->next;
 		DeleteLayer(&delete_layer);
 		delete_layer = next_delete;
+		(*window)->layer = next_delete;
 	}
 	DeleteLayer(&(*window)->mixed_layer);
 	DeleteLayer(&(*window)->temp_layer);

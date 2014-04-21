@@ -1986,6 +1986,40 @@ static GtkWidget* CreateHandToolDetailUI(APPLICATION* app, void* data)
 	return gtk_label_new("There is no settings.");
 }
 
+/*****************************************************************
+* LoupeButtonToggled関数                                         *
+* ルーペモード切り替えボタンがクリックされた時のコールバック関数 *
+* 引数                                                           *
+* button	: ボタンウィジェット                                 *
+* app		: アプリケーションを管理する構造体のアドレス         *
+*****************************************************************/
+void LoupeButtonToggled(GtkWidget* button, APPLICATION* app)
+{
+	DRAW_WINDOW *window = app->draw_window[app->active_window];
+
+	if(app->window_num == 0 || (window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+	{
+		app->flags |= APPLICATION_IN_SWITCH_DRAW_WINDOW;
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), FALSE);
+		app->flags &= ~(APPLICATION_IN_SWITCH_DRAW_WINDOW);
+		return;
+	}
+
+	if((app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) != 0)
+	{
+		return;
+	}
+
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
+	{
+		Change2LoupeMode(app);
+	}
+	else
+	{
+		ReturnFromLoupeMode(app);
+	}
+}
+
 void LoadCommonToolDetailData(
 	COMMON_TOOL_CORE* core,
 	INI_FILE_PTR file,
@@ -2107,6 +2141,10 @@ void LoadCommonToolDetailData(
 		core->create_detail_ui = CreateHandToolDetailUI;
 
 		core->tool_type = TYPE_HAND_TOOL;
+	}
+	else if(StringCompareIgnoreCase(tool_type, "LOUPE_TOOL") == 0)
+	{
+		core->tool_type = TYPE_LOUPE_TOOL;
 	}
 
 	if(core->button_update == NULL)
@@ -2247,6 +2285,9 @@ void WriteCommonToolData(
 						HAND_TOOL *hand = (HAND_TOOL*)window->common_tools[y][x].tool_data;
 						(void)IniFileAddString(file, tool_section_name, "TYPE", "HAND_TOOL");
 					}
+					break;
+				case TYPE_LOUPE_TOOL:
+					(void)IniFileAddString(file, tool_section_name, "TYPE", "LOUPE_TOOL");
 					break;
 				}
 

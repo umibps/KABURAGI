@@ -999,9 +999,9 @@ static int SplitTexturePath(
 	{
 		int position = (int)(first_asterisk - path);
 		*main_texture = (char*)MEM_ALLOC_FUNC(position+1);
-		(void)memcpy(main_texture, path, position-1);
-		main_texture[position] = '\0';
-		*sub_texture = MEM_STRDUP_FUNC(first_asterisk);
+		(void)memcpy(*main_texture, path, position);
+		(*main_texture)[position] = '\0';
+		*sub_texture = MEM_STRDUP_FUNC(first_asterisk+1);
 		return TRUE;
 	}
 	else
@@ -1247,6 +1247,7 @@ int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
 	TEXTURE_DATA_BRIDGE bridge = {NULL, TEXTURE_FLAG_TEXTURE_2D};
 	struct aiScene *scene;
 	struct aiString texture_path;
+	char full_path[4096];
 	char *path;
 	char *main_texture;
 	char *sub_texture;
@@ -1277,9 +1278,10 @@ int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
 			path = texture_path.data;
 			if(SplitTexturePath(path, &main_texture, &sub_texture) != FALSE)
 			{
+				(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
 				if(ght_get(engine->textures, (unsigned int)strlen(main_texture), main_texture) == NULL)
 				{
-					ret = UploadTexture(main_texture, &bridge, application);
+					ret = UploadTexture(full_path, &bridge, application);
 					if(ret != FALSE)
 					{
 						(void)ght_insert(engine->textures, bridge.texture,
@@ -1290,9 +1292,10 @@ int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
 						return ret;
 					}
 				}
+				(void)sprintf(full_path, "%s/%s", model->model_path, sub_texture);
 				if(ght_get(engine->textures, (unsigned int)strlen(sub_texture), sub_texture) == NULL)
 				{
-					ret = UploadTexture(sub_texture, &bridge, application);
+					ret = UploadTexture(full_path, &bridge, application);
 					if(ret != FALSE)
 					{
 						(void)ght_insert(engine->textures, bridge.texture,
@@ -1306,7 +1309,8 @@ int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
 			}
 			else if(ght_get(engine->textures, (unsigned int)strlen(main_texture), main_texture) == NULL)
 			{
-				ret = UploadTexture(main_texture, &bridge, application);
+				(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+				ret = UploadTexture(full_path, &bridge, application);
 				if(ret != FALSE)
 				{
 					(void)ght_insert(engine->textures, bridge.texture,
