@@ -998,6 +998,32 @@ int GetSignedValue(uint8* stream, int length)
 	return 0;
 }
 
+unsigned int GetUnignedValue(uint8* stream, int length)
+{
+	switch(length)
+	{
+	case 1:
+		return (unsigned int)((uint8)*stream);
+	case 2:
+		{
+			uint16 *value = (uint16*)stream;
+			return (unsigned int)*value;
+		}
+	case 4:
+		{
+			uint32 *value = (uint32*)stream;
+			return (unsigned int)*value;
+		}
+	case 8:
+		{
+			uint64 *value = (uint64*)stream;
+			return (unsigned int)*value;
+		}
+	}
+
+	return 0;
+}
+
 INLINE void ClampByteData(uint8* a, const uint8 lb, const uint8 ub)
 {
 	if(*a < lb)

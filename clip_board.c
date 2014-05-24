@@ -147,7 +147,13 @@ static void ClipBoardImageRecieveCallBack(
 		window->num_layer++;
 		if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
 		{
-			layer->flags |= LAYER_FOCAL_NEW;
+			DRAW_WINDOW *parent = app->draw_window[app->active_window];
+			LAYER *parent_prev = SearchLayer(parent->layer, window->active_layer->name);
+			LAYER *parent_next = (parent_prev == NULL) ? parent->layer : parent_prev->next;
+			LAYER *parent_new = CreateLayer(0, 0, parent->width, parent->height, parent->channel,
+				(eLAYER_TYPE)layer->layer_type, parent_prev, parent_next, layer->name, parent);
+			parent->num_layer++;
+			AddNewLayerHistory(parent_new, parent_new->layer_type);
 		}
 
 		// 画像データを追加したレイヤーにコピー

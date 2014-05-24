@@ -37,8 +37,6 @@ typedef struct _APPLICATION
 
 	APPLICATION_WIDGETS widgets;
 
-	ght_hash_table_t *texture_chache_map;
-
 	DEFAULT_DATA default_data;
 
 	INITIALIZE_DIRECTORY_PATHS paths;
@@ -68,10 +66,6 @@ extern char* LoadShaderSource(
 	void* user_data
 );
 
-extern int UploadTexture(const char* path, TEXTURE_DATA_BRIDGE* bridge, APPLICATION* application);
-
-extern int UploadWhiteTexture(int width, int height, APPLICATION* application);
-
 extern MODEL_INTERFACE* LoadModel(
 	APPLICATION* application,
 	const char* system_path,
@@ -90,6 +84,8 @@ extern uint8* LoadSubstituteModel(const char* path, size_t* data_size);
 extern void LoadTextureDrawHelper(
 	TEXTURE_DRAW_HELPER* helper,
 	const float base_texture_coord[8],
+	char* utf8_vertex_shader_file_path,
+	char* utf8_fragment_shader_file_path,
 	APPLICATION* application
 );
 
@@ -99,13 +95,6 @@ extern void InitializeControlHandle(
 	int height,
 	PROJECT* project,
 	APPLICATION* application
-);
-extern void LoadControlHandle(CONTROL_HANDLE* handle, APPLICATION* application);
-extern void InitializeControl(
-	CONTROL* control,
-	int width,
-	int height,
-	PROJECT* project
 );
 
 extern void ExecuteControlUndo(APPLICATION* application);

@@ -18951,6 +18951,8 @@ static void BlurToolPressCallBack(
 		uint8 t;
 		int counter_x, counter_y, start_x, start_y, width, height;
 		int start_j, end_i, end_j;
+		int left;
+		int top;
 		int temp_stride;
 		int i, j;
 
@@ -19096,7 +19098,7 @@ static void BlurToolPressCallBack(
 			}
 		}
 
-		i = start_y-extends, start_j=start_x-extends;
+		top = i = start_y-extends, left = start_j=start_x-extends;
 		end_i = start_y+extends, end_j=start_x+extends;
 		if(i < 0)
 		{
@@ -19142,7 +19144,7 @@ static void BlurToolPressCallBack(
 
 		for(counter_y=0; counter_y<height; counter_y++)
 		{
-			start_j = start_x-extends, end_j = start_x+extends;
+			left = start_j = start_x-extends, end_j = start_x+extends;
 			i = counter_y+start_y-extends, end_i = counter_y+start_y+extends;
 			if(i < 0)
 			{
@@ -19173,15 +19175,21 @@ static void BlurToolPressCallBack(
 				temp_pixel[1] = sum_color[1] / num_samples;
 				temp_pixel[2] = sum_color[2] / num_samples;
 				temp_pixel[3] = sum_color[3] / num_samples;
-				
-				for(j=i; j<end_i; j++)
+
+				if(left >= 0)
 				{
-					add_pixel = &work_pixels[j*stride+start_j*4];
-					sum_color[0] -= add_pixel[0];
-					sum_color[1] -= add_pixel[1];
-					sum_color[2] -= add_pixel[2];
-					sum_color[3] -= add_pixel[3];
-					
+					for(j=i; j<end_i; j++)
+					{
+						add_pixel = &work_pixels[j*stride+start_j*4];
+						sum_color[0] -= add_pixel[0];
+						sum_color[1] -= add_pixel[1];
+						sum_color[2] -= add_pixel[2];
+						sum_color[3] -= add_pixel[3];
+					}
+				}
+				else
+				{
+					left++;
 				}
 				for(j=i; j<end_i; j++)
 				{
@@ -19198,15 +19206,22 @@ static void BlurToolPressCallBack(
 			sum_color[1] = before_y_color[1];
 			sum_color[2] = before_y_color[2];
 			sum_color[3] = before_y_color[3];
-			for(j=start_j; j<end_j; j++)
+			if(top >= 0)
 			{
-				add_pixel = &work_pixels[i*stride+j*4];
-				sum_color[0] -= add_pixel[0];
-				sum_color[1] -= add_pixel[1];
-				sum_color[2] -= add_pixel[2];
-				sum_color[3] -= add_pixel[3];
+				for(j=start_j; j<end_j; j++)
+				{
+					add_pixel = &work_pixels[i*stride+j*4];
+					sum_color[0] -= add_pixel[0];
+					sum_color[1] -= add_pixel[1];
+					sum_color[2] -= add_pixel[2];
+					sum_color[3] -= add_pixel[3];
+				}
 			}
-				
+			else
+			{
+				top++;
+			}
+
 			for(j=start_j; j<end_j; j++)
 			{
 				add_pixel = &work_pixels[(end_i)*stride+j*4];
@@ -19536,6 +19551,8 @@ static void BlurToolMotionCallBack(
 		uint8* temp_pixel;
 		uint8 alpha_c, t;
 		int stride = window->work_layer->stride;
+		int left, right;
+		int top, bottom = 0;
 		int start_j, end_i, end_j;
 		int i, j, counter_x, counter_y;
 		int temp_stride;
@@ -19573,23 +19590,23 @@ static void BlurToolMotionCallBack(
 
 		if(min_x < 0.0)
 		{
-			return;
-			//min_x = 0.0;
+			//return;
+			min_x = 0.0;
 		}
 		if(min_y < 0.0)
 		{
-			return;
-			//min_y = 0.0;
+			//return;
+			min_y = 0.0;
 		}
 		if(max_x > window->work_layer->width)
 		{
-			return;
-			//max_x = window->work_layer->width;
+			//return;
+			max_x = window->work_layer->width;
 		}
 		if(max_y > window->work_layer->height)
 		{
-			return;
-			//max_y = window->work_layer->height;
+			//return;
+			max_y = window->work_layer->height;
 		}
 
 		if(core->min_x > min_x)
@@ -19786,8 +19803,8 @@ static void BlurToolMotionCallBack(
 
 			for(counter_y=0; counter_y<clear_height; counter_y++)
 			{
-				start_j = clear_x-extends, end_j = clear_x+extends;
-				i = counter_y+clear_y-extends, end_i = counter_y+clear_y+extends;
+				left = start_j = clear_x-extends, end_j = clear_x+extends;
+				top = i = counter_y+clear_y-extends, end_i = counter_y+clear_y+extends;
 				if(i < 0)
 				{
 					i = 0;
@@ -19818,21 +19835,32 @@ static void BlurToolMotionCallBack(
 					add_pixel[2] = sum_color[2] / num_samples;
 					add_pixel[3] = sum_color[3] / num_samples;
 
-					for(j=i; j<end_i; j++)
+					if(left >= 0)
 					{
-						add_pixel = &work_pixels[j*stride+start_j*4];
-						sum_color[0] -= add_pixel[0];
-						sum_color[1] -= add_pixel[1];
-						sum_color[2] -= add_pixel[2];
-						sum_color[3] -= add_pixel[3];
+						for(j=i; j<end_i; j++)
+						{
+							add_pixel = &work_pixels[j*stride+start_j*4];
+							sum_color[0] -= add_pixel[0];
+							sum_color[1] -= add_pixel[1];
+							sum_color[2] -= add_pixel[2];
+							sum_color[3] -= add_pixel[3];
+						}
 					}
-					for(j=i; j<end_i; j++)
+					else
 					{
-						add_pixel = &work_pixels[j*stride+(end_j)*4];
-						sum_color[0] += add_pixel[0];
-						sum_color[1] += add_pixel[1];
-						sum_color[2] += add_pixel[2];
-						sum_color[3] += add_pixel[3];
+						left++;
+					}
+
+					if(end_j < window->width)
+					{
+						for(j=i; j<end_i; j++)
+						{
+							add_pixel = &work_pixels[j*stride+(end_j)*4];
+							sum_color[0] += add_pixel[0];
+							sum_color[1] += add_pixel[1];
+							sum_color[2] += add_pixel[2];
+							sum_color[3] += add_pixel[3];
+						}
 					}
 				}
 
@@ -19841,13 +19869,20 @@ static void BlurToolMotionCallBack(
 				sum_color[1] = before_y_color[1];
 				sum_color[2] = before_y_color[2];
 				sum_color[3] = before_y_color[3];
-				for(j=start_j; j<end_j; j++)
+				if(top >= 0)
 				{
-					add_pixel = &work_pixels[i*stride+j*4];
-					sum_color[0] -= add_pixel[0];
-					sum_color[1] -= add_pixel[1];
-					sum_color[2] -= add_pixel[2];
-					sum_color[3] -= add_pixel[3];
+					for(j=start_j; j<end_j; j++)
+					{
+						add_pixel = &work_pixels[i*stride+j*4];
+						sum_color[0] -= add_pixel[0];
+						sum_color[1] -= add_pixel[1];
+						sum_color[2] -= add_pixel[2];
+						sum_color[3] -= add_pixel[3];
+					}
+				}
+				else
+				{
+					top++;
 				}
 				
 				for(j=start_j; j<end_j; j++)

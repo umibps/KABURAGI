@@ -49,11 +49,13 @@ BASE_RIGID_BODY* GetBoneBody(BONE_INTERFACE* bone)
 
 void InitializeDefaultBone(DEFAULT_BONE* bone, APPLICATION* application_context)
 {
+	const float basis[] = IDENTITY_MATRIX3x3;
 	(void)memset(bone, 0, sizeof(*bone));
 
 	bone->application_context = application_context;
 
 	bone->interface_data.index = -1;
+	bone->interface_data.local_transform = BtTransformNew(basis);
 	bone->interface_data.get_local_transform =
 		(void (*)(void*, void*))DefaultBoneGetIdentityTransform;
 	bone->interface_data.set_local_transform =
@@ -532,6 +534,18 @@ int LoadPmxBones(STRUCT_ARRAY* bones)
 			}
 		}
 
+		if(bone[i].parent_inherent_bone_index >= 0)
+		{
+			if(bone[i].parent_inherent_bone_index < num_bones)
+			{
+				bone[i].parent_inherent_bone = &bone[bone[i].parent_inherent_bone_index];
+			}
+			else
+			{
+				return FALSE;
+			}
+		}
+
 		if((bone[i].flags & PMX_BONE_FLAG_HAS_INVERSE_KINEMATICS) != 0)
 		{
 			PMX_IK_CONSTRAINT *constraints = (PMX_IK_CONSTRAINT*)bone[i].constraints->buffer;
@@ -676,11 +690,13 @@ void ReadPmxBone(
 	}
 	else
 	{
-		(void)MemRead(bone->destination_origin, sizeof(bone->destination_origin), 1, &stream);
-		SET_POSITION(bone->destination_origin, bone->destination_origin);
+		float offset[3];
+		(void)MemRead(offset, sizeof(offset), 1, &stream);
+		SET_POSITION(bone->destination_origin, offset);
 	}
 	// バイアスの有無
-	if((bone->flags & PMX_BONE_FLAG_HAS_INHERENT_ROTATION) != 0)
+	if((bone->flags & PMX_BONE_FLAG_HAS_INHERENT_ROTATION) != 0
+		|| (bone->flags & PMX_BONE_FLAG_HAS_INHERENT_TRANSLATION) != 0)
 	{
 		bone->parent_inherent_bone_index = GetSignedValue(&data[stream.data_point], (int)bone_index_size);
 		stream.data_point += bone_index_size;
@@ -957,8 +973,19 @@ void PmxBoneSolveInverseKinematics(PMX_BONE* bone)
 			Cross3DVector(local_axis, local_effector_position, local_root_bone_position);
 			SafeNormalize3DVector(local_axis);
 			new_angle_limit = angle_limit * (j + 1) * 2;
+			/*if(dot < -1)
+			{
+				angle = -1;
+			}
+			else if(dot > 1)
+			{
+				angle = 1;
+			}
+			else
+			{
+				angle = acosf(dot);
+			}*/
 			value = dot;
-			CLAMPED(value, -1, 1);
 			value = ExtendedFuzzyZero(1.0f - value) ? 1.0f : ExtendedFuzzyZero(1.0f + value) ? -1.0f : value;
 			angle = acosf(value);
 			CLAMPED(angle, - new_angle_limit, new_angle_limit);
@@ -988,7 +1015,7 @@ void PmxBoneSolveInverseKinematics(PMX_BONE* bone)
 						local_axis[2] = 0;
 					}
 					else if(FuzzyZero(lower_limit[0]) && FuzzyZero(upper_limit[0])
-						&& FuzzyZero(lower_limit[2]) && FuzzyZero(upper_limit[2]))
+						&& FuzzyZero(lower_limit[1]) && FuzzyZero(upper_limit[1]))
 					{
 						local_axis[0] = 0;
 						local_axis[1] = 0;

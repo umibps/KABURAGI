@@ -50,23 +50,20 @@ void TextureDrawHelperUnbindVertexBundle(TEXTURE_DRAW_HELPER* helper, int bundle
 void LoadTextureDrawHelper(
 	TEXTURE_DRAW_HELPER* helper,
 	const float base_texture_coord[8],
+	char* utf8_vertex_shader_file_path,
+	char* utf8_fragment_shader_file_path,
 	APPLICATION* application
 )
 {
-	char utf8_path[8192] = {0};
 	char *system_path;
 
 	MakeShaderProgram(&helper->program.base_data);
 
-	(void)strcpy(utf8_path, application->paths.shader_directory_path);
-	(void)strcat(utf8_path, "gui/texture.vsh");
-	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
+	system_path = g_locale_from_utf8(utf8_vertex_shader_file_path, -1, NULL, NULL, NULL);
 	LoadTextureDrawHelperProgram(&helper->program, system_path, GL_VERTEX_SHADER);
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.shader_directory_path);
-	(void)strcat(utf8_path, "gui/texture.fsh");
-	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
+	system_path = g_locale_from_utf8(utf8_fragment_shader_file_path, -1, NULL, NULL, NULL);
 	LoadTextureDrawHelperProgram(&helper->program, system_path, GL_FRAGMENT_SHADER);
 	g_free(system_path);
 
@@ -120,6 +117,7 @@ void TextureDrawHelperDraw(
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture_name);
 	MulMatrix4x4(projection, model_view, projection);
+	//MulMatrix4x4(model_view, projection, projection);
 	TextureDrawHelperProgramSetUniformValues(&helper->program, projection, texture_name);
 	TextureDrawHelperBindVertexBundle(helper, TRUE);
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);

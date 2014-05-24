@@ -1358,10 +1358,16 @@ void ExecuteMakeColorLayer(APPLICATION* app)
 	// 作業レイヤーのピクセルデータを初期化
 	(void)memset(window->work_layer->pixels, 0, layer->stride*layer->height);
 
-	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	// 局所キャンバスモードなら親キャンバスでもレイヤー作成
 	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
 	{
-		layer->flags |= LAYER_FOCAL_NEW;
+		DRAW_WINDOW *parent = app->draw_window[app->active_window];
+		LAYER *parent_prev = SearchLayer(parent->layer, window->active_layer->name);
+		LAYER *parent_next = (parent_prev == NULL) ? parent->layer : parent_prev->next;
+		LAYER *parent_new = CreateLayer(0, 0, parent->width, parent->height, parent->channel,
+			(eLAYER_TYPE)layer->layer_type, parent_prev, parent_next, layer->name, parent);
+		parent->num_layer++;
+		AddNewLayerHistory(parent_new, parent_new->layer_type);
 	}
 
 	// レイヤーの数を更新
@@ -1434,10 +1440,16 @@ void ExecuteMakeVectorLayer(APPLICATION *app)
 		window
 	);
 
-	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	// 局所キャンバスモードなら親キャンバスでもレイヤー作成
 	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
 	{
-		layer->flags |= LAYER_FOCAL_NEW;
+		DRAW_WINDOW *parent = app->draw_window[app->active_window];
+		LAYER *parent_prev = SearchLayer(parent->layer, window->active_layer->name);
+		LAYER *parent_next = (parent_prev == NULL) ? parent->layer : parent_prev->next;
+		LAYER *parent_new = CreateLayer(0, 0, parent->width, parent->height, parent->channel,
+			(eLAYER_TYPE)layer->layer_type, parent_prev, parent_next, layer->name, parent);
+		parent->num_layer++;
+		AddNewLayerHistory(parent_new, parent_new->layer_type);
 	}
 	// レイヤー数を更新
 	window->num_layer++;
@@ -1493,10 +1505,16 @@ void ExecuteMakeLayerSet(APPLICATION *app)
 		window
 	);
 
-	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	// 局所キャンバスモードなら親キャンバスでもレイヤー作成
 	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
 	{
-		layer->flags |= LAYER_FOCAL_NEW;
+		DRAW_WINDOW *parent = app->draw_window[app->active_window];
+		LAYER *parent_prev = SearchLayer(parent->layer, window->active_layer->name);
+		LAYER *parent_next = (parent_prev == NULL) ? parent->layer : parent_prev->next;
+		LAYER *parent_new = CreateLayer(0, 0, parent->width, parent->height, parent->channel,
+			(eLAYER_TYPE)layer->layer_type, parent_prev, parent_next, layer->name, parent);
+		parent->num_layer++;
+		AddNewLayerHistory(parent_new, parent_new->layer_type);
 	}
 
 	// レイヤー数を更新
@@ -1552,10 +1570,16 @@ void ExecuteMake3DLayer(APPLICATION* app)
 		window
 	);
 
-	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	// 局所キャンバスモードなら親キャンバスでもレイヤー作成
 	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
 	{
-		layer->flags |= LAYER_FOCAL_NEW;
+		DRAW_WINDOW *parent = app->draw_window[app->active_window];
+		LAYER *parent_prev = SearchLayer(parent->layer, window->active_layer->name);
+		LAYER *parent_next = (parent_prev == NULL) ? parent->layer : parent_prev->next;
+		LAYER *parent_new = CreateLayer(0, 0, parent->width, parent->height, parent->channel,
+			(eLAYER_TYPE)layer->layer_type, parent_prev, parent_next, layer->name, parent);
+		parent->num_layer++;
+		AddNewLayerHistory(parent_new, parent_new->layer_type);
 	}
 
 	// レイヤー数を更新

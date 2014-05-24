@@ -405,7 +405,9 @@ int PmxRigidBodyLoad(STRUCT_ARRAY* bodies, STRUCT_ARRAY* bones)
 			void *parent_model = rigid_body->parent_model;
 			TEXT_ENCODE *encode = rigid_body->encode;
 			MODEL_INTERFACE *inter = (MODEL_INTERFACE*)parent_model;
-			void *bone = inter->find_bone(parent_model, encode->const_texts[TEXT_CONSTANT_TYPE_CENTER]);
+			void *bone = inter->find_bone(parent_model,
+				// ƒZƒ“ƒ^[
+				"\xE3\x82\xBB\xE3\x83\xB3\xE3\x82\xBF\xE3\x83\xBC");
 			BaseRigidBodyBuild(rigid_body, bone, i);
 		}
 	}
@@ -490,7 +492,7 @@ int Pmd2RigidBodyPreparse(
 {
 	int32 size;
 	if(MemRead(&size, sizeof(size), 1, stream) == 0
-		|| PMD2_RIGID_BODY_UNIT_SIZE * size > stream->data_point + stream->data_size)
+		|| (size_t)(PMD2_RIGID_BODY_UNIT_SIZE * size) > stream->data_point + stream->data_size)
 	{
 		return FALSE;
 	}

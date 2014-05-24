@@ -207,9 +207,6 @@ typedef struct _DRAW_WINDOW
 	// 局所キャンバス
 	struct _DRAW_WINDOW *focal_window;
 
-	// 追加データ
-	void *extra_data;
-
 	// アプリケーション全体管理用構造体へのポインタ
 	struct _APPLICATION* app;
 

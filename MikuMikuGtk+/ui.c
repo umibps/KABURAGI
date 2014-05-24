@@ -133,9 +133,9 @@ static void InitializeGL(PROJECT* project, int widget_width, int widget_height)
 	DebugDrawerLoad(&project->debug_drawer);
 
 	InitializeControl(&project->control, widget_width, widget_height, project);
-	LoadControlHandle(&project->control.handle, project->application_context);
+	LoadControlHandle(&project->control.handle, project);
 
-	UploadWhiteTexture(WHITE_TEXTURE_SIZE, WHITE_TEXTURE_SIZE, project->application_context);
+	UploadWhiteTexture(WHITE_TEXTURE_SIZE, WHITE_TEXTURE_SIZE, project);
 
 	project->world.debug_drawer = &project->debug_drawer;
 }
@@ -649,7 +649,7 @@ static void OnChangeSelectedModel(GtkWidget* combo, APPLICATION* application)
 		application->widgets.ui_disabled = TRUE;
 		scene->selected_model = (MODEL_INTERFACE*)scene->models->buffer[select-1];
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_scale), scene->selected_model->scale_factor * 100.0);
-		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_scale), scene->selected_model->opacity * 100.0);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_opacity), scene->selected_model->opacity * 100.0);
 		scene->selected_model->get_world_translation(scene->selected_model, set_value);
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_position[0]), set_value[0]);
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_position[1]), set_value[1]);
@@ -667,7 +667,7 @@ static void OnChangeSelectedModel(GtkWidget* combo, APPLICATION* application)
 static void OnChangeModelScale(GtkAdjustment* adjustment, APPLICATION* application)
 {
 	PROJECT *project = application->projects[application->active_project];
-	if(application->num_projects <= 0)
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
 	{
 		return;
 	}
@@ -683,7 +683,7 @@ static void OnChangeModelScale(GtkAdjustment* adjustment, APPLICATION* applicati
 static void OnChangeModelOpacity(GtkAdjustment* adjustment, APPLICATION* application)
 {
 	PROJECT *project = application->projects[application->active_project];
-	if(application->num_projects <= 0)
+	if(application->num_projects <= 0 || application->widgets.ui_disabled != FALSE)
 	{
 		return;
 	}
@@ -977,6 +977,7 @@ typedef struct _SET_LABEL_DATA
 {
 	char *label;
 	POINTER_ARRAY *child_names;
+	POINTER_ARRAY *child_bones;
 } SET_LABEL_DATA;
 
 void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* application_context)
@@ -990,14 +991,13 @@ void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* app
 	LABEL_INTERFACE **labels;
 	LABEL_INTERFACE *label;
 	BONE_INTERFACE *bone;
-	POINTER_ARRAY *added_bones;
+	POINTER_ARRAY *parent_bones;
 	GtkTreeStore *tree_store;
 	GtkTreeStore *old_store = NULL;
 	GtkTreeIter toplevel;
 	GtkTreeIter child;
 	int num_labels;
 	int num_children;
-	int num_added_bones = 0;
 	int i, j;
 
 	if(model == NULL)
@@ -1020,7 +1020,8 @@ void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* app
 
 	parent = (SET_LABEL_DATA*)StructArrayReserve(set_label_data);
 	parent->child_names = PointerArrayNew(DEFAULT_BUFFER_SIZE);
-	added_bones = PointerArrayNew(DEFAULT_BUFFER_SIZE);
+	parent->child_bones = PointerArrayNew(DEFAULT_BUFFER_SIZE);
+	parent_bones = PointerArrayNew(DEFAULT_BUFFER_SIZE);
 	for(i=0; i<num_labels; i++)
 	{
 		label = labels[i];
@@ -1033,7 +1034,7 @@ void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* app
 				if(bone != NULL)
 				{
 					parent->label = bone->name;
-					PointerArrayAppend(added_bones, bone);
+					PointerArrayAppend(parent_bones, bone);
 				}
 			}
 			if(parent->label == NULL)
@@ -1045,7 +1046,7 @@ void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* app
 		{
 			bone = label->get_bone(label, 0);
 			parent->label = label->name;
-			PointerArrayAppend(added_bones, bone);
+			PointerArrayAppend(parent_bones, bone);
 		}
 
 		for(j=0; j<num_children; j++)
@@ -1054,7 +1055,7 @@ void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* app
 			if(bone != NULL)
 			{
 				PointerArrayAppend(parent->child_names, bone->name);
-				PointerArrayAppend(added_bones, bone);
+				PointerArrayAppend(parent->child_bones, bone);
 			}
 		}
 
@@ -1062,6 +1063,7 @@ void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* app
 		{
 			parent = (SET_LABEL_DATA*)StructArrayReserve(set_label_data);
 			parent->child_names = PointerArrayNew(DEFAULT_BUFFER_SIZE);
+			parent->child_bones = PointerArrayNew(DEFAULT_BUFFER_SIZE);
 		}
 	}
 
@@ -1069,15 +1071,13 @@ void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* app
 	for(i=0; i<(int)set_label_data->num_data; i++)
 	{
 		parent = &data[i];
-		bone = (BONE_INTERFACE*)added_bones->buffer[num_added_bones];
-		num_added_bones++;
+		bone = (BONE_INTERFACE*)parent_bones->buffer[i];
 		gtk_tree_store_append(tree_store, &toplevel, NULL);
 		gtk_tree_store_set(tree_store, &toplevel, 0, parent->label, 1, bone, -1);
 
 		for(j=0; j<(int)parent->child_names->num_data; j++)
 		{
-			bone = (BONE_INTERFACE*)added_bones->buffer[num_added_bones];
-			num_added_bones++;
+			bone = (BONE_INTERFACE*)parent->child_bones->buffer[j];
 			gtk_tree_store_append(tree_store, &child, &toplevel);
 			gtk_tree_store_set(tree_store, &child, 0,
 				parent->child_names->buffer[j], 1, bone, -1);
@@ -1088,6 +1088,7 @@ void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* app
 	{
 		parent = &data[i];
 		PointerArrayDestroy(&parent->child_names, NULL);
+		PointerArrayDestroy(&parent->child_bones, NULL);
 	}
 	StructArrayDestroy(&set_label_data, NULL);
 
@@ -1401,7 +1402,7 @@ void* ModelControlWidgetNew(void* application_context)
 		}
 	}
 #endif
-	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], FALSE, TRUE, 0);
 	(void)g_signal_connect(G_OBJECT(control[0]), "changed",
 		G_CALLBACK(OnChangeSelectedModel), application);
 	// Šg‘å—¦
@@ -1422,7 +1423,7 @@ void* ModelControlWidgetNew(void* application_context)
 	{
 		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(100.0f, 0, 10000, 1, 5, 0));
 	}
-	application->widgets.model_scale =  control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	application->widgets.model_scale =  control[0] = gtk_spin_button_new(adjustment, 1, 2);
 	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
 		G_CALLBACK(OnChangeModelScale), application);
 	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
@@ -1465,7 +1466,7 @@ void* ModelControlWidgetNew(void* application_context)
 		gtk_combo_box_text_new();
 #endif
 	FillParentModelComboBox(control[0], scene, application);
-	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], FALSE, TRUE, 0);
 	(void)g_signal_connect(G_OBJECT(control[0]), "changed",
 		G_CALLBACK(OnChangeSelectedParentModel), application);
 	// Ú‘±æƒ{[ƒ“
@@ -1479,7 +1480,7 @@ void* ModelControlWidgetNew(void* application_context)
 #else
 		gtk_combo_box_text_new();
 #endif
-	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], FALSE, TRUE, 0);
 	(void)g_signal_connect(G_OBJECT(control[0]), "changed",
 		G_CALLBACK(OnChangeSelectedParentBone), application);
 	// ˆÊ’u‚Æ‰ñ“]
@@ -1503,7 +1504,7 @@ void* ModelControlWidgetNew(void* application_context)
 	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("X:"), FALSE, FALSE, 0);
 	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[0], -10000, 10000, 1, 5, 0));
-	application->widgets.model_position[0] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	application->widgets.model_position[0] = control[0] = gtk_spin_button_new(adjustment, 1, 2);
 	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
 	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_X));
 	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
@@ -1513,7 +1514,7 @@ void* ModelControlWidgetNew(void* application_context)
 	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Y:"), FALSE, FALSE, 0);
 	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[1], -10000, 10000, 1, 5, 0));
-	application->widgets.model_position[1] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	application->widgets.model_position[1] = control[0] = gtk_spin_button_new(adjustment, 1, 2);
 	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
 	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Y));
 	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
@@ -1523,7 +1524,7 @@ void* ModelControlWidgetNew(void* application_context)
 	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new("Z:"), FALSE, FALSE, 0);
 	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(scalar_value[2], -10000, 10000, 1, 5, 0));
-	application->widgets.model_position[2] = control[0] = gtk_spin_button_new(adjustment, 1, 1);
+	application->widgets.model_position[2] = control[0] = gtk_spin_button_new(adjustment, 1, 2);
 	gtk_box_pack_start(GTK_BOX(layout_box), control[0], TRUE, TRUE, 0);
 	g_object_set_data(G_OBJECT(adjustment), "set_type", GINT_TO_POINTER(SET_VALUE_TYPE_Z));
 	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
@@ -1675,6 +1676,13 @@ void* ModelControlWidgetNew(void* application_context)
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control[0]),
 		project->flags & PROJECT_FLAG_DRAW_GRID);
 	ToggleButtonSetFlag(control[0], PROJECT_FLAG_DRAW_GRID, &project->flags,
+		NULL, NULL, &application->widgets.ui_disabled);
+	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
+
+	control[0] = gtk_check_button_new_with_label(application->label.control.render_shadow);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control[0]),
+		project->flags & PROJECT_FLAG_RENDER_SHADOW);
+	ToggleButtonSetFlag(control[0], PROJECT_FLAG_RENDER_SHADOW, &project->flags,
 		NULL, NULL, &application->widgets.ui_disabled);
 	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
 

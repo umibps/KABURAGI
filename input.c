@@ -2252,7 +2252,7 @@ gboolean KeyPressEvent(
 )
 {
 	APPLICATION* application = (APPLICATION*)data;
-	DRAW_WINDOW* window = GetActiveDrawWindow(application);
+	DRAW_WINDOW* window = NULL;
 	int x, y;
 	int end_flag = 0;
 
@@ -2292,6 +2292,15 @@ gboolean KeyPressEvent(
 
 		return FALSE;
 	}
+
+	window = GetActiveDrawWindow(application);
+
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	if(window->active_layer->layer_type == TYPE_3D_LAYER)
+	{
+		return FALSE;
+	}
+#endif
 
 	// レイヤーの名前変更中なら終了
 	if((window->active_layer->widget->flags & LAYER_WINDOW_IN_CHANGE_NAME) != 0)

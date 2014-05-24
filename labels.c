@@ -803,6 +803,8 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	labels->control.enable_physics = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "3D_MODELING", "DISPLAY_GRID", temp_str, MAX_STR_SIZE);
 	labels->control.display_grid = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "RENDER_SHADOW", temp_str, MAX_STR_SIZE);
+	labels->control.render_shadow = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "3D_MODELING", "RENDER_EDGE_ONLY", temp_str, MAX_STR_SIZE);
 	labels->control.render_edge_only = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	labels->control.edit_mode.select = app->labels->menu.select;

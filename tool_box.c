@@ -2133,6 +2133,7 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	window->brush_scroll = gtk_scrolled_window_new(NULL, NULL);
 	gtk_box_pack_start(GTK_BOX(window->ui), window->brush_scroll, TRUE, TRUE, 0);
 	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(window->brush_scroll), window->brush_table);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(window->brush_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
 	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.display);
 	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_button_press);

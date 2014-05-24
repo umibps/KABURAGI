@@ -124,7 +124,7 @@ void ChangeNavigationDrawWindow(NAVIGATION_WINDOW* navigation, DRAW_WINDOW* wind
 * 返り値                                                     *
 *	常にTRUE                                                 *
 *************************************************************/
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 static gboolean DisplayNavigation(
 	GtkWidget *widget,
 	GdkEventExpose *event,
@@ -140,7 +140,7 @@ static gboolean DisplayNavigation(
 {
 	// 表示する描画領域
 	DRAW_WINDOW *window;
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	// 画面表示用のCairo情報
 	cairo_t *cairo_p;
 #endif
@@ -265,7 +265,7 @@ static gboolean DisplayNavigation(
 	cairo_set_operator(cairo_p, CAIRO_OPERATOR_OVER);
 
 	// 左右反転表示中なら表示内容を左右反転
-	if((app->draw_window[app->active_window]->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE) != 0)
+	if((window->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE) != 0)
 	{
 		uint8 *ref, *src;
 		int x, y;
@@ -606,7 +606,9 @@ static gboolean OnDeleteNavigationWindow(GtkWidget* window, GdkEvent* event_info
 static void OnDestroyNavigationWidget(APPLICATION* app)
 {
 	MEM_FREE_FUNC(app->navigation_window.pixels);
+	app->navigation_window.pixels = NULL;
 	MEM_FREE_FUNC(app->navigation_window.reverse_buff);
+	app->navigation_window.reverse_buff = NULL;
 
 	app->menus.disable_if_no_open[app->navigation_window.zoom_index] = NULL;
 	app->menus.disable_if_no_open[app->navigation_window.rotate_index] = NULL;
@@ -615,6 +617,8 @@ static void OnDestroyNavigationWidget(APPLICATION* app)
 	app->navigation_window.draw_area = NULL;
 	app->navigation_window.vbox = NULL;
 	app->navi_layer_pane = NULL;
+	app->navigation_window.width = 0;
+	app->navigation_window.height = 0;
 }
 
 /*********************************************************************

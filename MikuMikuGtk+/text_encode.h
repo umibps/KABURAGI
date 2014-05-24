@@ -47,7 +47,6 @@ typedef struct _TEXT_ENCODE
 	char buff[TEXT_ENCODE_BUFFER_SIZE];
 	char *from;
 	char *to;
-	char *const_texts[MAX_TEXT_CONSTANT_TYPE];
 } TEXT_ENCODE;
 
 extern void InitializeTextEncode(

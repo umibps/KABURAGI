@@ -337,6 +337,7 @@ extern const char* StringStringIgnoreCase(const char* str, const char* compare);
 extern int GetTextFromStream(char* stream, char** text);
 
 extern int GetSignedValue(uint8* stream, int length);
+extern unsigned int GetUnignedValue(uint8* stream, int length);
 
 extern INLINE void ClampByteData(uint8* a, const uint8 lb, const uint8 ub);
 

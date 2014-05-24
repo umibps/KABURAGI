@@ -2757,13 +2757,15 @@ void ExecuteOpenFileAsLayer(APPLICATION* app)
 	{	// ファイルが開かれた
 		gchar* file_path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
 		// ピクセルバッファに変換
-		GdkPixbuf* pixbuf;
+		GdkPixbuf *pixbuf;
+		// レイヤーを追加するキャンバス
+		DRAW_WINDOW *window = GetActiveDrawWindow(app);
 		// 追加するレイヤー
-		LAYER* layer;
+		LAYER *layer;
 		// ファイル名取得用
-		gchar* str;
+		gchar *str;
 		// ファイル名
-		gchar* file_name;
+		gchar *file_name;
 		// レイヤーの名前
 		char layer_name[4096];
 		// for文用のカウンタ
@@ -2813,13 +2815,25 @@ void ExecuteOpenFileAsLayer(APPLICATION* app)
 
 			// アクティブな描画領域にレイヤーを追加
 			layer = CreateLayer(0, 0, app->draw_window[app->active_window]->width,
-				app->draw_window[app->active_window]->height, 4, TYPE_NORMAL_LAYER,
-				app->draw_window[app->active_window]->active_layer,
-				app->draw_window[app->active_window]->active_layer->next,
+				window->height, 4, TYPE_NORMAL_LAYER,
+				window->active_layer,
+				window->active_layer->next,
 				layer_name,
-				app->draw_window[app->active_window]
+				window
 			);
-			app->draw_window[app->active_window]->num_layer++;
+			window->num_layer++;
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+			{
+				uint8 r;
+				for(i=0; i<width*height; i++)
+				{
+					r = pixels[i*4];
+					pixels[i*4] = pixels[i*4+2];
+					pixels[i*4+2] = r;
+				}
+			}
+#endif
 
 			// 画像データを追加したレイヤーにコピー
 			if(width > layer->width)
@@ -2827,14 +2841,16 @@ void ExecuteOpenFileAsLayer(APPLICATION* app)
 				width = layer->width;
 				stride = layer->width * 4;
 			}
+
 			if(height > layer->height)
 			{
 				height = layer->height;
 			}
+
 			for(i=0; i<height; i++)
 			{
 				(void)memcpy(&layer->pixels[layer->stride*i],
-						&pixels[i*stride], stride
+						&pixels[i*original_stride], stride
 				);
 			}
 
@@ -2843,11 +2859,11 @@ void ExecuteOpenFileAsLayer(APPLICATION* app)
 				original_stride, 4, app->labels->menu.open_as_layer);
 
 			// 追加したレイヤーをアクティブに
-			LayerViewAddLayer(layer, app->draw_window[app->active_window]->layer,
-				app->layer_window.view, app->draw_window[app->active_window]->num_layer);
-			ChangeActiveLayer(app->draw_window[app->active_window], layer);
+			LayerViewAddLayer(layer, window->layer,
+				app->layer_window.view, window->num_layer);
+			ChangeActiveLayer(window, layer);
 			LayerViewSetActiveLayer(
-				app->draw_window[app->active_window]->active_layer, app->layer_window.view
+				window->active_layer, app->layer_window.view
 			);
 
 			// ピクセルバッファは不要
@@ -3091,8 +3107,12 @@ void DeleteActiveLayer(APPLICATION* app)
 	// 局所キャンバスモードなら消したレイヤーの名前を覚える
 	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
 	{
-		PointerArrayAppend((POINTER_ARRAY*)window->extra_data,
-			MEM_STRDUP_FUNC(delete_layer->name));
+		LAYER *parent_delete = SearchLayer(app->draw_window[app->active_window]->layer, delete_layer->name);
+		if(parent_delete != NULL)
+		{
+			DeleteLayer(&parent_delete);
+		}
+		app->draw_window[app->active_window]->num_layer--;
 	}
 
 	if(window->layer == window->active_layer)
@@ -3460,20 +3480,52 @@ void Change2ndBackColor(APPLICATION* app)
 *********************************************************/
 void MergeDownActiveLayer(APPLICATION* app)
 {
+	// アクティブな描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// 結合後にアクティブになるレイヤー
-	LAYER* next_active = app->draw_window[app->active_window]->active_layer->prev;
+	LAYER* next_active = window->active_layer->prev;
+
+	// 局所キャンバスモードなら親キャンバスを先に処理
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		DRAW_WINDOW *parent = window->focal_window;
+		LAYER *parent_target = SearchLayer(parent->layer, window->active_layer->name);
+		LAYER *parent_next_active = parent->active_layer;
+		if(parent_target != NULL)
+		{
+			if(parent_next_active == parent_target)
+			{
+				parent_next_active = parent_target->prev;
+			}
+			if(parent_next_active == NULL)
+			{
+				parent_next_active = parent->layer;
+			}
+			// 履歴データの作成
+			AddLayerMergeDownHistory(
+				parent,
+				parent_target
+			);
+
+			// レイヤー結合を実行して
+			LayerMergeDown(parent_target);
+
+			// アクティブなレイヤーを変更する
+			parent->active_layer = parent_next_active;
+		}
+	}
 
 	// 履歴データの作成
 	AddLayerMergeDownHistory(
-		app->draw_window[app->active_window],
-		app->draw_window[app->active_window]->active_layer
+		window,
+		window->active_layer
 	);
 
 	// レイヤー結合を実行して
-	LayerMergeDown(app->draw_window[app->active_window]->active_layer);
+	LayerMergeDown(window->active_layer);
 
 	// アクティブレイヤーを変更する
-	ChangeActiveLayer(app->draw_window[app->active_window], next_active);
+	ChangeActiveLayer(window, next_active);
 	LayerViewSetActiveLayer(next_active, app->layer_window.view);
 }
 
@@ -3528,7 +3580,13 @@ void ExecuteCopyLayer(APPLICATION* app)
 	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
 	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
 	{
-		layer->flags |= LAYER_FOCAL_NEW;
+		DRAW_WINDOW *parent = app->draw_window[app->active_window];
+		LAYER *parent_prev = SearchLayer(parent->layer, window->active_layer->name);
+		LAYER *parent_next = (parent_prev == NULL) ? parent->layer : parent_prev->next;
+		LAYER *parent_new = CreateLayer(0, 0, parent->width, parent->height, parent->channel,
+			(eLAYER_TYPE)layer->layer_type, parent_prev, parent_next, layer->name, parent);
+		parent->num_layer++;
+		AddNewLayerHistory(parent_new, parent_new->layer_type);
 	}
 
 	LayerViewAddLayer(layer, window->layer,
@@ -3570,10 +3628,16 @@ void ExecuteVisible2Layer(APPLICATION* app)
 	(void)memcpy(new_layer->pixels, visible->pixels, visible->height*visible->stride);
 	window->num_layer++;
 
-	// 局所キャンバスモードなら戻る時に備えてフラグを立てる
+	// 局所キャンバスモードなら親キャンバスでもレイヤー作成
 	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
 	{
-		new_layer->flags |= LAYER_FOCAL_NEW;
+		DRAW_WINDOW *parent = app->draw_window[app->active_window];
+		LAYER *parent_prev = SearchLayer(parent->layer, window->active_layer->name);
+		LAYER *parent_next = (parent_prev == NULL) ? parent->layer : parent_prev->next;
+		LAYER *parent_new = CreateLayer(0, 0, parent->width, parent->height, parent->channel,
+			(eLAYER_TYPE)new_layer->layer_type, parent_prev, parent_next, new_layer->name, parent);
+		parent->num_layer++;
+		AddNewLayerHistory(parent_new, parent_new->layer_type);
 	}
 
 	// レイヤーウィンドウに追加してアクティブ化

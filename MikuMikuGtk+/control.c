@@ -2,6 +2,7 @@
 	// Œx‚ªo‚È‚¢‚æ‚¤‚É‚·‚é
 #if defined _MSC_VER && _MSC_VER >= 1400
 # define _CRT_SECURE_NO_DEPRECATE
+# define _CRT_NONSTDC_NO_DEPRECATE
 #endif
 
 #include <assimp/postprocess.h>
@@ -681,165 +682,175 @@ void LoadHandleModelWithState(HANDLE_MODEL* model, const struct aiMesh* mesh, HA
 	model->body = body;
 }
 
-void LoadImageHandles(CONTROL_HANDLE* handle, APPLICATION* application)
+void LoadImageHandles(CONTROL_HANDLE* handle, PROJECT* project)
 {
 	TEXTURE_DATA_BRIDGE bridge;
 	char utf8_path[8192];
 	char *system_path;
+	char *vertex_shader_path;
+	char *fragment_shader_path;
 	float texture_coord[8] = {0, 0, 1, 0, 1, -1, 0, -1};
 
+	(void)sprintf(utf8_path, "%sgui/texture.vsh", project->application_context->paths.shader_directory_path);
+	vertex_shader_path = MEM_STRDUP_FUNC(utf8_path);
+	(void)sprintf(utf8_path, "%sgui/texture.fsh", project->application_context->paths.shader_directory_path);
+	fragment_shader_path = MEM_STRDUP_FUNC(utf8_path);
 	bridge.flags = TEXTURE_FLAG_TEXTURE_2D | TEXTURE_FLAG_ASYNC_LOADING_TEXTURE;
-	LoadTextureDrawHelper(&handle->helper, texture_coord, application);
+	LoadTextureDrawHelper(&handle->helper, texture_coord,
+		vertex_shader_path, fragment_shader_path, project->application_context);
+	MEM_FREE_FUNC(vertex_shader_path);
+	MEM_FREE_FUNC(fragment_shader_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/x-enable-move.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->x.enable_move.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/x-enable-move.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->x.enable_move.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/x-enable-rotate.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->x.enable_rotate.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/x-disable-move.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->x.disable_move.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/x-disable-rotate.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->x.disable_rotate.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/y-enable-move.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->y.enable_move.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/y-enable-rotate.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->y.enable_rotate.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/y-disable-move.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->y.disable_move.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/y-disable-rotate.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->y.disable_rotate.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/z-enable-move.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->z.enable_move.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/z-enable-rotate.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->z.enable_rotate.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/z-disable-move.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->z.disable_move.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/z-disable-rotate.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->z.disable_rotate.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/global.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->global.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/local.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->local.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 
-	(void)strcpy(utf8_path, application->paths.image_directory_path);
+	(void)strcpy(utf8_path, project->application_context->paths.image_directory_path);
 	(void)strcat(utf8_path, "icons/view.png");
 	system_path = g_locale_from_utf8(utf8_path, -1, NULL, NULL, NULL);
-	if(UploadTexture(system_path, &bridge, application) != FALSE)
+	if(UploadTexture(system_path, &bridge, project) != FALSE)
 	{
 		handle->view.texture = (TEXTURE_2D*)bridge.texture;
 	}
 	g_free(system_path);
 }
 
-void LoadControlHandle(CONTROL_HANDLE* handle, APPLICATION* application)
+void LoadControlHandle(CONTROL_HANDLE* handle, PROJECT* project)
 {
 	if((handle->flags & HANDLE_FLAG_LOADED) == 0)
 	{
+		APPLICATION *application = project->application_context;
 		char utf8_path[8192];
 		char *system_path;
 
@@ -934,7 +945,7 @@ void LoadControlHandle(CONTROL_HANDLE* handle, APPLICATION* application)
 			}
 		}
 
-		LoadImageHandles(handle, application);
+		LoadImageHandles(handle, project);
 
 		handle->flags |= HANDLE_FLAG_LOADED;
 	}
@@ -1662,9 +1673,6 @@ void BoneMotionModelRotateAngle(
 	bone->set_local_rotation(bone, last_rotation);
 	WorldStepSimulation(&scene->project->world, scene->project->world.fixed_time_step);
 	SceneUpdateModel(scene, scene->selected_model, TRUE);
-
-	//scene->flags |=
-	//	SCENE_FLAG_UPDATE_MODELS | SCENE_FLAG_UPDATE_RENDER_ENGINES | SCENE_FLAG_MODEL_CONTROLLED;
 }
 
 void InitializeControl(CONTROL* control, int width, int height, PROJECT* project)
@@ -1693,7 +1701,7 @@ void ControlSetEditMode(CONTROL* control, eEDIT_MODE mode)
 void ControlRotateBone(CONTROL* control, BONE_INTERFACE* bone, FLOAT_T diff[2])
 {
 	float distance = (float)sqrt(diff[0]*diff[0] + diff[1]*diff[1]);
-	float angle = ((float)diff[0] + (float)diff[1]) * 0.25f;
+	float angle = - ((float)diff[0] + (float)diff[1]) * 0.25f;
 	unsigned int mode = HandleModeFromConstraint(&control->handle);
 	unsigned int axis = 0;
 

@@ -174,7 +174,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			(void)strcpy(file_path, ((MODEL_INTERFACE*)engine->interface_data.model)->model_path);
 			(void)strcat(file_path, "/");
 			(void)strcat(file_path, texture_path);
-			if(UploadTexture(file_path, &bridge, engine->project_context->application_context) != FALSE)
+			if(UploadTexture(file_path, &bridge, engine->project_context) != FALSE)
 			{
 				t = bridge.texture;
 				texture->main_texture = t;
@@ -191,7 +191,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			(void)strcat(file_path, "/");
 			(void)strcat(file_path, texture_path);
 
-			if(UploadTexture(file_path, &bridge, engine->project_context->application_context) != FALSE)
+			if(UploadTexture(file_path, &bridge, engine->project_context) != FALSE)
 			{
 				t = bridge.texture;
 				texture->sphere_texture = t;
@@ -210,7 +210,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			(void)sprintf(buf, "%stoon%02d.bmp",
 				engine->project_context->application_context->paths.image_directory_path,
 				material->get_toon_texture_index((void*)material) + 1);
-			suceeded = UploadTexture(buf, &bridge, engine->project_context->application_context);
+			suceeded = UploadTexture(buf, &bridge, engine->project_context);
 			if(suceeded != FALSE)
 			{
 				t = bridge.texture;
@@ -228,7 +228,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			(void)strcat(file_path, "/");
 			(void)strcat(file_path, texture_path);
 
-			if(UploadTexture(file_path, &bridge, engine->project_context->application_context) != FALSE)
+			if(UploadTexture(file_path, &bridge, engine->project_context) != FALSE)
 			{
 				t = bridge.texture;
 				texture->toon_texture = t;
@@ -240,7 +240,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 				(void)strcat(file_path, "/image/");
 				(void)strcat(file_path, texture_path);
 
-				if(UploadTexture(file_path, &bridge, engine->project_context->application_context) != FALSE)
+				if(UploadTexture(file_path, &bridge, engine->project_context) != FALSE)
 				{
 					t = bridge.texture;
 					if(texture->main_texture == NULL)
@@ -622,6 +622,7 @@ void PmxRenderEngineRenderModel(PMX_RENDER_ENGINE* engine)
 	{
 		MATERIAL_INTERFACE *material = materials[i];
 		PMX_RENDER_ENGINE_MATERIAL_TEXTURE *material_texture = &textures[i];
+		int no_draw = 0;
 
 		material->get_ambient(material, material_ambient);
 		material->get_diffuse(material, material_diffuse);
@@ -638,41 +639,60 @@ void PmxRenderEngineRenderModel(PMX_RENDER_ENGINE* engine)
 		PmxModelProgramSetMaterialSpecular(&engine->model_program, specular);
 		PmxModelProgramSetMaterialShininess(&engine->model_program, material->get_shininess(material));
 		material->get_main_texture_blend(material, blend);
+		if(blend[3] <= 0.0f)
+		{
+			no_draw++;
+		}
 		PmxModelProgramSetMainTextureBlend(&engine->model_program, blend);
 		material->get_sphere_texture_blend(material, blend);
+		if(blend[3] <= 0.0f)
+		{
+			no_draw++;
+		}
 		PmxModelProgramSetSphereTextureBlend(&engine->model_program, blend);
 		material->get_toon_texture_blend(material, blend);
-		PmxModelProgramSetToonTextureBlend(&engine->model_program, blend);
-		ObjectProgramSetMainTexture(&engine->model_program.program, material_texture->main_texture);
-		PmxModelProgramSetSphereTexture(&engine->model_program, material->sphere_texture_render_mode,
-			material_texture->sphere_texture);
-		PmxModelProgramSetToonTexture(&engine->model_program, material_texture->toon_texture);
-		if(texture_id != 0 && material->is_self_shadow_enabled(material) != 0)
+		if(blend[3] <= 0.0f)
 		{
-			ObjectProgramSetDepthTexture(&engine->model_program.program, texture_id);
+			no_draw++;
+		}
+		PmxModelProgramSetToonTextureBlend(&engine->model_program, blend);
+		if(no_draw < 2)
+		{
+			ObjectProgramSetMainTexture(&engine->model_program.program, material_texture->main_texture);
+			PmxModelProgramSetSphereTexture(&engine->model_program, material->sphere_texture_render_mode,
+				material_texture->sphere_texture);
+			PmxModelProgramSetToonTexture(&engine->model_program, material_texture->toon_texture);
+			if(texture_id != 0 && material->is_self_shadow_enabled(material) != 0)
+			{
+				ObjectProgramSetDepthTexture(&engine->model_program.program, texture_id);
+			}
+			else
+			{
+				ObjectProgramSetDepthTexture(&engine->model_program.program, 0);
+			}
+			if(is_vertex_shader_skinning != FALSE)
+			{
+				PmxModelProgramSetBoneMatrices(&engine->model_program,
+					engine->matrix_buffer->bytes(engine->matrix_buffer, i), engine->matrix_buffer->get_size(engine->matrix_buffer, i));
+			}
+			if(has_model_transparent == FALSE && cull_face_state != FALSE && (material->flags & MATERIAL_FLAG_DISABLE_CULLING) != 0)
+			{
+				//glDisable(GL_CULL_FACE);
+				cull_face_state = FALSE;
+			}
+			else if(cull_face_state == FALSE && (material->flags & MATERIAL_FLAG_DISABLE_CULLING) == 0)
+			{
+				//glEnable(GL_CULL_FACE);
+				cull_face_state = TRUE;
+			}
+
+			num_indices = material->index_range.count;
+			glDrawElements(GL_TRIANGLES, num_indices, engine->index_type, (GLvoid*)offset);
 		}
 		else
 		{
-			ObjectProgramSetDepthTexture(&engine->model_program.program, 0);
+			num_indices = material->index_range.count;
 		}
-		if(is_vertex_shader_skinning != FALSE)
-		{
-			PmxModelProgramSetBoneMatrices(&engine->model_program,
-				engine->matrix_buffer->bytes(engine->matrix_buffer, i), engine->matrix_buffer->get_size(engine->matrix_buffer, i));
-		}
-		if(has_model_transparent == FALSE && cull_face_state != FALSE && (material->flags & MATERIAL_FLAG_DISABLE_CULLING) != 0)
-		{
-			//glDisable(GL_CULL_FACE);
-			cull_face_state = FALSE;
-		}
-		else if(cull_face_state == FALSE && (material->flags & MATERIAL_FLAG_DISABLE_CULLING) == 0)
-		{
-			//glEnable(GL_CULL_FACE);
-			cull_face_state = TRUE;
-		}
-
-		num_indices = material->index_range.count;
-		glDrawElements(GL_TRIANGLES, num_indices, engine->index_type, (GLvoid*)offset);
 
 		offset += num_indices * size;
 	}
@@ -909,7 +929,7 @@ void PmxRenderEngineRenderWhiteModel(PMX_RENDER_ENGINE* engine)
 	material_specular[0] = material_specular[1] = material_specular[2] = 0;
 	blend[0] = blend[1] = blend[2] = blend[3] = 1;
 	texture = (TEXTURE_INTERFACE*)ght_get(
-		engine->scene->project->application_context->texture_chache_map, sizeof(WHITE_TEXTURE_NAME), WHITE_TEXTURE_NAME);
+		engine->scene->project->texture_chache_map, sizeof(WHITE_TEXTURE_NAME), WHITE_TEXTURE_NAME);
 
 	for(i=0; i<num_materials; i++)
 	{
@@ -971,6 +991,8 @@ ASSET_RENDER_ENGINE* AssetRenderEngineNew(
 	ret->interface_data.model = model;
 	ret->interface_data.render_model =
 		(void (*)(void*))AssetRenderEngineRenderModel;
+	ret->interface_data.render_shadow =
+		(void (*)(void*))DummyFuncNoReturn;
 	ret->interface_data.render_edge =
 		(void (*)(void*))DummyFuncNoReturn;
 	ret->interface_data.render_model_reverse =
@@ -1242,7 +1264,7 @@ int AssetRenderEngineUploadRecurse(
 
 int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
 {
-	APPLICATION *application = engine->project->application_context;
+	PROJECT *project = engine->project;
 	ASSET_MODEL *model = (ASSET_MODEL*)engine->interface_data.model;
 	TEXTURE_DATA_BRIDGE bridge = {NULL, TEXTURE_FLAG_TEXTURE_2D};
 	struct aiScene *scene;
@@ -1281,7 +1303,7 @@ int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
 				(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
 				if(ght_get(engine->textures, (unsigned int)strlen(main_texture), main_texture) == NULL)
 				{
-					ret = UploadTexture(full_path, &bridge, application);
+					ret = UploadTexture(full_path, &bridge, project);
 					if(ret != FALSE)
 					{
 						(void)ght_insert(engine->textures, bridge.texture,
@@ -1295,7 +1317,7 @@ int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
 				(void)sprintf(full_path, "%s/%s", model->model_path, sub_texture);
 				if(ght_get(engine->textures, (unsigned int)strlen(sub_texture), sub_texture) == NULL)
 				{
-					ret = UploadTexture(full_path, &bridge, application);
+					ret = UploadTexture(full_path, &bridge, project);
 					if(ret != FALSE)
 					{
 						(void)ght_insert(engine->textures, bridge.texture,
@@ -1310,7 +1332,7 @@ int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
 			else if(ght_get(engine->textures, (unsigned int)strlen(main_texture), main_texture) == NULL)
 			{
 				(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
-				ret = UploadTexture(full_path, &bridge, application);
+				ret = UploadTexture(full_path, &bridge, project);
 				if(ret != FALSE)
 				{
 					(void)ght_insert(engine->textures, bridge.texture,

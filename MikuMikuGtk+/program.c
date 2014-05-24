@@ -822,6 +822,6 @@ void TextureDrawHelperProgramSetUniformValues(
 	GLuint texture_id
 )
 {
-	glUniformMatrix4fv(program->model_view_projection_matrix, 1, GL_FALSE, matrix);
+	glUniformMatrix4fv(program->model_view_projection_matrix, 4, GL_FALSE, matrix);
 	glUniform1ui(program->main_texture, texture_id);
 }

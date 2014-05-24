@@ -825,7 +825,6 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 		parent_window->channel, parent_window->file_name, NULL, 0, app);
 	focal_window->focal_window = parent_window;
 	focal_window->scroll = parent_window->scroll;
-	focal_window->extra_data = (void*)PointerArrayNew(8);
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	focal_window->first_project = parent_window->first_project;
@@ -943,21 +942,11 @@ void ReturnFromFocalMode(DRAW_WINDOW* parent_window)
 	int start_x, start_y;
 	// for文用のカウンタ
 	int y;
-	int i;
 
 	// 局所キャンバスが無ければ終了
 	if(focal_window == NULL)
 	{
 		return;
-	}
-
-	for(i=0; i<(int)((POINTER_ARRAY*)focal_window->extra_data)->num_data; i++)
-	{
-		target = SearchLayer(parent_window->layer, (char*)((POINTER_ARRAY*)focal_window->extra_data)->buffer[i]);
-		if(target != NULL)
-		{
-			DeleteLayer(&target);
-		}
 	}
 
 	// 選択範囲部分にピクセルデータを戻す
@@ -971,13 +960,8 @@ void ReturnFromFocalMode(DRAW_WINDOW* parent_window)
 	parent_window->num_layer = 0;
 	while(src_layer != NULL)
 	{
-		if((src_layer->flags & LAYER_FOCAL_NEW) != 0)
-		{
-			dst_layer = CreateLayer(0, 0, parent_window->width, parent_window->height, parent_window->channel,
-				(eLAYER_TYPE)src_layer->layer_type, dst_layer->prev, dst_layer, src_layer->name, parent_window);
-		}
 		dst_layer->layer_mode = src_layer->layer_mode;
-		dst_layer->flags = src_layer->flags & (~(LAYER_FOCAL_NEW));
+		dst_layer->flags = src_layer->flags;
 		dst_layer->alpha = src_layer->alpha;
 		switch(src_layer->layer_type)
 		{
@@ -1046,7 +1030,6 @@ void ReturnFromFocalMode(DRAW_WINDOW* parent_window)
 	parent_window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 	DrawWindowChangeZoom(parent_window, parent_window->zoom);
 
-	PointerArrayDestroy(&((POINTER_ARRAY*)focal_window->extra_data), (void (*)(void*))MEM_FREE_FUNC);
 	DeleteDrawWindow(&parent_window->focal_window);
 
 	// ナビゲーションの表示を切り替え

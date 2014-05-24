@@ -24,9 +24,9 @@ void* ApplicationContextNew(int default_width, int default_height, const char* a
 
 static void LoadDefaultData(APPLICATION* application)
 {
-	application->paths.shader_directory_path = "./";
+	application->paths.shader_directory_path = "./shaders/";
 	application->paths.image_directory_path = "./image/";
-	application->paths.icon_directory_path = "./icons/";
+	application->paths.icon_directory_path = "./image/icons/";
 	application->paths.model_directory_path = "./models/";
 }
 
@@ -40,6 +40,31 @@ static void InitializeDefaultData(APPLICATION* application)
 	application->default_data.identity_transform = BtTransformNew(basis);
 }
 
+static void RelativePath2AbsolutePath(char** path, const char* application_path)
+{
+	char str[8192];
+	if(path == NULL || *path == NULL)
+	{
+		return;
+	}
+
+	if((*path)[0] == '.' && ((*path)[1] == '/' || (*path)[1] == '\\'))
+	{
+		(void)sprintf(str, "%s%s", application_path, &(*path)[1]);
+		*path = MEM_STRDUP_FUNC(str);
+	}
+	else
+	{
+		size_t last = strlen(*path) - 1;
+		if((*path)[last] != '/' && (*path)[last] != '\\')
+		{
+			(void)sprintf(str, "%s/", *path);
+			MEM_FREE_FUNC(*path);
+			*path = MEM_STRDUP_FUNC(str);
+		}
+	}
+}
+
 APPLICATION* MikuMikuGtkNew(
 	int widget_width,
 	int widget_height,
@@ -48,8 +73,9 @@ APPLICATION* MikuMikuGtkNew(
 	const char* application_path
 )
 {
-	static const float basis[] = IDENTITY_MATRIX3x3;
+	const float basis[] = IDENTITY_MATRIX3x3;
 	APPLICATION *ret;
+	char path[8196];
 
 	// ƒƒ‚ƒŠŠm•Û
 	ret = (APPLICATION*)MEM_ALLOC_FUNC(sizeof(*ret));
@@ -72,14 +98,32 @@ APPLICATION* MikuMikuGtkNew(
 	{
 		LoadDefaultData(ret);
 	}
+	if(ret->paths.icon_directory_path[0] == '.'
+		&& (ret->paths.icon_directory_path[1] == '/' || ret->paths.icon_directory_path[1] == '\\'))
+	{
+		(void)sprintf(path, "%s%s", application_path, &ret->paths.icon_directory_path[1]);
+		ret->paths.icon_directory_path = MEM_STRDUP_FUNC(path);
+	}
+	else
+	{
+		size_t length = strlen(ret->paths.icon_directory_path);
+		if(ret->paths.icon_directory_path[length-1] != '/'
+			&& ret->paths.icon_directory_path[length-1] != '\\')
+		{
+			(void)sprintf(path, "%s/", ret->paths.icon_directory_path);
+			MEM_FREE_FUNC(ret->paths.icon_directory_path);
+			ret->paths.icon_directory_path = MEM_STRDUP_FUNC(path);
+		}
+	}
+	RelativePath2AbsolutePath(&ret->paths.icon_directory_path, application_path);
+	RelativePath2AbsolutePath(&ret->paths.image_directory_path, application_path);
+	RelativePath2AbsolutePath(&ret->paths.model_directory_path, application_path);
+	RelativePath2AbsolutePath(&ret->paths.shader_directory_path, application_path);
 
 	InitializeTextEncode(&ret->encode, "UTF-16LE", "UTF-8");
 	InitializeDefaultData(ret);
 
 	ret->transform = BtTransformNew(basis);
-
-	ret->texture_chache_map = ght_create(DEFAULT_BUFFER_SIZE*2);
-	ght_set_hash(ret->texture_chache_map, (ght_fn_hash_t)GetStringHash);
 
 	ret->application_path = MEM_STRDUP_FUNC(application_path);
 
@@ -453,153 +497,4 @@ char* LoadShaderSource(
 	}
 
 	return ret;
-}
-
-int FindTextureCache(const char* path, TEXTURE_DATA_BRIDGE* bridge, APPLICATION* application)
-{
-	void *value;
-
-	value = ght_get(application->texture_chache_map, (unsigned int)strlen(path), path);
-	if(value != NULL)
-	{
-		bridge->texture = (TEXTURE_INTERFACE*)value;
-
-		return TRUE;
-	}
-
-	return FALSE;
-}
-
-#define LOAD_DEFAULT_FORMAT_RGB(FORMAT) \
-	(FORMAT).external = GL_RGB; \
-	(FORMAT).internal = GL_RGB8; \
-	(FORMAT).type = GL_UNSIGNED_BYTE; \
-	(FORMAT).target = GL_TEXTURE_2D;
-
-#define LOAD_DEFAULT_FORMAT_RGBA(FORMAT) \
-	(FORMAT).external = GL_RGBA; \
-	(FORMAT).internal = GL_RGBA8; \
-	(FORMAT).type = GL_UNSIGNED_INT_8_8_8_8_REV; \
-	(FORMAT).target = GL_TEXTURE_2D;
-
-TEXTURE_INTERFACE* CreateTexture(
-	uint8* pixels,
-	TEXTURE_FORMAT* format,
-	int* size,
-	int mipmap
-)
-{
-	TEXTURE_2D *ret = (TEXTURE_2D*)MEM_ALLOC_FUNC(sizeof(*ret));
-	InitializeTexture2D(ret, format, size, 0);
-	BaseTextureMake(&ret->base_data);
-	BaseTextureBind(&ret->base_data);
-	if(CheckHasExtension("ARB_texture_storage"))
-	{
-		glTexStorage2D(format->target, 1, format->internal, size[0], size[1]);
-		glTexSubImage2D(format->target, 0, 0, 0, size[0], size[1], format->external, format->type, pixels);
-	}
-	else
-	{
-		glTexImage2D(format->target, 0, format->internal, size[0], size[1], 0, format->external, format->type, pixels);
-	}
-	BaseTextureUnbind(&ret->base_data);
-
-	return (TEXTURE_INTERFACE*)ret;
-}
-
-int CacheTexture(
-	const char* key,
-	TEXTURE_INTERFACE* texture,
-	TEXTURE_DATA_BRIDGE* bridge,
-	APPLICATION* application
-)
-{
-	GLuint name;
-
-	if(key == NULL)
-	{
-		return FALSE;
-	}
-
-	name = texture->name;
-	glBindTexture(GL_TEXTURE_2D, name);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	if((bridge->flags & TEXTURE_FLAG_SYSTEM_TOON_TEXTURE) != 0)
-	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	}
-	glBindTexture(GL_TEXTURE_2D, 0);
-	bridge->texture = texture;
-	if(texture != NULL)
-	{
-		(void)ght_insert(application->texture_chache_map, texture, (unsigned int)strlen(key), (void*)key);
-	}
-
-	return TRUE;
-}
-
-int UploadTexture(const char* path, TEXTURE_DATA_BRIDGE* bridge, APPLICATION* application)
-{
-	TEXTURE_INTERFACE *texture;
-	TEXTURE_FORMAT format;
-	uint8 *pixels;
-	int size[3];
-	int channel;
-
-	if(path[strlen(path)-1] == '/')
-	{
-		return TRUE;
-	}
-	else if(FindTextureCache(path, bridge, application) != FALSE)
-	{
-		return TRUE;
-	}
-
-	pixels = LoadImage(path, &size[0], &size[1], &channel);
-	if(pixels == NULL)
-	{
-		return FALSE;
-	}
-
-	if(channel == 3)
-	{
-		LOAD_DEFAULT_FORMAT_RGB(format);
-	}
-	else
-	{
-		LOAD_DEFAULT_FORMAT_RGBA(format);
-	}
-
-	texture = CreateTexture(pixels, &format, size, bridge->flags & TEXTURE_FLAG_GENERATE_TEXTURE_MIPMAP);
-
-	MEM_FREE_FUNC(pixels);
-
-	return CacheTexture(path, texture, bridge, application);
-}
-
-int UploadWhiteTexture(int width, int height, APPLICATION* application)
-{
-	TEXTURE_DATA_BRIDGE bridge;
-	TEXTURE_FORMAT format;
-	TEXTURE_INTERFACE *texture;
-	int size[3];
-	uint8 *pixels;
-
-	if(FindTextureCache(WHITE_TEXTURE_NAME, &bridge, application) != FALSE)
-	{
-		return TRUE;
-	}
-
-	pixels = (uint8*)MEM_ALLOC_FUNC(width * height * 4);
-	(void)memset(pixels, 0xff, width * height * 4);
-	LOAD_DEFAULT_FORMAT_RGBA(format);
-
-	size[0] = width,	size[1] = height;
-	texture = CreateTexture(pixels, &format, size, 0);
-
-	MEM_FREE_FUNC(pixels);
-
-	return CacheTexture(WHITE_TEXTURE_NAME, texture, &bridge, application);
 }

@@ -24,8 +24,8 @@ typedef struct _PMX_LABEL_PAIR
 {
 	int id;
 	int type;
-	void *bone;
-	void *morph;
+	struct _BONE_INTERFACE *bone;
+	struct _MORPH_INTERFACE *morph;
 } PMX_LABEL_PAIR;
 
 int PmxModelLabelGetCount(PMX_MODEL_LABEL* label)
@@ -159,7 +159,7 @@ int LoadPmxModelLabels(
 					{
 						if(bone_index < num_bones)
 						{
-							pair->bone = (void*)&b[bone_index];
+							pair->bone = (BONE_INTERFACE*)&b[bone_index];
 						}
 						else
 						{
@@ -175,7 +175,7 @@ int LoadPmxModelLabels(
 					{
 						if(morph_index < num_morphs)
 						{
-							pair->morph = (void*)&m[morph_index];
+							pair->morph = (MORPH_INTERFACE*)&m[morph_index];
 						}
 						else
 						{

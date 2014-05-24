@@ -618,14 +618,14 @@ static void PmxModelParseIndices(PMX_MODEL* model)
 	const int num_vertices = (int)model->data_info.vertices_count;
 	uint8 *data_pointer = model->data_info.indices;
 	size_t data_size = model->data_info.vertex_index_size;
-	int index;
+	unsigned int index;
 	int i;
 
 	for(i=0; i<num_indices; i++)
 	{
-		index = GetSignedValue(data_pointer, (int)data_size);
+		index = GetUnignedValue(data_pointer, (int)data_size);
 
-		if(!CHECK_BOUND(index, 0, num_vertices))
+		if(!CHECK_BOUND(index, 0, (unsigned int)num_vertices))
 		{
 			index = 0;
 		}
@@ -1115,7 +1115,7 @@ void PmxDefaultStaticVertexBufferAddBoneIndicesData(
 		if(index == 0 || ght_get(bone_indices, sizeof(index), (void*)&index) == NULL)
 		{
 			unsigned int key = (unsigned int)ght_size(bone_indices);
-			(void)ght_insert(bone_indices, (void*)index, sizeof(key), (void*)&key);
+			(void)ght_insert(bone_indices, (void*)index, sizeof(index), (void*)&index);
 			size = ght_size(bone_indices);
 		}
 	}
@@ -1167,6 +1167,11 @@ void PmxDefaultStaticVertexBufferUpdateBoneIndexHashes(
 		bone_indices = ght_create(DEFAULT_BUFFER_SIZE);
 
 		bone_index_hashes->num_data = 0;
+		{
+			void *add_data = (void*)-1;
+			int index = -1;
+			(void)ght_insert(bone_indices, add_data, sizeof(index), &index);
+		}
 		for(j=0; j<num_indices; j++)
 		{
 			const int vertex_index = indices[offset + j];
@@ -1182,9 +1187,8 @@ void PmxDefaultStaticVertexBufferUpdateBoneIndexHashes(
 			ght_insert(hash_indices, (void*)bone_index, sizeof(bone_index), (void*)&j);
 		}
 		offset += num_indices;
+		ght_finalize(bone_indices);
 	}
-
-	ght_finalize(bone_indices);
 }
 
 void PmxDefaultStaticVertexBufferUpdate(PMX_DEFAULT_STATIC_VERTEX_BUFFER* buffer, void* address)

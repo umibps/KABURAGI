@@ -7,10 +7,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 #include "application.h"
 #include "pose.h"
 #include "libguess/libguess.h"
 #include "memory.h"
+
+#ifndef M_PI
+# define M_PI 3.1415926535897932384626433832795
+#endif
 
 static int GetLineInternal(const char* str, char* dst)
 {
@@ -240,7 +245,7 @@ void ApplyPose(POSE* pose, MODEL_INTERFACE* model, int apply_center)
 	POSE_MORPH *morphs = (POSE_MORPH*)pose->morphs->buffer;
 	POSE_MORPH *morph;
 	const int num_morphs = (int)pose->morphs->num_data;
-	int i;
+	int i, j;
 
 	if(!(model->type == MODEL_TYPE_PMD_MODEL || model->type == MODEL_TYPE_PMX_MODEL))
 	{
@@ -248,7 +253,87 @@ void ApplyPose(POSE* pose, MODEL_INTERFACE* model, int apply_center)
 	}
 
 	if(apply_center != FALSE)
-	{
+	{	// センターボーンの位置を変更
+			// ポーズの適用は服等を貫通しないように徐々に適用する
+		float maximum = 0;
+		VECTOR3 *original_positions;
+		VECTOR4 *original_rotations;
+		VECTOR4 set_value;
+		float scalar_value;
+		float rate;
+		int loop;
+
+		original_positions = (VECTOR3*)MEM_ALLOC_FUNC(sizeof(*original_positions)*num_bones);
+		original_rotations = (VECTOR4*)MEM_ALLOC_FUNC(sizeof(*original_rotations)*num_bones);
+
+		for(i=0; i<num_bones; i++)
+		{
+			bone = &bones[i];
+			if((target_bone = model->find_bone(model, bone->name)) != NULL)
+			{
+				target_bone->get_local_translation(target_bone, original_positions[i]);
+				scalar_value = bone->position[0] = original_positions[i][0];
+				if(maximum < scalar_value)
+				{
+					maximum = scalar_value;
+				}
+				scalar_value = bone->position[1] = original_positions[i][1];
+				if(maximum < scalar_value)
+				{
+					maximum = scalar_value;
+				}
+				scalar_value = bone->position[2] = original_positions[i][2];
+				if(maximum < scalar_value)
+				{
+					maximum = scalar_value;
+				}
+				target_bone->get_local_rotation(target_bone, original_rotations[i]);
+				scalar_value = (bone->rotation[0] - original_rotations[i][0]) * 180 / (float)M_PI;
+				if(maximum < scalar_value)
+				{
+					maximum = scalar_value;
+				}
+				scalar_value = (bone->rotation[1] - original_rotations[i][1]) * 180 / (float)M_PI;
+				if(maximum < scalar_value)
+				{
+					maximum = scalar_value;
+				}
+				scalar_value = (bone->rotation[2] - original_rotations[i][2]) * 180 / (float)M_PI;
+				if(maximum < scalar_value)
+				{
+					maximum = scalar_value;
+				}
+				scalar_value = (bone->rotation[3] - original_rotations[i][3]) * 180 / (float)M_PI;
+				if(maximum < scalar_value)
+				{
+					maximum = scalar_value;
+				}
+			}
+		}
+		loop = (int)maximum;
+		for(i=0; i<loop; i++)
+		{
+			rate = i / maximum;
+			for(j=0; j<num_bones; j++)
+			{
+				bone = &bones[j];
+				if((target_bone = model->find_bone(model, bone->name)) != NULL)
+				{
+					set_value[0] = bone->position[0] * rate + original_positions[j][0] * (1 - rate);
+					set_value[1] = bone->position[1] * rate + original_positions[j][1] * (1 - rate);
+					set_value[2] = bone->position[2] * rate + original_positions[j][2] * (1 - rate);
+					target_bone->set_local_translation(target_bone, set_value);
+					set_value[0] = bone->rotation[0] * rate + original_rotations[j][0] * (1 - rate);
+					set_value[1] = bone->rotation[1] * rate + original_rotations[j][1] * (1 - rate);
+					set_value[2] = bone->rotation[2] * rate + original_rotations[j][2] * (1 - rate);
+					set_value[2] = bone->rotation[3] * rate + original_rotations[j][3] * (1 - rate);
+					target_bone->set_local_rotation(target_bone, set_value);
+				}
+			}
+
+			WorldStepSimulation(&model->scene->project->world, model->scene->project->world.fixed_time_step);
+			SceneUpdateModel(model->scene, model, TRUE);
+		}
 		for(i=0; i<num_bones; i++)
 		{
 			bone = &bones[i];
@@ -258,6 +343,9 @@ void ApplyPose(POSE* pose, MODEL_INTERFACE* model, int apply_center)
 				target_bone->set_local_rotation(target_bone, bone->rotation);
 			}
 		}
+
+		MEM_FREE_FUNC(original_positions);
+		MEM_FREE_FUNC(original_rotations);
 	}
 	else
 	{

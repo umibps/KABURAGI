@@ -1224,7 +1224,7 @@ void AddNewLayerWithImageHistory(
 
 	// アンドゥ、リドゥ用の関数ポインタをセットして履歴データ追加
 	AddHistory(
-		&new_layer->window->app->draw_window[new_layer->window->app->active_window]->history,
+		&new_layer->window->history,
 		history_name,
 		buff, (uint32)data_size, AddNewLayerUndo, AddNewLayerWithImageRedo
 	);
@@ -1349,6 +1349,7 @@ void AddLayerNameChangeHistory(
 	const gchar* after_name
 )
 {
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	int32 data_size;
 	uint16 before_len = (uint16)strlen(before_name)+1,
 		after_len = (uint16)strlen(after_name)+1;
@@ -1366,13 +1367,25 @@ void AddLayerNameChangeHistory(
 	(void)memcpy(p, after_name, after_len);
 
 	AddHistory(
-		&app->draw_window[app->active_window]->history,
+		&window->history,
 		app->labels->layer_window.rename,
 		data,
 		data_size,
 		LayerNameChangeUndo,
 		LayerNameChangeRedo
 	);
+
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		AddHistory(
+			&app->draw_window[app->active_window]->history,
+			app->labels->layer_window.rename,
+			data,
+			data_size,
+			LayerNameChangeUndo,
+			LayerNameChangeRedo
+		);
+	}
 
 	MEM_FREE_FUNC(data);
 }
@@ -1851,6 +1864,18 @@ void ChangeLayerOrder(LAYER* change_layer, LAYER* new_prev, LAYER** bottom)
 	}
 
 	change_layer->prev = new_prev;
+
+	// 局所キャンバスモードなら親キャンバスの順序も変更
+	if((change_layer->window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		LAYER *parent_new_prev = NULL;
+		if(new_prev != NULL)
+		{
+			parent_new_prev = SearchLayer(change_layer->window->focal_window->layer, new_prev->name);
+		}
+		ChangeLayerOrder(SearchLayer(change_layer->window->focal_window->layer, change_layer->name),
+			parent_new_prev, &change_layer->window->focal_window->layer);
+	}
 }
 
 typedef struct _CHANGE_LAYER_ORDER_HISTORY
@@ -2055,6 +2080,27 @@ void AddChangeLayerOrderHistory(
 
 	MEM_FREE_FUNC(data);
 
+	// 局所キャンバスモードなら親キャンバスの履歴を作成
+	if((change_layer->window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		LAYER *parent_before_prev = NULL;
+		LAYER *parent_after_prev = NULL;
+		LAYER *parent_before_parent = NULL;
+		if(before_prev != NULL)
+		{
+			parent_before_prev = SearchLayer(change_layer->window->focal_window->layer, before_prev->name);
+		}
+		if(after_prev != NULL)
+		{
+			parent_after_prev = SearchLayer(change_layer->window->focal_window->layer, after_prev->name);
+		}
+		if(before_parent != NULL)
+		{
+			parent_before_parent = SearchLayer(change_layer->window->focal_window->layer, before_parent->name);
+		}
+		AddChangeLayerOrderHistory(SearchLayer(change_layer->window->focal_window->layer, change_layer->name),
+			parent_before_prev, parent_after_prev, parent_before_parent);
+	}
 }
 
 void FillLayerColor(LAYER* target, uint8 color[3])

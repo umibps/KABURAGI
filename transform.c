@@ -297,6 +297,60 @@ static void TransformDrawLine(
 }
 
 /*
+* TransformDrawLineSelectionAreaŠÖ”
+* ˆø”
+* point
+* transform
+* tranput
+* length
+*/
+static void TransformDrawLineSelectionArea(
+	int* point,
+	TRANSFORM_DATA* transform,
+	TRANSPUT* transput,
+	int length,
+	uint8* source_pixels
+)
+{
+	DRAW_WINDOW *window = transform->layers[0]->window;
+	int src[2];
+	int src_index, dst_index;
+	int i;
+
+	src[0] = (int)transput->src_point[0];
+	src[1] = (int)transput->src_point[1];
+
+	for(i=0; i<=length; i++)
+	{
+		point[0] = (int)transput->dst[0];
+		point[1] = (int)transput->dst[1];
+
+		if(point[0] >= 0 && point[0] < window->width
+			&& point[1] >= 0 && point[1] < window->height)
+		{
+			if(src[0] >= 0 && src[1] >= 0
+				&& src[0] < transform->width && src[1] < transform->height)
+			{
+				src_index = src[1] * transform->width + src[0];
+				dst_index = point[1]*window->selection->stride + point[0];
+				if(window->selection->pixels[dst_index]
+					< source_pixels[src_index])
+				{
+					window->selection->pixels[dst_index]
+						= source_pixels[src_index];
+				}
+			}
+		}
+
+		transput->dst[0] += transput->add[0];
+		transput->dst[1] += transput->add[1];
+
+		transput->src_point[0] += transput->src_add[0];
+		src[0] = (int)transput->src_point[0];
+	}
+}
+
+/*
 * TransformOutputŠÖ”
 * Ž©—R•ÏŒ`‚Ì•`‰æ
 * ˆø”
@@ -450,6 +504,144 @@ static void TransformOutput(TRANSFORM_DATA* transform, int current_layer)
 		cairo_paint(window->mask_temp->cairo_p);
 
 		cairo_restore(window->mask_temp->cairo_p);
+	}
+}
+
+static void TransformOutputSelectionArea(TRANSFORM_DATA* transform, uint8* source_pixels)
+{
+	DRAW_WINDOW *window = transform->layers[0]->window;
+	TRANSPUT output_point;
+	int dst_points[4][2];
+	int point[2];
+	FLOAT_T line_points[2][2];
+	FLOAT_T line_add[2][2];
+	FLOAT_T left_length, right_length;
+	FLOAT_T line_length;
+	FLOAT_T ave_x = 0, ave_y = 0;
+	int src_x_start;
+	int loop_length;
+	int i, j;
+
+	for(i=0; i<8; i++)
+	{
+		ave_x += transform->trans[i][0];
+		ave_y += transform->trans[i][1];
+	}
+	ave_x *= 0.125,	ave_y *= 0.125;
+
+	for(i=0; i<4; i++)
+	{
+		(void)memset(&output_point, 0, sizeof(output_point));
+		(void)memset(window->temp_layer->pixels, 0, window->pixel_buf_size);
+
+		switch(i)
+		{
+		case 0:
+			src_x_start = 0;
+			dst_points[0][0] = (int)(transform->trans[0][0]);
+			dst_points[0][1] = (int)(transform->trans[0][1]);
+			dst_points[1][0] = (int)(transform->trans[1][0]);
+			dst_points[1][1] = (int)(transform->trans[1][1]);
+			dst_points[2][0] = (int)ave_x;
+			dst_points[2][1] = (int)ave_y;
+			dst_points[3][0] = (int)(transform->trans[7][0]);
+			dst_points[3][1] = (int)(transform->trans[7][1]);
+
+			break;
+		case 1:
+			output_point.src_point[1] = transform->height / 2;
+			src_x_start = 0;
+			dst_points[0][0] = (int)(transform->trans[1][0]);
+			dst_points[0][1] = (int)(transform->trans[1][1]);
+			dst_points[1][0] = (int)(transform->trans[2][0]);
+			dst_points[1][1] = (int)(transform->trans[2][1]);
+			dst_points[2][0] = (int)(transform->trans[3][0]);
+			dst_points[2][1] = (int)(transform->trans[3][1]);
+			dst_points[3][0] = (int)ave_x;
+			dst_points[3][1] = (int)ave_y;
+
+			break;
+		case 2:
+			src_x_start = (int)(output_point.src_point[0] = transform->width / 2);
+			output_point.src_point[1] = transform->height / 2;
+			dst_points[0][0] = (int)ave_x;
+			dst_points[0][1] = (int)ave_y;
+			dst_points[1][0] = (int)(transform->trans[3][0]);
+			dst_points[1][1] = (int)(transform->trans[3][1]);
+			dst_points[2][0] = (int)(transform->trans[4][0]);
+			dst_points[2][1] = (int)(transform->trans[4][1]);
+			dst_points[3][0] = (int)(transform->trans[5][0]);
+			dst_points[3][1] = (int)(transform->trans[5][1]);
+
+			break;
+		case 3:
+			src_x_start = (int)(output_point.src_point[0] = transform->width / 2);
+			dst_points[0][0] = (int)(transform->trans[7][0]);
+			dst_points[0][1] = (int)(transform->trans[7][1]);
+			dst_points[1][0] = (int)ave_x;
+			dst_points[1][1] = (int)ave_y;
+			dst_points[2][0] = (int)(transform->trans[5][0]);
+			dst_points[2][1] = (int)(transform->trans[5][1]);
+			dst_points[3][0] = (int)(transform->trans[6][0]);
+			dst_points[3][1] = (int)(transform->trans[6][1]);
+
+			break;
+		}
+
+		output_point.out_add[0] = (int)transform->move_x;
+		output_point.out_add[1] = (int)transform->move_y;
+
+		left_length = sqrt(
+			(dst_points[0][0]-dst_points[1][0])*(dst_points[0][0]-dst_points[1][0])+(dst_points[0][1]-dst_points[1][1])*(dst_points[0][1]-dst_points[1][1]));
+		right_length = sqrt(
+			(dst_points[2][0]-dst_points[3][0])*(dst_points[2][0]-dst_points[3][0])+(dst_points[2][1]-dst_points[3][1])*(dst_points[2][1]-dst_points[3][1]));
+
+		line_add[0][0] = (dst_points[1][0]-dst_points[0][0]) / left_length;
+		line_add[1][0] = (dst_points[2][0]-dst_points[3][0]) / right_length;
+
+		line_points[0][0] = dst_points[0][0];
+		line_points[0][1] = dst_points[0][1];
+		line_points[1][0] = dst_points[3][0];
+		line_points[1][1] = dst_points[3][1];
+
+		if(left_length > right_length)
+		{
+			loop_length = (int)left_length;
+			output_point.src_add[1] = (transform->height / 2) / left_length;
+			line_add[0][1] = (dst_points[1][1]-dst_points[0][1]) / left_length;
+			line_add[1][1] = (dst_points[2][1]-dst_points[3][1]) / left_length;
+		}
+		else
+		{
+			loop_length = (int)right_length;
+			output_point.src_add[1] = (transform->height / 2) / right_length;
+			line_add[0][1] = (dst_points[1][1]-dst_points[0][1]) / right_length;
+			line_add[1][1] = (dst_points[2][1]-dst_points[3][1]) / right_length;
+		}
+
+		for(j=0; j<=loop_length; j++)
+		{
+			line_length = sqrt(
+				(line_points[0][0]-line_points[1][0])*(line_points[0][0]-line_points[1][0]) + (line_points[0][1]-line_points[1][1])*(line_points[0][1]-line_points[1][1]));
+
+			output_point.dst[0] = line_points[0][0];
+			output_point.dst[1] = line_points[0][1];
+
+			output_point.add[0] = ((line_points[1][0] - line_points[0][0]) / line_length) * 0.5;
+			output_point.add[1] = ((line_points[1][1] - line_points[0][1]) / line_length) * 0.5;
+
+			output_point.src_add[0] = ((transform->width / 2) / line_length) * 0.5;
+
+			TransformDrawLineSelectionArea(point, transform, &output_point, (int)line_length*2, source_pixels);
+
+			line_points[0][0] += line_add[0][0];
+			line_points[0][1] += line_add[0][1];
+			line_points[1][0] += line_add[1][0];
+			line_points[1][1] += line_add[1][1];
+
+			output_point.src_point[0] = src_x_start;
+			output_point.src_point[1] += output_point.src_add[1];
+		}
 	}
 }
 
@@ -1480,6 +1672,8 @@ void TransformMotionNotifyCallBack(
 
 typedef struct _TRANSFORM_HISTORY_DATA
 {
+	int32 x, y;
+	int32 width, height;
 	uint16 num_layer;
 	uint16 *layer_name_length;
 	char **layer_names;
@@ -1491,8 +1685,18 @@ void TransformUndoRedo(DRAW_WINDOW *window, void* p)
 	TRANSFORM_HISTORY_DATA data;
 	LAYER *layer;
 	uint8 *byte_data = (uint8*)p;
-	unsigned int i;
+	unsigned int pixel_size;
+	unsigned int i, j;
 
+	(void)memcpy(&data.x, byte_data, sizeof(data.x));
+	byte_data += sizeof(data.x);
+	(void)memcpy(&data.y, byte_data, sizeof(data.y));
+	byte_data += sizeof(data.y);
+	(void)memcpy(&data.width, byte_data, sizeof(data.width));
+	byte_data += sizeof(data.width);
+	(void)memcpy(&data.height, byte_data, sizeof(data.height));
+	byte_data += sizeof(data.height);
+	pixel_size = data.width * data.height * 4;
 	(void)memcpy(&data.num_layer, byte_data, sizeof(data.num_layer));
 	byte_data += sizeof(data.num_layer);
 	data.layer_name_length = (uint16*)byte_data;
@@ -1503,12 +1707,13 @@ void TransformUndoRedo(DRAW_WINDOW *window, void* p)
 		data.layer_names[i] = (char*)byte_data;
 		byte_data += data.layer_name_length[i];
 	}
-	data.pixels = (uint8**)MEM_ALLOC_FUNC(sizeof(*data.pixels)*data.num_layer);
+	data.pixels = (uint8**)MEM_ALLOC_FUNC(sizeof(*data.pixels)*(data.num_layer+1));
 	for(i=0; i<data.num_layer; i++)
 	{
 		data.pixels[i] = byte_data;
-		byte_data += window->pixel_buf_size;
+		byte_data += pixel_size;
 	}
+	data.pixels[i] = byte_data;
 
 	for(i=0; i<data.num_layer; i++)
 	{
@@ -1518,16 +1723,43 @@ void TransformUndoRedo(DRAW_WINDOW *window, void* p)
 			layer = layer->next;
 		}
 
-		(void)memcpy(window->temp_layer->pixels, layer->pixels, window->pixel_buf_size);
-		(void)memcpy(layer->pixels, data.pixels[i], window->pixel_buf_size);
-		(void)memcpy(data.pixels[i], window->temp_layer->pixels, window->pixel_buf_size);
+		for(j=0; j<(unsigned int)data.height; j++)
+		{
+			(void)memcpy(&window->temp_layer->pixels[data.width*4*j],
+				&layer->pixels[(data.y+j)*layer->stride+data.x*4], data.width*4);
+		}
+		for(j=0; j<(unsigned int)data.height; j++)
+		{
+			(void)memcpy(&layer->pixels[(data.y+j)*layer->stride+data.x*4],
+				&data.pixels[i][data.width*4*j], data.width*4);
+		}
+		for(j=0; j<(unsigned int)data.height; j++)
+		{
+			(void)memcpy(&data.pixels[i][data.width*4*j],
+				&window->temp_layer->pixels[data.width*4*j], data.width*4);
+		}
+	}
+	for(j=0; j<(unsigned int)data.height; j++)
+	{
+		(void)memcpy(&window->temp_layer->pixels[data.width*j],
+			&window->selection->pixels[(data.y+j)*window->width+data.x], data.width);
+	}
+	for(j=0; j<(unsigned int)data.height; j++)
+	{
+		(void)memcpy(&window->selection->pixels[(data.y+j)*data.width+data.x],
+			&data.pixels[i][data.width*j], data.width);
+	}
+	for(j=0; j<(unsigned int)data.height; j++)
+	{
+		(void)memcpy(&data.pixels[i][data.width*j],
+			&window->temp_layer->pixels[data.width*j], data.width);
 	}
 
 	MEM_FREE_FUNC(data.layer_names);
 	MEM_FREE_FUNC(data.pixels);
 }
 
-void AddTransformHistory(DRAW_WINDOW *window)
+void AddTransformHistory(DRAW_WINDOW *window, uint8* before_selection_area)
 {
 	TRANSFORM_DATA *transform = window->transform;
 	MEMORY_STREAM_PTR stream = CreateMemoryStream(
@@ -1537,6 +1769,10 @@ void AddTransformHistory(DRAW_WINDOW *window)
 	int y;
 	unsigned int i;
 
+	(void)MemWrite(&transform->x, sizeof(transform->x), 1, stream);
+	(void)MemWrite(&transform->y, sizeof(transform->y), 1, stream);
+	(void)MemWrite(&transform->width, sizeof(transform->width), 1, stream);
+	(void)MemWrite(&transform->height, sizeof(transform->height), 1, stream);
 	(void)MemWrite(&transform->num_layers, sizeof(transform->num_layers), 1, stream);
 	for(i=0; i<transform->num_layers; i++)
 	{
@@ -1561,6 +1797,7 @@ void AddTransformHistory(DRAW_WINDOW *window)
 		}
 		(void)MemWrite(window->temp_layer->pixels, 1, window->pixel_buf_size, stream);
 	}
+	(void)MemWrite(before_selection_area, 1, transform->width * transform->height, stream);
 
 	AddHistory(&window->history, window->app->labels->menu.transform, stream->buff_ptr,
 		stream->data_point, TransformUndoRedo, TransformUndoRedo);
@@ -1682,7 +1919,17 @@ static void ChangeTransformMode(GtkWidget* radio_button, APPLICATION* app)
 
 static void ClickedTransformButtonOK(GtkWidget* button, APPLICATION* app)
 {
-	AddTransformHistory(app->draw_window[app->active_window]);
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	int i;
+	for(i=0; i<window->transform->height; i++)
+	{
+		(void)memcpy(&window->mask_temp->pixels[window->transform->width*i],
+			&window->selection->pixels[(window->transform->y+i)*window->width+window->transform->x],
+				window->transform->width);
+	}
+	(void)memset(window->selection->pixels, 0, window->width * window->height);
+	TransformOutputSelectionArea(window->transform, window->mask_temp->pixels);
+	AddTransformHistory(window, window->mask_temp->pixels);
 
 	gtk_widget_destroy(app->tool_window.detail_ui);
 	switch(app->draw_window[app->active_window]->active_layer->layer_type)
@@ -1727,6 +1974,8 @@ static void ClickedTransformButtonOK(GtkWidget* button, APPLICATION* app)
 	gtk_widget_set_sensitive(app->tool_window.brush_table, TRUE);
 
 	DeleteTransformData(&app->draw_window[app->active_window]->transform);
+
+	(void)UpdateSelectionArea(&window->selection_area, window->selection, window->temp_layer);
 }
 
 static void ClickedTransformButtonCancel(GtkWidget* button, APPLICATION* app)

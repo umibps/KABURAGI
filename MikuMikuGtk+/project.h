@@ -36,8 +36,9 @@ typedef enum _ePROJECT_FLAGS
 	PROJECT_FLAG_ENABLE_DEBUG_DRAWING = 0x2000,
 	PROJECT_FLAG_IS_IMAGE_HANDLE_RECT_INTERSECT = 0x4000,
 	PROJECT_FLAG_ALWAYS_PHYSICS = 0x8000,
-	PROJECT_FLAG_RENDER_EDGE_ONLY = 0x10000,
-	PROJECT_FLAG_MARK_DIRTY = 0x20000
+	PROJECT_FLAG_RENDER_SHADOW = 0x10000,
+	PROJECT_FLAG_RENDER_EDGE_ONLY = 0x20000,
+	PROJECT_FLAG_MARK_DIRTY = 0x40000
 } ePROJECT_FLAGS;
 
 typedef enum _eSHADER_TYPE
@@ -90,6 +91,8 @@ typedef struct _PROJECT
 	CONTROL control;
 	PROJECT_WIDGETS widgets;
 	HISTORY history;
+
+	ght_hash_table_t *texture_chache_map;
 
 	eSHADER_TYPE shader_type;
 	MAP_BUFFER map_buffer;
@@ -168,6 +171,14 @@ extern int RayAabb(
 	float normal[3]
 );
 
+extern void LoadControlHandle(CONTROL_HANDLE* handle, PROJECT* project);
+extern void InitializeControl(
+	CONTROL* control,
+	int width,
+	int height,
+	PROJECT* project
+);
+
 extern void ChangeSelectedBones(PROJECT* project, BONE_INTERFACE** bones, int num_selected);
 
 extern int TestHitModelHandle(PROJECT* project, FLOAT_T x, FLOAT_T y);
@@ -177,5 +188,9 @@ extern void ProjectSetEnableAlwaysPhysics(PROJECT* project, int enabled);
 extern void AddBoneMoveHistory(HISTORY* history, PROJECT* project);
 
 extern void AddBoneRotateHistory(HISTORY* history, PROJECT* project);
+
+extern int UploadTexture(const char* path, TEXTURE_DATA_BRIDGE* bridge, PROJECT* project);
+
+extern int UploadWhiteTexture(int width, int height, PROJECT* project);
 
 #endif	// #ifndef _INCLUDED_PROJECT_H_

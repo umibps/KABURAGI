@@ -38,6 +38,7 @@ UI_LABEL LoadDefaultUiLabel(void)
 			"Connect to",
 			"Enable Physics",
 			"Display Grid",
+			"Render Shadow",
 			"Render Edge Only",
 			{
 				"Select",

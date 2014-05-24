@@ -96,8 +96,11 @@ static void ChangeLayerOpacityCallBack(GtkAdjustment* slider, APPLICATION* app)
 			(int8)gtk_adjustment_get_value(slider);
 		gtk_adjustment_set_value(slider, window->active_layer->alpha);
 
-		(void)sprintf(buff, "%d%%", window->active_layer->alpha);
-		gtk_label_set_label(GTK_LABEL(container_list->data), buff);
+		if(container_list != NULL)
+		{
+			(void)sprintf(buff, "%d%%", window->active_layer->alpha);
+			gtk_label_set_label(GTK_LABEL(container_list->data), buff);
+		}
 
 		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 
@@ -1324,9 +1327,19 @@ static gint LayerViewChangeName(GtkWidget* widget, gpointer p)
 	if(strcmp(text, layer->name) != 0 && *text != '\0'
 		&& CorrectLayerName(layer->window->app->draw_window[layer->window->app->active_window]->layer, text) != 0)
 	{
+		gboolean has_parent_window = layer->window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW;
 		AddLayerNameChangeHistory(layer->window->app, layer->name, text);
 		MEM_FREE_FUNC(layer->name);
 		layer->name = MEM_STRDUP_FUNC(text);
+		if(has_parent_window != FALSE)
+		{
+			LAYER *parent_target = SearchLayer(layer->window->focal_window->layer, layer->name);
+			if(parent_target != NULL)
+			{
+				MEM_FREE_FUNC(parent_target->name);
+				parent_target->name = MEM_STRDUP_FUNC(text);
+			}
+		}
 	}
 
 	gtk_widget_destroy(widget);
