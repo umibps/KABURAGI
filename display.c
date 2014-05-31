@@ -52,30 +52,8 @@ gboolean DisplayDrawWindow(
 	// 合成モード
 	int blend_mode;
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	GdkGLContext *context = gtk_widget_get_gl_context(widget);
-	GdkGLDrawable *drawable = gtk_widget_get_gl_drawable(widget);
-	GtkAllocation allocation;
-	int update_x = 0, update_y = 0;
-	int update_width = 0, update_height = 0;
-	double x1, y1, x2, y2;
-
-#if GTK_MAJOR_VERSION >= 3
-	gtk_widget_get_allocation(widget, &allocation);
-#else
-	allocation = widget->allocation;
-#endif
-
-	if(gdk_gl_drawable_gl_begin(drawable, context) == FALSE)
-	{
-		return FALSE;
-	}
-
-	glClear(GL_COLOR_BUFFER_BIT);
-#else
 	// 画面表示用Cairo情報
 	cairo_t *cairo_p;
-#endif
 
 	state = window->state;
 
@@ -139,13 +117,6 @@ gboolean DisplayDrawWindow(
 				{
 					end_y = (int)(window->update.height = window->height - window->update.y);
 				}
-
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-				update_x = (int)(window->update.x * window->zoom_rate);
-				update_y = (int)(window->update.y * window->zoom_rate);
-				update_width = (int)(window->update.width * window->zoom_rate);
-				update_height = (int)(window->update.height * window->zoom_rate);
-#endif
 
 				if(end_y >= 0)
 				{
@@ -466,18 +437,6 @@ gboolean DisplayDrawWindow(
 					// ブラシが持つカーソル表示用の関数を呼び出す
 			// if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0) else
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-		cairo_clip_extents(window->disp_layer->cairo_p, &x1, &y1, &x2, &y2);
-		window->gl_data.update_rectangle.x1 = (x1 < window->gl_data.before_rectangle.x1) ? x1 : window->gl_data.before_rectangle.x1;
-		window->gl_data.update_rectangle.y1 = (y1 < window->gl_data.before_rectangle.y1) ? y1 : window->gl_data.before_rectangle.y1;
-		window->gl_data.update_rectangle.x2 = (x2 > window->gl_data.before_rectangle.x2) ? x2 : window->gl_data.before_rectangle.x2;
-		window->gl_data.update_rectangle.y2 = (y2 > window->gl_data.before_rectangle.y2) ? y2 : window->gl_data.before_rectangle.y2;
-		update_x = (int)window->gl_data.update_rectangle.x1,	update_y = (int)window->gl_data.update_rectangle.y1;
-		update_width = (int)(window->gl_data.update_rectangle.x2 - window->gl_data.update_rectangle.x1);
-		update_height = (int)(window->gl_data.update_rectangle.y2 - window->gl_data.update_rectangle.y1);
-		window->gl_data.before_rectangle = window->gl_data.update_rectangle;
-#endif
-
 		// Cairoを元の状態に戻す
 		cairo_restore(window->disp_layer->cairo_p);
 
@@ -494,11 +453,6 @@ gboolean DisplayDrawWindow(
 				DrawSelectionArea(&window->selection_area, window);
 				g_layer_blend_funcs[LAYER_BLEND_NORMAL](window->effect, window->disp_layer);
 				(void)memset(window->effect->pixels, 0, window->effect->stride*window->effect->height);
-
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-				update_x = 0,	update_y = 0;
-				update_width = allocation.width,	update_height = allocation.height;
-#endif
 			}
 		}
 	}	// 変形処理中はカーソル表示はしない
@@ -507,11 +461,6 @@ gboolean DisplayDrawWindow(
 	{
 		(void)memset(window->disp_temp->pixels, 0, window->disp_temp->stride*window->disp_temp->height);
 		DisplayTransform(window);
-
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-		update_x = 0,	update_y = 0;
-		update_width = allocation.width,	update_height = allocation.height;
-#endif
 	}
 
 	// 左右反転表示中なら表示内容を左右反転
@@ -534,8 +483,7 @@ gboolean DisplayDrawWindow(
 execute_update:
 
 	// 回転処理 & 表示
-#if !defined(USE_3D_LAYER) || USE_3D_LAYER == 0
-# if MAJOR_VERSION == 1
+# if GTK_MAJOR_VERSION <= 2
 	cairo_p = gdk_cairo_create(window->window->window);
 	gdk_cairo_region(cairo_p, event_info->region);
 	cairo_clip(cairo_p);
@@ -544,66 +492,9 @@ execute_update:
 # endif
 	cairo_set_source(cairo_p, window->rotate);
 	cairo_paint(cairo_p);
-# if MAJOR_VERSION == 1
+# if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 # endif
-
-#else
-
-	glBindTexture(GL_TEXTURE_2D, window->gl_data.texture_name);
-	if(update_x + update_width > window->disp_layer->width)
-	{
-		update_width = window->disp_layer->width - update_x;
-	}
-	if(update_y + update_height > window->disp_layer->height)
-	{
-		update_height = window->disp_layer->height - update_y;
-	}
-	if(update_width > 0)
-	{
-		int stride = window->disp_layer->stride;
-		int x_stride = update_x * 4;
-		int copy_stride = update_width * 4;
-		unsigned char *texture_pixels = window->disp_temp->pixels;
-		unsigned char *source_pixels = window->disp_layer->pixels;
-		for(y=0; y<update_height; y++)
-		{
-			(void)memcpy(&texture_pixels[y*copy_stride], &source_pixels[(y+update_y)*stride+x_stride],
-				copy_stride);
-		}
-#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
-		glTexSubImage2D(GL_TEXTURE_2D, 0, update_x, update_y,
-			update_width, update_height, GL_BGRA, GL_UNSIGNED_BYTE, texture_pixels);
-#else
-		glTexSubImage2D(GL_TEXTURE_2D, 0, update_x, update_y,
-			update_width, update_height, GL_RGBA, GL_UNSIGNED_BYTE, texture_pixels);
-#endif
-	}
-	else if(update_mode == UPDATE_ALL)
-	{
-#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, window->disp_layer->width,
-			window->disp_layer->height, GL_BGRA, GL_UNSIGNED_BYTE, window->disp_layer->pixels);
-#else
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, window->disp_layer->width,
-			window->disp_layer->height, GL_RGBA, GL_UNSIGNED_BYTE, window->disp_layer->pixels);
-#endif
-	}
-
-	glInterleavedArrays(GL_T2F_V3F, 0, window->gl_data.points);
-	glDrawArrays(GL_QUADS, 0, 4);
-
-	if(gdk_gl_drawable_is_double_buffered(drawable) != FALSE)
-	{
-		gdk_gl_drawable_swap_buffers(drawable);
-	}
-	else
-	{
-		glFlush();
-	}
-
-	gdk_gl_drawable_gl_end(drawable);
-#endif
 
 	// 画面更新が終わったのでフラグを下ろす
 	window->flags &= ~(DRAW_WINDOW_UPDATE_ACTIVE_UNDER | DRAW_WINDOW_UPDATE_ACTIVE_OVER);

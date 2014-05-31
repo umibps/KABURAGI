@@ -1945,11 +1945,7 @@ static void AfterPixelDataGet(APPLICATION* app, uint8* pixels)
 
 	(void)memcpy(layer->pixels, pixels, layer->stride * layer->height);
 	//g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.display);
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_button_press);
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_move);
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_button_release);
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_wheel);
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.configure);
+	DisconnectDrawWindowCallbacks(draw_window->gl_area, draw_window);
 
 	for(i=0; i<layer->height; i++)
 	{
@@ -1968,16 +1964,7 @@ static void AfterPixelDataGet(APPLICATION* app, uint8* pixels)
 		}
 	}
 #endif
-	InitializeGL(draw_window);
 
-	// 描画用のコールバック関数をセット
-#if GTK_MAJOR_VERSION <= 2
-	draw_window->callbacks.display = g_signal_connect(G_OBJECT(draw_window->window), "expose_event",
-		G_CALLBACK(DisplayDrawWindow), draw_window);
-#else
-	draw_window->callbacks.display = g_signal_connect(G_OBJECT(draw_window->window), "draw",
-		G_CALLBACK(DisplayDrawWindow), draw_window);
-#endif
 	// メニューバーの復元
 	gtk_widget_destroy(app->menu_bar);
 	before_num_disable_if_no_open = app->menus.num_disable_if_no_open;
@@ -2017,17 +2004,13 @@ static void AfterPixelDataGet(APPLICATION* app, uint8* pixels)
 		}
 	}
 
-	// 入力のコールバック関数をセット
-	draw_window->callbacks.mouse_button_press =g_signal_connect(G_OBJECT(draw_window->window), "button_press_event",
-		G_CALLBACK(ButtonPressEvent), draw_window);
-	draw_window->callbacks.mouse_move = g_signal_connect(G_OBJECT(draw_window->window), "motion_notify_event",
-		G_CALLBACK(MotionNotifyEvent), draw_window);
-	draw_window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(draw_window->window), "button_release_event",
-		G_CALLBACK(ButtonReleaseEvent), draw_window);
-	draw_window->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(draw_window->window), "scroll_event",
-		G_CALLBACK(MouseWheelEvent), draw_window);
-	draw_window->callbacks.configure = g_signal_connect(G_OBJECT(draw_window->window), "configure-event",
-		G_CALLBACK(DrawWindowConfigurEvent), draw_window);
+	// コールバック関数をセット
+	SetDrawWindowCallbacks(draw_window->window, draw_window);
+
+	// ウィジェットの表示を切り替え
+	gtk_widget_hide(draw_window->gl_area);
+	gtk_widget_show_all(draw_window->window);
+
 	DrawWindowChangeZoom(draw_window, draw_window->zoom);
 	app->flags &= ~(APPLICATION_IN_SWITCH_DRAW_WINDOW);
 
@@ -2045,34 +2028,15 @@ static void End3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	if(pixels == NULL)
 	{
 		(void)memcpy(layer->pixels, pixels, layer->width * layer->height * 4);
-		g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.display);
-		g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_button_press);
-		g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_move);
-		g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_button_release);
-		g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_wheel);
-		g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.configure);
+		DisconnectDrawWindowCallbacks(draw_window->gl_area, draw_window);
 
-		InitializeGL(draw_window);
+		// 描画用のコールバック関数をセット
+		SetDrawWindowCallbacks(draw_window->window, draw_window);
 
-	// 描画用のコールバック関数をセット
-#if GTK_MAJOR_VERSION <= 2
-		draw_window->callbacks.display = g_signal_connect(G_OBJECT(draw_window->window), "expose_event",
-			G_CALLBACK(DisplayDrawWindow), draw_window);
-#else
-		draw_window->callbacks.display = g_signal_connect(G_OBJECT(draw_window->window), "draw",
-			G_CALLBACK(DisplayDrawWindow), draw_window);
-#endif
-		// 入力のコールバック関数をセット
-		draw_window->callbacks.mouse_button_press =g_signal_connect(G_OBJECT(draw_window->window), "button_press_event",
-			G_CALLBACK(ButtonPressEvent), draw_window);
-		draw_window->callbacks.mouse_move = g_signal_connect(G_OBJECT(draw_window->window), "motion_notify_event",
-			G_CALLBACK(MotionNotifyEvent), draw_window);
-		draw_window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(draw_window->window), "button_release_event",
-			G_CALLBACK(ButtonReleaseEvent), draw_window);
-		draw_window->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(draw_window->window), "scroll_event",
-			G_CALLBACK(MouseWheelEvent), draw_window);
-		draw_window->callbacks.configure = g_signal_connect(G_OBJECT(draw_window->window), "configure-event",
-			G_CALLBACK(DrawWindowConfigurEvent), draw_window);
+		// ウィジェットの表示を切り替え
+		gtk_widget_hide(draw_window->gl_area);
+		gtk_widget_show_all(draw_window->window);
+
 		DrawWindowChangeZoom(draw_window, draw_window->zoom);
 
 		draw_window->flags &= ~(DRAW_WINDOW_EDITTING_3D_MODEL);
@@ -2095,18 +2059,18 @@ static void End3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 		int i;			// for文用のカウンタ
 
 		// 一番下のレイヤーを設定
-		layer = app->draw_window[app->active_window]->layer;
+		layer = draw_window->layer;
 
 		// ビューに全てのレイヤーを追加
-		for(i=0; i<app->draw_window[app->active_window]->num_layer; i++)
+		for(i=0; i<draw_window->num_layer; i++)
 		{
-			LayerViewAddLayer(layer, app->draw_window[app->active_window]->layer,
+			LayerViewAddLayer(layer, draw_window->layer,
 				app->layer_window.view, i+1);
 			layer = layer->next;
 		}
 
 		// アクティブレイヤーをセット
-		LayerViewSetActiveLayer(app->draw_window[app->active_window]->active_layer, app->layer_window.view);
+		LayerViewSetActiveLayer(draw_window->active_layer, app->layer_window.view);
 	}
 }
 
@@ -2128,36 +2092,30 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	window->ui = gtk_vbox_new(FALSE, 0);
 	gtk_box_pack_end(GTK_BOX(window->ui), return_button, FALSE, FALSE, 0);
 
-	glDeleteTextures(1, &draw_window->gl_data.texture_name);
-
 	window->brush_scroll = gtk_scrolled_window_new(NULL, NULL);
 	gtk_box_pack_start(GTK_BOX(window->ui), window->brush_scroll, TRUE, TRUE, 0);
 	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(window->brush_scroll), window->brush_table);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(window->brush_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.display);
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_button_press);
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_move);
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_button_release);
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.mouse_wheel);
-	g_signal_handler_disconnect(G_OBJECT(draw_window->window), draw_window->callbacks.configure);
+	DisconnectDrawWindowCallbacks(draw_window->window, draw_window);
+	gtk_widget_hide(draw_window->window);
 
 #if GTK_MAJOR_VERSION <= 2
-	draw_window->callbacks.display = g_signal_connect(G_OBJECT(draw_window->window), "expose-event",
+	draw_window->callbacks.display = g_signal_connect(G_OBJECT(draw_window->gl_area), "expose-event",
 		G_CALLBACK(ProjectDisplayEvent), layer->layer_data.project);
 #else
-	draw_window->callbacks.display = g_signal_connect(G_OBJECT(draw_window->window), "draw",
+	draw_window->callbacks.display = g_signal_connect(G_OBJECT(draw_window->gl_area), "draw",
 		G_CALLBACK(ProjectDisplayEvent), layer->layer_data.project);
 #endif
-	draw_window->callbacks.mouse_button_press = g_signal_connect(G_OBJECT(draw_window->window), "button-press-event",
+	draw_window->callbacks.mouse_button_press = g_signal_connect(G_OBJECT(draw_window->gl_area), "button-press-event",
 		G_CALLBACK(MouseButtonPressEvent), layer->layer_data.project);
-	draw_window->callbacks.mouse_move = g_signal_connect(G_OBJECT(draw_window->window), "motion-notify-event",
+	draw_window->callbacks.mouse_move = g_signal_connect(G_OBJECT(draw_window->gl_area), "motion-notify-event",
 		G_CALLBACK(MouseMotionEvent), layer->layer_data.project);
-	draw_window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(draw_window->window), "button-release-event",
+	draw_window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(draw_window->gl_area), "button-release-event",
 		G_CALLBACK(MouseButtonReleaseEvent), layer->layer_data.project);
-	draw_window->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(draw_window->window), "scroll-event",
+	draw_window->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(draw_window->gl_area), "scroll-event",
 		G_CALLBACK(MouseWheelScrollEvent), layer->layer_data.project);
-	draw_window->callbacks.configure = g_signal_connect(G_OBJECT(draw_window->window), "configure-event",
+	draw_window->callbacks.configure = g_signal_connect(G_OBJECT(draw_window->gl_area), "configure-event",
 		G_CALLBACK(ConfigureEvent), layer->layer_data.project);
 
 #if GTK_MAJOR_VERSION >= 3
@@ -2173,8 +2131,8 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	{
 		allocation.height -= SCROLLED_WINDOW_MARGIN;
 	}
-	gtk_widget_set_size_request(draw_window->window, allocation.width, allocation.height);
-	gtk_widget_show_all(draw_window->window);
+	gtk_widget_set_size_request(draw_window->gl_area, allocation.width, allocation.height);
+	gtk_widget_show_all(draw_window->gl_area);
 
 	if((window->flags & TOOL_DOCKED) == 0)
 	{

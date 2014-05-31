@@ -19551,8 +19551,8 @@ static void BlurToolMotionCallBack(
 		uint8* temp_pixel;
 		uint8 alpha_c, t;
 		int stride = window->work_layer->stride;
-		int left, right;
-		int top, bottom = 0;
+		int left;
+		int top;
 		int start_j, end_i, end_j;
 		int i, j, counter_x, counter_y;
 		int temp_stride;
@@ -24385,8 +24385,10 @@ void LoadBrushDefaultData(
 * window	: ツールボックスウィンドウ                   *
 * file_path	: 書き出すファイルのパス                     *
 * app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	正常終了:0	失敗:負の値                              *
 *********************************************************/
-void WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATION *app)
+int WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATION *app)
 {
 	GFile* fp = g_file_new_for_path(file_path);
 	GFileOutputStream* stream =
@@ -24405,7 +24407,7 @@ void WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATIO
 		if(stream == NULL)
 		{
 			g_object_unref(fp);
-			return;
+			return -1;
 		}
 	}
 
@@ -24837,6 +24839,8 @@ void WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATIO
 
 	g_object_unref(fp);
 	g_object_unref(stream);
+
+	return 0;
 }
 
 /*****************************************************

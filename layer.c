@@ -1044,6 +1044,11 @@ void AddNewLayerHistory(
 	case TYPE_VECTOR_LAYER:
 		history_name = new_layer->window->app->labels->layer_window.add_vector;
 		break;
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	case TYPE_3D_LAYER:
+		history_name = new_layer->window->app->labels->layer_window.add_3d_modeling;
+		break;
+#endif
 	default:
 		history_name = new_layer->window->app->labels->layer_window.add_layer_set;
 	}

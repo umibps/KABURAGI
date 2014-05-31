@@ -518,9 +518,11 @@ extern void LoadBrushDefaultData(
 * window	: ツールボックスウィンドウ                   *
 * file_path	: 書き出すファイルのパス                     *
 * app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	正常終了:0	失敗:負の値                              *
 *********************************************************/
-extern void WriteBrushDetailData(
-	TOOL_WINDOW* window,
+extern int WriteBrushDetailData(
+	struct _TOOL_WINDOW* window,
 	const char* file_path,
 	struct _APPLICATION *app
 );

@@ -203,16 +203,20 @@ extern int LoadPalleteAdd(
 * パレットの情報を読み込む           *
 * chooser	: 色選択用の情報         *
 * file_path	: 読み込むファイルのパス *
+* 返り値                             *
+*	正常終了:0	失敗:負の値          *
 *************************************/
-extern void LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path);
+extern int LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path);
 
 /*************************************
 * WritePalleteFile関数               *
 * パレットの情報を書き込む           *
 * chooser	: 色選択用の情報         *
 * file_path	: 書き込むファイルのパス *
+* 返り値                             *
+*	正常終了:0	失敗:負の値          *
 *************************************/
-extern void WritePalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path);
+extern int WritePalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path);
 
 /***************************************
 * RegisterColorPallete関数             *

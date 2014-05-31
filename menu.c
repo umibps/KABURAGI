@@ -1588,6 +1588,8 @@ void ExecuteMake3DLayer(APPLICATION* app)
 	// レイヤーウィンドウに登録してアクティブレイヤーに
 	LayerViewAddLayer(layer, window->layer,
 		app->layer_window.view, window->num_layer);
+	ChangeActiveLayer(window, layer);
+	LayerViewSetActiveLayer(layer, app->layer_window.view);
 
 	// 「新規ベクトルレイヤー」の履歴を登録
 	AddNewLayerHistory(layer, layer->layer_type);

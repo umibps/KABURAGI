@@ -34,7 +34,7 @@ static gboolean TimerCallBack(DRAW_WINDOW* window)
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	if(window->active_layer->layer_type == TYPE_3D_LAYER)
 	{
-		gtk_widget_queue_draw(window->window);
+		gtk_widget_queue_draw(window->gl_area);
 		return TRUE;
 	}
 #endif
@@ -99,7 +99,7 @@ void AutoSave(DRAW_WINDOW* window)
 
 	if(fp != NULL)
 	{
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 		GdkWindow *status_window = gtk_widget_get_window(window->app->status_bar);
 #endif
 		guint context_id = gtk_statusbar_get_context_id(
@@ -116,7 +116,7 @@ void AutoSave(DRAW_WINDOW* window)
 				break;
 			}
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			if(queued_event->any.window == window->app->status_bar->window)
 #else
 			if(queued_event->any.window == status_window)
@@ -151,7 +151,7 @@ void AutoSave(DRAW_WINDOW* window)
 				break;
 			}
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 			if(queued_event->any.window == window->app->status_bar->window)
 #else
 			if(queued_event->any.window == status_window)
@@ -165,7 +165,6 @@ void AutoSave(DRAW_WINDOW* window)
 				gdk_event_free(queued_event);
 			}
 		}
-
 	}
 
 	g_free(path);
@@ -331,13 +330,73 @@ static void ScrollCallBack(
 * allocation	: 設定されたサイズ                             *
 * window		: 描画領域の情報                               *
 ***************************************************************/
-static ScrollSizeChange(
+static void ScrollSizeChange(
 	GtkScrolledWindow* scroll,
 	GtkAllocation* allocation,
 	DRAW_WINDOW* window
 )
 {
 	UpdateDrawWindowClippingArea(window);
+}
+
+/*******************************************************
+* SetDrawWindowCallbacks関数                           *
+* 描画領域のコールバック関数の設定を行う               *
+* 引数                                                 *
+* widget	: コールバック関数をセットするウィジェット *
+* window	: 描画領域の情報                           *
+*******************************************************/
+void SetDrawWindowCallbacks(
+	GtkWidget* widget,
+	DRAW_WINDOW* window
+)
+{
+	window->callbacks.configure = g_signal_connect(G_OBJECT(widget), "configure-event",
+		G_CALLBACK(DrawWindowConfigurEvent), window);
+#if GTK_MAJOR_VERSION <= 2
+	window->callbacks.display = g_signal_connect(G_OBJECT(widget), "expose_event",
+		G_CALLBACK(DisplayDrawWindow), window);
+#else
+	window->callbacks.display = g_signal_connect(G_OBJECT(widget), "draw",
+		G_CALLBACK(DisplayDrawWindow), window);
+#endif
+	// 入力のコールバック関数をセット
+	window->callbacks.mouse_button_press =g_signal_connect(G_OBJECT(widget), "button_press_event",
+		G_CALLBACK(ButtonPressEvent), window);
+	window->callbacks.mouse_move = g_signal_connect(G_OBJECT(widget), "motion_notify_event",
+		G_CALLBACK(MotionNotifyEvent), window);
+	window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(widget), "button_release_event",
+		G_CALLBACK(ButtonReleaseEvent), window);
+	window->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(widget), "scroll_event",
+		G_CALLBACK(MouseWheelEvent), window);
+#if GTK_MAJOR_VERSION >= 3
+	(void)g_signal_connect(G_OBJECT(widget), "touch-event",
+		G_CALLBACK(TouchEvent), window);
+#endif
+	window->callbacks.enter = g_signal_connect(G_OBJECT(widget), "enter_notify_event",
+		G_CALLBACK(EnterNotifyEvent), window);
+	window->callbacks.leave = g_signal_connect(G_OBJECT(widget), "leave_notify_event",
+		G_CALLBACK(LeaveNotifyEvent), window);
+}
+
+/***************************************************
+* DisconnectDrawWindowCallbacks関数                *
+* 描画領域のコールバック関数を止める               *
+* 引数                                             *
+* widget	: コールバック関数を止めるウィジェット *
+* window	: 描画領域の情報                       *
+***************************************************/
+void DisconnectDrawWindowCallbacks(
+	GtkWidget* widget,
+	DRAW_WINDOW* window
+)
+{
+	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.display);
+	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_button_press);
+	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_move);
+	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_button_release);
+	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_wheel);
+	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.configure);
 }
 
 /***************************************************************
@@ -376,6 +435,11 @@ DRAW_WINDOW* CreateDrawWindow(
 	// 回転処理用の行列データ
 	cairo_matrix_t matrix;
 	char layer_name[MAX_LAYER_NAME_LENGTH];
+	// キャンバスウィジェット
+	GtkWidget *canvas;
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	GtkWidget *canvas_box;
+#endif
 
 	// 新規作成描画領域作成中のフラグを立てる
 	app->flags |= APPLICATION_IN_MAKE_NEW_DRAW_AREA;
@@ -426,9 +490,15 @@ DRAW_WINDOW* CreateDrawWindow(
 	// 描画領域を作成
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	ret->first_project = ProjectContextNew(app->modeling,
-		width, height, (void**)&ret->window);
-#else
+		width, height, (void**)&ret->gl_area);
+	canvas_box = gtk_hbox_new(FALSE, 0);
+	canvas = ret->gl_area;
+	gtk_box_pack_start(GTK_BOX(canvas_box), ret->gl_area, TRUE, TRUE, 0);
 	ret->window = gtk_drawing_area_new();
+	gtk_box_pack_start(GTK_BOX(canvas_box), ret->window, TRUE, TRUE, 0);
+#else
+	canvas = ret->window = gtk_drawing_area_new();
+#endif
 	// イベントの種類をセット
 	gtk_widget_set_events(ret->window,
 		GDK_EXPOSURE_MASK | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_SCROLL_MASK
@@ -437,7 +507,6 @@ DRAW_WINDOW* CreateDrawWindow(
 			| GDK_TOUCH_MASK
 #endif
 	);
-#endif
 	// 描画領域を入れるスクロールを作成
 	ret->scroll = gtk_scrolled_window_new(NULL, NULL);
 	// スクロールがリサイズされた時のコールバック関数を設定
@@ -467,8 +536,6 @@ DRAW_WINDOW* CreateDrawWindow(
 	// 描画領域サイズ変更時のコールバック関数をセット
 	(void)g_signal_connect(G_OBJECT(ret->scroll), "size-allocate",
 		G_CALLBACK(ScrollSizeChange), ret);
-	ret->callbacks.configure = g_signal_connect(G_OBJECT(ret->window), "configure-event",
-		G_CALLBACK(DrawWindowConfigurEvent), ret);
 	g_object_set_data(G_OBJECT(ret->window), "draw-window", ret);
 	// 背景色を設定
 	if((app->flags & APPLICATION_SET_BACK_GROUND_COLOR) != 0)
@@ -485,33 +552,18 @@ DRAW_WINDOW* CreateDrawWindow(
 	}
 
 	// 描画用のコールバック関数をセット
-#if GTK_MAJOR_VERSION <= 2
-	ret->callbacks.display = g_signal_connect(G_OBJECT(ret->window), "expose_event",
-		G_CALLBACK(DisplayDrawWindow), ret);
-#else
-	ret->callbacks.display = g_signal_connect(G_OBJECT(ret->window), "draw",
-		G_CALLBACK(DisplayDrawWindow), ret);
-#endif
-	// 入力のコールバック関数をセット
-	ret->callbacks.mouse_button_press =g_signal_connect(G_OBJECT(ret->window), "button_press_event",
-		G_CALLBACK(ButtonPressEvent), ret);
-	ret->callbacks.mouse_move = g_signal_connect(G_OBJECT(ret->window), "motion_notify_event",
-		G_CALLBACK(MotionNotifyEvent), ret);
-	ret->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(ret->window), "button_release_event",
-		G_CALLBACK(ButtonReleaseEvent), ret);
-	ret->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(ret->window), "scroll_event",
-		G_CALLBACK(MouseWheelEvent), ret);
-#if GTK_MAJOR_VERSION >= 3
-	(void)g_signal_connect(G_OBJECT(ret->window), "touch-event",
-		G_CALLBACK(TouchEvent), ret);
-#endif
-	ret->callbacks.enter = g_signal_connect(G_OBJECT(ret->window), "enter_notify_event",
-		G_CALLBACK(EnterNotifyEvent), ret);
-	ret->callbacks.leave = g_signal_connect(G_OBJECT(ret->window), "leave_notify_event",
-		G_CALLBACK(LeaveNotifyEvent), ret);
+	SetDrawWindowCallbacks(canvas, ret);
+
 	// 描画領域を表示
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	gtk_container_add(GTK_CONTAINER(alignment), canvas_box);
+	gtk_widget_show_all(ret->scroll);
+	gtk_widget_hide(ret->window);
+#else
 	gtk_container_add(GTK_CONTAINER(alignment), ret->window);
 	gtk_widget_show_all(ret->scroll);
+#endif
+
 #if GTK_MAJOR_VERSION <= 2
 	gtk_notebook_set_page(GTK_NOTEBOOK(note_book), window_id);
 #else
@@ -1301,10 +1353,6 @@ void ResizeDispTemp(
 	cairo_pattern_set_filter(window->rotate, CAIRO_FILTER_FAST);
 	cairo_pattern_set_matrix(window->rotate, &matrix);
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	ResizeGL(window, new_width, new_height);
-#endif
-
 	UpdateDrawWindowClippingArea(window);
 }
 
@@ -2084,14 +2132,17 @@ gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_inf
 		return FALSE;
 	}
 
-	if(window->gl_data.texture_name == 0)
-	{
-		InitializeGL(window);
-	}
-
 	if(window->active_layer == NULL)
 	{
 		return FALSE;
+	}
+	else if(window->active_layer->layer_type != TYPE_3D_LAYER)
+	{
+		gtk_widget_hide(window->gl_area);
+		DisconnectDrawWindowCallbacks(window->gl_area, window);
+		gtk_widget_show(window->window);
+		SetDrawWindowCallbacks(window->window, window);
+		g_signal_handler_disconnect(window->window, window->callbacks.configure);
 	}
 #endif
 
@@ -2120,73 +2171,6 @@ void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* w
 	}
 #endif
 }
-
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-void InitializeGL(DRAW_WINDOW* window)
-{
-	GtkRcStyle *style;
-	GdkColor bg_color;
-	glActiveTexture(GL_TEXTURE0);
-	glEnable(GL_TEXTURE_2D);
-	glDisable(GL_DEPTH_TEST);
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	glGenTextures(1, &window->gl_data.texture_name);
-	glBindTexture(GL_TEXTURE_2D, window->gl_data.texture_name);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, 4, window->disp_layer->width,
-		window->disp_layer->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, window->disp_layer->pixels);
-	window->gl_data.points[0].texture_coord[0] = 1.0f;
-	window->gl_data.points[0].texture_coord[1] = 0.0f;
-	window->gl_data.points[1].texture_coord[0] = 0.0f;
-	window->gl_data.points[1].texture_coord[1] = 0.0f;
-	window->gl_data.points[2].texture_coord[0] = 0.0f;
-	window->gl_data.points[2].texture_coord[1] = 1.0f;
-	window->gl_data.points[3].texture_coord[0] = 1.0f;
-	window->gl_data.points[3].texture_coord[1] = 1.0f;
-	ResizeGL(window, window->width, window->height);
-	RotateGL(window, 0);
-	style = gtk_widget_get_modifier_style(window->window);
-	bg_color = style->bg[GTK_STATE_NORMAL];
-	glClearColor(bg_color.red / (float)0xffff, bg_color.green / (float)0xffff,
-		bg_color.blue / (float)0xffff, 1.0f);
-}
-
-void ResizeGL(DRAW_WINDOW* window, int width, int height)
-{
-	int w, h;
-	int widget_size;
-	double length;
-	w = window->disp_layer->width / 2;
-	h = window->disp_layer->height / 2;
-	length = sqrt(w*w + h*h);
-	widget_size = (int)(2 * length + 1) / 2;
-	window->gl_data.length = (float)(length/widget_size);
-	window->gl_data.angle = (float)atan2(height, width);
-
-	glBindTexture(GL_TEXTURE_2D, window->gl_data.texture_name);
-#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
-	glTexImage2D(GL_TEXTURE_2D, 0, 4, width, height, 0,
-		GL_BGRA, GL_UNSIGNED_BYTE, window->disp_layer->pixels);
-#else
-	glTexImage2D(GL_TEXTURE_2D, 0, 4, width, height, 0,
-		GL_RGBA, GL_UNSIGNED_BYTE, window->disp_layer->pixels);
-#endif
-}
-
-void RotateGL(DRAW_WINDOW* window, float angle)
-{
-	window->gl_data.points[0].vertex[0] = cosf(angle + window->gl_data.angle) * window->gl_data.length;
-	window->gl_data.points[0].vertex[1] = sinf(angle + window->gl_data.angle) * window->gl_data.length;
-	window->gl_data.points[1].vertex[0] = cosf(angle + (float)G_PI - window->gl_data.angle) * window->gl_data.length;
-	window->gl_data.points[1].vertex[1] = sinf(angle + (float)G_PI - window->gl_data.angle) * window->gl_data.length;
-	window->gl_data.points[2].vertex[0] = cosf(angle + (float)G_PI + window->gl_data.angle) * window->gl_data.length;
-	window->gl_data.points[2].vertex[1] = sinf(angle + (float)G_PI + window->gl_data.angle) * window->gl_data.length;
-	window->gl_data.points[3].vertex[0] = cosf(angle - window->gl_data.angle) * window->gl_data.length;
-	window->gl_data.points[3].vertex[1] = sinf(angle - window->gl_data.angle) * window->gl_data.length;
-}
-#endif
 
 #ifdef __cplusplus
 }

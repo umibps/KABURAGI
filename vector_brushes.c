@@ -6924,8 +6924,10 @@ void SetControlPointTool(
 * window	: ツールボックスウィンドウ                   *
 * file_path	: 書き出すファイルのパス                     *
 * app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	正常終了:0	失敗:負の値                              *
 *********************************************************/
-void WriteVectorBrushData(
+int WriteVectorBrushData(
 	TOOL_WINDOW* window,
 	const char* file_path,
 	APPLICATION* app
@@ -6949,7 +6951,7 @@ void WriteVectorBrushData(
 		if(stream == NULL)
 		{
 			g_object_unref(fp);
-			return;
+			return -1;
 		}
 	}
 
@@ -7116,6 +7118,8 @@ void WriteVectorBrushData(
 
 	g_object_unref(fp);
 	g_object_unref(stream);
+
+	return 0;
 }
 
 #ifdef __cplusplus

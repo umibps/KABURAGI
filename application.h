@@ -14,7 +14,7 @@
 #if MAJOR_VERSION == 1
 # define MINOR_VERSION 3
 # define RELEASE_VERSION 1
-# define BUILD_VERSION 0
+# define BUILD_VERSION 3
 #elif MAJOR_VERSION == 2
 # define MINOR_VERSION 0
 # define RELEASE_VERSION 1
@@ -59,9 +59,9 @@ extern "C" {
 #endif
 
 // 初期化ファイルのファイルパス
-#define INITIALIZE_FILE_PATH "application.ini"
+#define INITIALIZE_FILE_NAME "application.ini"
 // パレットファイルのパス
-#define PALLETE_FILE_PATH "pallete.kpl"
+#define PALLETE_FILE_NAME "pallete.kpl"
 // デフォルトの解像度
 #define DEFALUT_RESOLUTION 96
 
@@ -410,9 +410,9 @@ typedef struct _APPLICATION
 * アプリケーションの初期化                                           *
 * 引数                                                               *
 * app				: アプリケーション全体を管理する構造体のアドレス *
-* init_file_path	: 初期化ファイルのパス                           *
+* init_file_name	: 初期化ファイルの名前                           *
 *********************************************************************/
-extern void InitializeApplication(APPLICATION* app, char* init_file_path);
+extern void InitializeApplication(APPLICATION* app, char* init_file_name);
 
 /*********************************************************
 * GetActiveDrawWindow関数                                *
@@ -460,8 +460,10 @@ extern void CreateChange3DLayerUI(
 * window	: ツールボックス                             *
 * file_path	: 書き出すファイルのパス                     *
 * app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	正常終了:0 失敗:負の値                               *
 *********************************************************/
-extern void WriteCommonToolData(
+extern int WriteCommonToolData(
 	TOOL_WINDOW* window,
 	const char* file_path,
 	APPLICATION* app
@@ -474,8 +476,10 @@ extern void WriteCommonToolData(
 * window	: ツールボックスウィンドウ                   *
 * file_path	: 書き出すファイルのパス                     *
 * app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	正常終了:0	失敗:負の値                              *
 *********************************************************/
-extern void WriteVectorBrushData(
+extern int WriteVectorBrushData(
 	struct _TOOL_WINDOW* window,
 	const char* file_path,
 	struct _APPLICATION* app

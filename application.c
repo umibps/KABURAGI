@@ -14,6 +14,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <glib.h>
+#include <glib/gstdio.h>
 #include "application.h"
 #include "menu.h"
 #include "labels.h"
@@ -133,8 +135,10 @@ typedef enum _eDROP_LIST
 * 引数                                                   *
 * app		: アプリケーションを管理する構造体のアドレス *
 * file_path	: 初期化ファイルのパス                       *
+* 返り値                                                 *
+*	正常終了:0	失敗:負の値                              *
 *********************************************************/
-void ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA* init_data)
+int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA* init_data)
 {
 	// 初期化ファイル解析用
 	INI_FILE_PTR file;
@@ -147,10 +151,16 @@ void ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA
 	size_t data_size;
 	// 文字列の一時保存
 	char str[4096];
+	// GLibのメモリの一時保存
+	char *glib_str;
 	// 色データ
 	char color_string[128];
 	uint32 color;
 
+	if(stream == NULL)
+	{
+		return -1;
+	}
 	// ファイルサイズを取得
 	file_info = g_file_input_stream_query_info(stream,
 		G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
@@ -162,10 +172,24 @@ void ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA
 	// システムコードの読み込み
 	app->system_code = IniFileStrdup(file, "SYSTEM_CODE", "CODE");
 	// データファイル・ディレクトリパスの読み込み
+		// 通常レイヤーのブラシ
 	app->brush_file_path = IniFileStrdup(file, "BRUSH_DATA", "PATH");
+	glib_str = g_convert(app->brush_file_path, -1, "UTF-8", app->system_code, NULL, NULL, NULL);
+	MEM_FREE_FUNC(app->brush_file_path);
+	app->brush_file_path = glib_str;
+	// ベクトルレイヤーのブラシ
 	app->vector_brush_file_path = IniFileStrdup(file, "VECTOR_BRUSH_DATA", "PATH");
+	glib_str = g_convert(app->vector_brush_file_path, -1, "UTF-8", app->system_code, NULL, NULL, NULL);
+	MEM_FREE_FUNC(app->vector_brush_file_path);
+	app->vector_brush_file_path = glib_str;
+	// 全種類のレイヤー共通で使えるツール
 	app->common_tool_file_path = IniFileStrdup(file, "COMMON_TOOL_DATA", "PATH");
+	glib_str = g_convert(app->common_tool_file_path, -1, "UTF-8", app->system_code, NULL, NULL, NULL);
+	MEM_FREE_FUNC(app->common_tool_file_path);
+	app->common_tool_file_path = glib_str;
+	// 表示テキストのデータ
 	app->language_file_path = IniFileStrdup(file, "LANGUAGE_FILE", "PATH");
+	// 各データディレクトリ
 	app->pattern_path = IniFileStrdup(file, "PATTERN_DIRECTORY", "PATH");
 	app->stamp_path = IniFileStrdup(file, "STAMP_DIRECTORY", "PATH");
 	app->texture_path = IniFileStrdup(file, "TEXTURE_DIRECTORY", "PATH");
@@ -439,6 +463,8 @@ void ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA
 	g_object_unref(fp);
 	g_object_unref(stream);
 	g_object_unref(file_info);
+
+	return 0;
 }
 
 /*********************************************************
@@ -447,8 +473,10 @@ void ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA
 * 引数                                                   *
 * app		: アプリケーションを管理する構造体のアドレス *
 * file_path	: 初期化ファイルのパス                       *
+* 返り値                                                 *
+*	正常終了:0	失敗:負の値                              *
 *********************************************************/
-void WriteInitializeFile(APPLICATION* app, const char* file_path)
+int WriteInitializeFile(APPLICATION* app, const char* file_path)
 {
 	GFile* fp = g_file_new_for_path(file_path);
 	GFileOutputStream* stream =
@@ -456,6 +484,7 @@ void WriteInitializeFile(APPLICATION* app, const char* file_path)
 	INI_FILE_PTR file;
 	int32 color;
 	char str[128];
+	char *write_path;
 	
 	// ファイルオープンに失敗したら上書きを試す
 	if(stream == NULL)
@@ -465,7 +494,7 @@ void WriteInitializeFile(APPLICATION* app, const char* file_path)
 		if(stream == NULL)
 		{
 			g_object_unref(fp);
-			return;
+			return -1;
 		}
 	}
 
@@ -475,10 +504,21 @@ void WriteInitializeFile(APPLICATION* app, const char* file_path)
 	(void)IniFileAddString(file, "SYSTEM_CODE", "CODE", app->system_code);
 
 	// データファイル・ディレクトリパスを書き込む
-	(void)IniFileAddString(file, "BRUSH_DATA", "PATH", app->brush_file_path);
-	(void)IniFileAddString(file, "VECTOR_BRUSH_DATA", "PATH", app->vector_brush_file_path);
-	(void)IniFileAddString(file, "COMMON_TOOL_DATA", "PATH", app->common_tool_file_path);
+		// 通常レイヤーのブラシ
+	write_path = g_convert(app->brush_file_path, -1, app->system_code, "UTF-8", NULL, NULL, NULL);
+	(void)IniFileAddString(file, "BRUSH_DATA", "PATH", write_path);
+	g_free(write_path);
+	// ベクトルレイヤーのブラシ
+	write_path = g_convert(app->vector_brush_file_path, -1, app->system_code, "UTF-8", NULL, NULL, NULL);
+	(void)IniFileAddString(file, "VECTOR_BRUSH_DATA", "PATH", write_path);
+	g_free(write_path);
+	// 全種類のレイヤーで使えるツール
+	write_path = g_convert(app->common_tool_file_path, -1, app->system_code, "UTF-8", NULL, NULL, NULL);
+	(void)IniFileAddString(file, "COMMON_TOOL_DATA", "PATH", write_path);
+	g_free(write_path);
+	// 表示文字のデータ
 	(void)IniFileAddString(file, "LANGUAGE_FILE", "PATH", app->language_file_path);
+	// 各種データディレクトリ
 	(void)IniFileAddString(file, "PATTERN_DIRECTORY", "PATH", app->pattern_path);
 	(void)IniFileAddString(file, "STAMP_DIRECTORY", "PATH", app->stamp_path);
 	(void)IniFileAddString(file, "TEXTURE_DIRECTORY", "PATH", app->texture_path);
@@ -688,6 +728,8 @@ void WriteInitializeFile(APPLICATION* app, const char* file_path)
 	// 書き出し用のオブジェクトを削除
 	g_object_unref(fp);
 	g_object_unref(stream);
+
+	return 0;
 }
 
 /*******************************************************
@@ -702,6 +744,8 @@ gboolean OnQuitApplication(APPLICATION* app)
 {
 	// 自動保存ファイル削除用
 	GDir *dir;
+	// フォルダへのパス(AppData作成用)
+	gchar *dir_path;
 	// ファイルへのパス(Mac対策)
 	gchar *file_path;
 	// for文用のカウンタ
@@ -760,46 +804,167 @@ gboolean OnQuitApplication(APPLICATION* app)
 	// ブラシファイルを更新する
 	if(app->common_tool_file_path[0] == '.' && app->common_tool_file_path[1] == '/')
 	{
-		file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
-		WriteCommonToolData(&app->tool_window, file_path, app);
-		g_free(file_path);
+		dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
+		if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
+		{
+			(void)g_mkdir(dir_path,
+#ifdef __MAC_OS__
+#elif defined(_WIN32)
+				0
+#else
+				S_IRUSR | S_IWUSR | S_IXUSR |
+				S_IRGRP | S_IWGRP | S_IXGRP |
+				S_IROTH | S_IXOTH | S_IXOTH
+#endif
+			);
+		}
+		else
+		{
+			g_dir_close(dir);
+		}
+
+		file_path = g_build_filename(dir_path, "common_tools.ini", NULL);
+		if(WriteCommonToolData(&app->tool_window, file_path, app) == 0)
+		{
+			g_free(app->common_tool_file_path);
+			app->common_tool_file_path = file_path;
+		}
+		else
+		{
+			g_free(file_path);
+			file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
+			(void)WriteCommonToolData(&app->tool_window, file_path, app);
+			g_free(file_path);
+		}
+		g_free(dir_path);
 	}
 	else
 	{
-		WriteCommonToolData(&app->tool_window, app->common_tool_file_path, app);
+		(void)WriteCommonToolData(&app->tool_window, app->common_tool_file_path, app);
 	}
 
 	if(app->brush_file_path[0] == '.' && app->brush_file_path[1] == '/')
 	{
-		file_path = g_build_filename(app->current_path, &app->brush_file_path[2], NULL);
-		WriteBrushDetailData(&app->tool_window, file_path, app);
-		g_free(file_path);
+		dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
+		if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
+		{
+			(void)g_mkdir(dir_path,
+#ifdef __MAC_OS__
+#elif defined(_WIN32)
+				0
+#else
+				S_IRUSR | S_IWUSR | S_IXUSR |
+				S_IRGRP | S_IWGRP | S_IXGRP |
+				S_IROTH | S_IXOTH | S_IXOTH
+#endif
+			);
+		}
+		else
+		{
+			g_dir_close(dir);
+		}
+
+		file_path = g_build_filename(dir_path, "brushes.ini", NULL);
+		if(WriteBrushDetailData(&app->tool_window, file_path, app) == 0)
+		{
+			g_free(app->brush_file_path);
+			app->brush_file_path = file_path;
+		}
+		else
+		{
+			g_free(file_path);
+			file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
+			(void)WriteBrushDetailData(&app->tool_window, file_path, app);
+			g_free(file_path);
+		}
+		g_free(dir_path);
 	}
 	else
 	{
-		WriteBrushDetailData(&app->tool_window, app->brush_file_path, app);
+		(void)WriteBrushDetailData(&app->tool_window, app->brush_file_path, app);
 	}
 
 	if(app->vector_brush_file_path[0] == '.' && app->vector_brush_file_path[1] == '/')
 	{
-		file_path = g_build_filename(app->current_path, &app->vector_brush_file_path[2], NULL);
-		WriteVectorBrushData(&app->tool_window, file_path, app);
-		g_free(file_path);
+		dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
+		if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
+		{
+			(void)g_mkdir(dir_path,
+#ifdef __MAC_OS__
+#elif defined(_WIN32)
+				0
+#else
+				S_IRUSR | S_IWUSR | S_IXUSR |
+				S_IRGRP | S_IWGRP | S_IXGRP |
+				S_IROTH | S_IXOTH | S_IXOTH
+#endif
+			);
+		}
+		else
+		{
+			g_dir_close(dir);
+		}
+
+		file_path = g_build_filename(dir_path, "vector_brushes.ini", NULL);
+		if(WriteVectorBrushData(&app->tool_window, file_path, app) == 0)
+		{
+			g_free(app->vector_brush_file_path);
+			app->vector_brush_file_path = file_path;
+		}
+		else
+		{
+			g_free(file_path);
+			file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
+			(void)WriteVectorBrushData(&app->tool_window, file_path, app);
+			g_free(file_path);
+		}
+		g_free(dir_path);
 	}
 	else
 	{
-		WriteVectorBrushData(&app->tool_window, app->vector_brush_file_path, app);
+		(void)WriteVectorBrushData(&app->tool_window, app->vector_brush_file_path, app);
 	}
 
 	// 初期化ファイルを更新する
-	file_path = g_build_filename(app->current_path, INITIALIZE_FILE_PATH, NULL);
-	WriteInitializeFile(app, file_path);
+	dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
+	if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
+	{
+		(void)g_mkdir(dir_path,
+#ifdef __MAC_OS__
+#elif defined(_WIN32)
+			0
+#else
+			S_IRUSR | S_IWUSR | S_IXUSR |
+			S_IRGRP | S_IWGRP | S_IXGRP |
+			S_IROTH | S_IXOTH | S_IXOTH
+#endif
+		);
+	}
+	else
+	{
+		g_dir_close(dir);
+	}
+
+	file_path = g_build_filename(dir_path, INITIALIZE_FILE_NAME, NULL);
+	if(WriteInitializeFile(app, file_path) != 0)
+	{
+		g_free(file_path);
+		file_path = g_build_filename(app->current_path, INITIALIZE_FILE_NAME, NULL);
+		(void)WriteInitializeFile(app, file_path);
+	}
 	g_free(file_path);
 
 	// パレットファイルを更新する
-	file_path = g_build_filename(app->current_path, PALLETE_FILE_PATH, NULL);
-	WritePalleteFile(app->tool_window.color_chooser, file_path);
+	file_path = g_build_filename(dir_path, PALLETE_FILE_NAME, NULL);
+	if(WritePalleteFile(app->tool_window.color_chooser, file_path) != 0)
+	{
+		g_free(file_path);
+		file_path = g_build_filename(app->current_path, PALLETE_FILE_NAME, NULL);
+		WritePalleteFile(app->tool_window.color_chooser, file_path);
+	}
 	g_free(file_path);
+
+	g_free(dir_path);
 
 	// 自動保存ファイルを削除
 	dir = g_dir_open(app->backup_directory_path, 0, NULL);
@@ -1280,9 +1445,9 @@ static void MainWindowRealizeCallBack(
 * アプリケーションの初期化                                           *
 * 引数                                                               *
 * app				: アプリケーション全体を管理する構造体のアドレス *
-* init_file_path	: 初期化ファイルのパス                           *
+* init_file_name	: 初期化ファイルの名前                           *
 *********************************************************************/
-void InitializeApplication(APPLICATION* app, char* init_file_path)
+void InitializeApplication(APPLICATION* app, char* init_file_name)
 {
 	// 各種ディレクトリへのパス(Mac対策)
 	gchar *file_path;
@@ -1300,9 +1465,26 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 	GtkWidget *left_box, *right_box;
 	// ウィンドウのタイトル
 	char window_title[512];
+	// アプリケーションデータのディレクトリ
+	char *app_dir_path;
+
+	app_dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
 
 	// 初期化ファイルを読み込む
-	ReadInitializeFile(app, init_file_path, &init_data);
+		// まずはアプリケーションデータのディレクトリから
+	file_path = g_build_filename(app_dir_path, init_file_name, NULL);
+	if(ReadInitializeFile(app, file_path, &init_data) != 0)
+	{	// 失敗したらプログラムファイルのディレクトリ
+		g_free(file_path);
+		file_path =  g_build_filename(app->current_path, init_file_name, NULL);
+		if(ReadInitializeFile(app, file_path, &init_data) != 0)
+		{	// それも失敗したら終了
+			GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL,
+				GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "Failed to read data file.");
+			exit(EXIT_FAILURE);
+		}
+	}
+	g_free(file_path);
 
 	// トップレベルウィンドウを作成
 	app->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -1719,7 +1901,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_path)
 	// ツールボックスウィンドウを作成
 	app->tool_window.window = CreateToolBoxWindow(app, app->window);
 	// パレット情報を読み込む
-	file_path = g_build_filename(app->current_path, PALLETE_FILE_PATH, NULL);
+	file_path = g_build_filename(app->current_path, PALLETE_FILE_NAME, NULL);
 	LoadPalleteFile(app->tool_window.color_chooser, file_path);
 	g_free(file_path);
 

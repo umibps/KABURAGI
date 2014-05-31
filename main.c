@@ -398,7 +398,7 @@ int main(int argc, char** argv)
 #endif
 
 	{
-		gchar *initialize_file_path, *raw_path;
+		gchar *raw_path;
 
 		application.labels = &labels;
 
@@ -409,15 +409,13 @@ int main(int argc, char** argv)
 
 		raw_path = g_locale_to_utf8(argv[0], -1, NULL, NULL, NULL);
 		application.current_path = g_path_get_dirname(raw_path);
-		initialize_file_path = g_build_filename(application.current_path, INITIALIZE_FILE_PATH, NULL);
 
 #if defined(CHECK_MEMORY_POOL) && CHECK_MEMORY_POOL != 0
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
 	//_CrtSetBreakAlloc(300);
 #endif
 
-		InitializeApplication(&application, initialize_file_path);
-		g_free(initialize_file_path);
+		InitializeApplication(&application, INITIALIZE_FILE_NAME);
 		g_free(raw_path);
 	}
 

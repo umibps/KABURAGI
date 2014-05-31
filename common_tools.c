@@ -2165,8 +2165,10 @@ void LoadCommonToolDetailData(
 * window	: ツールボックス                             *
 * file_path	: 書き出すファイルのパス                     *
 * app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	正常終了:0 失敗:負の値                               *
 *********************************************************/
-void WriteCommonToolData(
+int WriteCommonToolData(
 	TOOL_WINDOW* window,
 	const char* file_path,
 	APPLICATION* app
@@ -2191,7 +2193,7 @@ void WriteCommonToolData(
 		if(stream == NULL)
 		{
 			g_object_unref(fp);
-			return;
+			return -1;
 		}
 	}
 
@@ -2301,6 +2303,8 @@ void WriteCommonToolData(
 	file->delete_func(file);
 	g_object_unref(fp);
 	g_object_unref(stream);
+
+	return 0;
 }
 
 /*****************************************

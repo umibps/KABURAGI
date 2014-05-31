@@ -1955,8 +1955,10 @@ int LoadPalleteAdd(
 * パレットの情報を読み込む           *
 * chooser	: 色選択用の情報         *
 * file_path	: 読み込むファイルのパス *
+* 返り値                             *
+*	正常終了:0	失敗:負の値          *
 *************************************/
-void LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path)
+int LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path)
 {
 	GFile *fp = g_file_new_for_path(file_path);
 	GFileInputStream *stream = g_file_read(fp, NULL, NULL);
@@ -1966,14 +1968,14 @@ void LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path)
 	if(stream == NULL)
 	{
 		g_object_unref(fp);
-		return;
+		return -1;
 	}
 
 	for(i=0; i<(PALLETE_WIDTH*PALLETE_HEIGHT); i++)
 	{
 		if(FileRead(&c, 1, 1, stream) == 0)
 		{
-			return;
+			return -1;
 		}
 
 		if(c != 0)
@@ -1981,7 +1983,7 @@ void LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path)
 			FLAG_ON(chooser->pallete_flags, i);
 			if(FileRead(chooser->pallete_data[i], 1, 3, stream) < 3)
 			{
-				return;
+				return -1;
 			}
 		}
 		else
@@ -1994,6 +1996,8 @@ void LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path)
 
 	g_object_unref(stream);
 	g_object_unref(fp);
+
+	return 0;
 }
 
 /*************************************
@@ -2001,8 +2005,10 @@ void LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path)
 * パレットの情報を書き込む           *
 * chooser	: 色選択用の情報         *
 * file_path	: 書き込むファイルのパス *
+* 返り値                             *
+*	正常終了:0	失敗:負の値          *
 *************************************/
-void WritePalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path)
+int WritePalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path)
 {
 	FILE* fp;
 	gchar *system_path;
@@ -2016,7 +2022,7 @@ void WritePalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path)
 
 	if(fp == NULL)
 	{
-		return;
+		return -1;
 	}
 
 	for(i=0; i<(PALLETE_WIDTH*PALLETE_HEIGHT); i++)
@@ -2038,6 +2044,8 @@ void WritePalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path)
 	}
 
 	(void)fclose(fp);
+
+	return 0;
 }
 
 cmsHPROFILE* CreateDefaultSrgbProfile(void)

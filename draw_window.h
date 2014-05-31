@@ -52,27 +52,6 @@ typedef struct _CALLBACK_IDS
 	unsigned int leave;
 } CALLBACK_IDS;
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-typedef struct _GL_DRAW_POINT
-{
-	GLfloat texture_coord[2];
-	GLfloat vertex[3];
-} GL_DRAW_POINT;
-
-typedef struct _GL_DRAW_DATA
-{
-	GLuint texture_name;
-	GL_DRAW_POINT points[4];
-	float length;
-	float angle;
-	struct
-	{
-		double x1, y1, x2, y2;
-	} update_rectangle, before_rectangle;
-} GL_DRAW_DATA;
-
-#endif
-
 typedef struct _DRAW_WINDOW
 {
 	uint8 channel;		// チャンネル数
@@ -213,8 +192,8 @@ typedef struct _DRAW_WINDOW
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	// 3Dモデリング用データ
 	void *first_project;
-	// 頂点・テクスチャデータ
-	GL_DRAW_DATA gl_data;
+	// OpenGL対応ウィジェット
+	GtkWidget *gl_area;
 #endif
 } DRAW_WINDOW;
 
@@ -274,6 +253,30 @@ extern DRAW_WINDOW* CreateTempDrawWindow(
 * window	: 描画領域の情報のアドレス *
 ***************************************/
 extern void DeleteDrawWindow(DRAW_WINDOW** window);
+
+/*******************************************************
+* SetDrawWindowCallbacks関数                           *
+* 描画領域のコールバック関数の設定を行う               *
+* 引数                                                 *
+* widget	: コールバック関数をセットするウィジェット *
+* window	: 描画領域の情報                           *
+*******************************************************/
+void SetDrawWindowCallbacks(
+	GtkWidget* widget,
+	DRAW_WINDOW* window
+);
+
+/***************************************************
+* DisconnectDrawWindowCallbacks関数                *
+* 描画領域のコールバック関数を止める               *
+* 引数                                             *
+* widget	: コールバック関数を止めるウィジェット *
+* window	: 描画領域の情報                       *
+***************************************************/
+extern void DisconnectDrawWindowCallbacks(
+	GtkWidget* widget,
+	DRAW_WINDOW* window
+);
 
 /*****************************************************
 * SwapDrawWindowFromMemoryStream関数                 *
@@ -606,12 +609,6 @@ extern void Change2FocalMode(DRAW_WINDOW* parent_window);
 * parent_window	: 親キャンバス   *
 *********************************/
 extern void ReturnFromFocalMode(DRAW_WINDOW* parent_window);
-
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-extern void InitializeGL(DRAW_WINDOW* window);
-extern void ResizeGL(DRAW_WINDOW* window, int width, int height);
-extern void RotateGL(DRAW_WINDOW* window, float angle);
-#endif
 
 #ifdef __cplusplus
 }
