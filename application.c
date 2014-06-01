@@ -1901,8 +1901,13 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	// ツールボックスウィンドウを作成
 	app->tool_window.window = CreateToolBoxWindow(app, app->window);
 	// パレット情報を読み込む
-	file_path = g_build_filename(app->current_path, PALLETE_FILE_NAME, NULL);
-	LoadPalleteFile(app->tool_window.color_chooser, file_path);
+	file_path = g_build_filename(app_dir_path, PALLETE_FILE_NAME, NULL);
+	if(LoadPalleteFile(app->tool_window.color_chooser, file_path) != 0)
+	{
+		g_free(file_path);
+		file_path = g_build_filename(app->current_path, PALLETE_FILE_NAME, NULL);
+		(void)LoadPalleteFile(app->tool_window.color_chooser, file_path);
+	}
 	g_free(file_path);
 
 	// レイヤービューをドッキングするならば
