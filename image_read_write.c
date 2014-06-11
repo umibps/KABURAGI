@@ -1036,6 +1036,12 @@ LAYER* ReadOriginalFormatLayers(
 			(void)MemRead(&base.alpha, sizeof(base.alpha), 1, stream);
 			(void)MemRead(&base.channel, sizeof(base.channel), 1, stream);
 			(void)MemRead(&base.layer_set, sizeof(base.layer_set), 1, stream);
+
+			if(base.layer_type >= NUM_LAYER_TYPE || base.x != 0)
+			{
+				goto return_layers;
+			}
+
 			// 値のセット
 			layer = CreateLayer(base.x, base.y, base.width, base.height,
 				base.channel, base.layer_type, layer, NULL, name, window);
@@ -1352,6 +1358,7 @@ LAYER* ReadOriginalFormatLayers(
 		}
 	}
 
+return_layers:
 	// 先頭のレイヤーを返す
 	while(layer->prev != NULL)
 	{

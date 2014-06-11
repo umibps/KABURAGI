@@ -266,7 +266,7 @@ void InitializePmxBone(PMX_BONE* bone, PMX_MODEL* model)
 
 	(void)memset(bone, 0, sizeof(*bone));
 
-	bone->model = model;
+	bone->interface_data.model = (MODEL_INTERFACE*)model;
 	bone->constraints = StructArrayNew(sizeof(PMX_IK_CONSTRAINT), 8);
 	//bone->constraints = StructArrayNew(sizeof(PMX_IK_CONSTRAINT), PMX_BUFFER_SIZE);
 	bone->local_rotation[3] = 1;
@@ -1179,7 +1179,7 @@ void InitializePmd2Bone(PMD2_BONE* bone, MODEL_INTERFACE* model, void* applicati
 {
 	const float basis[] = IDENTITY_MATRIX3x3;
 	(void)memset(bone, 0, sizeof(*bone));
-	bone->model = (PMD2_MODEL*)model;
+	bone->interface_data.model = model;
 	bone->rotation[3] = 1;
 	bone->interface_data.local_transform = BtTransformNew(basis);
 	bone->interface_data.index = -1;
@@ -1391,17 +1391,17 @@ void AssetRootBoneGetWorldTransform(ASSET_ROOT_BONE* bone, void* transform)
 
 void AssetRootBoneGetLocalTranslation(ASSET_ROOT_BONE* bone, float* translation)
 {
-	COPY_VECTOR3(translation, bone->model->position);
+	COPY_VECTOR3(translation, ((ASSET_MODEL*)bone->interface_data.model)->position);
 }
 
 void AssetRootBoneSetLocalTranslation(ASSET_ROOT_BONE* bone, const float* translation)
 {
-	AssetModelSetWorldPositionInternal(bone->model, translation);
+	AssetModelSetWorldPositionInternal((ASSET_MODEL*)bone->interface_data.model, translation);
 }
 
 void AssetRootBoneGetLocalRotation(ASSET_ROOT_BONE* bone, float* rotation)
 {
-	COPY_VECTOR4(rotation, bone->model->rotation);
+	COPY_VECTOR4(rotation, ((ASSET_MODEL*)bone->interface_data.model)->rotation);
 }
 
 void AssetRootBoneGetLocalTransform(ASSET_ROOT_BONE* bone, void* transform)
@@ -1411,7 +1411,7 @@ void AssetRootBoneGetLocalTransform(ASSET_ROOT_BONE* bone, void* transform)
 
 void AssetRootBoneSetLocalRotation(ASSET_ROOT_BONE* bone, const float* rotation)
 {
-	AssetModelSetWorldRotationInternal(bone->model, rotation);
+	AssetModelSetWorldRotationInternal((ASSET_MODEL*)bone->interface_data.model, rotation);
 }
 
 void InitializeAssetRootBone(
@@ -1425,7 +1425,7 @@ void InitializeAssetRootBone(
 
 	bone->interface_data.name = "RootBoneAsset";
 	bone->interface_data.local_transform = BtTransformNew(basis);
-	bone->model = model;
+	bone->interface_data.model = (MODEL_INTERFACE*)model;
 	bone->world_transform = BtTransformNew(basis);
 	BtTransformSetOrigin(bone->interface_data.local_transform, model->position);
 	BtTransformSetRotation(bone->interface_data.local_transform, model->rotation);
@@ -1471,7 +1471,7 @@ void AssetScaleBoneSetLocalTranslation(ASSET_SCALE_BONE* bone, const float* tran
 	SET_MAX(bone->position[1], ASSET_SCALE_BONE_MAX_VALUE);
 	SET_MAX(bone->position[2], ASSET_SCALE_BONE_MAX_VALUE);
 	scale = (bone->position[0] + bone->position[1] + bone->position[2]) / 3.0f;
-	bone->model->interface_data.scale_factor = scale;
+	bone->interface_data.model->scale_factor = scale;
 }
 
 static void AssetScaleBoneGetWorldTransform(ASSET_SCALE_BONE* bone, void* transform)
@@ -1487,7 +1487,7 @@ void InitializeAssetScaleBone(
 {
 	(void)memset(bone, 0, sizeof(*bone));
 
-	bone->model = model;
+	bone->interface_data.model = (MODEL_INTERFACE*)model;
 	bone->application = (APPLICATION*)application_context;
 	bone->position[0] = model->interface_data.scale_factor;
 	bone->position[1] = model->interface_data.scale_factor;

@@ -811,6 +811,36 @@ void QuaternionNormalize(float* quaternion)
 	quaternion[3] /= length;
 }
 
+void Quaternion2Matrix(float* quaternion, float* matrix)
+{
+	float sx = quaternion[0] * quaternion[0];
+	float sy = quaternion[1] * quaternion[1];
+	float sz = quaternion[2] * quaternion[2];
+	float cx = quaternion[0] * quaternion[2];
+	float cy = quaternion[1] * quaternion[2];
+	float cz = quaternion[0] * quaternion[1];
+	float wx = quaternion[3] * quaternion[0];
+	float wy = quaternion[3] * quaternion[1];
+	float wz = quaternion[3] * quaternion[2];
+
+	matrix[0] = 1.0f - 2.0f * (sy + sz);
+	matrix[1] = 2.0f * (cz + wz);
+	matrix[2] = 2.0f * (cy - wy);
+	matrix[3] = 0;
+	matrix[4] = 2.0f * (cz - wz);
+	matrix[5] = 1.0f - 2.0f * (sx + sz);
+	matrix[6] = 2.0f * (cx + wx);
+	matrix[7] = 0;
+	matrix[8] = 2.0f * (cy + wy);
+	matrix[9] = 2.0f * (cx - wx);
+	matrix[10] = 1.0f - 2.0f * (sx + sy);
+	matrix[11] = 0;
+	matrix[12] = 0;
+	matrix[13] = 0;
+	matrix[14] = 0;
+	matrix[15] = 1.0f;
+}
+
 void Perspective(float matrix[16], float fovy, float aspect, float z_near, float z_far)
 {
 	const float rad = fovy * (float)M_PI / 180.0f;

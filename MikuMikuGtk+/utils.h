@@ -297,6 +297,8 @@ extern void QuaternionSetEulerZYX(float* quaternion, float yaw, float pitch, flo
 
 extern void QuaternionNormalize(float* quaternion);
 
+extern void Quaternion2Matrix(float* quaternion, float* matrix);
+
 extern void Perspective(float matrix[16], float fovy, float aspect, float z_near, float z_far);
 
 extern void Unprojection(

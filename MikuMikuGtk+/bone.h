@@ -36,6 +36,7 @@ typedef struct _BONE_INTERFACE
 	struct _BONE_INTERFACE *parent_bone;
 	struct _BONE_INTERFACE *effector_bone;
 	struct _BASE_RIGID_BODY *body;
+	struct _MODEL_INTERFACE *model;
 } BONE_INTERFACE;
 
 #define BONE_NAME_SIZE 20
@@ -108,7 +109,6 @@ typedef struct _PMX_IK_CONSTRAINT
 typedef struct _PMX_BONE
 {
 	BONE_INTERFACE interface_data;
-	struct _PMX_MODEL *model;
 	STRUCT_ARRAY *constraints;
 	struct _PMX_BONE *parent_inherent_bone;
 	struct _PMX_BONE *destination_origin_bone;
@@ -162,7 +162,6 @@ typedef struct _PMD2_BONE
 {
 	BONE_INTERFACE interface_data;
 	ePMD2_BONE_TYPE type;
-	struct _PMD2_MODEL *model;
 	struct _APPLICATION *application;
 	struct _PMD2_BONE *parent_bone;
 	struct _PMD2_BONE *target_bone;
@@ -182,7 +181,6 @@ typedef struct _PMD2_BONE
 typedef struct _ASSET_ROOT_BONE
 {
 	BONE_INTERFACE interface_data;
-	struct _ASSET_MODEL *model;
 	void *world_transform;
 } ASSET_ROOT_BONE;
 
@@ -192,7 +190,6 @@ typedef struct _ASSET_SCALE_BONE
 {
 	BONE_INTERFACE interface_data;
 	struct _APPLICATION *application;
-	struct _ASSET_MODEL *model;
 	VECTOR3 position;
 } ASSET_SCALE_BONE;
 

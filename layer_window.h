@@ -75,6 +75,7 @@ typedef struct _LAYER_WIDGET
 extern GtkWidget *CreateLayerWindow(struct _APPLICATION* app, GtkWidget *parent, GtkWidget** view);
 extern void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_layer);
 extern void LayerViewSetActiveLayer(LAYER* layer, GtkWidget* view);
+
 /*************************************************
 * ClearLayerView関数                             *
 * レイヤービューのウィジェットを全て削除する     *

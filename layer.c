@@ -1895,8 +1895,10 @@ typedef struct _CHANGE_LAYER_ORDER_HISTORY
 static void ChangeLayerOrderUndo(DRAW_WINDOW* window, void *data)
 {
 	CHANGE_LAYER_ORDER_HISTORY history;
-	LAYER* new_prev = NULL, *change_layer;
+	LAYER *new_prev = NULL, *change_layer;
 	LAYER *parent;
+	LAYER *target = NULL;
+	LAYER *next_target;
 	uint8 *buff = (uint8*)data;
 
 	(void)memcpy(&history, buff, offsetof(CHANGE_LAYER_ORDER_HISTORY, layer_name));
@@ -1924,30 +1926,31 @@ static void ChangeLayerOrderUndo(DRAW_WINDOW* window, void *data)
 			hierarchy++;
 			parent = parent->layer_set;
 		}
-
-		gtk_alignment_set_padding(GTK_ALIGNMENT(change_layer->widget->alignment),
-			0, 0, LAYER_SET_DISPLAY_OFFSET * hierarchy, 0);
 	}
-	else
+
+	if(change_layer->layer_type == TYPE_LAYER_SET)
 	{
-		gtk_alignment_set_padding(GTK_ALIGNMENT(change_layer->widget->alignment),
-			0, 0, 0, 0);
+		target =  change_layer->prev;
+	}
+	ChangeLayerOrder(change_layer, new_prev, &window->layer);
+	while(target != NULL && target->layer_set == change_layer)
+	{
+		next_target = target->prev;
+		ChangeLayerOrder(target, new_prev, &window->layer);
+		target = next_target;
 	}
 
-	ChangeLayerOrder(change_layer, new_prev, &window->layer);
-
-	gtk_box_reorder_child(
-		GTK_BOX(window->app->layer_window.view),
-		change_layer->widget->box,
-		GetLayerID(window->layer, change_layer->prev, window->num_layer)
-	);
+	ClearLayerView(&window->app->layer_window);
+	LayerViewSetDrawWindow(&window->app->layer_window, window);
 }
 
 static void ChangeLayerOrderRedo(DRAW_WINDOW* window, void *data)
 {
 	CHANGE_LAYER_ORDER_HISTORY history;
-	LAYER* new_prev = NULL, *change_layer;
+	LAYER *new_prev = NULL, *change_layer;
 	LAYER *parent;
+	LAYER *target = NULL;
+	LAYER *next_target;
 	uint8 *buff = (uint8*)data;
 
 	(void)memcpy(&history, buff, offsetof(CHANGE_LAYER_ORDER_HISTORY, layer_name));
@@ -1975,23 +1978,22 @@ static void ChangeLayerOrderRedo(DRAW_WINDOW* window, void *data)
 			hierarchy++;
 			parent = parent->layer_set;
 		}
-
-		gtk_alignment_set_padding(GTK_ALIGNMENT(change_layer->widget->alignment),
-			0, 0, LAYER_SET_DISPLAY_OFFSET * hierarchy, 0);
 	}
-	else
+
+	if(change_layer->layer_type == TYPE_LAYER_SET)
 	{
-		gtk_alignment_set_padding(GTK_ALIGNMENT(change_layer->widget->alignment),
-			0, 0, 0, 0);
+		target = change_layer->prev;
+	}
+	ChangeLayerOrder(change_layer, new_prev, &window->layer);
+	while(target != NULL && target->layer_set == change_layer)
+	{
+		next_target = target->prev;
+		ChangeLayerOrder(target, new_prev, &window->layer);
+		target = next_target;
 	}
 
-	ChangeLayerOrder(change_layer, new_prev, &window->layer);
-
-	gtk_box_reorder_child(
-		GTK_BOX(window->app->layer_window.view),
-		change_layer->widget->box,
-		GetLayerID(window->layer, change_layer->prev, window->num_layer)
-	);
+	ClearLayerView(&window->app->layer_window);
+	LayerViewSetDrawWindow(&window->app->layer_window, window);
 }
 
 /*************************************************

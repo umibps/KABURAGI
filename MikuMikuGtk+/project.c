@@ -144,9 +144,16 @@ void GetContextMatrix(float *value, MODEL_INTERFACE* model, int flags, PROJECT* 
 			if(bone != NULL)
 			{
 				// アクセサリーの拡大率を変更すると位置が合わなくなるので調整
+				float mul_vector[4];
+				float rotate_matrix[16];
 				float scale_value = 1.0f / model->scale_factor;
 				bone->get_world_transform(bone, transform);
 				BtTransformGetOpenGLMatrix(transform, mul_matrix);
+				bone->model->get_world_orientation(bone->model, mul_vector);
+				Quaternion2Matrix(mul_vector, rotate_matrix);
+				MulMatrix4x4(mul_matrix, rotate_matrix, mul_matrix);
+				bone->model->get_world_position(bone->model, mul_vector);
+				mul_matrix[12] += mul_vector[0],	mul_matrix[13] += mul_vector[1],	mul_matrix[14] += mul_vector[2];
 				mul_matrix[12] *= scale_value,	mul_matrix[13] *= scale_value, mul_matrix[14] *= scale_value;
 				MulMatrix4x4(matrix, mul_matrix, matrix);
 			}

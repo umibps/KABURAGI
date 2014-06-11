@@ -1428,6 +1428,8 @@ static void AddTopLineControlPointUndo(DRAW_WINDOW* window, void* p)
 	int8* buff = (int8*)p;
 	// 変化したラインを固定するフラグ
 	int fix_flag = TRUE;
+	// 一番上のラインをフローティングするフラグ
+	int float_top = FALSE;
 	// ラインのタイプ
 	uint8 line_type;
 
@@ -1491,7 +1493,8 @@ static void AddTopLineControlPointUndo(DRAW_WINDOW* window, void* p)
 					brush->flags |= BEZIER_LINE_START;
 					DeleteVectorLineLayer(&line->layer);
 					line->num_points++;
-					fix_flag = FALSE;
+					float_top = TRUE;
+					//fix_flag = FALSE;
 				}
 			}
 		}
@@ -1518,7 +1521,8 @@ static void AddTopLineControlPointUndo(DRAW_WINDOW* window, void* p)
 					brush->flags |= BEZIER_LINE_START;
 					DeleteVectorLineLayer(&line->layer);
 					line->num_points++;
-					fix_flag = FALSE;
+					float_top = TRUE;
+					// fix_flag = FALSE;
 				}
 			}
 		}
@@ -1528,12 +1532,31 @@ static void AddTopLineControlPointUndo(DRAW_WINDOW* window, void* p)
 	if(layer->layer_data.vector_layer_p->flags != VECTOR_LAYER_RASTERIZE_ACTIVE)
 	{
 		layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_TOP;
+		if(fix_flag != FALSE)
+		{
+			layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+		}
+		RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
 	}
-	if(fix_flag != FALSE)
+	else
 	{
-		layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+		VECTOR_LINE *before_top = NULL;
+		if(float_top != FALSE)
+		{
+			before_top = layer->layer_data.vector_layer_p->top_line;
+			before_top->prev->next = NULL;
+			DeleteVectorLineLayer(&layer->layer_data.vector_layer_p->top_line->layer);
+		}
+		if(fix_flag != FALSE)
+		{
+			layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+		}
+		RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+		if(float_top != FALSE)
+		{
+			before_top->prev->next = before_top;
+		}
 	}
-	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
 	layer->layer_data.vector_layer_p->active_line = NULL;
 	(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
 

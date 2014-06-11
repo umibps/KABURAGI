@@ -150,6 +150,29 @@ static void LayerViewChangeLayerOrder(
 	LAYER *parent = window->active_layer->layer_set;
 	int hierarchy = 0;
 
+	// 一番下にレイヤーセットがこないようにする
+	if((window->active_layer->next != NULL && window->active_layer->next->layer_type == TYPE_LAYER_SET && window->active_layer == window->layer)
+		|| (window->active_layer->layer_type == TYPE_LAYER_SET && new_prev == NULL))
+	{
+		return;
+	}
+
+	// 移動後の子レイヤーの親の設定変更
+	if(window->active_layer->layer_type == TYPE_LAYER_SET)
+	{
+		LAYER *target = new_prev->next;
+		while(target != NULL && target->layer_set == window->active_layer)
+		{
+			target->layer_set = window->active_layer->layer_set;
+			if(target->layer_set == target)
+			{
+				target->layer_set = NULL;
+				break;
+			}
+			target = target->next;
+		}
+	}
+
 	if(layer_view->drop_layer_set != NULL)
 	{
 		GtkStyle* style = gtk_widget_get_style(layer_view->view);
@@ -170,6 +193,7 @@ static void LayerViewChangeLayerOrder(
 		parent = window->active_layer->layer_set = NULL;
 	}
 
+
 	if(window->active_layer->prev != new_prev
 		&& window->active_layer != new_prev)
 	{
@@ -178,40 +202,27 @@ static void LayerViewChangeLayerOrder(
 		if(window->active_layer->layer_type == TYPE_LAYER_SET)
 		{
 			LAYER *target = before_prev;
+			LAYER *next_target;
+
+			while(before_prev != NULL && before_prev->layer_set == window->active_layer)
+			{
+				before_prev = before_prev->prev;
+			}
 
 			ChangeLayerOrder(window->active_layer, new_prev,
 				&window->layer);
 
-			gtk_box_reorder_child(
-				GTK_BOX(layer_view->view),
-				window->active_layer->widget->box,
-				GetLayerID(window->layer, window->active_layer->prev, window->num_layer)
-			);
-
 			while(target != NULL && target->layer_set == window->active_layer)
 			{
+				next_target = target->prev;
 				ChangeLayerOrder(target, new_prev, &window->layer);
-
-				gtk_box_reorder_child(
-					GTK_BOX(layer_view->view),
-					target->widget->box,
-					GetLayerID(window->layer, target->prev, window->num_layer)
-				);
-
-				target = target->prev;
+				target = next_target;
 			}
 		}
 		else
 		{
 			ChangeLayerOrder(window->active_layer, new_prev,
 				&window->layer);
-
-			gtk_box_reorder_child(
-				GTK_BOX(layer_view->view),
-				window->active_layer->widget->box,
-				GetLayerID(window->layer,
-					window->active_layer->prev, window->num_layer)
-			);
 		}
 
 		AddChangeLayerOrderHistory(window->active_layer, before_prev,
@@ -228,13 +239,8 @@ static void LayerViewChangeLayerOrder(
 	window->active_layer_set = window->active_layer->layer_set;
 	LayerViewSetActiveLayer(window->active_layer, window->app->layer_window.view);
 
-	while(parent != NULL)
-	{
-		hierarchy++;
-		parent = parent->layer_set;
-	}
-	gtk_alignment_set_padding(GTK_ALIGNMENT(window->active_layer->widget->alignment),
-		0, 0, LAYER_SET_DISPLAY_OFFSET * hierarchy, 0);
+	ClearLayerView(&window->app->layer_window);
+	LayerViewSetDrawWindow(&window->app->layer_window, window);
 }
 
 gboolean DragTimeOutCallBack(APPLICATION* app)
@@ -1157,6 +1163,18 @@ void LayerViewSetActiveLayer(LAYER* layer, GtkWidget* view)
 
 	while(layer_list != NULL)
 	{
+		if(layer_list->widget == NULL)
+		{
+			LayerViewAddLayer(layer_list, layer_list->window->layer,
+				layer_list->window->app->layer_window.view, layer_list->window->num_layer);
+			gtk_box_reorder_child(GTK_BOX(layer_list->window->app->layer_window.view),
+				layer_list->widget->box, GetLayerID(layer_list->window->layer, layer_list->prev, layer_list->window->num_layer));
+			if(layer_list->layer_set != NULL && (layer_list->layer_set->flags & LAYER_SET_CLOSE) != 0)
+			{
+				gtk_widget_hide(layer_list->widget->box);
+			}
+		}
+
 		if(layer_list == layer || layer_list == layer->window->active_layer_set)
 		{
 			GdkColor color;
@@ -1173,6 +1191,14 @@ void LayerViewSetActiveLayer(LAYER* layer, GtkWidget* view)
 			if(layer->layer_set != NULL)
 			{
 				LAYER *target = layer->layer_set;
+				if(target->widget == NULL)
+				{
+					LayerViewAddLayer(target, target->window->layer,
+						target->window->app->layer_window.view, target->window->num_layer);
+					gtk_box_reorder_child(GTK_BOX(target->window->app->layer_window.view), target->widget->box,
+						GetLayerID(target->window->layer, target->prev, target->window->num_layer));
+				}
+
 				gtk_widget_modify_bg(target->widget->eye->widget, GTK_STATE_NORMAL, &color);
 				gtk_widget_modify_bg(target->widget->pin->widget, GTK_STATE_NORMAL, &color);
 				gtk_widget_modify_bg(target->widget->thumbnail, GTK_STATE_NORMAL, &color);

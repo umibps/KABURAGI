@@ -3285,8 +3285,15 @@ void DeleteActiveLayer(APPLICATION* app)
 	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// アクティブレイヤーの次のレイヤー、削除するレイヤー
 	LAYER* next_active, *delete_layer = window->active_layer;
+	// for文用のカウンタ
+	int i;
 
 	//AUTO_SAVE(app->draw_window[app->active_window]);
+	// レイヤーが0個にならないようにチェック
+	if(window->num_layer <= 1)
+	{
+		return;
+	}
 
 	// 削除履歴を残す
 	AddDeleteLayerHistory(window, delete_layer);
@@ -3316,9 +3323,19 @@ void DeleteActiveLayer(APPLICATION* app)
 		ChangeActiveLayer(window, next_active);
 		DeleteLayer(&delete_layer);
 	}
+	window->num_layer--;
 
 	// アクティブレイヤーの表示を更新
 	LayerViewSetActiveLayer(next_active, app->layer_window.view);
+
+	// レイヤーが一個のみになったらウィジェットの無効化処理
+	if(window->num_layer <= 1)
+	{
+		for(i=0; i<app->menus.num_disable_if_single_layer; i++)
+		{
+			gtk_widget_set_sensitive(app->menus.disable_if_single_layer[i], FALSE);
+		}
+	}
 }
 
 /***************************************

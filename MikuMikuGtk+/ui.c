@@ -1834,9 +1834,9 @@ static void SetCameraPositionWidget(APPLICATION* application)
 	application->widgets.ui_disabled = TRUE;
 	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_look_at[0]),
 		project->scene->camera.look_at[0]);
-	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_look_at[2]),
-		project->scene->camera.look_at[1]);
 	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_look_at[1]),
+		project->scene->camera.look_at[1]);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_look_at[2]),
 		project->scene->camera.look_at[2]);
 	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.camera_angle[0]),
 		project->scene->camera.angle[0]);

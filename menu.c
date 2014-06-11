@@ -1523,6 +1523,8 @@ void ExecuteMakeLayerSet(APPLICATION *app)
 	// レイヤーウィンドウに登録してアクティブレイヤーに
 	LayerViewAddLayer(layer, window->layer,
 		app->layer_window.view, window->num_layer);
+	ChangeActiveLayer(window, layer);
+	LayerViewSetActiveLayer(layer, app->layer_window.view);
 
 	// 「新規ベクトルレイヤー」の履歴を登録
 	AddNewLayerHistory(layer, layer->layer_type);
@@ -1615,7 +1617,7 @@ void ExecuteUpLayer(APPLICATION* app)
 		return;
 	}
 
-	window = app->draw_window[app->active_window];
+	window = GetActiveDrawWindow(app);
 	if(window->active_layer->next == NULL)
 	{
 		return;
@@ -1628,31 +1630,33 @@ void ExecuteUpLayer(APPLICATION* app)
 	if(window->active_layer->layer_type == TYPE_LAYER_SET)
 	{
 		LAYER *target = window->active_layer->prev;
-		LAYER *new_prev = window->active_layer->prev;
+		LAYER *new_prev = window->active_layer->next;
+		LAYER *bottom_child = window->active_layer->prev;
+		LAYER *next_target;
+
+		while(bottom_child != NULL && bottom_child->layer_set == window->active_layer)
+		{
+			before_prev = bottom_child = bottom_child->prev;
+		}
+		if(bottom_child == NULL && new_prev->layer_type == TYPE_LAYER_SET)
+		{
+			return;
+		}
 
 		window->active_layer->layer_set = window->active_layer->next->layer_set;
 
 		ChangeLayerOrder(window->active_layer, window->active_layer->next,
 			&window->layer);
 
-		gtk_box_reorder_child(
-			GTK_BOX(app->layer_window.view),
-			window->active_layer->widget->box,
-			GetLayerID(window->layer, window->active_layer->prev, window->num_layer)
-		);
-
 		while(target != NULL && target->layer_set == window->active_layer)
 		{
+			next_target = target->prev;
 			ChangeLayerOrder(target, new_prev, &window->layer);
-
-			gtk_box_reorder_child(
-				GTK_BOX(app->layer_window.view),
-				target->widget->box,
-				GetLayerID(window->layer, target->prev, window->num_layer)
-			);
-
-			target = target->prev;
+			target = next_target;
 		}
+
+		ClearLayerView(&app->layer_window);
+		LayerViewSetDrawWindow(&app->layer_window, window);
 	}
 	else
 	{
@@ -1692,7 +1696,6 @@ void ExecuteUpLayer(APPLICATION* app)
 void ExecuteDownLayer(APPLICATION* app)
 {
 	DRAW_WINDOW *window;
-	LAYER *parent;
 	LAYER *before_prev, *after_prev, *before_parent;
 	int hierarchy = 0;
 
@@ -1701,7 +1704,7 @@ void ExecuteDownLayer(APPLICATION* app)
 		return;
 	}
 
-	window = app->draw_window[app->active_window];
+	window = GetActiveDrawWindow(app);
 	if(window->active_layer->prev == NULL)
 	{
 		return;
@@ -1715,36 +1718,37 @@ void ExecuteDownLayer(APPLICATION* app)
 	{
 		LAYER *target = window->active_layer->prev;
 		LAYER *new_prev = window->active_layer->prev;
+		LAYER *next_target;
 
-		if(window->active_layer->prev->layer_type == TYPE_LAYER_SET)
+		while(new_prev != NULL && new_prev->layer_set == window->active_layer)
 		{
-			window->active_layer->layer_set = window->active_layer->prev;
+			new_prev = new_prev->prev;
+		}
+
+		if(new_prev != NULL)
+		{
+			if(new_prev->layer_type == TYPE_LAYER_SET)
+			{
+				window->active_layer->layer_set = new_prev;
+			}
+			else
+			{
+				window->active_layer->layer_set = new_prev->layer_set;
+			}
 		}
 		else
 		{
-			window->active_layer->layer_set = window->active_layer->prev->layer_set;
+			window->active_layer->layer_set = NULL;
 		}
 
 		ChangeLayerOrder(window->active_layer, window->active_layer->prev->prev,
 			&window->layer);
 
-		gtk_box_reorder_child(
-			GTK_BOX(app->layer_window.view),
-			window->active_layer->widget->box,
-			GetLayerID(window->layer, window->active_layer->prev, window->num_layer)
-		);
-
 		while(target != NULL && target->layer_set == window->active_layer)
 		{
+			next_target = target->prev;
 			ChangeLayerOrder(target, new_prev, &window->layer);
-
-			gtk_box_reorder_child(
-				GTK_BOX(app->layer_window.view),
-				target->widget->box,
-				GetLayerID(window->layer, target->prev, window->num_layer)
-			);
-
-			target = target->prev;
+			target = next_target;
 		}
 	}
 	else
@@ -1760,25 +1764,12 @@ void ExecuteDownLayer(APPLICATION* app)
 
 		ChangeLayerOrder(window->active_layer, window->active_layer->prev->prev,
 			&window->layer);
-
-		gtk_box_reorder_child(
-			GTK_BOX(app->layer_window.view),
-			window->active_layer->widget->box,
-			GetLayerID(window->layer, window->active_layer->prev, window->num_layer)
-		);
 	}
 
 	AddChangeLayerOrderHistory(window->active_layer, before_prev, after_prev, before_parent);
 
-	parent = window->active_layer->layer_set;
-	while(parent != NULL)
-	{
-		hierarchy++;
-		parent = parent->layer_set;
-	}
-
-	gtk_alignment_set_padding(GTK_ALIGNMENT(window->active_layer->widget->alignment),
-		0, 0, hierarchy * LAYER_SET_DISPLAY_OFFSET, 0);
+	ClearLayerView(&app->layer_window);
+	LayerViewSetDrawWindow(&app->layer_window, window);
 
 	ChangeActiveLayer(window, window->active_layer);
 }
