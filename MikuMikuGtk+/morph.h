@@ -150,6 +150,10 @@ typedef struct _ASSET_OPACITY_MORPH
 	struct _APPLICATION *application;
 } ASSET_OPACITY_MORPH;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int PmxMorphLoad(
 	STRUCT_ARRAY* morphs,
 	STRUCT_ARRAY* bones,
@@ -173,5 +177,9 @@ extern void ReadPmd2Morph(PMD2_MORPH* morph, MEMORY_STREAM_PTR stream, size_t* d
 extern void Pmd2MorphReadEnglishName(PMD2_MORPH* morph, uint8* data, int index);
 
 extern void Pmd2MorphUpdate(PMD2_MORPH* morph);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_MORPH_H_

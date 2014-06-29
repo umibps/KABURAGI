@@ -27,6 +27,10 @@ typedef struct _MOTION_INTERFACE
 	void (*set_model)(void*, void*);
 } MOTION_INTERFACE;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void BuildInterpolationTable(
 	FLOAT_T x1,
 	FLOAT_T x2,
@@ -49,5 +53,9 @@ extern void FindKeyframeIndices(
 );
 
 extern FLOAT_T KeyframeLerp(const FLOAT_T* x, const FLOAT_T* y, const FLOAT_T* t);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_MOTION_H_

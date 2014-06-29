@@ -7,6 +7,13 @@
 #include "types.h"
 #include "utils.h"
 
+typedef struct _MATERIAL_ARCHIVE_DATA
+{
+	char *name;
+	uint32 data_start;
+	uint32 data_size;
+} MATERIAL_ARCHIVE_DATA;
+
 typedef struct _MATERIAL_INDEX_RANGE
 {
 	int start;
@@ -138,6 +145,10 @@ typedef struct _ASSET_MATERIAL
 	int num_indices;
 } ASSET_MATERIAL;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void InitializePmxMaterial(PMX_MATERIAL* material);
 
 extern int LoadPmxMaterials(
@@ -153,5 +164,9 @@ extern int LoadPmd2Materials(STRUCT_ARRAY* materials, POINTER_ARRAY* textures, i
 extern void ReadPmd2Material(PMD2_MATERIAL* material, MEMORY_STREAM_PTR stream, size_t* data_size);
 
 extern void Pmd2MaterialSetIndexRange(PMD2_MATERIAL* material, MATERIAL_INDEX_RANGE *range);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_MATERIAL_H_

@@ -76,6 +76,10 @@ typedef struct _CAMERA_ANIMATION
 	float fovy;
 } CAMERA_ANIMATION;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void InitializeCamera(CAMERA* camera, void* scene);
 
 extern void ResetCameraDefault(CAMERA* camera);
@@ -83,5 +87,9 @@ extern void ResetCameraDefault(CAMERA* camera);
 extern void SetCameraDistance(CAMERA* camera, const float distance);
 
 extern void CameraUpdateTransform(CAMERA* camera);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUED_CAMERA_H_

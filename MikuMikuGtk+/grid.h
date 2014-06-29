@@ -40,6 +40,10 @@ typedef struct _GRID
 	unsigned int flags;
 } GRID;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void InitializeGrid(GRID* grid);
 
 extern void DrawGrid(GRID* grid, float* matrix);
@@ -57,5 +61,9 @@ extern void LoadGrid(GRID* grid, void* project_context);
 extern void GridBindVertexBundle(GRID* grid, int bundle);
 
 extern void GridReleaseVertexBundle(GRID* grid, int bundle);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_GRID_H_

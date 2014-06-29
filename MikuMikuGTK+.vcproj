@@ -647,6 +647,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\MikuMikuGtk+\bit_stream.c"
+				>
+			</File>
+			<File
 				RelativePath=".\MikuMikuGtk+\bone.c"
 				>
 			</File>
@@ -679,6 +683,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\MikuMikuGtk+\golomb_table.c"
+				>
+			</File>
+			<File
 				RelativePath=".\MikuMikuGtk+\grid.c"
 				>
 			</File>
@@ -696,6 +704,10 @@
 			</File>
 			<File
 				RelativePath=".\MikuMikuGtk+\ik.c"
+				>
+			</File>
+			<File
+				RelativePath=".\MikuMikuGtk+\image_read_write.c"
 				>
 			</File>
 			<File
@@ -795,6 +807,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\MikuMikuGtk+\slide.c"
+				>
+			</File>
+			<File
 				RelativePath=".\MikuMikuGtk+\soft_body.c"
 				>
 			</File>
@@ -824,6 +840,18 @@
 			</File>
 			<File
 				RelativePath=".\MikuMikuGtk+\texture_draw_helper.c"
+				>
+			</File>
+			<File
+				RelativePath=".\MikuMikuGtk+\tlg.c"
+				>
+			</File>
+			<File
+				RelativePath=".\MikuMikuGtk+\tlg6_bit_stream.c"
+				>
+			</File>
+			<File
+				RelativePath=".\MikuMikuGtk+\tlg6_encode.c"
 				>
 			</File>
 			<File
@@ -1502,6 +1530,354 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="libjpeg"
+				>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jaricom.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcapimin.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcapistd.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcarith.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jccoefct.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jccolor.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcdctmgr.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jchuff.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcinit.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcmainct.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcmarker.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcmaster.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcomapi.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcparam.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcprepct.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jcsample.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jctrans.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdapimin.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdapistd.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdarith.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdatadst.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdatasrc.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdcoefct.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdcolor.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jddctmgr.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdhuff.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdinput.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdmainct.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdmarker.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdmaster.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdmerge.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdpostct.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdsample.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jdtrans.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jerror.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jfdctflt.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jfdctfst.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jfdctint.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jidctflt.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jidctfst.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jidctint.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jmemansi.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jmemmgr.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jquant1.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jquant2.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libjpeg\jutils.c"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="libtiff"
+				>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_aux.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_close.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_codec.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_color.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_compress.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_dir.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_dirinfo.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_dirread.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_dirwrite.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_dumpmode.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_error.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_extension.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_fax3.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_fax3sm.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_flush.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_getimage.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_jbig.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_jpeg.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_jpeg_12.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_luv.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_lzma.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_lzw.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_next.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_ojpeg.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_open.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_packbits.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_pixarlog.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_predict.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_print.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_read.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_strip.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_swab.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_thunder.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_tile.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_version.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_warning.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_win32.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_write.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\libtiff\tif_zip.c"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="ヘッダー ファイル"
@@ -1578,6 +1954,10 @@
 			</File>
 			<File
 				RelativePath=".\MikuMikuGtk+\ik.h"
+				>
+			</File>
+			<File
+				RelativePath=".\MikuMikuGtk+\image_read_write.h"
 				>
 			</File>
 			<File

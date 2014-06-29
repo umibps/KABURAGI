@@ -110,6 +110,10 @@ typedef struct _VERTEX_BUNDLE_LAYOUT
 	int has_extension;
 } VERTEX_BUNDLE_LAYOUT;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void ResetVertex(void* vertex, int index, void* dummy);
 
 extern int LoadPmd2Vertices(STRUCT_ARRAY* vertices, STRUCT_ARRAY* bones);
@@ -191,5 +195,9 @@ extern int VertexBundleLayoutUnbind(
 );
 
 extern int PmxVerticesLoad(STRUCT_ARRAY* vertices, STRUCT_ARRAY* bones);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_VERTEX_H_

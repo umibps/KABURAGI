@@ -751,6 +751,12 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	labels = GetUILabel(app->modeling);
 
 	labels->menu.file = app->labels->menu.file;
+	length = IniFileGetString(file, "3D_MODELING", "LOAD_PROJECT", temp_str, MAX_STR_SIZE);
+	labels->menu.load_project = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "SAVE_PROJECT", temp_str, MAX_STR_SIZE);
+	labels->menu.save_project = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "SAVE_PROJECT_AS", temp_str, MAX_STR_SIZE);
+	labels->menu.save_project_as = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "3D_MODELING", "ADD_MODEL_ACCESSORY", temp_str, MAX_STR_SIZE);
 	labels->menu.add_model_accessory = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	labels->menu.edit = app->labels->menu.edit;

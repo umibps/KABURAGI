@@ -8,6 +8,10 @@
 #include "memory_stream.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void RigidBodySyncLocalTransform(void* rigid_body, int index, void* dummy)
 {
 	BASE_RIGID_BODY *body = (BASE_RIGID_BODY*)rigid_body;
@@ -422,7 +426,7 @@ void PmxRigidBodyRead(
 	size_t* data_size
 )
 {
-	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};
+	MEMORY_STREAM stream = {data, 0, (size_t)(info->end - data), 1};
 	PMX_RIGID_BODY_UNIT unit;
 	char *name_ptr;
 	int name_size;
@@ -607,3 +611,7 @@ void* Pmd2RigidBodyTrasnsformNew(BASE_RIGID_BODY* body)
 
 	return ret;
 }
+
+#ifdef __cplusplus
+}
+#endif

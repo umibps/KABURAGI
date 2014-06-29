@@ -26,6 +26,10 @@ typedef struct _SHADOW_MAP
 	void *scene;
 } SHADOW_MAP;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void InitializeShadowMap(
 	SHADOW_MAP* shadow_map,
 	int width,
@@ -48,5 +52,9 @@ extern void ResizeShadowMap(
 );
 
 extern void ResetShadowMap(SHADOW_MAP* shadow_map);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_SHADOW_MAP_H_

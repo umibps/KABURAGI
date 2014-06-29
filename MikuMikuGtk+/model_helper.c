@@ -5,6 +5,10 @@
 #include "material.h"
 #include "bullet.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 INLINE uint8 AdjustSharedToonTextureIndex(uint8 index)
 {
 	return (index == 0xff) ? 0 : index + 1;
@@ -143,3 +147,7 @@ void SkinningVertexJoin(PARALLEL_SKINNING_VERTEX* obj, PARALLEL_SKINNING_VERTEX*
 	SET_MAX(obj->aa_bb_max[1], self->aa_bb_max[1]);
 	SET_MAX(obj->aa_bb_max[2], self->aa_bb_max[2]);
 }
+
+#ifdef __cplusplus
+}
+#endif

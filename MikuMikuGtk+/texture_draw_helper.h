@@ -13,6 +13,10 @@ typedef struct _TEXTURE_DRAW_HELPER
 	int linked;
 } TEXTURE_DRAW_HELPER;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void InitializeTextureDrawHelper(TEXTURE_DRAW_HELPER* helper, int width, int height);
 
 extern void ReleaseTextureDrawHelper(TEXTURE_DRAW_HELPER* helper);
@@ -23,5 +27,9 @@ extern void TextureDrawHelperDraw(
 	const float* position,
 	GLuint texture_name
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_TEXTURE_DRAW_HELPER_H_

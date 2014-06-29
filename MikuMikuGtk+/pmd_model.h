@@ -161,7 +161,27 @@ typedef struct _PMD2_DEFAULT_INDEX_BUFFER
 	WORD_ARRAY *indices;
 } PMD2_DEFAULT_INDEX_BUFFER;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int LoadPmd2Model(PMD2_MODEL* model, uint8* data, size_t data_size);
+
+extern void ReadPmd2ModelDataAndState(
+	void *scene,
+	PMD2_MODEL* model,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+);
+
+extern size_t WritePmd2ModelDataAndState(
+	PMD2_MODEL* model,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*)
+);
 
 extern void Pmd2ModelPerformUpdate(PMD2_MODEL* model, int force_sync);
 
@@ -227,9 +247,9 @@ extern int Pmd2MaterialPreparse(
 );
 
 extern void InitializePmd2Morph(
-	PMD2_MORPH *morph,
-	PMD2_MODEL *model,
-	void *application_context
+	PMD2_MORPH* morph,
+	PMD2_MODEL* model,
+	void* application_context
 );
 
 extern int Pmd2MorphPreparse(
@@ -273,5 +293,9 @@ extern int Pmd2JointPreparse(MEMORY_STREAM_PTR stream, PMD_DATA_INFO* info);
 extern void ReadPmd2Joint(PMD2_JOINT* joint, MEMORY_STREAM_PTR stream, size_t* data_size, PMD_DATA_INFO* info);
 
 extern void Pmd2ModelAddTexture(PMD2_MODEL* model, const char* texture);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_PMD_MODEL_H_

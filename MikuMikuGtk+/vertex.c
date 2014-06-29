@@ -9,6 +9,10 @@
 #include "utils.h"
 #include "application.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void ResetVertex(void* vertex, int index, void* dummy)
 {
 	VERTEX_INTERFACE *inter = (VERTEX_INTERFACE*)vertex;
@@ -385,7 +389,7 @@ void PmxVertexRead(
 	size_t* data_size
 )
 {
-	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};
+	MEMORY_STREAM stream = {data, 0, (size_t)(info->end - data), 1};
 	float uv[4];
 	float edge_size;
 	int additional_uv_size;
@@ -980,3 +984,7 @@ int VertexBundleLayoutUnbind(
 	}
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

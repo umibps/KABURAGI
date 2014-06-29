@@ -16,6 +16,10 @@
 # define M_PI 3.1415926535897932384626433832795
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _IK_CHUNK
 {
 	uint16 dest_bone_id;
@@ -136,3 +140,7 @@ void ReadIk(IK* ik, uint8* data, POINTER_ARRAY* bones)
 
 	WordArrayDestroy(&bone_iks);
 }
+
+#ifdef __cplusplus
+}
+#endif

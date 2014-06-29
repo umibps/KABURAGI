@@ -5,6 +5,7 @@
 #include <assimp/scene.h>
 #include "types.h"
 #include "text_encode.h"
+#include "material.h"
 
 typedef enum _eMODEL_TYPE
 {
@@ -26,6 +27,7 @@ typedef struct _MODEL_INTERFACE
 	float opacity;
 	float scale_factor;
 	FLOAT_T edge_width;
+	uint8 is_archive;
 	struct _MODEL_INTERFACE *parent_model;
 	struct _BONE_INTERFACE *parent_bone;
 	void* (*find_bone)(void*, const char*);
@@ -54,6 +56,8 @@ typedef struct _MODEL_INTERFACE
 	void (*set_enable_physics)(void*, int);
 	void* (*rigid_body_transform_new)(struct _BASE_RIGID_BODY*);
 	struct _SCENE *scene;
+	void *texture_archive;
+	size_t texture_archive_size;
 } MODEL_INTERFACE;
 
 typedef enum _eMODEL_STRIDE_TYPE
@@ -195,10 +199,157 @@ typedef struct _MODEL
 	unsigned int flags;
 } MODEL;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void DeleteModel(MODEL_INTERFACE* model);
 
 extern void ReleaseModelInterface(MODEL_INTERFACE* model);
 
 extern char** GetChildBoneNames(MODEL_INTERFACE* model, void* application_context);
+
+/*****************************************
+* ReadModelData関数                      *
+* モデルデータと状態を読み込む           *
+* 引数                                   *
+* model		: 読み込み先のモデル         *
+* src		: データストリーム           *
+* data_size	: データのバイト数           *
+* read_func	: 読み込みに使う関数ポインタ *
+* seek_func	: シークに使う関数ポインタ   *
+*****************************************/
+extern void ReadModelData(
+	MODEL_INTERFACE* model,
+	void* scene,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+);
+
+/*****************************************************
+* WriteModelData関数                                 *
+* モデルデータと状態を書き出す                       *
+* 引数                                               *
+* model			: データと状態を書き出すモデル       *
+* dst			: 書き出し先のストリーム             *
+* write_func	: 書き出しに使う関数ポインタ         *
+* seek_func		: シークに使う関数ポインタ           *
+* tell_func		: シーク位置の取得に使う関数ポインタ *
+* 返り値                                             *
+*	書き出したバイト数                               *
+*****************************************************/
+extern size_t WriteModelData(
+	MODEL_INTERFACE* model,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*),
+	size_t* out_data_size
+);
+
+/***************************************************************
+* MakeModelContext関数                                         *
+* 指定されたタイプのモデルデータを初期化して返す               *
+* 引数                                                         *
+* type					: 初期化するモデルのタイプ             *
+* scene					: シーン描画を管理するデータ           *
+* application_context	: アプリケーション全体を管理するデータ *
+* 返り値                                                       *
+*	初期化されたモデルデータ                                   *
+***************************************************************/
+extern MODEL_INTERFACE* MakeModelContext(
+	eMODEL_TYPE type,
+	void* scene,
+	void* application_context
+);
+
+/***********************************************
+* ReadBoneData関数                             *
+* ボーンの位置を向きの情報を読み込む           *
+* 引数                                         *
+* stream	: メモリデータ読み込み用ストリーム *
+* model		: ボーンを保持するモデル           *
+* project	: プロジェクトを管理するデータ     *
+***********************************************/
+void ReadBoneData(
+	MEMORY_STREAM* stream,
+	MODEL_INTERFACE* model,
+	void* project
+);
+
+/*****************************************************
+* WriteBoneData関数                                  *
+* ボーンの位置と向きの情報を書き出す                 *
+* 引数                                               *
+* model			: ボーンの位置と向きを書き出すモデル *
+* out_data_size	: 書き出したバイト数の格納先         *
+* 返り値                                             *
+*	書き出したデータ                                 *
+*****************************************************/
+extern uint8* WriteBoneData(
+	MODEL_INTERFACE* model,
+	size_t* out_data_size
+);
+
+/*********************************************************
+* ReadMmdModelMaterials関数                              *
+* PMDとPMXのテクスチャ画像データを読み込む               *
+* 引数                                                   *
+* data		: 画像データのアーカイブデータ               *
+* data_size	: 画像データのアーカイブデータのサイズ       *
+* num_data	: 画像データの数                             *
+* 返り値                                                 *
+*	テクスチャ画像のファイル名とデータ位置・サイズの配列 *
+*********************************************************/
+extern struct _MATERIAL_ARCHIVE_DATA* ReadMmdModelMaterials(
+	uint8* data,
+	size_t data_size,
+	int* num_data
+);
+
+/*******************************************************
+* WriteMmdModelMaterials関数                           *
+* PMDとPMXのテクスチャ画像データを書き出す             *
+* 引数                                                 *
+* model			: テクスチャ画像データを書き出すモデル *
+* out_data_size	: 書き出したデータのバイト数格納先     *
+* 返り値                                               *
+*	書き出したデータ                                   *
+*******************************************************/
+extern uint8* WriteMmdModelMaterials(
+	MODEL_INTERFACE* model,
+	size_t* out_data_size
+);
+
+/***********************************************
+* ReadMorphData関数                            *
+* 表情のデータを読み込む                       *
+* 引数                                         *
+* stream	: メモリデータ読み込み用ストリーム *
+* model		: 表情を保持するモデル             *
+***********************************************/
+extern void ReadMorphData(
+	MEMORY_STREAM* stream,
+	MODEL_INTERFACE* model
+);
+
+/*********************************************
+* WriteMorphData関数                         *
+* 表情データを書き出す                       *
+* 引数                                       *
+* model			: 表情データを書き出すモデル *
+* out_data_size	: 書き出したデータのバイト数 *
+* 返り値                                     *
+*	書き出したデータ                         *
+*********************************************/
+extern uint8* WriteMorphData(
+	MODEL_INTERFACE* model,
+	size_t* out_data_size
+);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_MODEL_H_

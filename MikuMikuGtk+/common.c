@@ -6,6 +6,8 @@
 
 #include <ctype.h>
 #include <string.h>
+#include <zlib.h>
+#include "memory_stream.h"
 #include "memory.h"
 #include "utils.h"
 
@@ -86,6 +88,31 @@ const char* StringStringIgnoreCase(const char* str, const char* compare)
 	MEM_FREE_FUNC(find);
 
 	return ret;
+}
+
+/*********************************
+* GetFileExtention関数           *
+* ファイル名から拡張子を取得する *
+* 引数                           *
+* file_name	: ファイル名         *
+* 返り値                         *
+*	拡張子の文字列               *
+*********************************/
+char* GetFileExtention(char* file_name)
+{
+	char *extention = file_name;
+	char *p = extention;
+
+	while(*p != '\0')
+	{
+		if(*p == '.')
+		{
+			extention = p;
+		}
+		p++;
+	}
+
+	return extention;
 }
 
 BYTE_ARRAY* ByteArrayNew(size_t block_size)
@@ -548,4 +575,97 @@ void StructArrayRemoveByIndex(
 				&buffer[(i+1)*struct_array->data_size], struct_array->data_size);
 		}
 	}
+}
+
+/*******************************************************
+* InflateData関数                                      *
+* ZIP圧縮されたデータをデコードする                    *
+* 引数                                                 *
+* data				: 入力データ                       *
+* out_buffer		: 出力先のバッファ                 *
+* in_size			: 入力データのバイト数             *
+* out_buffer_size	: 出力先のバッファのサイズ         *
+* out_size			: 出力したバイト数の格納先(NULL可) *
+* 返り値                                               *
+*	正常終了:0、失敗:0以外                             *
+*******************************************************/
+int InflateData(
+	uint8* data,
+	uint8* out_buffer,
+	size_t in_size,
+	size_t out_buffer_size,
+	size_t* out_size
+)
+{
+	z_stream decompress_stream = {0};
+	int result;
+
+	(void)inflateInit(&decompress_stream);
+
+	decompress_stream.avail_in = (uInt)in_size;
+	decompress_stream.next_in = data;
+	decompress_stream.avail_out = (uInt)out_buffer_size;
+	decompress_stream.next_out = out_buffer;
+
+	result = inflate(&decompress_stream, Z_NO_FLUSH);
+
+	if(out_size != NULL)
+	{
+		*out_size = (size_t)(out_buffer_size - decompress_stream.avail_out);
+	}
+
+	(void)inflateEnd(&decompress_stream);
+
+	if(result != Z_STREAM_END)
+	{
+		return result;
+	}
+
+	return 0;
+}
+
+/***************************************************
+* DeflateData関数                                  *
+* ZIP圧縮を行う                                    *
+* 引数                                             *
+* data					: 入力データ               *
+* out_buffer			: 出力先のバッファ         *
+* target_data_size		: 入力データのバイト数     *
+* out_buffer_size		: 出力先のバッファのサイズ *
+* compressed_data_size	: 圧縮後のバイト数格納先   *
+* compress_level		: 圧縮レベル(0～9)         *
+* 返り値                                           *
+*	正常終了:0、失敗:0以外                         *
+***************************************************/
+int DeflateData(
+	uint8* data,
+	uint8* out_buffer,
+	size_t target_data_size,
+	size_t out_buffer_size,
+	size_t* compressed_data_size,
+	int compress_level
+)
+{
+	z_stream compress_stream = {0};
+
+	(void)deflateInit(&compress_stream, compress_level);
+	compress_stream.avail_in = (uInt)target_data_size;
+	compress_stream.next_in = data;
+	compress_stream.avail_out = (uInt)out_buffer_size;
+	compress_stream.next_out = out_buffer;
+	(void)deflate(&compress_stream, Z_FINISH);
+
+	if(compress_stream.avail_in > 0)
+	{
+		return -1;
+	}
+
+	if(compressed_data_size != NULL)
+	{
+		*compressed_data_size = (size_t)(out_buffer_size - compress_stream.avail_out);
+	}
+
+	(void)deflateEnd(&compress_stream);
+
+	return 0;
 }

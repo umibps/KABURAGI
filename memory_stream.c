@@ -158,12 +158,13 @@ size_t MemWrite(
 	{
 		// バッファの終端に到達してしまうので
 		// バッファを確保しなおし
-		unsigned char* temp = (unsigned char*)MEM_ALLOC_FUNC(mem->data_size + mem->block_size);
+		unsigned char* temp = (unsigned char*)MEM_ALLOC_FUNC(
+			mem->data_size + mem->block_size + (required_size / mem->block_size) * mem->block_size);
 		(void)memcpy(temp, mem->buff_ptr, mem->data_size);
 		(void)memset(&temp[mem->data_size], 0, mem->block_size);
 		MEM_FREE_FUNC(mem->buff_ptr);
 		mem->buff_ptr = temp;
-		mem->data_size += mem->block_size;
+		mem->data_size += mem->block_size + (required_size / mem->block_size) * mem->block_size;
 		write_size = required_size;
 	}
 

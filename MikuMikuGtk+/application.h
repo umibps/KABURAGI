@@ -51,6 +51,10 @@ typedef struct _APPLICATION
 	char *application_path;
 } APPLICATION;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern APPLICATION* MikuMikuGtkNew(
 	int widget_width,
 	int widget_height,
@@ -102,6 +106,10 @@ extern void ExecuteControlRedo(APPLICATION* application);
 
 extern void ModelJoinWorld(MODEL_INTERFACE* model, WORLD* world);
 extern void ModelLeaveWorld(MODEL_INTERFACE* model, WORLD* world);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_APPLICATION_H_
 

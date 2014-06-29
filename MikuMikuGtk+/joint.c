@@ -8,6 +8,10 @@
 
 #define BASE_JOINT_DEFAULT_DAMPING 0.25f
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void InitializeBaseJoint(BASE_JOINT* joint, void *model)
 {
 	(void)memset(joint, 0, sizeof(*joint));
@@ -445,7 +449,7 @@ int LoadPmxJoints(STRUCT_ARRAY* joints, STRUCT_ARRAY* bodies)
 void PmxJointRead(PMX_JOINT* joint, uint8* data, PMX_DATA_INFO* info, size_t* data_size)
 {
 	PMX_JOINT_UNIT unit;
-	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};
+	MEMORY_STREAM stream = {data, 0, (size_t)(info->end - data), 1};
 	char *name_ptr;
 	int length;
 	TEXT_ENCODE *encode = info->encoding;
@@ -590,3 +594,7 @@ void ReadPmd2Joint(PMD2_JOINT* joint, MEMORY_STREAM_PTR stream, size_t* data_siz
 	COPY_VECTOR3(joint->rotation_stiffness, unit.rotation_stiffness);
 	*data_size = PMD2_JOINT_UNIT_SIZE;
 }
+
+#ifdef __cplusplus
+}
+#endif

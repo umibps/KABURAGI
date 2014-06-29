@@ -100,6 +100,10 @@ typedef struct _VMD_MOTION
 	unsigned int flags;
 } VMD_MOTION;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void VmdMotionSeek(VMD_MOTION* motion, FLOAT_T time_index);
 
 extern KEYFRAME_INTERFACE* VmdMotionFindKeyframe(
@@ -114,5 +118,9 @@ extern void VmdMotionUpdate(VMD_MOTION* motion, eKEYFRAME_TYPE type);
 extern void VmdMotionAddKeyframe(VMD_MOTION* motion, KEYFRAME_INTERFACE* frame);
 
 extern void VmdMotionSetModel(VMD_MOTION* motion, MODEL_INTERFACE* model);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_VMD_MOTION_H_

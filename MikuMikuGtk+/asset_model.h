@@ -35,8 +35,15 @@ typedef struct _ASSET_MODEL
 	VECTOR3 position;
 	QUATERNION rotation;
 	int visible;
+	char *file_type;
+	uint8 *model_data;
+	size_t model_data_size;
 	struct _APPLICATION *application;
 } ASSET_MODEL;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern int LoadAssetModel(
 	ASSET_MODEL* model,
@@ -47,9 +54,31 @@ extern int LoadAssetModel(
 	const char* model_path
 );
 
+extern void ReadAssetModelDataAndState(
+	void *scene,
+	ASSET_MODEL* model,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+);
+
+extern size_t WriteAssetModelDataAndState(
+	ASSET_MODEL* model,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*)
+);
+
 extern void AssetModelSetWorldPositionInternal(ASSET_MODEL* model, const float* translation);
 
 extern void AssetModelSetWorldRotationInternal(ASSET_MODEL* model, const float* rotation);
+
+extern int AssetModelSplitTexturePath(
+	const char* path,
+	char** main_texture,
+	char** sub_texture
+);
 
 extern void InitializeAssetVertex(
 	ASSET_VERTEX* vertex,
@@ -92,5 +121,9 @@ extern void InitializeAssetOpacityMorph(
 	ASSET_MODEL* model,
 	void* application_context
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_ASSET_MODEL_H_

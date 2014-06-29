@@ -9,6 +9,10 @@
 #include "application.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void InitializeVmdBoneKeyframe(VMD_BONE_KEYFRAME* frame, SCENE* scene)
 {
 	(void)memset(frame, 0, sizeof(*frame));
@@ -183,3 +187,7 @@ void VmdModelKeyframeUpdateInverseKinematics(VMD_MODEL_KEYFRAME* keyframe, MODEL
 		}
 	}
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,6 +1,10 @@
 #include "light.h"
 #include "application.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void SetLightColor(LIGHT* light, const uint8* color)
 {
 	light->vertex.color[0] = color[0];
@@ -33,3 +37,7 @@ void InitializeLight(LIGHT* light, void* scene)
 	light->scene = (SCENE*)scene;
 	ResetLightDefault(light);
 }
+
+#ifdef __cplusplus
+}
+#endif

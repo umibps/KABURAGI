@@ -3,7 +3,11 @@
 #include "utils.h"
 #include "memory.h"
 
-void *ShadowMapGetTexture(SHADOW_MAP* shadow_map)
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void* ShadowMapGetTexture(SHADOW_MAP* shadow_map)
 {
 	return (void*)shadow_map->color_texture_ptr;
 }
@@ -106,3 +110,7 @@ void ResetShadowMap(SHADOW_MAP* shadow_map)
 
 	shadow_map->distance = 7.5f;
 }
+
+#ifdef __cplusplus
+}
+#endif

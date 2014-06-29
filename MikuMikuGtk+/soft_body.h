@@ -31,8 +31,16 @@ typedef struct _PMX_SOFT_BODY
 	int index;
 } PMX_SOFT_BODY;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int LoadPmxSoftBodies(STRUCT_ARRAY* bodies);
 
 extern void ReleasePmxSoftBody(PMX_SOFT_BODY* body);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_SOFT_BODY_H_

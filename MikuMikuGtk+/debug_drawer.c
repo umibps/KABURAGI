@@ -12,6 +12,10 @@
 
 #define LINE_LENGTH 2.0f
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum _eDEBUG_DRAWER_VERTEX_TYPE
 {
 	DEBUG_DRAWER_VERTEX_TYPE_POSITION,
@@ -669,3 +673,7 @@ void DebugDrawerDrawMovableBone(DEBUG_DRAWER* drawer, BONE_INTERFACE* bone, MODE
 	BtDebugDrawSphere(drawer->drawer, position, 0.5f, color);
 	DebugDrawerFlushDraw(drawer);
 }
+
+#ifdef __cplusplus
+}
+#endif

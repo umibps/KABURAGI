@@ -5,6 +5,10 @@
 #include "memory.h"
 #include "map_funcs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void* CfTechniqueGetPass(CF_TECHNIQUE* tech, int* num_data)
 {
 	if(tech->pass_map != NULL)
@@ -68,3 +72,7 @@ struct _ANNOTATION* NvTechniqueGetAnnotationRefferene(
 	tech->tech.nv.effect
 }
 */
+
+#ifdef __cplusplus
+}
+#endif

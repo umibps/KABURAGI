@@ -2,6 +2,10 @@
 #include "load_image.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 uint8* LoadImage(const char* utf8_path, int* width, int* height, int* channel)
 {
 	GdkPixbuf *pixbuf;
@@ -47,3 +51,7 @@ uint8* LoadImage(const char* utf8_path, int* width, int* height, int* channel)
 
 	return ret;
 }
+
+#ifdef __cplusplus
+}
+#endif

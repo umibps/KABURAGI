@@ -1,3 +1,9 @@
+// Visual Studio 2005以降では古いとされる関数を使用するので
+	// 警告が出ないようにする
+#if defined _MSC_VER && _MSC_VER >= 1400
+# define _CRT_SECURE_NO_DEPRECATE
+#endif
+
 #include <string.h>
 #include <GL/glew.h>
 #include "project.h"
@@ -5,6 +11,10 @@
 #include "load_image.h"
 #include "bullet.h"
 #include "memory.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void* ProjectContextNew(void* application_context, int width, int height, void** widget)
 {
@@ -54,6 +64,156 @@ PROJECT* ProjectNew(
 	return ret;
 }
 
+void LoadProject(
+	PROJECT* project,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+)
+{
+	uint16 data16;
+	int i, j;
+
+	// カメラの情報を読み込む
+	(void)read_func(project->scene->camera.distance,
+		sizeof(project->scene->camera.distance), 1, src);
+	(void)read_func(project->scene->camera.position,
+		sizeof(project->scene->camera.position), 1, src);
+	(void)read_func(project->scene->camera.angle,
+		sizeof(project->scene->camera.angle), 1, src);
+	(void)read_func(project->scene->camera.distance,
+		sizeof(project->scene->camera.distance), 1, src);
+	(void)read_func(&project->scene->camera.fov,
+		sizeof(project->scene->camera.fov), 1, src);
+	CameraUpdateTransform(&project->scene->camera);
+
+	// 光源の情報を読み込む
+	(void)read_func(project->scene->light.vertex.color,
+		sizeof(project->scene->light.vertex.color), 1, src);
+	(void)read_func(project->scene->light.vertex.position,
+		sizeof(*project->scene->light.vertex.position), 3, src);
+	project->scene->light.flags |= LIGHT_FLAG_COLOR_CHANGE | LIGHT_FLAG_DIRECTION_CHANGE;
+
+	// モデルの情報を読み込む
+	{
+		uint32 num_models;
+		(void)read_func(&num_models, sizeof(num_models), 1, src);
+		for(i=0; i<(int)num_models; i++)
+		{
+			MODEL_INTERFACE *model;
+			(void)read_func(&data16, sizeof(data16), 1, src);
+			model = MakeModelContext((eMODEL_TYPE)data16,
+				(void*)project->scene, project->application_context);
+			ReadModelData(model, project->scene, src, read_func, seek_func);
+			PointerArrayAppend(project->scene->models, model);
+		}
+	}
+
+	// 親ボーンの設定
+	{
+		MODEL_INTERFACE **models = (MODEL_INTERFACE**)project->scene->models->buffer;
+		const int num_models = (int)project->scene->models->num_data;
+		char *parent_model_name;
+		char *parent_bone_name;
+
+		for(i=0; i<num_models; i++)
+		{
+			if(models[i]->parent_model != NULL)
+			{
+				parent_model_name = (char*)models[i]->parent_model;
+				parent_bone_name = (char*)models[i]->parent_bone;
+
+				models[i]->parent_model = NULL;
+				models[i]->parent_bone = NULL;
+				for(j=0; j<num_models; j++)
+				{
+					if(i != j)
+					{
+						if(strcmp(parent_model_name, models[j]->parent_model->name) == 0)
+						{
+							models[i]->parent_model = models[j];
+							break;
+						}
+					}
+				}
+				if(models[i]->parent_model != NULL)
+				{
+					models[i]->parent_bone = models[i]->parent_model->find_bone(
+						models[i]->parent_model, parent_bone_name);
+				}
+
+				MEM_FREE_FUNC(parent_bone_name);
+				MEM_FREE_FUNC(parent_model_name);
+			}
+		}
+	}
+}
+
+void LoadProjectContextData(
+	void* project_context,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+)
+{
+	LoadProject((PROJECT*)project_context, src, read_func, seek_func);
+}
+
+void SaveProject(
+	PROJECT* project,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*)
+)
+{
+	MODEL_INTERFACE **models = (MODEL_INTERFACE**)project->scene->models->buffer;
+	const int num_models = (int)project->scene->models->num_data;
+	size_t out_data_size;
+	uint32 data32;
+	uint16 data16;
+	int i;
+
+	// カメラの情報を書き出す
+	(void)write_func(project->scene->camera.distance,
+		sizeof(project->scene->camera.distance), 1, dst);
+	(void)write_func(project->scene->camera.position,
+		sizeof(project->scene->camera.position), 1, dst);
+	(void)write_func(project->scene->camera.angle,
+		sizeof(project->scene->camera.angle), 1, dst);
+	(void)write_func(project->scene->camera.distance,
+		sizeof(project->scene->camera.distance), 1, dst);
+	(void)write_func(&project->scene->camera.fov,
+		sizeof(project->scene->camera.fov), 1, dst);
+
+	// 光源の情報を書き出す
+	(void)write_func(project->scene->light.vertex.color,
+		sizeof(project->scene->light.vertex.color), 1, dst);
+	(void)write_func(project->scene->light.vertex.position,
+		sizeof(*project->scene->light.vertex.position), 3, dst);
+
+	// モデルの情報を書き出す
+	data32 = (uint32)num_models;
+	(void)write_func(&data32, sizeof(data32), 1, dst);
+	for(i=0; i<num_models; i++)
+	{
+		data16 = (uint16)models[i]->type;
+		(void)write_func(&data16, sizeof(data16), 1, dst);
+		(void)WriteModelData(models[i], dst, write_func,
+			seek_func, tell_func, &out_data_size);
+	}
+}
+
+void SaveProjectContextData(
+	void* project_context,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*)
+)
+{
+	SaveProject((PROJECT*)project_context, dst, write_func, seek_func, tell_func);
+}
 
 void GetContextMatrix(float *value, MODEL_INTERFACE* model, int flags, PROJECT* project)
 {
@@ -193,19 +353,6 @@ void GetContextMatrix(float *value, MODEL_INTERFACE* model, int flags, PROJECT* 
 	}
 
 	COPY_MATRIX4x4(value, matrix);
-}
-
-static void RenderAssetZPlot(RENDER_ENGINE* engine)
-{
-	if(engine->model == NULL
-		|| (engine->model->flags & MODEL_FLAG_VISIBLE) == 0
-		|| engine->current_engine == NULL
-	)
-	{
-		return;
-	}
-
-
 }
 
 static void RenderShadowMap(PROJECT* project)
@@ -579,6 +726,12 @@ int FindTextureCache(const char* path, TEXTURE_DATA_BRIDGE* bridge, PROJECT* pro
 	return FALSE;
 }
 
+#define LOAD_DEFAULT_FORMAT_ALPHA(FORMAT) \
+	(FORMAT).external = GL_ALPHA; \
+	(FORMAT).internal = GL_ALPHA; \
+	(FORMAT).type = GL_UNSIGNED_BYTE; \
+	(FORMAT).target = GL_TEXTURE_2D;
+
 #define LOAD_DEFAULT_FORMAT_RGB(FORMAT) \
 	(FORMAT).external = GL_RGB; \
 	(FORMAT).internal = GL_RGB8; \
@@ -688,6 +841,51 @@ int UploadTexture(const char* path, TEXTURE_DATA_BRIDGE* bridge, PROJECT* projec
 	return CacheTexture(path, texture, bridge, project);
 }
 
+int UploadTextureFromMemory(
+	uint8* pixels,
+	int width,
+	int height,
+	int channel,
+	const char* path,
+	TEXTURE_DATA_BRIDGE* bridge,
+	PROJECT* project
+)
+{
+	TEXTURE_INTERFACE *texture;
+	TEXTURE_FORMAT format;
+	int size[3] = {width, height, 0};
+
+	if(FindTextureCache(path, bridge, project) != FALSE)
+	{
+		return TRUE;
+	}
+
+	if(pixels == NULL)
+	{
+		return FALSE;
+	}
+
+	switch(channel)
+	{
+	case 1:
+		LOAD_DEFAULT_FORMAT_ALPHA(format);
+		break;
+	case 3:
+		LOAD_DEFAULT_FORMAT_RGB(format);
+		break;
+	case 4:
+		LOAD_DEFAULT_FORMAT_RGBA(format);
+		break;
+	default:
+		return FALSE;
+	}
+
+	texture = CreateTexture(pixels, &format, size,
+		bridge->flags & TEXTURE_FLAG_GENERATE_TEXTURE_MIPMAP);
+
+	return CacheTexture(path, texture, bridge, project);
+}
+
 int UploadWhiteTexture(int width, int height, PROJECT* project)
 {
 	TEXTURE_DATA_BRIDGE bridge;
@@ -712,3 +910,7 @@ int UploadWhiteTexture(int width, int height, PROJECT* project)
 
 	return CacheTexture(WHITE_TEXTURE_NAME, texture, &bridge, project);
 }
+
+#ifdef __cplusplus
+}
+#endif

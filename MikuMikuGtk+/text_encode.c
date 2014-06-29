@@ -12,6 +12,10 @@
 #include "text_encode.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void InitializeTextEncode(
 	TEXT_ENCODE* encode,
 	const char* from,
@@ -78,3 +82,7 @@ const char* GetTextTypeString(eTEXT_TYPE type)
 
 	return "";
 }
+
+#ifdef __cplusplus
+}
+#endif

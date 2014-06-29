@@ -9,6 +9,10 @@
 #include "pmd_model.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 MODEL_INTERFACE* LoadModel(
 	APPLICATION* application,
 	const char* system_path,
@@ -167,3 +171,7 @@ MODEL_INTERFACE* LoadModel(
 
 	return NULL;
 }
+
+#ifdef __cplusplus
+}
+#endif

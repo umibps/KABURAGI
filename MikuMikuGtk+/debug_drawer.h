@@ -38,6 +38,10 @@ typedef struct _DEBUG_DRAWER
 	void *project_context;
 } DEBUG_DRAWER;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void InitializeDebugDrawer(DEBUG_DRAWER* drawer, void* project_context);
 
 extern void DebugDrawerDrawWorld(DEBUG_DRAWER* drawer, WORLD* world, unsigned int flags);
@@ -49,5 +53,9 @@ extern void DebugDrawerDrawBones(DEBUG_DRAWER* drawer, MODEL_INTERFACE* model, P
 extern void DebugDrawerDrawBoneTransform(DEBUG_DRAWER* drawer, BONE_INTERFACE* bone, MODEL_INTERFACE* model, int mode);
 
 extern void DebugDrawerDrawMovableBone(DEBUG_DRAWER* drawer, BONE_INTERFACE* bone, MODEL_INTERFACE* model);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_DEBUG_DRAWER_H_

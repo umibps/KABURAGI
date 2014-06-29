@@ -12,6 +12,10 @@
 #include "memory.h"
 #include "application.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _GRID_VERTEX
 {
 	float position[3];
@@ -271,3 +275,7 @@ void LoadGrid(GRID* grid, void* project_context)
 		grid->num_indices = index;
 	}
 }
+
+#ifdef __cplusplus
+}
+#endif

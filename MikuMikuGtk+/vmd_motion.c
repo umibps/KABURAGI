@@ -3,6 +3,10 @@
 #include "vmd_motion.h"
 #include "application.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static void InitializeVmdBaseAnimation(VMD_BASE_ANIMATION* animation)
 {
 	animation->keyframes = PointerArrayNew(DEFAULT_BUFFER_SIZE);
@@ -536,3 +540,7 @@ void VmdMotionSetModel(VMD_MOTION* motion, MODEL_INTERFACE* model)
 	VmdMorphAnimationSetModel(&motion->morph_motion, model);
 	motion->interface_data.model = model;
 }
+
+#ifdef __cplusplus
+}
+#endif

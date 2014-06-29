@@ -13,6 +13,10 @@
 #include "bullet.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef M_PI
 # define M_PI 3.1415926535897932384626433832795
 #endif
@@ -1721,3 +1725,7 @@ void ControlRotateBone(CONTROL* control, BONE_INTERFACE* bone, FLOAT_T diff[2])
 	BoneMotionModelRotateAngle(&control->handle.motion_state,
 		angle, bone, mode | axis);
 }
+
+#ifdef __cplusplus
+}
+#endif

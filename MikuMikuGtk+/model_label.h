@@ -53,6 +53,10 @@ typedef struct _ASSET_MODEL_LABEL
 	POINTER_ARRAY *bones;
 } ASSET_MODEL_LABEL;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int LoadPmxModelLabels(
 	STRUCT_ARRAY* labels,
 	STRUCT_ARRAY* bones,
@@ -76,5 +80,9 @@ extern void ReadPmd2ModelLabel(
 extern void Pmd2ModelLabelReadEnglishName(PMD2_MODEL_LABEL* label, uint8* data, int index);
 
 extern PMD2_MODEL_LABEL* Pmd2ModelLabelSelectCategory(STRUCT_ARRAY* labels, uint8* data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_MODEL_LABEL_H_

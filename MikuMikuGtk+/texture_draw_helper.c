@@ -4,12 +4,15 @@
 # define _CRT_SECURE_NO_DEPRECATE
 #endif
 
-
 #include <string.h>
 #include <gtk/gtk.h>
 #include "texture_draw_helper.h"
 #include "application.h"
 #include "memory.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void InitializeTextureDrawHelper(TEXTURE_DRAW_HELPER* helper, int width, int height)
 {
@@ -126,3 +129,7 @@ void TextureDrawHelperDraw(
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glEnable(GL_DEPTH_TEST);
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -2,6 +2,7 @@
 	// 警告が出ないようにする
 #if defined _MSC_VER && _MSC_VER >= 1400
 # define _CRT_NONSTDC_NO_DEPRECATE
+# define _CRT_SECURE_NO_DEPRECATE
 #endif
 
 #include <string.h>
@@ -15,6 +16,317 @@
 #include "model_helper.h"
 #include "application.h"
 #include "memory.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/*********************************************************
+* ReadMmdModelMaterials関数                              *
+* PMDとPMXのテクスチャ画像データを読み込む               *
+* 引数                                                   *
+* data		: 画像データのアーカイブデータ               *
+* data_size	: 画像データのアーカイブデータのサイズ       *
+* num_data	: 画像データの数                             *
+* 返り値                                                 *
+*	テクスチャ画像のファイル名とデータ位置・サイズの配列 *
+*********************************************************/
+MATERIAL_ARCHIVE_DATA* ReadMmdModelMaterials(
+	uint8* data,
+	size_t data_size,
+	int* num_data
+)
+{
+	MEMORY_STREAM stream = {data, 0, data_size, 1};
+	MATERIAL_ARCHIVE_DATA *datas;
+	int num_images;
+	uint32 data32;
+	int i;
+
+	// 画像データの数を読み込む
+	(void)MemRead(&data32, sizeof(data32), 1, &stream);
+	num_images = *num_data = (int)data32;
+
+	datas = (MATERIAL_ARCHIVE_DATA*)MEM_ALLOC_FUNC(sizeof(*datas)*num_images);
+	for(i=0; i<num_images; i++)
+	{
+		(void)MemRead(&data32, sizeof(data32), 1, &stream);
+		datas[i].name = (char*)&stream.buff_ptr[stream.data_point];
+		(void)MemSeek(&stream, data32, SEEK_CUR);
+		(void)MemRead(&data32, sizeof(data32), 1, &stream);
+		datas[i].data_start = data32;
+		(void)MemRead(&data32, sizeof(data32), 1, &stream);
+		datas[i].data_size = data32;
+	}
+
+	return datas;
+}
+
+/*******************************************************
+* WriteMmdModelMaterials関数                           *
+* PMDとPMXのテクスチャ画像データを書き出す             *
+* 引数                                                 *
+* model			: テクスチャ画像データを書き出すモデル *
+* out_data_size	: 書き出したデータのバイト数格納先     *
+* 返り値                                               *
+*	書き出したデータ                                   *
+*******************************************************/
+uint8* WriteMmdModelMaterials(
+	MODEL_INTERFACE* model,
+	size_t* out_data_size
+)
+{
+	// 画像データをまとめて書き出すバッファ
+	MEMORY_STREAM *stream = CreateMemoryStream(1024 * 1024);
+	// 作成結果のストリーム
+	MEMORY_STREAM result_stream = {0};
+	// 作成結果データ
+	uint8 *result;
+	// テクスチャ画像配列へのポインタ
+	MATERIAL_INTERFACE **materials;
+	// 画像データの格納先
+	uint8 *image_data = NULL;
+	// 画像データ格納バッファのサイズ
+	size_t image_data_buffer_size = 0;
+	// UTF-8での画像ファイルへのパス
+	char utf8_path[8192];
+	// OSでの画像ファイルへのパス
+	char *system_path;
+	// 画像ファイルの読み込み、ファイルサイズ、存在確認用
+	FILE *fp;
+	// 画像ファイルの数
+	int num_images = 0;
+	// テクスチャ画像配列のサイズ
+	int num_materials;
+	// 32ビット書き出し用
+	uint32 data32;
+	// 画像データの開始位置
+	long image_start = sizeof(data32);
+	// 画像データの合計サイズ
+	long total_image_size = 0;
+	int counter;
+	// 書き出す画像ファイルの名前・サイズ配列
+	MATERIAL_ARCHIVE_DATA *names;
+	// 重複書き出し防止用
+	ght_hash_table_t *name_table;
+	unsigned int name_length;
+	uint32 diff;
+	// for文用のカウンタ
+	int i;
+
+	// モデルに設定されているテクスチャ画像を取得
+	materials = (MATERIAL_INTERFACE**)model->get_materials(model, &num_materials);
+
+	name_table = ght_create(num_materials+1);
+	ght_set_hash(name_table, (ght_fn_hash_t)GetStringHash);
+
+	// それぞれの画像ファイルのファイル名サイズを取得
+	for(i=0; i<num_materials; i++)
+	{
+		MATERIAL_INTERFACE *material = materials[i];
+		if(material->main_texture != NULL)
+		{
+			name_length = (unsigned int)strlen(material->main_texture);
+			if(ght_get(name_table, name_length, material->main_texture) == NULL)
+			{
+				(void)ght_insert(name_table, (void*)1, name_length, material->main_texture);
+				image_start += (long)name_length+1;
+				image_start += sizeof(uint32) + sizeof(uint32) + sizeof(uint32);
+				num_images++;
+			}
+		}
+		if(material->sphere_texture != NULL)
+		{
+			name_length = (unsigned int)strlen(material->sphere_texture);
+			if(ght_get(name_table, name_length, material->sphere_texture) == NULL)
+			{
+				(void)ght_insert(name_table, (void*)1, name_length, material->sphere_texture);
+				image_start += (long)name_length+1;
+				image_start += sizeof(uint32) + sizeof(uint32) + sizeof(uint32);
+				num_images++;
+			}
+		}
+		if(material->toon_texture != NULL)
+		{	// トゥーンテクスチャの場合はモデルのディレクトリに画像があるか確認
+			(void)sprintf(utf8_path, "%s/%s", model->model_path, material->toon_texture);
+			system_path = LocaleFromUTF8(utf8_path);
+
+			if((fp = fopen(system_path, "rb")) != NULL)
+			{	// 画像有
+				name_length = (unsigned int)strlen(material->toon_texture);
+				if(ght_get(name_table, name_length, material->toon_texture) == NULL)
+				{
+					(void)ght_insert(name_table, (void*)1, name_length, material->toon_texture);
+					image_start += (long)name_length+1;
+					image_start += sizeof(uint32) + sizeof(uint32) + sizeof(uint32);
+					num_images++;
+					(void)fclose(fp);
+				}
+			}
+
+			MEM_FREE_FUNC(system_path);
+		}
+	}
+	ght_finalize(name_table);
+
+	// 画像ファイルを一つのデータにまとめる
+	name_table = ght_create(num_materials+1);
+	ght_set_hash(name_table, (ght_fn_hash_t)GetStringHash);
+	names = (MATERIAL_ARCHIVE_DATA*)MEM_ALLOC_FUNC(sizeof(*names)*num_images);
+	counter = 0;
+	for(i=0; i<num_materials; i++)
+	{
+		MATERIAL_INTERFACE *material = materials[i];
+		if(material->main_texture != NULL)
+		{
+			name_length = (unsigned int)strlen(material->main_texture);
+			if(ght_get(name_table, name_length, material->main_texture) == NULL)
+			{
+				(void)ght_insert(name_table, (void*)1, name_length, material->main_texture);
+				names[counter].data_start = image_start + total_image_size;
+				(void)sprintf(utf8_path, "%s/%s", model->model_path, material->main_texture);
+				system_path = LocaleFromUTF8(utf8_path);
+
+				if((fp = fopen(system_path, "rb")) != NULL)
+				{
+					(void)fseek(fp, 0, SEEK_END);
+					names[counter].name = material->main_texture;
+					names[counter].data_size = ftell(fp);
+					names[counter].data_start = total_image_size + image_start;
+					total_image_size += names[counter].data_size;
+					rewind(fp);
+					if(image_data_buffer_size < names[counter].data_size)
+					{
+						image_data = (uint8*)MEM_REALLOC_FUNC(image_data, names[counter].data_size);
+						image_data_buffer_size = names[counter].data_size;
+					}
+					(void)fread(image_data, 1, names[counter].data_size, fp);
+					(void)MemWrite(image_data, 1, names[counter].data_size, stream);
+					counter++;
+
+					(void)fclose(fp);
+				}
+
+				MEM_FREE_FUNC(system_path);
+			}
+		}
+
+		if(material->sphere_texture != NULL)
+		{
+			name_length = (unsigned int)strlen(material->sphere_texture);
+			if(ght_get(name_table, name_length, material->sphere_texture) == NULL)
+			{
+				(void)ght_insert(name_table, (void*)1, name_length, material->sphere_texture);
+				names[counter].data_start = image_start + total_image_size;
+				(void)sprintf(utf8_path, "%s/%s", model->model_path, material->sphere_texture);
+				system_path = LocaleFromUTF8(utf8_path);
+
+				if((fp = fopen(system_path, "rb")) != NULL)
+				{
+					(void)fseek(fp, 0, SEEK_END);
+					names[counter].name = material->sphere_texture;
+					names[counter].data_size = ftell(fp);
+					names[counter].data_start = total_image_size + image_start;
+					total_image_size += names[counter].data_size;
+					rewind(fp);
+					if(image_data_buffer_size < names[counter].data_size)
+					{
+						image_data = (uint8*)MEM_REALLOC_FUNC(image_data, names[counter].data_size);
+						image_data_buffer_size = names[counter].data_size;
+					}
+					(void)fread(image_data, 1, names[counter].data_size, fp);
+					(void)MemWrite(image_data, 1, names[counter].data_size, stream);
+					counter++;
+
+					(void)fclose(fp);
+				}
+
+				MEM_FREE_FUNC(system_path);
+			}
+		}
+
+		if(material->toon_texture != NULL)
+		{	// トゥーンテクスチャの場合はモデルのディレクトリに画像があるか確認
+			(void)sprintf(utf8_path, "%s/%s", model->model_path, material->toon_texture);
+			system_path = LocaleFromUTF8(utf8_path);
+
+			name_length = (unsigned int)strlen(material->toon_texture);
+			if(ght_get(name_table, name_length, material->toon_texture) == NULL)
+			{
+				if((fp = fopen(system_path, "rb")) != NULL)
+				{	// 画像有
+					(void)ght_insert(name_table, (void*)1, name_length, material->toon_texture);
+					(void)fseek(fp, 0, SEEK_END);
+					names[counter].name = material->toon_texture;
+					names[counter].data_size = ftell(fp);
+					names[counter].data_start = total_image_size + image_start;
+					total_image_size += names[counter].data_size;
+					rewind(fp);
+					if(image_data_buffer_size < names[counter].data_size)
+					{
+						image_data = (uint8*)MEM_REALLOC_FUNC(image_data, names[counter].data_size);
+						image_data_buffer_size = names[counter].data_size;
+					}
+					(void)fread(image_data, 1, names[counter].data_size, fp);
+					(void)MemWrite(image_data, 1, names[counter].data_size, stream);
+					counter++;
+
+					(void)fclose(fp);
+				}
+			}
+
+			MEM_FREE_FUNC(system_path);
+		}
+	}
+
+	num_images = counter;
+	ght_finalize(name_table);
+
+	result = (uint8*)MEM_ALLOC_FUNC(image_start + total_image_size + sizeof(uint32));
+	result_stream.buff_ptr = result;
+	result_stream.data_size = image_start + total_image_size;
+	result_stream.block_size = 1;
+	data32 = num_images;
+	(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+	for(i=0; i<num_images; i++)
+	{
+		data32 = (uint32)strlen(names[i].name)+1;
+		(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+		(void)MemWrite(names[i].name, 1, data32, &result_stream);
+		data32 = names[i].data_start;
+		(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+		data32 = names[i].data_size;
+		(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+	}
+	if((diff = (uint32)(image_start - result_stream.data_point)) > 0)
+	{
+		(void)MemSeek(&result_stream, sizeof(data32), SEEK_SET);
+		for(i=0; i<num_images; i++)
+		{
+			data32 = (uint32)strlen(names[i].name)+1;
+			(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+			(void)MemWrite(names[i].name, 1, data32, &result_stream);
+			data32 = names[i].data_start - diff;
+			(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+			data32 = names[i].data_start - diff;
+			(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+		}
+		image_start -= diff;
+	}
+	(void)MemWrite(stream->buff_ptr, 1, stream->data_point, &result_stream);
+
+	if(out_data_size != NULL)
+	{
+		*out_data_size = image_start + total_image_size;
+	}
+
+	MEM_FREE_FUNC(image_data);
+	MEM_FREE_FUNC(names);
+	MEM_FREE_FUNC(materials);
+	(void)DeleteMemoryStream(stream);
+
+	return result;
+}
 
 #define PMX_MATERIAL_UNIT_SIZE 65
 
@@ -463,7 +775,7 @@ void PmxMaterialRead(
 	size_t* data_size
 )
 {
-	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};
+	MEMORY_STREAM stream = {data, 0, (size_t)(info->end - data), 1};
 	PMX_METERIAL_UNIT unit;
 	char *name_ptr;
 	int texture_index_size = (int)info->texture_index_size;
@@ -885,3 +1197,7 @@ void InitializeAssetMaterial(
 	material->interface_data.index = index;
 	AssetMaterialSetTextures(material);
 }
+
+#ifdef __cplusplus
+}
+#endif

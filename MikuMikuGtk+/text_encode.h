@@ -49,6 +49,10 @@ typedef struct _TEXT_ENCODE
 	char *to;
 } TEXT_ENCODE;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void InitializeTextEncode(
 	TEXT_ENCODE* encode,
 	const char* from,
@@ -64,5 +68,9 @@ extern void TextEncodeSetSource(TEXT_ENCODE* encode, const char* form);
 extern void TextEncodeSetDestination(TEXT_ENCODE* encode, const char* to);
 
 extern const char* GetTextTypeString(eTEXT_TYPE type);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_TEXT_ENCODE_H_

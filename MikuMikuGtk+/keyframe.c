@@ -4,6 +4,10 @@
 #include "application.h"
 #include "vmd_keyframe.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 BONE_KEYFRAME_INTERFACE* BoneKeyframeNew(
 	MOTION_INTERFACE* motion,
 	SCENE* scene
@@ -61,3 +65,7 @@ int FindKeyframeIndex(
 
 	return -1;
 }
+
+#ifdef __cplusplus
+}
+#endif

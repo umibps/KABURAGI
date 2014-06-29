@@ -14,6 +14,10 @@
 #include "load_image.h"
 #include "bullet.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void* ApplicationContextNew(int default_width, int default_height, const char* application_path)
 {
 	APPLICATION *application = MikuMikuGtkNew(
@@ -498,3 +502,7 @@ char* LoadShaderSource(
 
 	return ret;
 }
+
+#ifdef __cplusplus
+}
+#endif

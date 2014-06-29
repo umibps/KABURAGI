@@ -116,14 +116,35 @@ typedef struct _PROJECT
 	PMX_DEFAULT_BUFFER_IDENT pmx_default_buffer_ident;
 	PMD2_DEFAULT_BUFFER_IDENT pmd2_default_buffer_ident;
 
+	char *file_path;
+
 	struct _APPLICATION *application_context;
 } PROJECT;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern PROJECT* ProjectNew(
 	void* application_context,
 	int widget_width,
 	int widget_height,
 	unsigned int flags
+);
+
+extern void LoadProject(
+	PROJECT* project,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+);
+
+extern void SaveProject(
+	PROJECT* project,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*)
 );
 
 extern void InitializeScene(
@@ -189,8 +210,24 @@ extern void AddBoneMoveHistory(HISTORY* history, PROJECT* project);
 
 extern void AddBoneRotateHistory(HISTORY* history, PROJECT* project);
 
+extern int FindTextureCache(const char* path, TEXTURE_DATA_BRIDGE* bridge, PROJECT* project);
+
 extern int UploadTexture(const char* path, TEXTURE_DATA_BRIDGE* bridge, PROJECT* project);
 
+extern int UploadTextureFromMemory(
+	uint8* pixels,
+	int width,
+	int height,
+	int channel,
+	const char* path,
+	TEXTURE_DATA_BRIDGE* bridge,
+	PROJECT* project
+);
+
 extern int UploadWhiteTexture(int width, int height, PROJECT* project);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_PROJECT_H_

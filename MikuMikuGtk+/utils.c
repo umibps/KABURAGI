@@ -18,6 +18,10 @@
 # define M_PI 3.1415926535897932384626433832795
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 CSTL_MAP_INTERFACE(STR_STR_MAP, char*, char*)
 CSTL_MAP_IMPLEMENT(STR_STR_MAP, char*, char*, strcmp)
 
@@ -1216,3 +1220,7 @@ void DummyFuncGetWhiteColor(void* dummy,float* color)
 {
 	color[0] = color[1] = color[2] = color[3] = 1;
 }
+
+#ifdef __cplusplus
+}
+#endif

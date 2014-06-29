@@ -116,6 +116,10 @@ typedef struct _SCENE
 	unsigned int flags;
 } SCENE;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void SetRequiredOpengGLState(void);
 
 extern void UpdateScene(SCENE* scene);
@@ -186,5 +190,9 @@ extern MOTION_INTERFACE* VmdMotionNew(
 	SCENE* scene,
 	MODEL_INTERFACE* model
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_SCENE_H_

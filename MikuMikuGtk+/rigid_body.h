@@ -96,6 +96,10 @@ typedef BASE_RIGID_BODY PMX_RIGID_BODY;
 
 typedef BASE_RIGID_BODY PMD2_RIGID_BODY;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void RigidBodySyncLocalTransform(void* rigid_body, int index, void* dummy);
 
 extern void ReleaseBaseRigidBody(BASE_RIGID_BODY* body);
@@ -121,5 +125,9 @@ extern int PmxRigidBodyLoad(STRUCT_ARRAY* bodies, STRUCT_ARRAY* bones);
 extern int LoadPmd2RigidBodies(STRUCT_ARRAY* rigid_bodies, STRUCT_ARRAY* bones);
 
 extern void* Pmd2RigidBodyTrasnsformNew(BASE_RIGID_BODY* body);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_RIGID_BODY_H_

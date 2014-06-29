@@ -27,6 +27,10 @@
 
 #include "ght_hash_table.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static ght_uint32_t crc32_table[256] =
 {
   0x00000000,0x04c11db7,0x09823b6e,0x0d4326d9,0x130476dc,0x17c56b6b,0x1a864db2,0x1e475005,
@@ -123,3 +127,7 @@ ght_uint32_t ght_rotating_hash(ght_hash_key_t *p_key)
 
   return i_hash;
 }
+
+#ifdef __cplusplus
+}
+#endif

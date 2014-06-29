@@ -8,10 +8,118 @@
 #include "application.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void ReleaseMorphInterface(MORPH_INTERFACE* morph)
 {
 	MEM_FREE_FUNC(morph->name);
 	MEM_FREE_FUNC(morph->english_name);
+}
+
+typedef struct _READ_MORPH_DATA
+{
+	char *name;
+	float weight;
+} READ_MORPH_DATA;
+
+/***********************************************
+* ReadMorphData関数                            *
+* 表情のデータを読み込む                       *
+* 引数                                         *
+* stream	: メモリデータ読み込み用ストリーム *
+* model		: 表情を保持するモデル             *
+***********************************************/
+void ReadMorphData(
+	MEMORY_STREAM* stream,
+	MODEL_INTERFACE* model
+)
+{
+	READ_MORPH_DATA *morph_states;
+	MORPH_INTERFACE *morph;
+	int num_morphs;
+	uint32 data32;
+	int i;
+
+	(void)MemRead(&data32, sizeof(data32), 1, stream);
+	num_morphs = (int)data32;
+
+	morph_states = (READ_MORPH_DATA*)MEM_ALLOC_FUNC(sizeof(*morph_states)*num_morphs);
+	for(i=0; i<num_morphs; i++)
+	{
+		(void)MemRead(&data32, sizeof(data32), 1, stream);
+		morph_states[i].name = (char*)&stream->buff_ptr[stream->data_point];
+		(void)MemSeek(stream, data32, SEEK_CUR);
+		(void)MemRead(&morph_states[i].weight, sizeof(morph_states[i].weight), 1, stream);
+	}
+
+	for(i=0; i<num_morphs; i++)
+	{
+		morph = model->find_morph(model, morph_states[i].name);
+		if(morph != NULL)
+		{
+			morph->set_weight(morph, morph_states[i].weight);
+		}
+	}
+
+	MEM_FREE_FUNC(morph_states);
+}
+
+/*********************************************
+* WriteMorphData関数                         *
+* 表情データを書き出す                       *
+* 引数                                       *
+* model			: 表情データを書き出すモデル *
+* out_data_size	: 書き出したデータのバイト数 *
+* 返り値                                     *
+*	書き出したデータ                         *
+*********************************************/
+uint8* WriteMorphData(
+	MODEL_INTERFACE* model,
+	size_t* out_data_size
+)
+{
+	MEMORY_STREAM *stream = CreateMemoryStream(4096);
+	MORPH_INTERFACE **morphs;
+	int num_morphs;
+	float float_value;
+	uint8 *result;
+	uint32 data32;
+	int i;
+
+	if(model->get_morphs == NULL)
+	{
+		if(out_data_size != NULL)
+		{
+			*out_data_size = 0;
+		}
+		return NULL;
+	}
+
+	morphs = (MORPH_INTERFACE**)model->get_morphs(model, &num_morphs);
+	data32 = (uint32)num_morphs;
+	(void)MemWrite(&data32, sizeof(data32), 1, stream);
+	for(i=0; i<num_morphs; i++)
+	{
+		MORPH_INTERFACE *morph = morphs[i];
+		data32 = (uint32)strlen(morph->name) + 1;
+		(void)MemWrite(&data32, sizeof(data32), 1, stream);
+		(void)MemWrite(morph->name, 1, data32, stream);
+		float_value = (float)morph->weight;
+		(void)MemWrite(&float_value, sizeof(float_value), 1, stream);
+	}
+
+	if(out_data_size != NULL)
+	{
+		*out_data_size = stream->data_point;
+	}
+
+	result = stream->buff_ptr;
+	MEM_FREE_FUNC(stream);
+	MEM_FREE_FUNC(morphs);
+
+	return result;
 }
 
 #define PMX_MORPH_UNIT_SIZE 6
@@ -661,7 +769,7 @@ void PmxMorphRead(
 	PMX_DATA_INFO* info
 )
 {
-	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};
+	MEMORY_STREAM stream = {data, 0, (size_t)(info->end - data), 1};
 	PMX_MORPH_UNIT unit;
 	char* name_ptr;
 	int name_size;
@@ -1001,10 +1109,18 @@ typedef struct _PMD2_VERTEX_MORPH_UNIT
 	float position[3];
 } PMD2_VERTEX_MORPH_UNIT;
 
+static void Pmd2MorphSetWeight(
+	PMD2_MORPH* morph,
+	FLOAT_T weight
+)
+{
+	morph->interface_data.weight = weight;
+}
+
 void InitializePmd2Morph(
-	PMD2_MORPH *morph,
-	PMD2_MODEL *model,
-	void *application_context
+	PMD2_MORPH* morph,
+	PMD2_MODEL* model,
+	void* application_context
 )
 {
 	(void)memset(morph, 0, sizeof(*morph));
@@ -1013,6 +1129,8 @@ void InitializePmd2Morph(
 	morph->vertex_refs = PointerArrayNew(MORPH_BUFFER_SIZE);
 	morph->interface_data.index = -1;
 	morph->application = (APPLICATION*)application_context;
+	morph->interface_data.set_weight =
+		(void (*)(void*, FLOAT_T))Pmd2MorphSetWeight;
 }
 
 int Pmd2MorphPreparse(
@@ -1179,3 +1297,7 @@ void InitializeAssetOpacityMorph(
 	morph->application = (APPLICATION*)application_context;
 	morph->interface_data.name = "OpacityMorphAsset";
 }
+
+#ifdef __cplusplus
+}
+#endif

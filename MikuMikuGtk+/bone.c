@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <math.h>
 #include "bone.h"
 #include "application.h"
 #include "memory_stream.h"
@@ -10,6 +11,14 @@
 #include "pmd_model.h"
 #include "asset_model.h"
 #include "memory.h"
+
+#ifndef M_PI
+# define M_PI 3.1415926535897932384626433832795
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void ReleaseBoneInterface(BONE_INTERFACE* bone)
 {
@@ -45,6 +54,158 @@ BASE_RIGID_BODY* GetBoneBody(BONE_INTERFACE* bone)
 	}
 
 	return NULL;
+}
+
+typedef struct _READ_BONE_DATA
+{
+	char *name;
+	VECTOR3 position;
+	QUATERNION rotation;
+} READ_BONE_DATA;
+
+/***********************************************
+* ReadBoneData関数                             *
+* ボーンの位置を向きの情報を読み込む           *
+* 引数                                         *
+* stream	: メモリデータ読み込み用ストリーム *
+* model		: ボーンを保持するモデル           *
+* project	: プロジェクトを管理するデータ     *
+***********************************************/
+void ReadBoneData(
+	MEMORY_STREAM* stream,
+	MODEL_INTERFACE* model,
+	void* project
+)
+{
+	PROJECT *project_context = (PROJECT*)project;
+	READ_BONE_DATA *bone_states;
+	BONE_INTERFACE *bone;
+	int num_bones;
+	float compare;
+	float maximum = 0;
+	float float_values[4];
+	int loop;
+	uint32 data32;
+	int i, j;
+
+	(void)MemRead(&data32, sizeof(data32), 1, stream);
+	num_bones = (int)data32;
+
+	bone_states = (READ_BONE_DATA*)MEM_ALLOC_FUNC(sizeof(*bone_states)*num_bones);
+	for(i=0; i<num_bones; i++)
+	{
+		(void)MemRead(&data32, sizeof(data32), 1, stream);
+		bone_states[i].name = (char*)&stream->buff_ptr[stream->data_point];
+		(void)MemSeek(stream, data32, SEEK_CUR);
+		(void)MemRead(bone_states[i].position, sizeof(*bone_states[i].position), 3, stream);
+		(void)MemRead(bone_states[i].rotation, sizeof(*bone_states[i].rotation), 4, stream);
+
+		for(j=0; j<3; j++)
+		{
+			compare = fabsf(bone_states[i].position[j]);
+			if(compare > maximum)
+			{
+				maximum = compare;
+			}
+		}
+
+		for(j=0; j<4; j++)
+		{
+			compare = fabsf(bone_states[i].rotation[j]);
+			compare = (compare * 180.0f) / (float)M_PI;
+			if(compare > maximum)
+			{
+				maximum = compare;
+			}
+		}
+	}
+
+	loop = (int)maximum;
+	for(i=1; i<loop; i++)
+	{
+		for(j=0; j<num_bones; j++)
+		{
+			bone = model->find_bone(model, bone_states[j].name);
+			if(bone != NULL)
+			{
+				float_values[0] = (bone_states[j].position[0] / loop) * i;
+				float_values[1] = (bone_states[j].position[1] / loop) * i;
+				float_values[2] = (bone_states[j].position[2] / loop) * i;
+				bone->set_local_translation(bone, float_values);
+
+				float_values[0] = (bone_states[j].rotation[0] / loop) * i;
+				float_values[1] = (bone_states[j].rotation[1] / loop) * i;
+				float_values[2] = (bone_states[j].rotation[2] / loop) * i;
+				float_values[3] = (bone_states[j].rotation[3] / loop) * i;
+				bone->set_local_rotation(bone, float_values);
+			}
+		}
+
+		WorldStepSimulation(&project_context->world, 1.0f/60.0f);
+	}
+
+	for(i=0; i<num_bones; i++)
+	{
+		bone = model->find_bone(model, bone_states[i].name);
+		if(bone != NULL)
+		{
+			bone->set_local_translation(bone, bone_states[i].position);
+			bone->set_local_rotation(bone, bone_states[i].rotation);
+		}
+
+		WorldStepSimulation(&project_context->world, 1.0f/60.0f);
+	}
+
+	MEM_FREE_FUNC(bone_states);
+}
+
+/*****************************************************
+* WriteBoneData関数                                  *
+* ボーンの位置と向きの情報を書き出す                 *
+* 引数                                               *
+* model			: ボーンの位置と向きを書き出すモデル *
+* out_data_size	: 書き出したバイト数の格納先         *
+* 返り値                                             *
+*	書き出したデータ                                 *
+*****************************************************/
+uint8* WriteBoneData(
+	MODEL_INTERFACE* model,
+	size_t* out_data_size
+)
+{
+	MEMORY_STREAM *stream = CreateMemoryStream(4096);
+	BONE_INTERFACE **bones;
+	uint8 *result;
+	uint32 data32;
+	float float_values[4];
+	int num_bones;
+	int i;
+
+	bones = (BONE_INTERFACE**)model->get_bones(model, &num_bones);
+	data32 = (uint32)num_bones;
+	(void)MemWrite(&data32, sizeof(data32), 1, stream);
+	for(i=0; i<num_bones; i++)
+	{
+		BONE_INTERFACE *bone = bones[i];
+		data32 = (uint32)strlen(bone->name)+1;
+		(void)MemWrite(&data32, sizeof(data32), 1, stream);
+		(void)MemWrite(bone->name, 1, data32, stream);
+		bone->get_local_translation(bone, float_values);
+		(void)MemWrite(float_values, sizeof(*float_values), 3, stream);
+		bone->get_local_rotation(bone, float_values);
+		(void)MemWrite(float_values, sizeof(*float_values), 4, stream);
+	}
+
+	if(out_data_size != NULL)
+	{
+		*out_data_size = stream->data_point;
+	}
+
+	result = stream->buff_ptr;
+	MEM_FREE_FUNC(bones);
+	MEM_FREE_FUNC(stream);
+
+	return result;
 }
 
 void InitializeDefaultBone(DEFAULT_BONE* bone, APPLICATION* application_context)
@@ -650,7 +811,7 @@ void ReadPmxBone(
 	size_t* data_size
 )
 {
-	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};
+	MEMORY_STREAM stream = {data, 0, (size_t)(info->end - data), 1};
 	char *name_ptr;
 	size_t bone_index_size = info->bone_index_size;
 	int32 int32_value;
@@ -1516,3 +1677,7 @@ void InitializeAssetScaleBone(
 	bone->interface_data.has_inverse_kinematics =
 		(int (*)(void*))DummyFuncZeroReturn;
 }
+
+#ifdef __cplusplus
+}
+#endif

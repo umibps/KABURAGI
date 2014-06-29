@@ -833,9 +833,33 @@ void ExecuteSetPreference(APPLICATION* app)
 	SetPreferenceTreeView(tree_view, &setting, app);
 
 	setting.preference = app->preference;
-	setting.input_icc_path = g_locale_to_utf8(app->input_icc_path, -1, NULL, NULL, NULL);
-	setting.output_icc_path = g_locale_to_utf8(app->output_icc_path, -1, NULL, NULL, NULL);
-	setting.preference.theme = MEM_STRDUP_FUNC(app->preference.theme);
+	if(app->input_icc_path != NULL)
+	{
+		setting.input_icc_path = g_locale_to_utf8(app->input_icc_path, -1, NULL, NULL, NULL);
+	}
+	else
+	{
+		setting.input_icc_path = NULL;
+	}
+
+	if(app->output_icc_path != NULL)
+	{
+		setting.output_icc_path = g_locale_to_utf8(app->output_icc_path, -1, NULL, NULL, NULL);
+	}
+	else
+	{
+		setting.output_icc_path = NULL;
+	}
+
+	if(app->preference.theme != NULL)
+	{
+		setting.preference.theme = MEM_STRDUP_FUNC(app->preference.theme);
+	}
+	else
+	{
+		setting.preference.theme = NULL;
+	}
+
 	setting.language_name = g_strdup(app->labels->language_name);
 	setting.language_path = MEM_STRDUP_FUNC(app->language_file_path);
 	setting.backup_path = g_strdup(app->backup_directory_path);
@@ -898,7 +922,14 @@ void ExecuteSetPreference(APPLICATION* app)
 			}
 
 			app->preference = setting.preference;
-			setting.preference.theme = MEM_STRDUP_FUNC(app->preference.theme);
+			if(app->preference.theme != NULL)
+			{
+				setting.preference.theme = MEM_STRDUP_FUNC(app->preference.theme);
+			}
+			else
+			{
+				setting.preference.theme = NULL;
+			}
 
 			if(app->labels->language_name != setting.language_name)
 			{
@@ -916,7 +947,15 @@ void ExecuteSetPreference(APPLICATION* app)
 
 			g_free(app->input_icc_path);
 			(void)cmsCloseProfile(app->input_icc);
-			app->input_icc_path = g_locale_from_utf8(setting.input_icc_path, -1, NULL, NULL, NULL);
+			if(setting.input_icc_path != NULL)
+			{
+				app->input_icc_path = g_locale_from_utf8(setting.input_icc_path, -1, NULL, NULL, NULL);
+			}
+			else
+			{
+				app->input_icc_path = NULL;
+			}
+
 			if(app->input_icc_path != NULL)
 			{
 				if(*app->input_icc_path == '\0')
@@ -939,7 +978,15 @@ void ExecuteSetPreference(APPLICATION* app)
 
 			g_free(app->output_icc_path);
 			(void)cmsCloseProfile(app->output_icc);
-			app->output_icc_path = g_locale_from_utf8(setting.output_icc_path, -1, NULL, NULL, NULL);
+			if(setting.output_icc_path != NULL)
+			{
+				app->output_icc_path = g_locale_from_utf8(setting.output_icc_path, -1, NULL, NULL, NULL);
+			}
+			else
+			{
+				app->output_icc_path = NULL;
+			}
+
 			if(app->output_icc_path != NULL)
 			{
 				app->output_icc = cmsOpenProfileFromFile(app->output_icc_path, "r");
@@ -1040,7 +1087,15 @@ void ExecuteSetPreference(APPLICATION* app)
 
 				g_free(app->input_icc_path);
 				(void)cmsCloseProfile(app->input_icc);
-				app->input_icc_path = g_locale_from_utf8(setting.input_icc_path, -1, NULL, NULL, NULL);
+				if(setting.input_icc_path != NULL)
+				{
+					app->input_icc_path = g_locale_from_utf8(setting.input_icc_path, -1, NULL, NULL, NULL);
+				}
+				else
+				{
+					app->input_icc_path = NULL;
+				}
+
 				if(app->input_icc_path != NULL)
 				{
 					if(*app->input_icc_path == '\0')
@@ -1063,7 +1118,15 @@ void ExecuteSetPreference(APPLICATION* app)
 
 				g_free(app->output_icc_path);
 				(void)cmsCloseProfile(app->output_icc);
-				app->output_icc_path = g_locale_from_utf8(setting.output_icc_path, -1, NULL, NULL, NULL);
+				if(setting.output_icc_path != NULL)
+				{
+					app->output_icc_path = g_locale_from_utf8(setting.output_icc_path, -1, NULL, NULL, NULL);
+				}
+				else
+				{
+					app->output_icc_path = NULL;
+				}
+
 				if(app->output_icc_path != NULL)
 				{
 					app->output_icc = cmsOpenProfileFromFile(app->output_icc_path, "r");

@@ -6,6 +6,9 @@ typedef struct _UI_LABEL
 	struct
 	{
 		char *file;
+		char *load_project;
+		char *save_project;
+		char *save_project_as;
 		char *add_model_accessory;
 		char *edit;
 		char *undo;
@@ -57,8 +60,16 @@ typedef struct _UI_LABEL
 	} control;
 } UI_LABEL;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern UI_LABEL LoadDefaultUiLabel(void);
 
 extern UI_LABEL* GetUILabel(void* application_context);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_UI_LABEL_H_

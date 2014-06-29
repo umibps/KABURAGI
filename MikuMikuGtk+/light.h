@@ -34,8 +34,16 @@ typedef struct _LIGHT_ANIMATION
 	float direction[3];
 } LIGHT_ANIMATION;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void InitializeLight(LIGHT* light, void* scene);
 
 extern void ResetLightDefault(LIGHT* light);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_LIGHT_H_

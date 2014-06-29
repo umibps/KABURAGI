@@ -140,6 +140,10 @@ typedef struct _TEXTURE_DRAW_HELPER_PROGRAM
 	GLint main_texture;
 } TEXTURE_DRAW_HELPER_PROGRAM;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void MakeShaderProgram(SHADER_PROGRAM* program);
 
 extern void ReleaseShaderProgram(SHADER_PROGRAM* program);
@@ -242,5 +246,9 @@ extern void TextureDrawHelperProgramSetUniformValues(
 	const float matrix[16],
 	GLuint texture_id
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_SHADER_PROGRAM_H_

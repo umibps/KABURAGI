@@ -2,6 +2,7 @@
 	// 警告が出ないようにする
 #if defined _MSC_VER && _MSC_VER >= 1400
 # define _CRT_SECURE_NO_DEPRECATE
+# define _CRT_NONSTDC_NO_DEPRECATE
 #endif
 
 #include <GL/glew.h>
@@ -16,6 +17,10 @@
 # define M_PI 3.1415926535897932384626433832795
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum _eSET_VALUE_TYPE
 {
 	SET_VALUE_TYPE_X,
@@ -23,6 +28,9 @@ typedef enum _eSET_VALUE_TYPE
 	SET_VALUE_TYPE_Z
 } eSET_VALUE_TYPE;
 
+static void ExecuteLoadProject(APPLICATION* application);
+static void ExecuteSaveProject(APPLICATION* application);
+static void ExecuteSaveProjectAs(APPLICATION* application);
 static void ExecuteLoadModel(APPLICATION* application);
 static void ExecuteLoadPose(APPLICATION* application);
 static void FillParentModelComboBox(GtkWidget* combo, SCENE* scene, APPLICATION* application);
@@ -173,6 +181,36 @@ GtkWidget* MakeMenuBar(void* application_context, GtkAccelGroup* hot_key)
 
 	menu = gtk_menu_new();
 	gtk_menu_item_set_submenu(GTK_MENU_ITEM(menu_item), menu);
+
+	// 「プロジェクトの読み込み」
+	(void)sprintf(buff, "%s", application->label.menu.load_project);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	gtk_widget_add_accelerator(menu_item, "activate", hot_key,
+		'O', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteLoadProject), application);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	// 「プロジェクトを名前をつけて保存」
+	(void)sprintf(buff, "%s", application->label.menu.save_project_as);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	gtk_widget_add_accelerator(menu_item, "activate", hot_key,
+		'S', GDK_CONTROL_MASK | GDK_SHIFT_MASK, GTK_ACCEL_VISIBLE);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteSaveProjectAs), application);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	// 「プロジェクトを上書き保存」
+	(void)sprintf(buff, "%s", application->label.menu.save_project);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	gtk_widget_add_accelerator(menu_item, "activate", hot_key,
+		'S', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteSaveProject), application);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+
+	menu_item = gtk_separator_menu_item_new();
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+
+	////////////////////////////////////////////////////////////
 
 	// 「モデル・アクセサリーの読み込み」
 	(void)sprintf(buff, "%s", application->label.menu.add_model_accessory);
@@ -448,6 +486,188 @@ int ShowModelComment(MODEL_INTERFACE* model, PROJECT* project)
 	return ok;
 }
 
+static void ExecuteLoadProject(APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	GtkWidget *chooser;
+	GtkFileFilter *filter;
+	GtkWindow *main_window = NULL;
+
+	main_window = GTK_WINDOW(application->widgets.main_window);
+
+	chooser = gtk_file_chooser_dialog_new(
+		application->label.menu.load_project,
+		main_window,
+		GTK_FILE_CHOOSER_ACTION_OPEN,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		NULL
+	);
+
+	gtk_window_set_position(GTK_WINDOW(chooser), GTK_WIN_POS_MOUSE);
+
+	filter = gtk_file_filter_new();
+	gtk_file_filter_set_name(filter, "Project File");
+	gtk_file_filter_add_pattern(filter, "*.mmdproject");
+	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(chooser), filter);
+
+	if(gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_OK)
+	{
+		gchar *system_path;
+		gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+		FILE *fp;
+		gint select = 1;
+		float set_value[4];
+
+		system_path = g_locale_from_utf8(path, -1, NULL, NULL, NULL);
+		if((fp = fopen(system_path, "rb")) != NULL)
+		{
+			SCENE *scene = project->scene;
+			MODEL_INTERFACE *model;
+			int num_items;
+			int i;
+
+			LoadProject(project, (void*)fp,
+				(size_t (*)(void*, size_t, size_t, void*))fread,
+				(int (*)(void*, long, int))fseek
+			);
+			SetCameraPositionWidget(application);
+
+			num_items = (int)scene->models->num_data;
+			for(i=0; i<num_items; i++)
+			{
+				int ok = TRUE;
+				model = (MODEL_INTERFACE*)scene->models->buffer[i];
+				if(model->type == MODEL_TYPE_PMD_MODEL || model->type == MODEL_TYPE_PMX_MODEL)
+				{
+					if(ShowModelComment(model, project) == FALSE)
+					{
+						SceneRemoveModel(scene, model);
+						ok = FALSE;
+					}
+				}
+
+				if(ok != FALSE)
+				{
+#if GTK_MAJOR_VERSION <= 2
+					gtk_combo_box_append_text(GTK_COMBO_BOX(application->widgets.model_combo_box), model->name);
+#else
+					gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(application->widgets.model_combo_box), model->name);
+#endif
+				}
+			}
+			gtk_combo_box_set_active(GTK_COMBO_BOX(application->widgets.model_combo_box), num_items);
+
+			application->widgets.ui_disabled = TRUE;
+			scene->selected_model = (MODEL_INTERFACE*)scene->models->buffer[select-1];
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_scale), scene->selected_model->scale_factor * 100.0);
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_opacity), scene->selected_model->opacity * 100.0);
+			scene->selected_model->get_world_translation(scene->selected_model, set_value);
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_position[0]), set_value[0]);
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_position[1]), set_value[1]);
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_position[2]), set_value[2]);
+			scene->selected_model->get_world_orientation(scene->selected_model, set_value);
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[0]), set_value[0]);
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[1]), set_value[1]);
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.model_rotation[2]), set_value[2]);
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.edge_size), scene->selected_model->edge_width);
+			BoneTreeViewSetBones(application->widgets.bone_tree_view, scene->selected_model, application);
+			application->widgets.ui_disabled = FALSE;
+
+			(void)fclose(fp);
+		}
+
+		g_free(system_path);
+	}
+
+	gtk_widget_destroy(chooser);
+}
+
+static void ExecuteSaveProject(APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	FILE *fp;
+
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+
+	if(project->file_path == NULL
+		|| (fp = fopen(project->file_path, "wb")) == NULL)
+	{
+		ExecuteSaveProjectAs(application);
+	}
+	else
+	{
+		SaveProject(project, (void*)fp, (size_t (*)(void*, size_t, size_t, void*))fwrite,
+				(int (*)(void*, long, int))fseek, (long (*)(void*))ftell);
+		(void)fclose(fp);
+	}
+}
+
+static void ExecuteSaveProjectAs(APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	GtkWidget *chooser;
+	GtkFileFilter *filter;
+	GtkWindow *main_window = NULL;
+
+	if(application->num_projects <= 0)
+	{
+		return;
+	}
+
+	main_window = GTK_WINDOW(application->widgets.main_window);
+
+	chooser = gtk_file_chooser_dialog_new(
+		application->label.menu.load_project,
+		main_window,
+		GTK_FILE_CHOOSER_ACTION_SAVE,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		NULL
+	);
+
+	gtk_window_set_position(GTK_WINDOW(chooser), GTK_WIN_POS_MOUSE);
+
+	filter = gtk_file_filter_new();
+	gtk_file_filter_set_name(filter, "Project File");
+	gtk_file_filter_add_pattern(filter, "*.mmdproject");
+	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(chooser), filter);
+
+	if(gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_OK)
+	{
+		gchar *system_path;
+		gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+		gchar *correct_path = NULL;
+		size_t length;
+		FILE *fp;
+
+		length = strlen(path);
+		if(length < 11 || StringCompareIgnoreCase(".mmdproject", &path[length-11]) != 0)
+		{
+			correct_path = path = g_strdup_printf("%s.mmdproject", path);
+		}
+
+		system_path = g_locale_from_utf8(path, -1, NULL, NULL, NULL);
+		if((fp = fopen(system_path, "wb")) != NULL)
+		{
+			SaveProject(project, (void*)fp, (size_t (*)(void*, size_t, size_t, void*))fwrite,
+				(int (*)(void*, long, int))fseek, (long (*)(void*))ftell);
+			MEM_FREE_FUNC(project->file_path);
+			project->file_path = MEM_STRDUP_FUNC(system_path);
+
+			(void)fclose(fp);
+		}
+
+		g_free(correct_path);
+		g_free(system_path);
+	}
+
+	gtk_widget_destroy(chooser);
+}
+
 static void ExecuteLoadModel(APPLICATION* application)
 {
 	PROJECT *project = application->projects[application->active_project];
@@ -465,6 +685,8 @@ static void ExecuteLoadModel(APPLICATION* application)
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 		NULL
 	);
+
+	gtk_window_set_position(GTK_WINDOW(chooser), GTK_WIN_POS_MOUSE);
 
 	filter = gtk_file_filter_new();
 	gtk_file_filter_set_name(filter, "Model File");
@@ -488,11 +710,7 @@ static void ExecuteLoadModel(APPLICATION* application)
 
 		filter = gtk_file_chooser_get_filter(GTK_FILE_CHOOSER(chooser));
 		filter_name = gtk_file_filter_get_name(filter);
-		/*if(strcmp(filter_name, "Model File") == 0)
-		{
-			file_type = ".pmx";
-		}
-		else*/
+
 		{
 			gchar *str = path;
 			file_type = path;
@@ -816,6 +1034,10 @@ static void OnChangeSelectedParentModel(GtkWidget* combo, APPLICATION* applicati
 		return;
 	}
 	scene = project->scene;
+	if(scene->selected_model == NULL)
+	{
+		return;
+	}
 
 	tree_model = gtk_combo_box_get_model(GTK_COMBO_BOX(bone_combo));
 	gtk_list_store_clear(GTK_LIST_STORE(tree_model));
@@ -2051,6 +2273,16 @@ void* CameraLightControlWidgetNew(void* application_context)
 	frame_box = gtk_vbox_new(FALSE, 0);
 	gtk_container_add(GTK_CONTAINER(layout_box), frame_box);
 	application->widgets.light_color = control[0] = gtk_color_button_new();
+	if(scene != NULL)
+	{
+		GdkColor color;
+		color.red = scene->light.vertex.color[0] * 256 | scene->light.vertex.color[0];
+		color.green = scene->light.vertex.color[1] * 256 | scene->light.vertex.color[1];
+		color.blue = scene->light.vertex.color[2] * 256 | scene->light.vertex.color[2];
+
+		gtk_color_button_set_color(GTK_COLOR_BUTTON(control[0]), &color);
+	}
+
 	gtk_box_pack_start(GTK_BOX(frame_box), control[0], TRUE, TRUE, 2);
 	(void)g_signal_connect(G_OBJECT(control[0]), "color-set",
 		G_CALLBACK(OnChangeLightColor), application);
@@ -2264,3 +2496,7 @@ void RenderForPixelData(
 		"expose-event", G_CALLBACK(RenderForPixelDataDrawing), data);
 #endif
 }
+
+#ifdef __cplusplus
+}
+#endif

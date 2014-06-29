@@ -40,6 +40,10 @@
 # define inline __inline
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Flags for the elements. This is currently unused. */
 #define FLAGS_NONE     0 /* No flags */
 #define FLAGS_NORMAL   0 /* Normal item. All user-inserted stuff is normal */
@@ -772,3 +776,7 @@ void ght_rehash(ght_hash_table_t *p_ht, unsigned int i_size)
   p_tmp->p_nr = NULL;
   free (p_tmp);
 }
+
+#ifdef __cplusplus
+}
+#endif

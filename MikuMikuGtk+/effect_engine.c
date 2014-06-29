@@ -9,6 +9,10 @@
 #include "application.h"
 #include "map_funcs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int EffectEngineContainsSubset(
 	EFFECT_ENGINE* engine,
 	ANNOTATION* annotation,
@@ -184,3 +188,7 @@ struct _TECHNIQUE* EffectEngineFindTechniqueIn(
 
 	return NULL;
 }
+
+#ifdef __cplusplus
+}
+#endif

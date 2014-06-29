@@ -94,6 +94,10 @@ typedef struct _ANNOTATION
 	ght_hash_table_t *annotation_table;
 } ANNOTATION;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void EffectSetModelMatrixParameter(
 	EFFECT* effect,
 	MODEL_INTERFACE* model,
@@ -113,5 +117,9 @@ extern void EffectActivateVertexAttribute(
 	EFFECT* effect,
 	eVERTEX_ATTRIBUTE_TYPE vertex_type
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_ANNOTATION_H_

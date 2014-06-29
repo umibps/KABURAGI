@@ -14,6 +14,10 @@
 #include "memory_stream.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void ReleaseLabelInterface(LABEL_INTERFACE* label)
 {
 	MEM_FREE_FUNC(label->name);
@@ -202,7 +206,7 @@ void PmxModelLabelRead(
 	PMX_DATA_INFO* info
 )
 {
-	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};
+	MEMORY_STREAM stream = {data, 0, (size_t)(info->end - data), 1};
 	char *name_ptr;
 	int32 length;
 	TEXT_ENCODE *encode = info->encoding;
@@ -504,3 +508,7 @@ void InitializeAssetModelLabel(
 		(void* (*)(void*, int))AssetModelLabelGetBone;
 	label->interface_data.special = TRUE;
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -258,6 +258,10 @@ typedef struct _BONE_ANIMATION
 	unsigned int flags;
 } BONE_ANIMATION;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void UpdateBoneLocalTransform(void* bone, int index, void* dummy);
 
 extern int LoadPmxBones(STRUCT_ARRAY* bones);
@@ -285,5 +289,9 @@ extern void Pmd2BonePerformTransform(PMD2_BONE* bone);
 extern void Pmd2BoneReadEnglishName(PMD2_BONE* bone, MEMORY_STREAM_PTR stream, int index);
 
 extern int Pmd2BoneIsAxisXAligned(PMD2_BONE* bone);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_BONE_H_

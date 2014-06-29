@@ -6,6 +6,10 @@
 #include "model.h"
 #include "vertex.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern INLINE uint8 AdjustSharedToonTextureIndex(uint8 index);
 
 extern void TransformVertex(
@@ -40,5 +44,9 @@ extern void SkinningVertexProcess(VERTEX_INTERFACE* vertex, int index, PARALLEL_
 extern void SkinningVertexEnd(PARALLEL_SKINNING_VERTEX* skinning);
 extern void SkinningVertexMakeNext(PARALLEL_SKINNING_VERTEX* src, PARALLEL_SKINNING_VERTEX* dst);
 extern void SkinningVertexJoin(PARALLEL_SKINNING_VERTEX* obj, PARALLEL_SKINNING_VERTEX* self);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_MODEL_HELPER_H_

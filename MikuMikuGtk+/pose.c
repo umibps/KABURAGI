@@ -17,6 +17,10 @@
 # define M_PI 3.1415926535897932384626433832795
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static int GetLineInternal(const char* str, char* dst)
 {
 	int count = 0;
@@ -393,3 +397,7 @@ void ApplyPose(POSE* pose, MODEL_INTERFACE* model, int apply_center)
 		}
 	}
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,14 +1,20 @@
 // Visual Studio 2005以降では古いとされる関数を使用するので
 	// 警告が出ないようにする
 #if defined _MSC_VER && _MSC_VER >= 1400
+# define _CRT_SECURE_NO_DEPRECATE
 # define _CRT_NONSTDC_NO_DEPRECATE
 #endif
 
 #include <string.h>
+#include <zlib.h>
 #include <assimp/postprocess.h>
 #include "asset_model.h"
 #include "application.h"
 #include "memory.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 static void** AssetModelGetBones(ASSET_MODEL* model, int* num_bones)
 {
@@ -228,6 +234,9 @@ int LoadAssetModel(
 
 	model->scene = (struct aiScene*)aiImportFileFromMemory((const char*)data, (unsigned int)data_size,
 		flags, file_type);
+	model->file_type = MEM_STRDUP_FUNC(file_type);
+	model->model_data = data;
+	model->model_data_size = data_size;
 	model->model_path = MEM_STRDUP_FUNC(model_path);
 	model->interface_data.name = str = MEM_STRDUP_FUNC(file_name);
 	while(*str != '\0')
@@ -266,6 +275,364 @@ int LoadAssetModel(
 	return FALSE;
 }
 
+typedef struct _MATERIAL_DATA
+{
+	char *name;
+	size_t data_start;
+	size_t data_size;
+} MATERIAL_DATA;
+
+static void ReleaseMaterialData(MATERIAL_DATA* data)
+{
+	MEM_FREE_FUNC(data->name);
+}
+
+uint8* WriteAssetModelMaterials(
+	ASSET_MODEL* model,
+	size_t* out_data_size
+)
+{
+	MEMORY_STREAM *image_stream = CreateMemoryStream(1024 * 1024);
+	STRUCT_ARRAY *materials_data;
+	MATERIAL_DATA material_data;
+	struct aiScene *scene;
+	struct aiString texture_path;
+	char full_path[4096];
+	char *path;
+	char *main_texture;
+	char *sub_texture;
+	char *system_path;
+	FILE *fp;
+	uint8 *ret;
+	size_t image_buffer_size = 0;
+	uint8 *image_data = NULL;
+	ght_hash_table_t *name_table;
+	size_t total_image_size = 0;
+	unsigned int num_items;
+	unsigned int name_length;
+	uint32 data32;
+	unsigned int i;
+
+	materials_data = StructArrayNew(sizeof(material_data), model->materials->num_data+1);
+	name_table = ght_create((unsigned int)model->materials->num_data+1);
+	ght_set_hash(name_table, (ght_fn_hash_t)GetStringHash);
+
+	scene = model->scene;
+	num_items = scene->mNumMaterials;
+	for(i=0; i<num_items; i++)
+	{
+		struct aiMaterial *material = scene->mMaterials[i];
+		enum aiReturn found = AI_SUCCESS;
+		int texture_index = 0;
+		do
+		{
+			if((found = aiGetMaterialTexture(material, aiTextureType_DIFFUSE, texture_index, &texture_path,
+				NULL, NULL, NULL, NULL, NULL, NULL)) != aiReturn_SUCCESS)
+			{
+				break;
+			}
+			path = texture_path.data;
+			if(AssetModelSplitTexturePath(path, &main_texture, &sub_texture) != FALSE)
+			{
+				name_length = (unsigned int)strlen(main_texture);
+				if(ght_get(name_table, name_length, main_texture) == NULL)
+				{
+					(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+					system_path = LocaleFromUTF8(full_path);
+					if((fp = fopen(system_path, "rb")) != NULL)
+					{
+						(void)ght_insert(name_table, (void*)1, name_length, main_texture);
+						material_data.name = MEM_STRDUP_FUNC(main_texture);
+						material_data.data_start = total_image_size;
+						(void)fseek(fp, 0, SEEK_END);
+						material_data.data_size = (size_t)ftell(fp);
+						total_image_size += material_data.data_size;
+						rewind(fp);
+
+						if(material_data.data_size > image_buffer_size)
+						{
+							image_data = (uint8*)MEM_REALLOC_FUNC(image_data, material_data.data_size);
+							image_buffer_size = material_data.data_size;
+						}
+						(void)fread(image_data, 1, material_data.data_size, fp);
+						(void)MemWrite(image_data, 1, material_data.data_size, image_stream);
+						StructArrayAppend(materials_data, &material_data);
+
+						(void)fclose(fp);
+					}
+					MEM_FREE_FUNC(system_path);
+				}
+
+				name_length = (unsigned int)strlen(sub_texture);
+				if(ght_get(name_table, name_length, sub_texture) == NULL)
+				{
+					(void)sprintf(full_path, "%s/%s", model->model_path, sub_texture);
+					system_path = LocaleFromUTF8(full_path);
+					if((fp = fopen(system_path, "rb")) != NULL)
+					{
+						(void)ght_insert(name_table, (void*)1, name_length, sub_texture);
+						material_data.name = MEM_STRDUP_FUNC(main_texture);
+						material_data.data_start = total_image_size;
+						(void)fseek(fp, 0, SEEK_END);
+						material_data.data_size = (size_t)ftell(fp);
+						total_image_size += material_data.data_size;
+						rewind(fp);
+
+						if(material_data.data_size > image_buffer_size)
+						{
+							image_data = (uint8*)MEM_REALLOC_FUNC(image_data, material_data.data_size);
+							image_buffer_size = material_data.data_size;
+						}
+						(void)fread(image_data, 1, material_data.data_size, fp);
+						(void)MemWrite(image_data, 1, material_data.data_size, image_stream);
+						StructArrayAppend(materials_data, &material_data);
+
+						(void)fclose(fp);
+					}
+					MEM_FREE_FUNC(system_path);
+				}
+			}
+			else
+			{
+				name_length = (unsigned int)strlen(main_texture);
+				if(ght_get(name_table, name_length, main_texture) == NULL)
+				{
+					(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+					system_path = LocaleFromUTF8(full_path);
+					if((fp = fopen(system_path, "rb")) != NULL)
+					{
+						(void)ght_insert(name_table, (void*)1, name_length, main_texture);
+						material_data.name = MEM_STRDUP_FUNC(main_texture);
+						material_data.data_start = total_image_size;
+						(void)fseek(fp, 0, SEEK_END);
+						material_data.data_size = (size_t)ftell(fp);
+						total_image_size += material_data.data_size;
+						rewind(fp);
+
+						if(material_data.data_size > image_buffer_size)
+						{
+							image_data = (uint8*)MEM_REALLOC_FUNC(image_data, material_data.data_size);
+							image_buffer_size = material_data.data_size;
+						}
+						(void)fread(image_data, 1, material_data.data_size, fp);
+						(void)MemWrite(image_data, 1, material_data.data_size, image_stream);
+						StructArrayAppend(materials_data, &material_data);
+
+						(void)fclose(fp);
+					}
+					MEM_FREE_FUNC(system_path);
+				}
+			}
+			texture_index++;
+		} while(found == AI_SUCCESS);
+	}
+
+	{
+		MEMORY_STREAM result_stream = {0};
+		MATERIAL_DATA *materials = (MATERIAL_DATA*)materials_data->buffer;
+		size_t image_start = sizeof(data32);
+		num_items = (unsigned int)materials_data->num_data;
+		for(i=0; i<num_items; i++)
+		{
+			MATERIAL_DATA *material = &materials[i];
+			image_start += strlen(material->name) + sizeof(uint32) * 3 + 1;
+		}
+
+		ret = (uint8*)MEM_ALLOC_FUNC(image_start + image_stream->data_point);
+		result_stream.buff_ptr = ret;
+		result_stream.data_size = image_start + image_stream->data_point;
+		data32 = num_items;
+		(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+		for(i=0; i<num_items; i++)
+		{
+			MATERIAL_DATA *material = &materials[i];
+			material->data_start += image_start;
+			data32 = (uint32)strlen(material->name) + 1;
+			(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+			(void)MemWrite(material->name, 1, data32, &result_stream);
+			data32 = (uint32)material->data_start;
+			(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+			data32 = (uint32)material->data_size;
+			(void)MemWrite(&data32, sizeof(data32), 1, &result_stream);
+		}
+		(void)MemWrite(image_stream->buff_ptr, 1, image_stream->data_point, &result_stream);
+
+		if(out_data_size != NULL)
+		{
+			*out_data_size = result_stream.data_point;
+		}
+	}
+
+	StructArrayDestroy(&materials_data, (void (*)(void*))ReleaseMaterialData);
+	(void)DeleteMemoryStream(image_stream);
+
+	return ret;
+}
+
+void ReadAssetModelDataAndState(
+	void *scene,
+	ASSET_MODEL* model,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+)
+{
+	SCENE *scene_ptr = (SCENE*)scene;
+	char *file_name;
+	float float_values[4];
+	uint32 data32;
+	uint32 data_size;
+	uint32 section_size;
+
+	(void)read_func(&data_size, sizeof(data_size), 1, src);
+
+	// ファイル名を読み込む
+	(void)read_func(&data32, sizeof(data32), 1, src);
+	file_name = (char*)MEM_ALLOC_FUNC(data32);
+	(void)read_func(file_name, 1, data32, src);
+
+	// モデルのデータを読み込む
+	{
+		uint32 decode_size;
+		uint8 *section_data;
+		uint8 *decode_data;
+		(void)read_func(&section_size, sizeof(section_size), 1, src);
+		(void)read_func(&decode_size, sizeof(decode_size), 1, src);
+		section_data = (uint8*)MEM_ALLOC_FUNC(section_size);
+		decode_data = (uint8*)MEM_ALLOC_FUNC(decode_size);
+		(void)read_func(section_data, 1, section_size, src);
+		if(InflateData(section_data, decode_data, section_size, decode_size, NULL) != 0)
+		{
+			return;
+		}
+		LoadAssetModel(model, decode_data, decode_size, file_name,
+			GetFileExtention(file_name), "./");
+		MEM_FREE_FUNC(section_data);
+	}
+
+	// モデルの位置・向きを読み込む
+	(void)read_func(model->position, sizeof(*model->position), 3, src);
+	(void)read_func(model->rotation, sizeof(*model->rotation), 4, src);
+	// モデルのサイズを読み込む
+	(void)read_func(float_values, sizeof(*float_values), 1, src);
+	model->interface_data.scale_factor = float_values[0];
+
+	// テクスチャデータを読み込む
+	{
+		(void)read_func(&section_size, sizeof(section_size), 1, src);
+		model->interface_data.texture_archive_size = section_size;
+		model->interface_data.texture_archive = MEM_ALLOC_FUNC(section_size);
+		(void)read_func(model->interface_data.texture_archive, 1, section_size, src);
+
+		PointerArrayAppend(scene_ptr->engines, SceneCreateRenderEngine(
+			scene_ptr, RENDER_ENGINE_ASSET, &model->interface_data, 0, scene_ptr->project));
+	}
+
+	// 親ボーンの読み込み
+	(void)read_func(&data32, sizeof(data32), 1, src);
+	if(data32 > 0)
+	{
+		model->interface_data.parent_model =
+			(MODEL_INTERFACE*)MEM_ALLOC_FUNC(data32);
+		(void)read_func(model->interface_data.parent_model, 1,
+			data32, src);
+		(void)read_func(&data32, sizeof(data32), 1, src);
+		model->interface_data.parent_bone =
+			(BONE_INTERFACE*)MEM_ALLOC_FUNC(data32);
+		(void)read_func(model->interface_data.parent_bone, 1, data32, src);
+	}
+
+	MEM_FREE_FUNC(file_name);
+}
+
+size_t WriteAssetModelDataAndState(
+	ASSET_MODEL* model,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*)
+)
+{
+	// 最後にサイズを書き出すので位置を記憶
+	long size_position = tell_func(dst);
+	// ZIP圧縮用
+	uint8 *compressed_data = (uint8*)MEM_ALLOC_FUNC(model->model_data_size*2);
+	// 圧縮後のサイズ
+	size_t compressed_size;
+	// 浮動小数点数書き出し用
+	float float_values[4];
+	// 4バイト書き出し用
+	uint32 data32;
+
+	// データサイズ(4バイト)分をスキップ
+	(void)seek_func(dst, sizeof(uint32), SEEK_CUR);
+
+	// ファイル名を書き出す
+	data32 = (uint32)strlen(model->interface_data.name) + 1;
+	(void)write_func(&data32, sizeof(data32), 1, dst);
+	(void)write_func(model->interface_data.name, 1, data32, dst);
+
+	// モデルのデータを書き出す
+		// ZIP圧縮して書き出し
+	(void)DeflateData(model->model_data, compressed_data,
+		model->model_data_size, model->model_data_size * 2, &compressed_size, Z_DEFAULT_COMPRESSION);
+	data32 = (uint32)compressed_size;
+	(void)write_func(&data32, sizeof(data32), 1, dst);
+	data32 = (uint32)model->model_data_size;
+	(void)write_func(&data32, sizeof(data32), 1, dst);
+	(void)write_func(compressed_data, 1, compressed_size, dst);
+
+	MEM_FREE_FUNC(compressed_data);
+
+	// モデルの位置・向きを書き出す
+	(void)write_func(model->position, sizeof(*model->position), 3, dst);
+	(void)write_func(model->rotation, sizeof(*model->rotation), 4, dst);
+	// モデルのサイズを書き出す
+	float_values[0] = (float)model->interface_data.scale_factor;
+	(void)write_func(float_values, sizeof(*float_values), 1, dst);
+
+	// テクスチャデータの書き出し
+	if(model->interface_data.texture_archive_size > 0)
+	{
+		data32 = (uint32)model->interface_data.texture_archive_size;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+		(void)write_func(model->interface_data.texture_archive, 1,
+			model->interface_data.texture_archive_size, dst);
+	}
+	else
+	{
+		size_t write_data_size;
+		uint8 *texture_data = WriteAssetModelMaterials(model, &write_data_size);
+		data32 = (uint32)write_data_size;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+		(void)write_func(texture_data, 1, write_data_size, dst);
+		MEM_FREE_FUNC(texture_data);
+	}
+
+	// 親モデル・ボーンの書き出し
+	if(model->interface_data.parent_bone != NULL)
+	{
+		data32 = (uint32)strlen(model->interface_data.parent_model->name) + 1;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+		(void)write_func(model->interface_data.parent_model->name, 1, data32, dst);
+		data32 = (uint32)strlen(model->interface_data.parent_bone->name) + 1;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+		(void)write_func(model->interface_data.parent_bone->name, 1, data32, dst);
+	}
+	else
+	{
+		data32 = 0;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+	}
+
+	data32 = (uint32)tell_func(dst);
+	(void)seek_func(dst, size_position, SEEK_SET);
+	(void)write_func(&data32, sizeof(data32), 1, dst);
+	(void)seek_func(dst, data32, SEEK_SET);
+
+	return data32;
+}
+
 void AssetModelSetWorldPositionInternal(ASSET_MODEL* model, const float* translation)
 {
 	COPY_VECTOR3(model->position, translation);
@@ -275,3 +642,7 @@ void AssetModelSetWorldRotationInternal(ASSET_MODEL* model, const float* rotatio
 {
 	COPY_VECTOR4(model->rotation, rotation);
 }
+
+#ifdef __cplusplus
+}
+#endif

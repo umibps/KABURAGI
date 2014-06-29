@@ -11,6 +11,10 @@
 #include "application.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void MakeShaderProgram(SHADER_PROGRAM* program)
 {
 	if(program->program == 0)
@@ -825,3 +829,7 @@ void TextureDrawHelperProgramSetUniformValues(
 	glUniformMatrix4fv(program->model_view_projection_matrix, 4, GL_FALSE, matrix);
 	glUniform1ui(program->main_texture, texture_id);
 }
+
+#ifdef __cplusplus
+}
+#endif

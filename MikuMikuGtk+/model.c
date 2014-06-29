@@ -8,6 +8,10 @@
 #include "application.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void ReleaseModelInterface(MODEL_INTERFACE* model)
 {
 	MEM_FREE_FUNC(model->name);
@@ -15,6 +19,7 @@ void ReleaseModelInterface(MODEL_INTERFACE* model)
 	MEM_FREE_FUNC(model->comment);
 	MEM_FREE_FUNC(model->english_comment);
 	MEM_FREE_FUNC(model->model_path);
+	MEM_FREE_FUNC(model->texture_archive);
 }
 
 void ModelJoinWorld(MODEL_INTERFACE* model, WORLD* world)
@@ -161,3 +166,117 @@ char** GetChildBoneNames(MODEL_INTERFACE* model, void* application_context)
 
 	return ret;
 }
+
+/*****************************************
+* ReadModelData関数                      *
+* モデルデータと状態を読み込む           *
+* 引数                                   *
+* model		: 読み込み先のモデル         *
+* src		: データストリーム           *
+* data_size	: データのバイト数           *
+* read_func	: 読み込みに使う関数ポインタ *
+* seek_func	: シークに使う関数ポインタ   *
+*****************************************/
+void ReadModelData(
+	MODEL_INTERFACE* model,
+	void* scene,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+)
+{
+	switch(model->type)
+	{
+	case MODEL_TYPE_ASSET_MODEL:
+		ReadAssetModelDataAndState(scene, (ASSET_MODEL*)model,
+			src, read_func, seek_func);
+		break;
+	case MODEL_TYPE_PMD_MODEL:
+		ReadPmd2ModelDataAndState(scene, (PMD2_MODEL*)model,
+			src, read_func, seek_func);
+		break;
+	case MODEL_TYPE_PMX_MODEL:
+		ReadPmxModelDataAndState(scene, (PMX_MODEL*)model,
+			src, read_func, seek_func);
+		break;
+	}
+}
+
+/*****************************************************
+* WriteModelData関数                                 *
+* モデルデータと状態を書き出す                       *
+* 引数                                               *
+* model			: データと状態を書き出すモデル       *
+* dst			: 書き出し先のストリーム             *
+* write_func	: 書き出しに使う関数ポインタ         *
+* seek_func		: シークに使う関数ポインタ           *
+* tell_func		: シーク位置の取得に使う関数ポインタ *
+* 返り値                                             *
+*	書き出したバイト数                               *
+*****************************************************/
+size_t WriteModelData(
+	MODEL_INTERFACE* model,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*),
+	size_t* out_data_size
+)
+{
+	switch(model->type)
+	{
+	case MODEL_TYPE_ASSET_MODEL:
+		return WriteAssetModelDataAndState(
+			(ASSET_MODEL*)model, dst, write_func, seek_func, tell_func);
+	case MODEL_TYPE_PMD_MODEL:
+		return WritePmd2ModelDataAndState(
+			(PMD2_MODEL*)model, dst, write_func, seek_func, tell_func);
+	case MODEL_TYPE_PMX_MODEL:
+		return WritePmxModelDataAndState(
+			(PMX_MODEL*)model, dst, write_func, seek_func, tell_func);
+	}
+
+	return 0;
+}
+
+/***************************************************************
+* MakeModelContext関数                                         *
+* 指定されたタイプのモデルデータを初期化して返す               *
+* 引数                                                         *
+* type					: 初期化するモデルのタイプ             *
+* scene					: シーン描画を管理するデータ           *
+* application_context	: アプリケーション全体を管理するデータ *
+* 返り値                                                       *
+*	初期化されたモデルデータ                                   *
+***************************************************************/
+MODEL_INTERFACE* MakeModelContext(
+	eMODEL_TYPE type,
+	void* scene,
+	void* application_context
+)
+{
+	APPLICATION *application = (APPLICATION*)application_context;
+	MODEL_INTERFACE *model = NULL;
+
+	switch(type)
+	{
+	case MODEL_TYPE_ASSET_MODEL:
+		model = (MODEL_INTERFACE*)MEM_ALLOC_FUNC(sizeof(ASSET_MODEL));
+		InitializeAssetModel((ASSET_MODEL*)model, (SCENE*)scene, application_context);
+		break;
+	case MODEL_TYPE_PMD_MODEL:
+		model = (MODEL_INTERFACE*)MEM_ALLOC_FUNC(sizeof(PMD2_MODEL));
+		InitializePmd2Model((PMD2_MODEL*)model, (SCENE*)scene, "./");
+		break;
+	case MODEL_TYPE_PMX_MODEL:
+		model = (MODEL_INTERFACE*)MEM_ALLOC_FUNC(sizeof(PMX_MODEL));
+		InitializePmxModel((PMX_MODEL*)model, (SCENE*)scene, &application->encode, "./");
+		break;
+	}
+
+	return model;
+}
+
+#ifdef __cplusplus
+}
+#endif

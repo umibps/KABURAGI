@@ -1,6 +1,10 @@
 #include <string.h>
 #include "texture.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void BaseTextureMake(BASE_TEXTURE* texture)
 {
 	if(texture->interface_data.name == 0)
@@ -46,3 +50,7 @@ void InitializeTexture2D(TEXTURE_2D* texture, TEXTURE_FORMAT* format, int* size,
 
 	texture->base_data.generate = (void (*)(void*))GenerateTexture2D;
 }
+
+#ifdef __cplusplus
+}
+#endif

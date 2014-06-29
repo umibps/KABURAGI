@@ -124,46 +124,46 @@ typedef enum _ePMX_FLAGS
 
 typedef struct _PMX_DATA_INFO
 {
-TEXT_ENCODE *encoding;
-eTEXT_TYPE codec;
-float version;
-uint8 *base;
-uint8 *name;
-size_t additional_uv_size;
-size_t vertex_index_size;
-size_t texture_index_size;
-size_t material_index_size;
-size_t bone_index_size;
-size_t morph_index_size;
-size_t rigid_body_index_size;
-int name_size;
-uint8 *english_name;
-int english_name_size;
-uint8 *comment;
-int comment_size;
-uint8 *english_comment;
-int english_comment_size;
-uint8 *vertices;
-size_t vertices_count;
-uint8 *indices;
-size_t indices_count;
-uint8 *textures;
-size_t textures_count;
-uint8 *materials;
-size_t materials_count;
-uint8 *bones;
-size_t bones_count;
-uint8 *morphs;
-size_t morphs_count;
-uint8 *labels;
-size_t labels_count;
-uint8 *rigid_bodies;
-size_t rigid_bodies_count;
-uint8 *joints;
-size_t joints_count;
-uint8 *soft_bodies;
-size_t soft_bodies_count;
-uint8 *end;
+	TEXT_ENCODE *encoding;
+	eTEXT_TYPE codec;
+	float version;
+	uint8 *base;
+	uint8 *name;
+	size_t additional_uv_size;
+	size_t vertex_index_size;
+	size_t texture_index_size;
+	size_t material_index_size;
+	size_t bone_index_size;
+	size_t morph_index_size;
+	size_t rigid_body_index_size;
+	int name_size;
+	uint8 *english_name;
+	int english_name_size;
+	uint8 *comment;
+	int comment_size;
+	uint8 *english_comment;
+	int english_comment_size;
+	uint8 *vertices;
+	size_t vertices_count;
+	uint8 *indices;
+	size_t indices_count;
+	uint8 *textures;
+	size_t textures_count;
+	uint8 *materials;
+	size_t materials_count;
+	uint8 *bones;
+	size_t bones_count;
+	uint8 *morphs;
+	size_t morphs_count;
+	uint8 *labels;
+	size_t labels_count;
+	uint8 *rigid_bodies;
+	size_t rigid_bodies_count;
+	uint8 *joints;
+	size_t joints_count;
+	uint8 *soft_bodies;
+	size_t soft_bodies_count;
+	uint8 *end;
 } PMX_DATA_INFO;
 
 typedef struct _PMX_MODEL
@@ -198,7 +198,27 @@ typedef struct _PMX_MODEL
 	unsigned int flags;
 } PMX_MODEL;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int LoadPmxModel(PMX_MODEL* model, uint8* data, size_t data_size);
+
+extern void ReadPmxModelDataAndState(
+	void *scene,
+	PMX_MODEL* model,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+);
+
+extern size_t WritePmxModelDataAndState(
+	PMX_MODEL* model,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*)
+);
 
 extern void InitializePmxVertex(PMX_VERTEX* vertex, PMX_MODEL* model);
 
@@ -353,5 +373,9 @@ extern void PmxModelLeaveWorld(PMX_MODEL* model, void* world);
 extern void PmxModelPerformUpdate(PMX_MODEL* model, int force_sync);
 
 extern void PmxModelResetMotionState(PMX_MODEL* model, void* world);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_PMX_MODEL_H_

@@ -3,6 +3,10 @@
 
 #include "types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern STR_STR_MAP* STR_STR_MAP_new(void);
 extern STR_STR_MAPIterator STR_STR_MAP_begin(STR_STR_MAP* self);
 extern STR_STR_MAPIterator STR_STR_MAP_next(STR_STR_MAPIterator pos);
@@ -32,5 +36,9 @@ extern void* const *PTR_PTR_MAP_key(PTR_PTR_MAPIterator pos);
 extern PTR_PTR_MAPIterator PTR_PTR_MAP_find(PTR_PTR_MAP* self, void* key);
 extern void** PTR_PTR_MAP_value(PTR_PTR_MAPIterator pos);
 extern int PTR_PTR_MAP_size(PTR_PTR_MAP* self);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_MAP_FUNCS_H_

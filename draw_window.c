@@ -2127,9 +2127,27 @@ void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_
 gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_info, DRAW_WINDOW* window)
 {
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	if(ConfigureEvent(widget, event_info, window->first_project) == FALSE)
+	LAYER *layer = window->layer;
+	if((window->flags & DRAW_WINDOW_INITIALIZED) == 0)
 	{
-		return FALSE;
+		if(ConfigureEvent(widget, event_info, window->first_project) == FALSE)
+		{
+			return FALSE;
+		}
+		window->flags |= DRAW_WINDOW_INITIALIZED;
+	}
+
+	while(layer != NULL)
+	{
+		if(layer->modeling_data != NULL)
+		{
+			MEMORY_STREAM stream = {(uint8*)layer->modeling_data, 0, layer->modeling_data_size, 1024};
+			LoadProjectContextData(layer->layer_data.project, (void*)&stream, (size_t (*)(void*, size_t, size_t, void*))MemRead,
+				(int (*)(void*, long, int))MemSeek);
+			MEM_FREE_FUNC(layer->modeling_data);
+			layer->modeling_data = NULL;
+		}
+		layer = layer->next;
 	}
 
 	if(window->active_layer == NULL)
@@ -2143,7 +2161,12 @@ gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_inf
 		gtk_widget_show(window->window);
 		SetDrawWindowCallbacks(window->window, window);
 		g_signal_handler_disconnect(window->window, window->callbacks.configure);
+		gtk_widget_queue_draw(window->window);
 	}
+#else
+	g_signal_handler_disconnect(window->window, window->callbacks.configure);
+	window->callbacks.configure = 0;
+	window->flags |= DRAW_WINDOW_INITIALIZED;
 #endif
 
 	return FALSE;

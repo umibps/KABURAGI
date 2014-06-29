@@ -10,6 +10,10 @@
 #include "parameter.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 ANNOTATION* FxAnnotationNew(struct _EFFECT* effect, ANNOTATION* annotation, char* name)
 {
 	ANNOTATION *ret;
@@ -145,3 +149,7 @@ ANNOTATION* EffectCacheFxAnnotationRefference(
 
 	return NULL;
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -3,6 +3,10 @@
 #include "application.h"
 #include "vmd_motion.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static FLOAT_T Spline1(FLOAT_T* t, FLOAT_T* p1, FLOAT_T* p2)
 {
 	return ((1 + 3 * (*p1) - 3 * (*p2)) * (*t) * (*t) * (*t)
@@ -133,3 +137,7 @@ FLOAT_T KeyframeLerp(const FLOAT_T* x, const FLOAT_T* y, const FLOAT_T* t)
 {
 	return *x + (*y - *x) * (*t);
 }
+
+#ifdef __cplusplus
+}
+#endif

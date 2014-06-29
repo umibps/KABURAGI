@@ -33,6 +33,10 @@ typedef struct _PROJECT_WIDGETS
 	GtkWidget *drawing_area;
 } PROJECT_WIDGETS;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void InitializeProjectWidgets(PROJECT_WIDGETS* widgets, int widget_width, int widget_height, void* project);
 
 extern gboolean MouseButtonPressEvent(GtkWidget* widget, GdkEventButton* event_info, void* project_context);
@@ -54,5 +58,9 @@ extern gboolean ConfigureEvent(
 );
 
 extern GtkWidget* MakeMenuBar(void* application_context, GtkAccelGroup* hot_key);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_UI_H_

@@ -144,6 +144,16 @@ extern int strncasecmp(const char* s1, const char* s2, size_t n);
 **************************************************************/
 extern char* StringStringIgnoreCase(const char* str, const char* search);
 
+/*********************************
+* GetFileExtention関数           *
+* ファイル名から拡張子を取得する *
+* 引数                           *
+* file_name	: ファイル名         *
+* 返り値                         *
+*	拡張子の文字列               *
+*********************************/
+extern char* GetFileExtention(char* file_name);
+
 /***************************************
 * StringReplace関数                    *
 * 指定した文字列を置換する             *
@@ -255,6 +265,48 @@ extern void AdjustmentChangeValueCallBackUint32(GtkAdjustment* adjustment, uint3
 extern void AdjustmentChangeVaueCallBackDouble(GtkAdjustment* adjustment, gdouble* value);
 
 extern void CheckButtonSetFlagsCallBack(GtkWidget* button, guint32* flags, guint32 flag_value);
+
+/*******************************************************
+* InflateData関数                                      *
+* ZIP圧縮されたデータをデコードする                    *
+* 引数                                                 *
+* data				: 入力データ                       *
+* out_buffer		: 出力先のバッファ                 *
+* in_size			: 入力データのバイト数             *
+* out_buffer_size	: 出力先のバッファのサイズ         *
+* out_size			: 出力したバイト数の格納先(NULL可) *
+* 返り値                                               *
+*	正常終了:0、失敗:0以外                             *
+*******************************************************/
+extern int InflateData(
+	uint8* data,
+	uint8* out_buffer,
+	size_t in_size,
+	size_t out_buffer_size,
+	size_t* out_size
+);
+
+/***************************************************
+* DeflateData関数                                  *
+* ZIP圧縮を行う                                    *
+* 引数                                             *
+* data					: 入力データ               *
+* out_buffer			: 出力先のバッファ         *
+* target_data_size		: 入力データのバイト数     *
+* out_buffer_size		: 出力先のバッファのサイズ *
+* compressed_data_size	: 圧縮後のバイト数格納先   *
+* compress_level		: 圧縮レベル(0～9)         *
+* 返り値                                           *
+*	正常終了:0、失敗:0以外                         *
+***************************************************/
+extern int DeflateData(
+	uint8* data,
+	uint8* out_buffer,
+	size_t target_data_size,
+	size_t out_buffer_size,
+	size_t* compressed_data_size,
+	int compress_level
+);
 
 #ifdef __cplusplus
 }

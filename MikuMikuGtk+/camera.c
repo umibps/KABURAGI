@@ -2,6 +2,10 @@
 #include "application.h"
 #include "bullet.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void InitializeCamera(CAMERA* camera, void* scene)
 {
 	const float identity[9] = IDENTITY_MATRIX3x3;
@@ -78,3 +82,7 @@ void ResetCameraDefault(CAMERA* camera)
 
 	CameraUpdateTransform(camera);
 }
+
+#ifdef __cplusplus
+}
+#endif

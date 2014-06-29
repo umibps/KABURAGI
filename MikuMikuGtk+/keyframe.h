@@ -64,10 +64,18 @@ typedef struct _MORPH_KEYFRAME_INTERFACE
 	KEYFRAME_INTERFACE base_data;
 } MORPH_KEYFRAME_INTERFACE;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int FindKeyframeIndex(
 	FLOAT_T key,
 	KEYFRAME_INTERFACE** keyframes,
 	const int num_keyframes
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// _INCLUDED_KEYFRAME_H_

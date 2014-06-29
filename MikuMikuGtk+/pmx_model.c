@@ -5,6 +5,7 @@
 #endif
 
 #include <string.h>
+#include <zlib.h>
 #include "pmx_model.h"
 #include "vertex.h"
 #include "model_helper.h"
@@ -18,6 +19,10 @@
 #define PMX_FLAGS_SIZE 8
 
 #define PMX_DEFAULT_BUFFER_SIZE 32
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void* PmxModelFindBone(PMX_MODEL* model, const char* bone_name)
 {
@@ -545,6 +550,8 @@ int PmxModelPreparse(
 	info->encoding = model->encoding;
 	model->data_info = *info;
 
+	info->end = data + data_size;
+
 	return TRUE;
 }
 
@@ -935,11 +942,223 @@ int LoadPmxModel(PMX_MODEL* model, uint8* data, size_t data_size)
 
 		SortPmxBones(model->bones, model->bones_after_physics, model->bones_before_physics);
 		PmxModelPerformUpdate(model, FALSE);
+		model->data_info.end = data + data_size;
 
 		return TRUE;
 	}
 
 	return FALSE;
+}
+
+void ReadPmxModelDataAndState(
+	void *scene,
+	PMX_MODEL* model,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+)
+{
+	SCENE *scene_ptr = (SCENE*)scene;
+	float float_values[4];
+	uint32 data32;
+	uint32 data_size;
+	uint32 section_size;
+
+	(void)read_func(&data_size, sizeof(data_size), 1, src);
+
+	// モデルのデータを読み込む
+	{
+		uint32 decode_size;
+		uint8 *section_data;
+		uint8 *decode_data;
+		(void)read_func(&section_size, sizeof(section_size), 1, src);
+		(void)read_func(&decode_size, sizeof(decode_size), 1, src);
+		section_data = (uint8*)MEM_ALLOC_FUNC(section_size);
+		decode_data = (uint8*)MEM_ALLOC_FUNC(decode_size);
+		(void)read_func(section_data, 1, section_size, src);
+		if(InflateData(section_data, decode_data, section_size, decode_size, NULL) != 0)
+		{
+			return;
+		}
+		LoadPmxModel(model, decode_data, decode_size);
+		MEM_FREE_FUNC(section_data);
+	}
+
+	// モデルの位置・向きを読み込む
+	(void)read_func(model->position, sizeof(*model->position), 3, src);
+	(void)read_func(model->rotation, sizeof(*model->rotation), 4, src);
+	// モデルのサイズを読み込む
+	(void)read_func(float_values, sizeof(*float_values), 1, src);
+	model->interface_data.scale_factor = float_values[0];
+
+	// テクスチャデータを読み込む
+	{
+		(void)read_func(&section_size, sizeof(section_size), 1, src);
+		model->interface_data.texture_archive_size = section_size;
+		model->interface_data.texture_archive = MEM_ALLOC_FUNC(section_size);
+		(void)read_func(model->interface_data.texture_archive, 1, section_size, src);
+
+		PointerArrayAppend(scene_ptr->engines, SceneCreateRenderEngine(
+			scene_ptr, RENDER_ENGINE_PMX, &model->interface_data, 0, scene_ptr->project));
+
+		PmxModelJoinWorld(model, scene_ptr->project->world.world);
+	}
+
+	// ボーンデータの読み込み
+	{
+		size_t section_size;
+		MEMORY_STREAM *stream;
+
+		(void)read_func(&data32, sizeof(data32), 1, src);
+		section_size = (size_t)data32;
+		stream = CreateMemoryStream(section_size);
+
+		(void)read_func(stream->buff_ptr, 1, section_size, src);
+		ReadBoneData(stream, &model->interface_data, model->interface_data.scene->project);
+
+		(void)DeleteMemoryStream(stream);
+	}
+
+	// 表情データの読み込み
+	{
+		size_t section_size;
+		MEMORY_STREAM *stream;
+
+		(void)read_func(&data32, sizeof(data32), 1, src);
+		section_size = (size_t)data32;
+		stream = CreateMemoryStream(section_size);
+
+		(void)read_func(stream->buff_ptr, 1, section_size, src);
+		ReadMorphData(stream, &model->interface_data);
+
+		(void)DeleteMemoryStream(stream);
+	}
+
+	// 親ボーンの読み込み
+	(void)read_func(&data32, sizeof(data32), 1, src);
+	if(data32 > 0)
+	{
+		model->interface_data.parent_model =
+			(MODEL_INTERFACE*)MEM_ALLOC_FUNC(data32);
+		(void)read_func(model->interface_data.parent_model, 1,
+			data32, src);
+		(void)read_func(&data32, sizeof(data32), 1, src);
+		model->interface_data.parent_bone =
+			(BONE_INTERFACE*)MEM_ALLOC_FUNC(data32);
+		(void)read_func(model->interface_data.parent_bone, 1, data32, src);
+	}
+}
+
+size_t WritePmxModelDataAndState(
+	PMX_MODEL* model,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*)
+)
+{
+	// 最後にサイズを書き出すので位置を記憶
+	long size_position = tell_func(dst);
+	uint32 write_size;
+	// ZIP圧縮用
+	uint8 *compressed_data = (uint8*)MEM_ALLOC_FUNC((size_t)(model->data_info.end - model->data_info.base)*2);
+	// 圧縮後のサイズ
+	size_t compressed_size;
+	// 浮動小数点数書き出し用
+	float float_values[4];
+	// 4バイト書き出し用
+	uint32 data32;
+
+	// データサイズ(4バイト)分をスキップ
+	(void)seek_func(dst, sizeof(uint32), SEEK_CUR);
+
+	// モデルのデータを書き出す
+		// ZIP圧縮して書き出し
+	(void)DeflateData(model->data_info.base, compressed_data,
+		(size_t)(model->data_info.end - model->data_info.base),
+		(size_t)(model->data_info.end - model->data_info.base) * 2,
+		&compressed_size,
+		Z_DEFAULT_COMPRESSION
+	);
+	data32 = (uint32)compressed_size;
+	(void)write_func(&data32, sizeof(data32), 1, dst);
+	data32 = (uint32)(model->data_info.end - model->data_info.base);
+	(void)write_func(&data32, sizeof(data32), 1, dst);
+	(void)write_func(compressed_data, 1, compressed_size, dst);
+
+	MEM_FREE_FUNC(compressed_data);
+
+	// モデルの位置・向きを書き出す
+	(void)write_func(model->position, sizeof(*model->position), 3, dst);
+	(void)write_func(model->rotation, sizeof(*model->rotation), 4, dst);
+	// モデルのサイズを書き出す
+	float_values[0] = (float)model->interface_data.scale_factor;
+	(void)write_func(float_values, sizeof(*float_values), 1, dst);
+
+	// テクスチャデータの書き出し
+	if(model->interface_data.texture_archive_size > 0)
+	{
+		data32 = (uint32)model->interface_data.texture_archive_size;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+		(void)write_func(model->interface_data.texture_archive, 1,
+			model->interface_data.texture_archive_size, dst);
+	}
+	else
+	{
+		size_t write_data_size;
+		uint8 *texture_data = WriteMmdModelMaterials(
+			&model->interface_data, &write_data_size);
+		data32 = (uint32)write_data_size;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+		(void)write_func(texture_data, 1, write_data_size, dst);
+		MEM_FREE_FUNC(texture_data);
+	}
+
+	// ボーンデータの書き出し
+	{
+		size_t write_data_size;
+		uint8 *bone_data = WriteBoneData(
+			&model->interface_data, &write_data_size);
+		data32 = (uint32)write_data_size;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+		(void)write_func(bone_data, 1, write_data_size, dst);
+		MEM_FREE_FUNC(bone_data);
+	}
+
+	// 表情データの書き出し
+	{
+		size_t write_data_size;
+		uint8 *morph_data = WriteMorphData(
+			&model->interface_data, &write_data_size);
+		data32 = (uint32)write_data_size;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+		(void)write_func(morph_data, 1, write_data_size, dst);
+		MEM_FREE_FUNC(morph_data);
+	}
+
+	// 親モデル・ボーンの書き出し
+	if(model->interface_data.parent_bone != NULL)
+	{
+		data32 = (uint32)strlen(model->interface_data.parent_model->name) + 1;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+		(void)write_func(model->interface_data.parent_model->name, 1, data32, dst);
+		data32 = (uint32)strlen(model->interface_data.parent_bone->name) + 1;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+		(void)write_func(model->interface_data.parent_bone->name, 1, data32, dst);
+	}
+	else
+	{
+		data32 = 0;
+		(void)write_func(&data32, sizeof(data32), 1, dst);
+	}
+
+	data32 = (uint32)tell_func(dst);
+	(void)seek_func(dst, size_position, SEEK_SET);
+	write_size = data32 - size_position;
+	(void)write_func(&write_size, sizeof(write_size), 1, dst);
+	(void)seek_func(dst, data32, SEEK_SET);
+
+	return data32;
 }
 
 void PmxModelResetMotionState(PMX_MODEL* model, void* world)
@@ -1789,3 +2008,7 @@ void PmxModelLeaveWorld(PMX_MODEL* model, void* world)
 		}
 	}
 }
+
+#ifdef __cplusplus
+}
+#endif

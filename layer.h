@@ -126,6 +126,12 @@ typedef struct _LAYER
 	// 追加情報
 	EXTRA_LAYER_DATA extra_data[MAX_LAYER_EXTRA_DATA_NUM];
 
+	// ファイル読み込み時の3Dモデルデータ
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	void *modeling_data;
+	size_t modeling_data_size;
+#endif
+
 	// 描画領域へのポインタ
 	struct _DRAW_WINDOW *window;
 } LAYER;

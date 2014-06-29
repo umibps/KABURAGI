@@ -748,6 +748,8 @@ gboolean OnQuitApplication(APPLICATION* app)
 	gchar *dir_path;
 	// ファイルへのパス(Mac対策)
 	gchar *file_path;
+	// アプリケーションデータディレクトリにデータ作成するフラグ
+	gboolean make_app_dir = FALSE;
 	// for文用のカウンタ
 	int i;
 
@@ -804,39 +806,46 @@ gboolean OnQuitApplication(APPLICATION* app)
 	// ブラシファイルを更新する
 	if(app->common_tool_file_path[0] == '.' && app->common_tool_file_path[1] == '/')
 	{
-		dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
-		if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
+		if(WriteCommonToolData(&app->tool_window, app->common_tool_file_path, app) < 0)
 		{
-			(void)g_mkdir(dir_path,
+			dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
+			make_app_dir = TRUE;
+			if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
+			{
+				(void)g_mkdir(dir_path,
 #ifdef __MAC_OS__
+					S_IRUSR | S_IWUSR | S_IXUSR |
+					S_IRGRP | S_IWGRP | S_IXGRP |
+					S_IROTH | S_IXOTH | S_IXOTH
 #elif defined(_WIN32)
-				0
+					0
 #else
-				S_IRUSR | S_IWUSR | S_IXUSR |
-				S_IRGRP | S_IWGRP | S_IXGRP |
-				S_IROTH | S_IXOTH | S_IXOTH
+					S_IRUSR | S_IWUSR | S_IXUSR |
+					S_IRGRP | S_IWGRP | S_IXGRP |
+					S_IROTH | S_IXOTH | S_IXOTH
 #endif
-			);
-		}
-		else
-		{
-			g_dir_close(dir);
-		}
+				);
+			}
+			else
+			{
+				g_dir_close(dir);
+			}
 
-		file_path = g_build_filename(dir_path, "common_tools.ini", NULL);
-		if(WriteCommonToolData(&app->tool_window, file_path, app) == 0)
-		{
-			g_free(app->common_tool_file_path);
-			app->common_tool_file_path = file_path;
+			file_path = g_build_filename(dir_path, "common_tools.ini", NULL);
+			if(WriteCommonToolData(&app->tool_window, file_path, app) == 0)
+			{
+				g_free(app->common_tool_file_path);
+				app->common_tool_file_path = file_path;
+			}
+			else
+			{
+				g_free(file_path);
+				file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
+				(void)WriteCommonToolData(&app->tool_window, file_path, app);
+				g_free(file_path);
+			}
+			g_free(dir_path);
 		}
-		else
-		{
-			g_free(file_path);
-			file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
-			(void)WriteCommonToolData(&app->tool_window, file_path, app);
-			g_free(file_path);
-		}
-		g_free(dir_path);
 	}
 	else
 	{
@@ -845,39 +854,46 @@ gboolean OnQuitApplication(APPLICATION* app)
 
 	if(app->brush_file_path[0] == '.' && app->brush_file_path[1] == '/')
 	{
-		dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
-		if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
+		if(WriteBrushDetailData(&app->tool_window, app->brush_file_path, app) < 0)
 		{
-			(void)g_mkdir(dir_path,
+			dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
+			make_app_dir = TRUE;
+			if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
+			{
+				(void)g_mkdir(dir_path,
 #ifdef __MAC_OS__
+					S_IRUSR | S_IWUSR | S_IXUSR |
+					S_IRGRP | S_IWGRP | S_IXGRP |
+					S_IROTH | S_IXOTH | S_IXOTH
 #elif defined(_WIN32)
-				0
+					0
 #else
-				S_IRUSR | S_IWUSR | S_IXUSR |
-				S_IRGRP | S_IWGRP | S_IXGRP |
-				S_IROTH | S_IXOTH | S_IXOTH
+					S_IRUSR | S_IWUSR | S_IXUSR |
+					S_IRGRP | S_IWGRP | S_IXGRP |
+					S_IROTH | S_IXOTH | S_IXOTH
 #endif
-			);
-		}
-		else
-		{
-			g_dir_close(dir);
-		}
+				);
+			}
+			else
+			{
+				g_dir_close(dir);
+			}
 
-		file_path = g_build_filename(dir_path, "brushes.ini", NULL);
-		if(WriteBrushDetailData(&app->tool_window, file_path, app) == 0)
-		{
-			g_free(app->brush_file_path);
-			app->brush_file_path = file_path;
+			file_path = g_build_filename(dir_path, "brushes.ini", NULL);
+			if(WriteBrushDetailData(&app->tool_window, file_path, app) == 0)
+			{
+				g_free(app->brush_file_path);
+				app->brush_file_path = file_path;
+			}
+			else
+			{
+				g_free(file_path);
+				file_path = g_build_filename(app->current_path, &app->brush_file_path[2], NULL);
+				(void)WriteBrushDetailData(&app->tool_window, file_path, app);
+				g_free(file_path);
+			}
+			g_free(dir_path);
 		}
-		else
-		{
-			g_free(file_path);
-			file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
-			(void)WriteBrushDetailData(&app->tool_window, file_path, app);
-			g_free(file_path);
-		}
-		g_free(dir_path);
 	}
 	else
 	{
@@ -886,11 +902,68 @@ gboolean OnQuitApplication(APPLICATION* app)
 
 	if(app->vector_brush_file_path[0] == '.' && app->vector_brush_file_path[1] == '/')
 	{
+		if(WriteVectorBrushData(&app->tool_window, app->vector_brush_file_path, app) < 0)
+		{
+			dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
+			make_app_dir = TRUE;
+			if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
+			{
+				(void)g_mkdir(dir_path,
+#ifdef __MAC_OS__
+					S_IRUSR | S_IWUSR | S_IXUSR |
+					S_IRGRP | S_IWGRP | S_IXGRP |
+					S_IROTH | S_IXOTH | S_IXOTH
+#elif defined(_WIN32)
+					0
+#else
+					S_IRUSR | S_IWUSR | S_IXUSR |
+					S_IRGRP | S_IWGRP | S_IXGRP |
+					S_IROTH | S_IXOTH | S_IXOTH
+#endif
+				);
+			}
+			else
+			{
+				g_dir_close(dir);
+			}
+
+			file_path = g_build_filename(dir_path, "vector_brushes.ini", NULL);
+			if(WriteVectorBrushData(&app->tool_window, file_path, app) == 0)
+			{
+				g_free(app->vector_brush_file_path);
+				app->vector_brush_file_path = file_path;
+			}
+			else
+			{
+				g_free(file_path);
+				file_path = g_build_filename(app->current_path, &app->vector_brush_file_path[2], NULL);
+				(void)WriteVectorBrushData(&app->tool_window, file_path, app);
+				g_free(file_path);
+			}
+			g_free(dir_path);
+		}
+	}
+	else
+	{
+		(void)WriteVectorBrushData(&app->tool_window, app->vector_brush_file_path, app);
+	}
+
+	// 初期化ファイルを更新する
+	if(make_app_dir == FALSE)
+	{
+		dir_path = g_strdup(app->current_path);
+	}
+	else
+	{
 		dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
+
 		if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
 		{
 			(void)g_mkdir(dir_path,
 #ifdef __MAC_OS__
+				S_IRUSR | S_IWUSR | S_IXUSR |
+				S_IRGRP | S_IWGRP | S_IXGRP |
+				S_IROTH | S_IXOTH | S_IXOTH
 #elif defined(_WIN32)
 				0
 #else
@@ -904,45 +977,6 @@ gboolean OnQuitApplication(APPLICATION* app)
 		{
 			g_dir_close(dir);
 		}
-
-		file_path = g_build_filename(dir_path, "vector_brushes.ini", NULL);
-		if(WriteVectorBrushData(&app->tool_window, file_path, app) == 0)
-		{
-			g_free(app->vector_brush_file_path);
-			app->vector_brush_file_path = file_path;
-		}
-		else
-		{
-			g_free(file_path);
-			file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
-			(void)WriteVectorBrushData(&app->tool_window, file_path, app);
-			g_free(file_path);
-		}
-		g_free(dir_path);
-	}
-	else
-	{
-		(void)WriteVectorBrushData(&app->tool_window, app->vector_brush_file_path, app);
-	}
-
-	// 初期化ファイルを更新する
-	dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
-	if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
-	{
-		(void)g_mkdir(dir_path,
-#ifdef __MAC_OS__
-#elif defined(_WIN32)
-			0
-#else
-			S_IRUSR | S_IWUSR | S_IXUSR |
-			S_IRGRP | S_IWGRP | S_IXGRP |
-			S_IROTH | S_IXOTH | S_IXOTH
-#endif
-		);
-	}
-	else
-	{
-		g_dir_close(dir);
 	}
 
 	file_path = g_build_filename(dir_path, INITIALIZE_FILE_NAME, NULL);

@@ -4,6 +4,10 @@
 
 #define DEFAULT_MAX_SUB_STEPS 3
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void InitializeWorld(WORLD* world)
 {
 	float gravity[3] = {0.0f, -9.8f, 0.0f};
@@ -36,3 +40,7 @@ void WorldStepsSimulation(WORLD* world, float time_step, int max_sub_steps)
 {
 	BtDynamicsWorldStepSimulation(world->world, time_step, max_sub_steps, world->fixed_time_step);
 }
+
+#ifdef __cplusplus
+}
+#endif

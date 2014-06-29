@@ -108,6 +108,10 @@ typedef struct _ASSET_RENDER_ENGINE
 	int cull_face_state;
 } ASSET_RENDER_ENGINE;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void DeletePmxRenderEngine(PMX_RENDER_ENGINE* engine);
 extern void PmxRenderEngineRenderModel(PMX_RENDER_ENGINE* engine);
 extern void PmxRenderEngineRenderShadow(PMX_RENDER_ENGINE* engine);
@@ -122,5 +126,9 @@ extern EFFECT_INTERFACE* PmxRenderEngineGetEffect(PMX_RENDER_ENGINE* engine, eEF
 extern int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory);
 extern void AssetRenderEngineRenderModel(ASSET_RENDER_ENGINE* engine);
 extern EFFECT_INTERFACE* AssetRenderEngineGetEffect(ASSET_RENDER_ENGINE* engine, eEFFECT_SCRIPT_ORDER_TYPE type);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_RENDER_ENGINE_H_

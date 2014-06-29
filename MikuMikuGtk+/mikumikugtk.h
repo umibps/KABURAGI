@@ -1,9 +1,28 @@
 #ifndef _INCLUDED_MIKU_MIKU_GTK_H_
 #define _INCLUDED_MIKU_MIKU_GTK_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void* ApplicationContextNew(int default_width, int default_height, const char* application_path);
 
 extern void* ProjectContextNew(void* application_context, int width, int height, void** widget);
+
+extern void LoadProjectContextData(
+	void* project_context,
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int)
+);
+
+extern void SaveProjectContextData(
+	void* project_context,
+	void* dst,
+	size_t (*write_func)(void*, size_t, size_t, void*),
+	int (*seek_func)(void*, long, int),
+	long (*tell_func)(void*)
+);
 
 extern void* ModelControlWidgetNew(void* application_context);
 
@@ -52,5 +71,9 @@ extern void RenderForPixelData(
 	void (*after_render)(void*, unsigned char*),
 	void* user_data
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_MIKU_MIKU_GTK_H_

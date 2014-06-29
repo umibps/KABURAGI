@@ -5,6 +5,10 @@
 #include "pmx_model.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define PMX_SOFT_BODY_UNIT_SIZE 24
 typedef struct _PMX_SOFT_BODY_UNIT
 {
@@ -145,7 +149,7 @@ void PmxSoftBodyRead(
 	PMX_DATA_INFO* info
 )
 {
-	MEMORY_STREAM stream = {data, 0, INT_MAX, 1};
+	MEMORY_STREAM stream = {data, 0, (size_t)(info->end - data), 1};
 	char *name_ptr;
 	int length;
 	TEXT_ENCODE *encode = info->encoding;
@@ -168,3 +172,7 @@ void ReleasePmxSoftBody(PMX_SOFT_BODY* body)
 	MEM_FREE_FUNC(body->name);
 	MEM_FREE_FUNC(body->english_name);
 }
+
+#ifdef __cplusplus
+}
+#endif

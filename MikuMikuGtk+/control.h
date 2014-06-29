@@ -152,6 +152,10 @@ typedef struct _CONTROL
 	unsigned int flags;
 } CONTROL;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int HandleModeFromConstraint(CONTROL_HANDLE* handle);
 
 extern void ResizeHandle(CONTROL_HANDLE* handle, int width, int height);
@@ -195,5 +199,9 @@ extern void ControlHandleSetBone(CONTROL_HANDLE* handle, BONE_INTERFACE* bone);
 extern void ControlSetEditMode(CONTROL* control, eEDIT_MODE mode);
 
 extern void ControlRotateBone(CONTROL* control, BONE_INTERFACE* bone, FLOAT_T diff[2]);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_CONTROL_H_

@@ -336,6 +336,16 @@ extern int StringNumCompareIgnoreCase(const char* str1, const char* str2, int nu
 
 extern const char* StringStringIgnoreCase(const char* str, const char* compare);
 
+/*********************************
+* GetFileExtention関数           *
+* ファイル名から拡張子を取得する *
+* 引数                           *
+* file_name	: ファイル名         *
+* 返り値                         *
+*	拡張子の文字列               *
+*********************************/
+extern char* GetFileExtention(char* file_name);
+
 extern int GetTextFromStream(char* stream, char** text);
 
 extern int GetSignedValue(uint8* stream, int length);
@@ -348,6 +358,48 @@ extern char** SplitString(char* str, const char* delim, int* num_strings);
 extern ght_uint32_t GetStringHash(ght_hash_key_t* key);
 
 extern void HashTableReleaseAll(ght_hash_table_t* table, void (*destroy_func)(void*));
+
+/*******************************************************
+* InflateData関数                                      *
+* ZIP圧縮されたデータをデコードする                    *
+* 引数                                                 *
+* data				: 入力データ                       *
+* out_buffer		: 出力先のバッファ                 *
+* in_size			: 入力データのバイト数             *
+* out_buffer_size	: 出力先のバッファのサイズ         *
+* out_size			: 出力したバイト数の格納先(NULL可) *
+* 返り値                                               *
+*	正常終了:0、失敗:0以外                             *
+*******************************************************/
+extern int InflateData(
+	uint8* data,
+	uint8* out_buffer,
+	size_t in_size,
+	size_t out_buffer_size,
+	size_t* out_size
+);
+
+/***************************************************
+* DeflateData関数                                  *
+* ZIP圧縮を行う                                    *
+* 引数                                             *
+* data					: 入力データ               *
+* out_buffer			: 出力先のバッファ         *
+* target_data_size		: 入力データのバイト数     *
+* out_buffer_size		: 出力先のバッファのサイズ *
+* compressed_data_size	: 圧縮後のバイト数格納先   *
+* compress_level		: 圧縮レベル(0～9)         *
+* 返り値                                           *
+*	正常終了:0、失敗:0以外                         *
+***************************************************/
+extern int DeflateData(
+	uint8* data,
+	uint8* out_buffer,
+	size_t target_data_size,
+	size_t out_buffer_size,
+	size_t* compressed_data_size,
+	int compress_level
+);
 
 extern void DummyFuncNoReturn(void* dummy);
 extern void DummyFuncNoReturn2(void* dummy1, void* dummy2);

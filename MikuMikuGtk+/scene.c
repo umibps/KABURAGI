@@ -13,6 +13,10 @@
 #include "application.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void SetRequiredOpengGLState(void)
 {
 	int num_attribs;
@@ -558,3 +562,7 @@ int PlaneTest(PLANE* plane, float* from, float* to, float* hit)
 
 	return result;
 }
+
+#ifdef __cplusplus
+}
+#endif

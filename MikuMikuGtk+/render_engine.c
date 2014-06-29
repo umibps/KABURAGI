@@ -12,8 +12,13 @@
 #include "render_engine.h"
 #include "project.h"
 #include "application.h"
+#include "image_read_write.h"
 #include "texture.h"
 #include "memory.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 PMX_RENDER_ENGINE* PmxRenderEngineNew(
 	PROJECT* project_context,
@@ -148,6 +153,175 @@ int PmxRenderEngineCreateProgram(
 	return ret;
 }
 
+static int PmxRenderEngineUploadMaterialsFromArchive(
+	PMX_RENDER_ENGINE* engine,
+	PMX_RENDER_ENGINE_MATERIAL_TEXTURE *textures,
+	MATERIAL_INTERFACE** materials,
+	int num_materials,
+	PROJECT* project
+)
+{
+#define ARCHIVE_FILE_PATH_HEADER "::"
+	TEXTURE_INTERFACE *t;
+	TEXTURE_DATA_BRIDGE bridge = {NULL, TEXTURE_FLAG_TEXTURE_2D};
+	MATERIAL_ARCHIVE_DATA *images;
+	ght_hash_table_t *name_table;
+	uint8 *texture_data = (uint8*)engine->interface_data.model->texture_archive;
+	int num_images;
+	char file_path[8192];
+	int i;
+
+	images = ReadMmdModelMaterials((uint8*)engine->interface_data.model->texture_archive,
+		engine->interface_data.model->texture_archive_size, &num_images);
+	name_table = ght_create(num_images+1);
+	ght_set_hash(name_table, (ght_fn_hash_t)GetStringHash);
+	for(i=0; i<num_images; i++)
+	{
+		ght_insert(name_table, &images[i], (unsigned int)strlen(images[i].name), images[i].name);
+	}
+
+	for(i=0; i<num_materials; i++)
+	{
+		PMX_RENDER_ENGINE_MATERIAL_TEXTURE *texture = &textures[i];
+		MATERIAL_INTERFACE *material = materials[i];
+		MATERIAL_ARCHIVE_DATA *data_pointer;
+		const int material_index = material->index;
+		uint8 *pixels;
+		int width, height;
+		int channel;
+		char *texture_path;
+
+		if((texture_path = material->main_texture) != NULL && *material->main_texture != '\0')
+		{
+			data_pointer = (MATERIAL_ARCHIVE_DATA*)ght_get(name_table, (unsigned int)strlen(texture_path), texture_path);
+			if(data_pointer != NULL)
+			{
+				(void)sprintf(file_path, "%s%s", ARCHIVE_FILE_PATH_HEADER, texture_path);
+				if(FindTextureCache(file_path, &bridge, project) == FALSE)
+				{
+					pixels = DecodeImageData(texture_data + data_pointer->data_start, data_pointer->data_size,
+						GetFileExtention(texture_path), &width, &height, &channel, NULL, NULL, NULL, NULL);
+					if(pixels == NULL)
+					{
+						return FALSE;
+					}
+
+					if(UploadTextureFromMemory(pixels, width, height, channel, texture_path, &bridge, project) == FALSE)
+					{
+						return FALSE;
+					}
+					MEM_FREE_FUNC(pixels);
+				}
+				t = bridge.texture;
+				texture->main_texture = t;
+				(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
+			}
+		}
+		if((texture_path = material->sphere_texture) != NULL)
+		{
+			data_pointer = (MATERIAL_ARCHIVE_DATA*)ght_get(name_table, (unsigned int)strlen(texture_path), texture_path);
+			if(data_pointer != NULL)
+			{
+				(void)sprintf(file_path, "%s%s", ARCHIVE_FILE_PATH_HEADER, texture_path);
+				if(FindTextureCache(file_path, &bridge, project) == FALSE)
+				{
+					pixels = DecodeImageData(texture_data + data_pointer->data_start, data_pointer->data_size,
+						GetFileExtention(texture_path), &width, &height, &channel, NULL, NULL, NULL, NULL);
+					if(pixels == NULL)
+					{
+						return FALSE;
+					}
+
+					if(UploadTextureFromMemory(pixels, width, height, channel, texture_path, &bridge, project) == FALSE)
+					{
+						return FALSE;
+					}
+					MEM_FREE_FUNC(pixels);
+				}
+				t = bridge.texture;
+				texture->sphere_texture = t;
+				(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
+			}
+		}
+		bridge.flags |= TEXTURE_FLAG_TOON_TEXTURE;
+		if((material->flags & MATERIAL_FLAG_USE_SHARED_TOON_TEXTURE) != 0)
+		{
+			char buf[4096];
+			int suceeded;
+			(void)sprintf(buf, "%stoon%02d.bmp",
+				engine->project_context->application_context->paths.image_directory_path,
+				material->get_toon_texture_index((void*)material) + 1);
+			suceeded = UploadTexture(buf, &bridge, engine->project_context);
+			if(suceeded != FALSE)
+			{
+				t = bridge.texture;
+				texture->toon_texture = t;
+				(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
+			}
+			else
+			{
+				return FALSE;
+			}
+		}
+		else if((texture_path = material->toon_texture) != NULL)
+		{
+			data_pointer = (MATERIAL_ARCHIVE_DATA*)ght_get(name_table, (unsigned int)strlen(texture_path), texture_path);
+			if(data_pointer != NULL)
+			{
+				(void)sprintf(file_path, "%s%s", ARCHIVE_FILE_PATH_HEADER, texture_path);
+				if(FindTextureCache(file_path, &bridge, project) == FALSE)
+				{
+					pixels = DecodeImageData(texture_data + data_pointer->data_start, data_pointer->data_size,
+						GetFileExtention(texture_path), &width, &height, &channel, NULL, NULL, NULL, NULL);
+					if(pixels == NULL)
+					{
+						return FALSE;
+					}
+
+					if(UploadTextureFromMemory(pixels, width, height, channel, texture_path, &bridge, project) == FALSE)
+					{
+						return FALSE;
+					}
+					MEM_FREE_FUNC(pixels);
+				}
+				t = bridge.texture;
+				texture->toon_texture = t;
+				(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
+			}
+			else
+			{
+				(void)strcpy(file_path, engine->project_context->application_context->application_path);
+				(void)strcat(file_path, "/image/");
+				(void)strcat(file_path, texture_path);
+
+				if(UploadTexture(file_path, &bridge, engine->project_context) != FALSE)
+				{
+					t = bridge.texture;
+					if(texture->main_texture == NULL)
+					{
+						texture->main_texture = t;
+					}
+					else
+					{
+						texture->toon_texture = t;
+					}
+					(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
+				}
+				else
+				{
+					return FALSE;
+				}
+			}
+		}
+	}
+
+	ght_finalize(name_table);
+	MEM_FREE_FUNC(images);
+
+	return TRUE;
+#undef ARCHIVE_FILE_PATH_HEADER
+}
+
 int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 {
 	TEXTURE_INTERFACE *t;
@@ -161,6 +335,15 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 
 	materials = (MATERIAL_INTERFACE**)engine->interface_data.model->get_materials(
 		engine->interface_data.model, &num_materials);
+
+	if(engine->interface_data.model->texture_archive != NULL)
+	{
+		int result = PmxRenderEngineUploadMaterialsFromArchive(
+			engine, textures, materials, num_materials, engine->project_context);
+		MEM_FREE_FUNC(materials);
+		return result;
+	}
+
 	for(i=0; i<num_materials; i++)
 	{
 		PMX_RENDER_ENGINE_MATERIAL_TEXTURE *texture = &textures[i];
@@ -260,6 +443,8 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			}
 		}
 	}
+
+	MEM_FREE_FUNC(materials);
 
 	return TRUE;
 }
@@ -1005,7 +1190,7 @@ ASSET_RENDER_ENGINE* AssetRenderEngineNew(
 	return ret;
 }
 
-static int SplitTexturePath(
+int AssetModelSplitTexturePath(
 	const char* path,
 	char** main_texture,
 	char** sub_texture
@@ -1262,28 +1447,24 @@ int AssetRenderEngineUploadRecurse(
 	return ret;
 }
 
-int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
+int AssetRenderEngineUploadMaterials(
+	ASSET_RENDER_ENGINE* engine,
+	struct aiScene* scene,
+	const char* directory
+)
 {
 	PROJECT *project = engine->project;
 	ASSET_MODEL *model = (ASSET_MODEL*)engine->interface_data.model;
 	TEXTURE_DATA_BRIDGE bridge = {NULL, TEXTURE_FLAG_TEXTURE_2D};
-	struct aiScene *scene;
 	struct aiString texture_path;
 	char full_path[4096];
 	char *path;
 	char *main_texture;
 	char *sub_texture;
 	int ret = TRUE;
-	void *user_data = NULL;
 	unsigned int num_items;
 	unsigned int i;
 
-	if(model == NULL || model->scene == NULL)
-	{
-		return FALSE;
-	}
-
-	scene = model->scene;
 	num_items = scene->mNumMaterials;
 	for(i=0; i<num_items; i++)
 	{
@@ -1298,7 +1479,7 @@ int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
 				break;
 			}
 			path = texture_path.data;
-			if(SplitTexturePath(path, &main_texture, &sub_texture) != FALSE)
+			if(AssetModelSplitTexturePath(path, &main_texture, &sub_texture) != FALSE)
 			{
 				(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
 				if(ght_get(engine->textures, (unsigned int)strlen(main_texture), main_texture) == NULL)
@@ -1346,6 +1527,218 @@ int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
 			texture_index++;
 		} while(found == AI_SUCCESS);
 	}
+
+	return ret;
+}
+
+typedef struct _ASSET_MATERIAL_DATA
+{
+	char *name;
+	size_t data_start;
+	size_t data_size;
+} ASSET_MATERIAL_DATA;
+
+static ASSET_MATERIAL_DATA* AssetModelGetMaterialNames(
+	uint8* archive_data,
+	size_t archive_size,
+	unsigned int* num_images
+)
+{
+	MEMORY_STREAM stream = {archive_data, 0, archive_size, 1};
+	ASSET_MATERIAL_DATA *ret;
+	uint32 data32;
+	unsigned int num_items;
+	unsigned int i;
+
+	(void)MemRead(&data32, sizeof(data32), 1, &stream);
+	num_items = (int)data32;
+	*num_images = num_items;
+
+	ret = (ASSET_MATERIAL_DATA*)MEM_ALLOC_FUNC(sizeof(*ret)*num_items);
+	for(i=0; i<num_items; i++)
+	{
+		(void)MemRead(&data32, sizeof(data32), 1, &stream);
+		ret[i].name = (char*)&stream.buff_ptr[stream.data_point];
+		(void)MemSeek(&stream, data32, SEEK_CUR);
+		(void)MemRead(&data32, sizeof(data32), 1, &stream);
+		ret[i].data_start = data32;
+		(void)MemRead(&data32, sizeof(data32), 1, &stream);
+		ret[i].data_size = data32;
+	}
+
+	return ret;
+}
+
+int AssetRenderEngineUploadMaterialsFromArchive(
+	ASSET_RENDER_ENGINE* engine,
+	struct aiScene* scene,
+	const char* directory
+)
+{
+#define ARCHIVE_FILE_PATH_HEADER "::"
+	PROJECT *project = engine->project;
+	ASSET_MODEL *model = (ASSET_MODEL*)engine->interface_data.model;
+	TEXTURE_DATA_BRIDGE bridge = {NULL, TEXTURE_FLAG_TEXTURE_2D};
+	ASSET_MATERIAL_DATA *materials;
+	ASSET_MATERIAL_DATA *data_pointer;
+	uint8 *data_start = (uint8*)model->interface_data.texture_archive;
+	struct aiString texture_path;
+	char full_path[4096];
+	char *path;
+	char *main_texture;
+	char *sub_texture;
+	int ret = TRUE;
+	ght_hash_table_t *name_table;
+	uint8 *pixels;
+	int width, height;
+	int channel;
+	unsigned int num_items;
+	unsigned int i;
+
+	materials = AssetModelGetMaterialNames(
+		(uint8*)model->interface_data.texture_archive, model->interface_data.texture_archive_size, &num_items);
+	name_table = ght_create(num_items + 1);
+	ght_set_hash(name_table, (ght_fn_hash_t)GetStringHash);
+	for(i=0; i<num_items; i++)
+	{
+		(void)ght_insert(name_table, &materials[i],
+			(unsigned int)strlen(materials[i].name), materials[i].name);
+	}
+
+	num_items = scene->mNumMaterials;
+	for(i=0; i<num_items; i++)
+	{
+		struct aiMaterial *material = scene->mMaterials[i];
+		enum aiReturn found = AI_SUCCESS;
+		int texture_index = 0;
+		do
+		{
+			if((found = aiGetMaterialTexture(material, aiTextureType_DIFFUSE, texture_index, &texture_path,
+				NULL, NULL, NULL, NULL, NULL, NULL)) != aiReturn_SUCCESS)
+			{
+				break;
+			}
+			path = texture_path.data;
+			if(AssetModelSplitTexturePath(path, &main_texture, &sub_texture) != FALSE)
+			{
+				(void)sprintf(full_path, "%s%s", ARCHIVE_FILE_PATH_HEADER, main_texture);
+				if(ght_get(engine->textures, (unsigned int)strlen(main_texture), main_texture) == NULL)
+				{
+					if((data_pointer = (ASSET_MATERIAL_DATA*)ght_get(name_table,
+						(unsigned int)strlen(main_texture), main_texture)) == NULL)
+					{
+						return FALSE;
+					}
+					if((pixels = DecodeImageData(data_start + data_pointer->data_start,
+						data_pointer->data_size, GetFileExtention(data_pointer->name),
+							&width, &height, &channel, NULL, NULL, NULL, NULL)) == NULL)
+					{
+						return FALSE;
+					}
+
+					ret = UploadTextureFromMemory(pixels, width, height, channel, full_path, &bridge, project);
+					if(ret != FALSE)
+					{
+						(void)ght_insert(engine->textures, bridge.texture,
+							(unsigned int)strlen(main_texture), main_texture);
+					}
+					else
+					{
+						return ret;
+					}
+				}
+				(void)sprintf(full_path, "%s%s", ARCHIVE_FILE_PATH_HEADER, sub_texture);
+				if(ght_get(engine->textures, (unsigned int)strlen(sub_texture), sub_texture) == NULL)
+				{
+					if((data_pointer = (ASSET_MATERIAL_DATA*)ght_get(name_table,
+						(unsigned int)strlen(main_texture), sub_texture)) == NULL)
+					{
+						return FALSE;
+					}
+					if((pixels = DecodeImageData(data_start + data_pointer->data_start,
+						data_pointer->data_size, GetFileExtention(data_pointer->name),
+							&width, &height, &channel, NULL, NULL, NULL, NULL)) == NULL)
+					{
+						return FALSE;
+					}
+
+					ret = UploadTextureFromMemory(pixels, width, height, channel, full_path, &bridge, project);
+					if(ret != FALSE)
+					{
+						(void)ght_insert(engine->textures, bridge.texture,
+							(unsigned int)strlen(sub_texture), sub_texture);
+					}
+					else
+					{
+						return ret;
+					}
+				}
+			}
+			else if(ght_get(engine->textures, (unsigned int)strlen(main_texture), main_texture) == NULL)
+			{
+				(void)sprintf(full_path, "%s%s", ARCHIVE_FILE_PATH_HEADER, main_texture);
+				if((data_pointer = (ASSET_MATERIAL_DATA*)ght_get(name_table,
+					(unsigned int)strlen(main_texture), main_texture)) == NULL)
+				{
+					return FALSE;
+				}
+				if((pixels = DecodeImageData(data_start + data_pointer->data_start,
+					data_pointer->data_size, GetFileExtention(data_pointer->name),
+						&width, &height, &channel, NULL, NULL, NULL, NULL)) == NULL)
+				{
+					return FALSE;
+				}
+
+				ret = UploadTextureFromMemory(pixels, width, height, channel, full_path, &bridge, project);
+				if(ret != FALSE)
+				{
+					(void)ght_insert(engine->textures, bridge.texture,
+						(unsigned int)strlen(main_texture), main_texture);
+				}
+				else
+				{
+					return ret;
+				}
+			}
+			texture_index++;
+		} while(found == AI_SUCCESS);
+	}
+
+	ght_finalize(name_table);
+	MEM_FREE_FUNC(materials);
+
+	return ret;
+}
+
+int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory)
+{
+	PROJECT *project = engine->project;
+	ASSET_MODEL *model = (ASSET_MODEL*)engine->interface_data.model;
+	struct aiScene *scene;
+	int ret = TRUE;
+	void *user_data = NULL;
+
+	if(model == NULL || model->scene == NULL)
+	{
+		return FALSE;
+	}
+
+	scene = model->scene;
+
+	if(model->interface_data.texture_archive == NULL)
+	{
+		ret = AssetRenderEngineUploadMaterials(engine, scene, directory);
+	}
+	else
+	{
+		ret = AssetRenderEngineUploadMaterialsFromArchive(engine, scene, directory);
+	}
+
+	if(ret == FALSE)
+	{
+		return FALSE;
+	}
+
 	AssetRenderEngineUploadRecurse(engine, scene, scene->mRootNode, user_data);
 	engine->interface_data.model->set_visible(engine->interface_data.model, ret);
 	return ret;
@@ -1376,7 +1769,7 @@ void AssetRenderEngineSetMaterial(
 		NULL, NULL, NULL, NULL, NULL, NULL) == aiReturn_SUCCESS)
 	{
 		int is_additive = FALSE;
-		if(SplitTexturePath(texture_path.data, &main_texture, &sub_texture) != FALSE)
+		if(AssetModelSplitTexturePath(texture_path.data, &main_texture, &sub_texture) != FALSE)
 		{
 			texture = (TEXTURE_INTERFACE*)ght_get(engine->textures, (unsigned int)strlen(sub_texture), sub_texture);
 			is_additive = StringStringIgnoreCase(sub_texture, ".spa") != NULL ? TRUE : FALSE;
@@ -1530,3 +1923,7 @@ EFFECT_INTERFACE* AssetRenderEngineGetEffect(ASSET_RENDER_ENGINE* engine, eEFFEC
 {
 	return NULL;
 }
+
+#ifdef __cplusplus
+}
+#endif

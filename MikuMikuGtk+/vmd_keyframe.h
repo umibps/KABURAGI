@@ -29,6 +29,10 @@ typedef struct _VMD_MORPH_KEYFRAME
 	FLOAT_T weight;
 } VMD_MORPH_KEYFRAME;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void VmdBoneKeyframeSetDefaultInterpolationParameter(VMD_BONE_KEYFRAME* frame);
 
 extern void VmdBoneKeyframeSetTranslation(VMD_BONE_KEYFRAME* frame, float* translation);
@@ -38,5 +42,9 @@ extern void VmdBoneKeyframeSetRotation(VMD_BONE_KEYFRAME* frame, float* rotation
 extern MODEL_KEYFRAME_INTERFACE* VmdModelKeyframeNew(void* application);
 
 extern void VmdModelKeyframeUpdateInverseKinematics(VMD_MODEL_KEYFRAME* keyframe, MODEL_INTERFACE* model);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_VMD_KEYFRAME_H_

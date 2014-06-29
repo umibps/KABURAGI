@@ -9,6 +9,10 @@
 #include "system_depends.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 char* LocaleFromUTF8(const char* utf8_code)
 {
 	gchar *locale = g_locale_from_utf8(utf8_code, -1, NULL, NULL, NULL);
@@ -37,3 +41,7 @@ char* NextCharUTF8(char* str)
 {
 	return g_utf8_next_char(str);
 }
+
+#ifdef __cplusplus
+}
+#endif

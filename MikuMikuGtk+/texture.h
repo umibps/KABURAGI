@@ -47,11 +47,19 @@ typedef struct _TEXTURE_2D
 	BASE_TEXTURE base_data;
 } TEXTURE_2D;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void BaseTextureMake(BASE_TEXTURE* texture);
 extern void BaseTextureBind(BASE_TEXTURE* texture);
 extern void BaseTextureUnbind(BASE_TEXTURE* texture);
 extern void BaseTextureRelease(BASE_TEXTURE* texture);
 
 extern void InitializeTexture2D(TEXTURE_2D* texture, TEXTURE_FORMAT* format, int* size, GLuint sampler);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_TEXTURE_H_

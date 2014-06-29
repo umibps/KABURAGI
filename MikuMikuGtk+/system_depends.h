@@ -26,9 +26,17 @@ typedef enum _eMODIFIERS
 	MODIFIER_CONTROL_MASK = GDK_CONTROL_MASK
 } eMODIFIERS;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern char* LocaleFromUTF8(const char* utf8_code);
 extern char* Locale2UTF8(const char* locale);
 extern char* GetDirectoryName(const char* utf8_path);
 extern char* NextCharUTF8(char* str);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	// #ifndef _INCLUDED_SYSTEM_DEPENDS_H_

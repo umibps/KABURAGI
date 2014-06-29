@@ -2,6 +2,10 @@
 #include "application.h"
 #include "technique.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void ParameterSetMatrix(PARAMETER* parameter, float matrix[16])
 {
 	if(parameter->type == PARAMETER_TYPE_FLOAT4x4)
@@ -97,3 +101,7 @@ void EffectActivateVertexAttribute(
 		break;
 	}
 }
+
+#ifdef __cplusplus
+}
+#endif
