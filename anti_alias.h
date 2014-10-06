@@ -30,7 +30,7 @@ typedef struct _ANTI_ALIAS_RECTANGLE
 * stride	: 入出力データの1行分のバイト数 *
 * channel	: 入出力データのチャンネル数    *
 ********************************************/
-extern void AntiAlias(
+EXTERN void AntiAlias(
 	uint8* in_buff,
 	uint8* out_buff,
 	int width,
@@ -45,7 +45,7 @@ extern void AntiAlias(
 * layer	: アンチエイリアスをかけるレイヤー               *
 * rect	: アンチエイリアスをかける範囲                   *
 *********************************************************/
-extern void AntiAliasLayer(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect);
+EXTERN void AntiAliasLayer(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect);
 
 /*********************************************************************
 * AntiAliasVectorLine関数                                            *
@@ -53,7 +53,7 @@ extern void AntiAliasLayer(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect
 * layer	: アンチエイリアスをかけるレイヤー                           *
 * rect	: アンチエイリアスをかける範囲                               *
 *********************************************************************/
-extern void AntiAliasVectorLine(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect);
+EXTERN void AntiAliasVectorLine(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect);
 
 #ifdef __cplusplus
 }

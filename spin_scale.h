@@ -3,6 +3,16 @@
 
 #include <gtk/gtk.h>
 
+#ifdef _MSC_VER
+# ifdef __cplusplus
+#  define EXTERN extern "C" __declspec(dllexport)
+# else
+#  define EXTERN extern __declspec(dllexport)
+# endif
+#else
+# define EXTERN extern
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,7 +37,7 @@ typedef struct _SPIN_SCALE
 * 返り値                                             *
 *	生成したウィジェット                             *
 *****************************************************/
-extern GtkWidget* SpinScaleNew(
+EXTERN GtkWidget* SpinScaleNew(
 	GtkAdjustment *adjustment,
 	const gchar *label,
 	gint digits
@@ -41,7 +51,7 @@ extern GtkWidget* SpinScaleNew(
 * lower	: 下限値                                   *
 * upper	: 上限値                                   *
 ***************************************************/
-extern void SpinScaleSetScaleLimits(
+EXTERN void SpinScaleSetScaleLimits(
 	SPIN_SCALE *scale,
 	gdouble lower,
 	gdouble upper
@@ -57,7 +67,7 @@ extern void SpinScaleSetScaleLimits(
 * 返り値                                             *
 *	取得成功:TRUE	取得失敗:FALSE                   *
 *****************************************************/
-extern gboolean SpinScaleGetScaleLimits(
+EXTERN gboolean SpinScaleGetScaleLimits(
 	SPIN_SCALE *scale,
 	gdouble *lower,
 	gdouble *upper
@@ -70,7 +80,7 @@ extern gboolean SpinScaleGetScaleLimits(
 * scale	: スピンボタンとスケールの混合ウィジェット *
 * step	: 増減の値                                 *
 ***************************************************/
-extern void SpinScaleSetStep(SPIN_SCALE *scale, gdouble step);
+EXTERN void SpinScaleSetStep(SPIN_SCALE *scale, gdouble step);
 
 /***************************************************
 * SpinScaleSetPase関数                             *
@@ -79,7 +89,7 @@ extern void SpinScaleSetStep(SPIN_SCALE *scale, gdouble step);
 * scale	: スピンボタンとスケールの混合ウィジェット *
 * page	: 増減の値                                 *
 ***************************************************/
-extern void SpinScaleSetPage(SPIN_SCALE *scale, gdouble page);
+EXTERN void SpinScaleSetPage(SPIN_SCALE *scale, gdouble page);
 
 #ifdef __cplusplus
 }

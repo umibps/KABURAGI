@@ -1,6 +1,7 @@
 #ifndef _INCLUDED_COLOR_H_
 #define _INCLUDED_COLOR_H_
 
+#include <gtk/gtk.h>
 #include "lcms/lcms2.h"
 #include "types.h"
 
@@ -10,6 +11,24 @@ extern "C" {
 
 #define PALLETE_BOX_SIZE 10
 #define MAX_COLOR_HISTORY_NUM 10
+
+typedef enum _eCOLOR
+{
+	COLOR_GLAY,
+	COLOR_YELLOW,
+	COLOR_PLUM,
+	COLOR_RED,
+	COLOR_LIME,
+	COLOR_AQUA,
+	COLOR_GREEN,
+	COLOR_MAROON,
+	COLOR_NAVY,
+	COLOR_OLIVE,
+	COLOR_PURPLE,
+	COLOR_TEAL,
+	COLOR_BLUE,
+	NUM_COLOR
+} eCOLOR;
 
 typedef struct _HSV
 {
@@ -77,18 +96,18 @@ typedef struct _COLOR_CHOOSER
 	void* data;
 } COLOR_CHOOSER;
 
-extern void RGB2HSV_Pixel(uint8 rgb[3], HSV* hsv);
+EXTERN void RGB2HSV_Pixel(uint8 rgb[3], HSV* hsv);
 
-extern HSV* RGB2HSV(
+EXTERN HSV* RGB2HSV(
 	uint8 *pixels,
 	int32 width,
 	int32 height,
 	int32 channel
 );
 
-extern void HSV2RGB_Pixel(HSV* hsv, uint8 rgb[3]);
+EXTERN void HSV2RGB_Pixel(HSV* hsv, uint8 rgb[3]);
 
-extern void HSV2RGB(
+EXTERN void HSV2RGB(
 	HSV* hsv,
 	uint8 *pixels,
 	int32 width,
@@ -96,14 +115,14 @@ extern void HSV2RGB(
 	int32 channel
 );
 
-extern void DrawColorCircle(
+EXTERN void DrawColorCircle(
 	COLOR_CHOOSER* chooser,
 	FLOAT_T cx,
 	FLOAT_T cy,
 	FLOAT_T r
 );
 
-extern COLOR_CHOOSER *CreateColorChooser(
+EXTERN COLOR_CHOOSER *CreateColorChooser(
 	int32 width,
 	int32 height,
 	uint8 line_width,
@@ -114,11 +133,11 @@ extern COLOR_CHOOSER *CreateColorChooser(
 	APPLICATION_LABELS* labels
 );
 
-extern void SetColorChooserPoint(COLOR_CHOOSER* chooser, HSV* set_hsv, gboolean add_history);
+EXTERN void SetColorChooserPoint(COLOR_CHOOSER* chooser, HSV* set_hsv, gboolean add_history);
 
-extern void UpdateColorBox(COLOR_CHOOSER* chooser);
+EXTERN void UpdateColorBox(COLOR_CHOOSER* chooser);
 
-extern void DestroyColorChooser(COLOR_CHOOSER* chooser);
+EXTERN void DestroyColorChooser(COLOR_CHOOSER* chooser);
 
 /*********************************************************
 * SetColorChangeCallBack関数                             *
@@ -128,7 +147,7 @@ extern void DestroyColorChooser(COLOR_CHOOSER* chooser);
 * function	: コールバック関数                           *
 * data		: コールバック関数で使用するデータ           *
 *********************************************************/
-extern void SetColorChangeCallBack(
+EXTERN void SetColorChangeCallBack(
 	COLOR_CHOOSER* chooser,
 	void (*function)(GtkWidget* widget, const uint8 color[3], void* data),
 	void *data
@@ -145,7 +164,7 @@ extern void SetColorChangeCallBack(
 * 返り値                                         *
 *	読み込みに成功したデータの数                 *
 *************************************************/
-extern int ReadACO(
+EXTERN int ReadACO(
 	void* src,
 	stream_func_t read_func,
 	uint8 (*rgb)[3],
@@ -161,7 +180,7 @@ extern int ReadACO(
 * rgb			: 書きだすRGBデータ配列        *
 * write_num		: 書きだすデータの数           *
 ***********************************************/
-extern void WriteACO(
+EXTERN void WriteACO(
 	void* dst,
 	stream_func_t write_func,
 	uint8 (*rgb)[3],
@@ -178,7 +197,7 @@ extern void WriteACO(
 * 返り値                               *
 *	読み込んだデータの数               *
 ***************************************/
-extern int LoadPallete(
+EXTERN int LoadPallete(
 	const char* file_path,
 	uint8 (*rgb)[3],
 	int max_read
@@ -193,7 +212,7 @@ extern int LoadPallete(
 * 返り値                           *
 *	読み込んだデータの数           *
 ***********************************/
-extern int LoadPalleteAdd(
+EXTERN int LoadPalleteAdd(
 	COLOR_CHOOSER* chooser,
 	const gchar* file_path
 );
@@ -206,7 +225,7 @@ extern int LoadPalleteAdd(
 * 返り値                             *
 *	正常終了:0	失敗:負の値          *
 *************************************/
-extern int LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path);
+EXTERN int LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path);
 
 /*************************************
 * WritePalleteFile関数               *
@@ -216,7 +235,7 @@ extern int LoadPalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path);
 * 返り値                             *
 *	正常終了:0	失敗:負の値          *
 *************************************/
-extern int WritePalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path);
+EXTERN int WritePalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path);
 
 /***************************************
 * RegisterColorPallete関数             *
@@ -225,10 +244,12 @@ extern int WritePalleteFile(COLOR_CHOOSER* chooser, const gchar* file_path);
 * chooser	: 色選択ウィジェットの情報 *
 * color		: 追加する色               *
 ***************************************/
-extern void RegisterColorPallete(COLOR_CHOOSER* chooser, const uint8 color[3]);
+EXTERN void RegisterColorPallete(COLOR_CHOOSER* chooser, const uint8 color[3]);
 
-extern cmsHPROFILE* CreateDefaultSrgbProfile(void);
-extern cmsHPROFILE* GetPrimaryMonitorProfile(void);
+EXTERN cmsHPROFILE* CreateDefaultSrgbProfile(void);
+EXTERN cmsHPROFILE* GetPrimaryMonitorProfile(void);
+
+EXTERN void GetColor(eCOLOR color_index, uint8* color);
 
 #ifdef __cplusplus
 }

@@ -10,6 +10,7 @@
 #include <assimp/postprocess.h>
 #include "asset_model.h"
 #include "application.h"
+#include "libguess/libguess.h"
 #include "memory.h"
 
 #ifdef __cplusplus
@@ -114,7 +115,7 @@ void InitializeAssetModel(
 	model->vertices = StructArrayNew(sizeof(ASSET_VERTEX), DEFAULT_BUFFER_SIZE);
 
 	model->interface_data.get_morphs =
-		(void** (*)(void*, int*))DummyFuncNoReturn2;
+		(void** (*)(void*, int*))DummyFuncNullReturn2;
 	model->interface_data.get_world_position =
 		(void (*)(void*, float*))AssetModelGetWorldTranslation;
 	model->interface_data.get_world_translation =
@@ -131,6 +132,25 @@ void InitializeAssetModel(
 		(void (*)(void*, void*))DummyFuncNoReturn2;
 	model->interface_data.is_visible =
 		(int (*)(void*))AssetModelGetVisible;
+}
+
+void ReleaseAssetModel(ASSET_MODEL* model)
+{
+	aiReleaseImport(model->scene);
+	MEM_FREE_FUNC(model->model_path);
+	PointerArrayDestroy(&model->bones, NULL);
+	StructArrayDestroy(&model->labels,
+		(void (*)(void*))ReleaseAssetModelLabel);
+	StructArrayDestroy(&model->morphs, NULL);
+	StructArrayDestroy(&model->materials, NULL);
+	StructArrayDestroy(&model->vertices, NULL);
+	if(model->indices != NULL)
+	{
+		Uint32ArrayDestroy(&model->indices);
+	}
+	ght_finalize(model->name2bone);
+	ght_finalize(model->name2morph);
+	MEM_FREE_FUNC(model->file_type);
 }
 
 void AssetModelSetMaterialsRecurse(
@@ -295,6 +315,7 @@ uint8* WriteAssetModelMaterials(
 	MEMORY_STREAM *image_stream = CreateMemoryStream(1024 * 1024);
 	STRUCT_ARRAY *materials_data;
 	MATERIAL_DATA material_data;
+	TEXT_ENCODE encode;
 	struct aiScene *scene;
 	struct aiString texture_path;
 	char full_path[4096];
@@ -302,6 +323,8 @@ uint8* WriteAssetModelMaterials(
 	char *main_texture;
 	char *sub_texture;
 	char *system_path;
+	char *system_file_name;
+	const char *code;
 	FILE *fp;
 	uint8 *ret;
 	size_t image_buffer_size = 0;
@@ -337,7 +360,20 @@ uint8* WriteAssetModelMaterials(
 				name_length = (unsigned int)strlen(main_texture);
 				if(ght_get(name_table, name_length, main_texture) == NULL)
 				{
-					(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+					code = guess_jp(main_texture, (int)strlen(main_texture)+1);
+					if(code != NULL && strcmp(code, "UTF-8") != 0)
+					{
+						InitializeTextEncode(&encode, code, "UTF-8");
+						system_file_name = EncodeText(&encode, main_texture, (int)strlen(main_texture)+1);
+						(void)sprintf(full_path, "%s/%s", model->model_path, system_file_name);
+						MEM_FREE_FUNC(system_file_name);
+						ReleaseTextEncode(&encode);
+					}
+					else
+					{
+						(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+					}
+
 					system_path = LocaleFromUTF8(full_path);
 					if((fp = fopen(system_path, "rb")) != NULL)
 					{
@@ -366,7 +402,20 @@ uint8* WriteAssetModelMaterials(
 				name_length = (unsigned int)strlen(sub_texture);
 				if(ght_get(name_table, name_length, sub_texture) == NULL)
 				{
-					(void)sprintf(full_path, "%s/%s", model->model_path, sub_texture);
+					code = guess_jp(main_texture, (int)strlen(sub_texture)+1);
+					if(code != NULL && strcmp(code, "UTF-8") != 0)
+					{
+						InitializeTextEncode(&encode, code, "UTF-8");
+						system_file_name = EncodeText(&encode, sub_texture, (int)strlen(main_texture)+1);
+						(void)sprintf(full_path, "%s/%s", model->model_path, system_file_name);
+						MEM_FREE_FUNC(system_file_name);
+						ReleaseTextEncode(&encode);
+					}
+					else
+					{
+						(void)sprintf(full_path, "%s/%s", model->model_path, sub_texture);
+					}
+
 					system_path = LocaleFromUTF8(full_path);
 					if((fp = fopen(system_path, "rb")) != NULL)
 					{
@@ -397,7 +446,20 @@ uint8* WriteAssetModelMaterials(
 				name_length = (unsigned int)strlen(main_texture);
 				if(ght_get(name_table, name_length, main_texture) == NULL)
 				{
-					(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+					code = guess_jp(main_texture, (int)strlen(main_texture)+1);
+					if(code != NULL && strcmp(code, "UTF-8") != 0)
+					{
+						InitializeTextEncode(&encode, code, "UTF-8");
+						system_file_name = EncodeText(&encode, main_texture, (int)strlen(main_texture)+1);
+						(void)sprintf(full_path, "%s/%s", model->model_path, system_file_name);
+						MEM_FREE_FUNC(system_file_name);
+						ReleaseTextEncode(&encode);
+					}
+					else
+					{
+						(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+					}
+
 					system_path = LocaleFromUTF8(full_path);
 					if((fp = fopen(system_path, "rb")) != NULL)
 					{
@@ -469,7 +531,7 @@ uint8* WriteAssetModelMaterials(
 	return ret;
 }
 
-void ReadAssetModelDataAndState(
+int ReadAssetModelDataAndState(
 	void *scene,
 	ASSET_MODEL* model,
 	void* src,
@@ -503,7 +565,7 @@ void ReadAssetModelDataAndState(
 		(void)read_func(section_data, 1, section_size, src);
 		if(InflateData(section_data, decode_data, section_size, decode_size, NULL) != 0)
 		{
-			return;
+			return FALSE;
 		}
 		LoadAssetModel(model, decode_data, decode_size, file_name,
 			GetFileExtention(file_name), "./");
@@ -519,13 +581,20 @@ void ReadAssetModelDataAndState(
 
 	// テクスチャデータを読み込む
 	{
+		RENDER_ENGINE_INTERFACE *engine;
 		(void)read_func(&section_size, sizeof(section_size), 1, src);
 		model->interface_data.texture_archive_size = section_size;
 		model->interface_data.texture_archive = MEM_ALLOC_FUNC(section_size);
 		(void)read_func(model->interface_data.texture_archive, 1, section_size, src);
 
-		PointerArrayAppend(scene_ptr->engines, SceneCreateRenderEngine(
-			scene_ptr, RENDER_ENGINE_ASSET, &model->interface_data, 0, scene_ptr->project));
+		engine = SceneCreateRenderEngine(
+			scene_ptr, RENDER_ENGINE_ASSET, &model->interface_data, 0, scene_ptr->project);
+		if(engine == NULL)
+		{
+			return FALSE;
+		}
+
+		PointerArrayAppend(scene_ptr->engines, engine);
 	}
 
 	// 親ボーンの読み込み
@@ -543,6 +612,8 @@ void ReadAssetModelDataAndState(
 	}
 
 	MEM_FREE_FUNC(file_name);
+
+	return TRUE;
 }
 
 size_t WriteAssetModelDataAndState(

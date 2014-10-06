@@ -45,6 +45,7 @@ UI_LABEL LoadDefaultUiLabel(void)
 			"Connect to",
 			"Enable Physics",
 			"Display Grid",
+			"Delete Current Model",
 			"Render Shadow",
 			"Render Edge Only",
 			{

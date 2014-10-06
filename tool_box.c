@@ -22,9 +22,7 @@
 #include "image_read_write.h"
 #include "script.h"
 #include "display.h"
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-# include "MikuMikuGtk+/ui.h"
-#endif
+#include "MikuMikuGtk+/ui.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -567,7 +565,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
 		box, FALSE, FALSE, 2);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	brush_type = gtk_combo_box_new_text();
 	for(i=0; i<NUM_BRUSH_TYPE; i++)
 	{
@@ -594,7 +592,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 
 	image_directory_path = g_build_filename(app->current_path, "image", NULL);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	button_image_file = gtk_combo_box_new_text();
 #else
 	button_image_file = gtk_combo_box_text_new();
@@ -669,7 +667,6 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 		if(GTK_IS_TOGGLE_BUTTON(button) == FALSE)
 		{
 			is_first_button = 1;
-			x = y = 0;
 		}
 
 		gtk_text_buffer_get_start_iter(name_buffer, &start);
@@ -754,6 +751,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 				{
 					core->brush_data = (void*)script;
 					core->detail_data_size = sizeof(*script);
+					core->brush_type = (uint8)BRUSH_TYPE_SCRIPT_BRUSH;
 					script->brush_data = (SCRIPT_BRUSH*)MEM_ALLOC_FUNC(sizeof(*script->brush_data));
 					(void)memset(script->brush_data, 0, sizeof(*script->brush_data));
 
@@ -793,10 +791,144 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 					gtk_table_attach(GTK_TABLE(app->tool_window.brush_table), core->button,
 						x, x+1, y, y+1, GTK_FILL, GTK_FILL, 0, 0);
 					gtk_widget_show_all(core->button);
-
 				}
 				g_free(file_path);
 				g_free(system_path);
+			}
+		}
+		else if(gtk_combo_box_get_active(GTK_COMBO_BOX(brush_type)) == BRUSH_TYPE_PLUG_IN)
+		{
+			GModule *module;
+			gchar *dir_path = g_build_filename(app->current_path, PLUG_IN_DIRECTORY, NULL);
+#if GTK_MAJOR_VERSION <= 2
+			GtkWidget *combo = gtk_combo_box_new_text();
+#else
+			GtkWidget *combo = gtk_combo_box_text_new();
+#endif
+			initialize_dialog = gtk_dialog_new_with_buttons(
+				app->labels->tool_box.initialize,
+				GTK_WINDOW(dialog),
+				GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+				GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
+				GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+				NULL
+			);
+			box = gtk_hbox_new(FALSE, 0);
+			(void)sprintf(str, "%s:", app->labels->menu.file);
+			label = gtk_label_new(str);
+			gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+			gtk_box_pack_start(GTK_BOX(box), combo, TRUE, TRUE, 0);
+			gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(initialize_dialog))),
+				box, FALSE, FALSE, 0);
+
+			dir = g_dir_open(dir_path, 0, NULL);
+			while((file_name = g_dir_read_name(dir)) != NULL)
+			{
+				file_path = g_build_filename(app->current_path, PLUG_IN_DIRECTORY, file_name, NULL);
+				module = g_module_open(file_path, G_MODULE_BIND_LOCAL);
+
+				if(LoadPlugInBrushCallbacks(module, core, NULL) != FALSE)
+				{
+#if GTK_MAJOR_VERSION <= 2
+					gtk_combo_box_append_text(GTK_COMBO_BOX(combo), file_name);
+#else
+					gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), file_name);
+#endif
+				}
+
+				(void)g_module_close(module);
+				g_free(file_path);
+			}
+			g_dir_close(dir);
+			g_free(dir_path);
+
+			gtk_widget_show_all(initialize_dialog);
+			if(gtk_dialog_run(GTK_DIALOG(initialize_dialog)) == GTK_RESPONSE_ACCEPT)
+			{
+				PLUG_IN_BRUSH *brush = (PLUG_IN_BRUSH*)MEM_ALLOC_FUNC(sizeof(*brush));
+				gpointer function;
+
+				(void)memset(brush, 0, sizeof(*brush));
+#if GTK_MAJOR_VERSION <= 2
+				file_path = g_build_filename(app->current_path, PLUG_IN_DIRECTORY,
+					gtk_combo_box_get_active_text(GTK_COMBO_BOX(combo)), NULL);
+#else
+				file_path = g_build_filename(app->current_path, PLUG_IN_DIRECTORY,
+					gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo)), NULL);
+#endif
+
+				module = g_module_open(file_path, G_MODULE_BIND_LOCAL);
+				if(module != NULL)
+				{
+					GtkWidget *setting_dialog;
+					GtkWidget *setting;
+					core->brush_data = (void*)brush;
+					core->detail_data_size = sizeof(*brush);
+					core->brush_type = (uint8)BRUSH_TYPE_PLUG_IN;
+					if(g_module_symbol(module, "BrushDataNew", &function) != FALSE)
+					{
+						brush->detail_data = ((void* (*)(void))function)();
+					}
+
+					brush->app = app;
+					brush->plug_in_name = MEM_STRDUP_FUNC(
+#if GTK_MAJOR_VERSION <= 2
+						gtk_combo_box_get_active_text(GTK_COMBO_BOX(combo))
+#else
+						gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo))
+#endif
+					);
+
+					(void)LoadPlugInBrushCallbacks(module, core, brush);
+					setting = brush->setting_widget_new(app, core);
+					setting_dialog = gtk_dialog_new_with_buttons(
+						app->labels->tool_box.initialize,
+						GTK_WINDOW(initialize_dialog),
+						GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+						GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
+						NULL
+					);
+					gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(setting_dialog))),
+						setting, TRUE, TRUE, 0);
+					gtk_widget_show_all(setting_dialog);
+					(void)gtk_dialog_run(GTK_DIALOG(setting_dialog));
+
+					if(is_first_button != 0)
+					{
+						gtk_widget_destroy(button);
+					}
+					else
+					{
+						gtk_widget_destroy(app->tool_window.brushes[0][0].button);
+					}
+#if GTK_MAJOR_VERSION <= 2
+					(void)sprintf(str, "./image/%s",
+						gtk_combo_box_get_active_text(GTK_COMBO_BOX(button_image_file)));
+#else
+					(void)sprintf(str, "./image/%s",
+						gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(button_image_file)));
+#endif
+					core->image_file_path = MEM_STRDUP_FUNC(str);
+#if GTK_MAJOR_VERSION <= 2
+					file_path = g_build_filename(app->current_path, "image",
+						gtk_combo_box_get_active_text(GTK_COMBO_BOX(button_image_file)), NULL);
+#else
+					file_path = g_build_filename(app->current_path, "image",
+						gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(button_image_file)), NULL);
+#endif
+					system_path = g_locale_from_utf8(file_path, -1, NULL, NULL, NULL);
+					core->button = CreateImageButton(system_path, core->name, app->tool_window.font_file);
+					g_object_set_data(G_OBJECT(core->button), "application", app);
+					(void)g_signal_connect(G_OBJECT(core->button), "clicked", G_CALLBACK(BrushButtonClicked), core);
+					(void)g_signal_connect(G_OBJECT(core->button), "button_press_event",
+						G_CALLBACK(BrushButtonRightClicked), core);
+					gtk_widget_add_events(core->button, GDK_BUTTON_PRESS_MASK);
+					gtk_table_attach(GTK_TABLE(app->tool_window.brush_table), core->button,
+						x, x+1, y, y+1, GTK_FILL, GTK_FILL, 0, 0);
+					gtk_widget_show_all(app->tool_window.brush_table);
+
+					(void)g_module_close(module);
+				}
 			}
 		}
 		else
@@ -1181,7 +1313,7 @@ void DeleteBrushData(APPLICATION* app)
 
 gboolean BrushButtonRightClicked(GtkWidget* button, GdkEventButton* event_info, BRUSH_CORE* core)
 {
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(event_info->device->source == GDK_SOURCE_PEN)
 	{
 		core->app->input = INPUT_PEN;
@@ -1569,7 +1701,7 @@ void DeleteVectorBrushData(APPLICATION* app)
 
 gboolean VectorBrushButtonRightClicked(GtkWidget* button, GdkEventButton* event_info, VECTOR_BRUSH_CORE* core)
 {
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(event_info->device->source == GDK_SOURCE_PEN)
 	{
 		core->app->input = INPUT_PEN;
@@ -1932,7 +2064,13 @@ void CreateVectorBrushTable(
 	}
 }
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+static gboolean Redraw3D(GtkWidget* widget)
+{
+	gtk_widget_queue_draw(widget);
+
+	return TRUE;
+}
+
 static void AfterPixelDataGet(APPLICATION* app, uint8* pixels)
 {
 	DRAW_WINDOW *draw_window = app->draw_window[app->active_window];
@@ -2007,6 +2145,11 @@ static void AfterPixelDataGet(APPLICATION* app, uint8* pixels)
 	// コールバック関数をセット
 	SetDrawWindowCallbacks(draw_window->window, draw_window);
 
+	// タイマー関数を再設定
+	(void)g_source_remove(draw_window->timer_id);
+	draw_window->timer_id = g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, 1000 / FRAME_RATE,
+		(GSourceFunc)TimerCallBack, draw_window, NULL);
+
 	// ウィジェットの表示を切り替え
 	gtk_widget_hide(draw_window->gl_area);
 	gtk_widget_show_all(draw_window->window);
@@ -2036,6 +2179,11 @@ static void End3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 		// ウィジェットの表示を切り替え
 		gtk_widget_hide(draw_window->gl_area);
 		gtk_widget_show_all(draw_window->window);
+
+		// タイマー関数を再設定
+		(void)g_source_remove(draw_window->timer_id);
+		draw_window->timer_id = g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, 1000 / FRAME_RATE,
+		(GSourceFunc)TimerCallBack, draw_window, NULL);
 
 		DrawWindowChangeZoom(draw_window, draw_window->zoom);
 
@@ -2097,6 +2245,9 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(window->brush_scroll), window->brush_table);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(window->brush_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
+	(void)g_source_remove(draw_window->timer_id);
+	draw_window->timer_id = g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, 1000 / FRAME_RATE,
+		(GSourceFunc)Redraw3D, draw_window->gl_area, NULL);
 	DisconnectDrawWindowCallbacks(draw_window->window, draw_window);
 	gtk_widget_hide(draw_window->window);
 
@@ -2195,7 +2346,6 @@ void CreateChange3DLayerUI(
 		G_CALLBACK(Change3DLayerButtonPressed), app);
 	gtk_box_pack_start(GTK_BOX(window->brush_table), button, FALSE, FALSE, 0);
 }
-#endif
 
 static void ColorChangeCallBack(GtkWidget* widget, const uint8 color[3], void* data)
 {
@@ -2249,7 +2399,7 @@ static gboolean ToolBoxMotionNotifyEvent(
 	APPLICATION* app
 )
 {
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(event_info->device->source == GDK_SOURCE_ERASER)
 #else
 	if(gdk_device_get_source(event_info->device) == GDK_SOURCE_ERASER)
@@ -2279,7 +2429,7 @@ static gboolean ToolBoxMotionNotifyEvent(
 			}
 		}
 	}
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	else if(event_info->device->source == GDK_SOURCE_PEN)
 #else
 	else if(gdk_device_get_source(event_info->device) == GDK_SOURCE_PEN)
@@ -2474,8 +2624,8 @@ GtkWidget *CreateToolBox(
 				if((length = IniFileGetString(common_tool, common_tool->section[i].section_name,
 					"NAME", temp, MAX_STR_LENGTH)) != 0)
 				{
-					x = IniFileGetInt(common_tool, common_tool->section[i].section_name, "X");
-					y = IniFileGetInt(common_tool, common_tool->section[i].section_name, "Y");
+					x = IniFileGetInteger(common_tool, common_tool->section[i].section_name, "X");
+					y = IniFileGetInteger(common_tool, common_tool->section[i].section_name, "Y");
 					common_tool_data[y][x].name = g_convert(
 						temp, length, "UTF-8", code, NULL, NULL, NULL);
 					common_tool_data[y][x].image_file_path =
@@ -2580,8 +2730,8 @@ GtkWidget *CreateToolBox(
 				!= 0
 			)
 			{
-				x = IniFileGetInt(file, file->section[i].section_name, "X");
-				y = IniFileGetInt(file, file->section[i].section_name, "Y");
+				x = IniFileGetInteger(file, file->section[i].section_name, "X");
+				y = IniFileGetInteger(file, file->section[i].section_name, "Y");
 				hot_key[0] = 0;
 				if(IniFileGetString(file, file->section[i].section_name, "HOT_KEY", hot_key, 3) != 0)
 				{
@@ -2615,8 +2765,8 @@ GtkWidget *CreateToolBox(
 				!= 0
 			)
 			{
-				x = IniFileGetInt(vector_file, vector_file->section[i].section_name, "X");
-				y = IniFileGetInt(vector_file, vector_file->section[i].section_name, "Y");
+				x = IniFileGetInteger(vector_file, vector_file->section[i].section_name, "X");
+				y = IniFileGetInteger(vector_file, vector_file->section[i].section_name, "Y");
 				vector_brush_data[y][x].app = app;
 				vector_brush_data[y][x].name =
 					g_convert(temp, length, "UTF-8", code, NULL, NULL, NULL);
@@ -2817,7 +2967,7 @@ GtkWidget *CreateToolBoxWindow(APPLICATION* app, GtkWidget *parent)
 	}
 
 	// タッチイベントの準備
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 	{
 		size_t max_data_size = sizeof(TOUCH_POINT);
 		int i, j;

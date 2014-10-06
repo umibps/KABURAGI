@@ -116,7 +116,7 @@ static void PolyLinePressCallBack(
 			else
 			{
 				g_timer_stop(line->timer);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 				if(g_timer_elapsed(line->timer, NULL) < 0.4f && ((GdkEventButton*)state)->device->source != GDK_SOURCE_MOUSE)
 #else
 				if(g_timer_elapsed(line->timer, NULL) < 0.4f
@@ -343,7 +343,7 @@ static GtkWidget* CreatePolyLineDetailUI(APPLICATION* app, void* data)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);
@@ -549,7 +549,7 @@ static void BezierLinePressCallBack(
 			else
 			{
 				g_timer_stop(line->timer);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 				if(g_timer_elapsed(line->timer, NULL) < 0.4f && ((GdkEventButton*)state)->device->source != GDK_SOURCE_MOUSE)
 #else
 				if(g_timer_elapsed(line->timer, NULL) < 0.4f
@@ -779,7 +779,7 @@ static GtkWidget* CreateBezierLineDetailUI(APPLICATION* app, void* data)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);
@@ -931,13 +931,13 @@ static void FreeHandPressCallBack(
 		layer->flags = 0;
 
 		free_hand->flags |= FREE_HAND_STARTED;
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		free_hand->source = ((GdkEventButton*)state)->device->source;
 #else
 		free_hand->source = gdk_device_get_source(((GdkEventButton*)state)->device);
 #endif
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		if(((GdkEventButton*)state)->device->source != GDK_SOURCE_MOUSE)
 #else
 		if(gdk_device_get_source(((GdkEventButton*)state)->device) != GDK_SOURCE_MOUSE)
@@ -946,7 +946,7 @@ static void FreeHandPressCallBack(
 			pressure *= 0.5;
 		}
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		if(((GdkEventButton*)state)->device->source == GDK_SOURCE_MOUSE)
 #else
 		if(gdk_device_get_source(((GdkEventButton*)state)->device) == GDK_SOURCE_MOUSE)
@@ -1579,7 +1579,7 @@ static GtkWidget* CreateFreeHandDetailUI(APPLICATION* app, void* data)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);
@@ -6703,21 +6703,21 @@ void LoadVectorBrushDetailData(
 		core->create_detail_ui = CreatePolyLineDetailUI;
 		core->draw_cursor = PolyLineDrawCursor;
 
-		line->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		line->line_type = IniFileGetInt(file, section_name, "LINE_TYPE");
-		line->blur = IniFileGetInt(file, section_name, "BLUR");
-		line->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		line->flow = (uint8)(IniFileGetInt(file, section_name, "FLOW") * 2.55 + 0.5);
-		line->first_pressure = (uint8)IniFileGetInt(file, section_name, "FIRST_PRESSURE");
-		line->last_pressure = (uint8)IniFileGetInt(file, section_name, "LSST_PRESSURE");
+		line->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		line->line_type = IniFileGetInteger(file, section_name, "LINE_TYPE");
+		line->blur = IniFileGetInteger(file, section_name, "BLUR");
+		line->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		line->flow = (uint8)(IniFileGetInteger(file, section_name, "FLOW") * 2.55 + 0.5);
+		line->first_pressure = (uint8)IniFileGetInteger(file, section_name, "FIRST_PRESSURE");
+		line->last_pressure = (uint8)IniFileGetInteger(file, section_name, "LAST_PRESSURE");
 		line->timer = g_timer_new();
 
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			line->flags |= POLY_LINE_SIZE_WITH_PRESSURE;
 		}
 
-		if(IniFileGetInt(file, section_name, "ANTI_ALIAS") != 0)
+		if(IniFileGetInteger(file, section_name, "ANTI_ALIAS") != 0)
 		{
 			line->flags |= POLY_LINE_ANTI_ALIAS;
 		}
@@ -6739,21 +6739,21 @@ void LoadVectorBrushDetailData(
 		core->create_detail_ui = CreateBezierLineDetailUI;
 		core->draw_cursor = BezierLineDrawCursor;
 
-		line->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		line->line_type = IniFileGetInt(file, section_name, "LINE_TYPE");
-		line->blur = IniFileGetInt(file, section_name, "BLUR");
-		line->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		line->flow = (uint8)(IniFileGetInt(file, section_name, "FLOW") * 2.55 + 0.5);
-		line->first_pressure = (uint8)IniFileGetInt(file, section_name, "FIRST_PRESSURE");
-		line->last_pressure = (uint8)IniFileGetInt(file, section_name, "LSST_PRESSURE");
+		line->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		line->line_type = IniFileGetInteger(file, section_name, "LINE_TYPE");
+		line->blur = IniFileGetInteger(file, section_name, "BLUR");
+		line->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		line->flow = (uint8)(IniFileGetInteger(file, section_name, "FLOW") * 2.55 + 0.5);
+		line->first_pressure = (uint8)IniFileGetInteger(file, section_name, "FIRST_PRESSURE");
+		line->last_pressure = (uint8)IniFileGetInteger(file, section_name, "LAST_PRESSURE");
 		line->timer = g_timer_new();
 
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			line->flags |= BEZIER_LINE_SIZE_WITH_PRESSURE;
 		}
 
-		if(IniFileGetInt(file, section_name, "ANTI_ALIAS") != 0)
+		if(IniFileGetInteger(file, section_name, "ANTI_ALIAS") != 0)
 		{
 			line->flags |= BEZIER_LINE_ANTI_ALIAS;
 		}
@@ -6768,34 +6768,34 @@ void LoadVectorBrushDetailData(
 		free_hand = (FREE_HAND_BRUSH*)core->brush_data;
 		core->detail_data_size = sizeof(*free_hand);
 
-		free_hand->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		free_hand->line_type = IniFileGetInt(file, section_name, "LINE_TYPE");
-		free_hand->blur = IniFileGetInt(file, section_name, "BLUR");
-		free_hand->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		free_hand->flow = (uint8)(IniFileGetInt(file, section_name, "FLOW") * 2.55);
-		free_hand->min_degree = IniFileGetInt(file, section_name, "MINIMUM_DEGREE");
+		free_hand->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		free_hand->line_type = IniFileGetInteger(file, section_name, "LINE_TYPE");
+		free_hand->blur = IniFileGetInteger(file, section_name, "BLUR");
+		free_hand->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		free_hand->flow = (uint8)(IniFileGetInteger(file, section_name, "FLOW") * 2.55);
+		free_hand->min_degree = IniFileGetInteger(file, section_name, "MINIMUM_DEGREE");
 		if(free_hand->min_degree < 3)
 		{
 			free_hand->min_degree = 3;
 		}
 		free_hand->min_arg = (free_hand->min_degree * G_PI) / 180;
-		free_hand->min_distance = IniFileGetInt(file, section_name, "MINIMUM_DISTANCE");
+		free_hand->min_distance = IniFileGetInteger(file, section_name, "MINIMUM_DISTANCE");
 		if(free_hand->min_distance < 1)
 		{
 			free_hand->min_distance = 1;
 		}
 
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			free_hand->flags |= FREE_HAND_SIZE_WITH_PRESSURE;
 		}
 
-		if(IniFileGetInt(file, section_name, "ANTI_ALIAS") != 0)
+		if(IniFileGetInteger(file, section_name, "ANTI_ALIAS") != 0)
 		{
 			free_hand->flags |= FREE_HAND_ANTI_ALIAS;
 		}
 
-		if(IniFileGetInt(file, section_name, "PRIOR_ANGLE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRIOR_ANGLE") != 0)
 		{
 			free_hand->flags |= FREE_HAND_PRIOR_ARG;
 		}
@@ -6816,7 +6816,7 @@ void LoadVectorBrushDetailData(
 		control = (CONTROL_POINT_TOOL*)core->brush_data;
 		core->detail_data_size = sizeof(*control);
 
-		control->mode = (uint8)IniFileGetInt(file, section_name, "MODE");
+		control->mode = (uint8)IniFileGetInteger(file, section_name, "MODE");
 
 		core->press_func = ControlPointToolPressCallBack;
 		core->motion_func = ControlPointToolMotionCallBack;
@@ -6834,7 +6834,7 @@ void LoadVectorBrushDetailData(
 		color = (CHANGE_LINE_COLOR_TOOL*)core->brush_data;
 		core->detail_data_size = sizeof(*color);
 
-		color->flow = (uint8)(IniFileGetInt(file, section_name, "FLOW") * 2.55);
+		color->flow = (uint8)(IniFileGetInteger(file, section_name, "FLOW") * 2.55);
 
 		core->press_func = LineColorChangeBrushPressCallBack;
 		core->motion_func = LineColorChangeBrushMotionCallBack;
@@ -6852,10 +6852,10 @@ void LoadVectorBrushDetailData(
 		size = (CHANGE_LINE_SIZE_TOOL*)core->brush_data;
 		core->detail_data_size = sizeof(*size);
 
-		size->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		size->blur = IniFileGetInt(file, section_name, "BLUR");
-		size->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		size->flow = (uint8)(IniFileGetInt(file, section_name, "FLOW") * 2.55);
+		size->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		size->blur = IniFileGetInteger(file, section_name, "BLUR");
+		size->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		size->flow = (uint8)(IniFileGetInteger(file, section_name, "FLOW") * 2.55);
 
 		core->press_func = LineSizeChangeBrushPressCallBack;
 		core->motion_func = LineSizeChangeBrushMotionCallBack;
@@ -6873,10 +6873,10 @@ void LoadVectorBrushDetailData(
 		eraser = (VECTOR_ERASER*)core->brush_data;
 		core->detail_data_size = sizeof(*eraser);
 
-		eraser->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		eraser->mode = (uint8)IniFileGetInt(file, section_name, "MODE");
+		eraser->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		eraser->mode = (uint8)IniFileGetInteger(file, section_name, "MODE");
 
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			eraser->flags |= VECTOR_ERASER_PRESSURE_SIZE;
 		}
@@ -7008,7 +7008,7 @@ int WriteVectorBrushData(
 							line->line_type, 10);
 						(void)IniFileAddInteger(file, brush_section_name, "FIRST_PRESSURE",
 							line->first_pressure, 10);
-						(void)IniFileAddInteger(file, brush_section_name, "LSST_PRESSURE",
+						(void)IniFileAddInteger(file, brush_section_name, "LAST_PRESSURE",
 							line->last_pressure, 10);
 					}
 					break;
@@ -7032,7 +7032,7 @@ int WriteVectorBrushData(
 							line->line_type, 10);
 						(void)IniFileAddInteger(file, brush_section_name, "FIRST_PRESSURE",
 							line->first_pressure, 10);
-						(void)IniFileAddInteger(file, brush_section_name, "LSST_PRESSURE",
+						(void)IniFileAddInteger(file, brush_section_name, "LAST_PRESSURE",
 							line->last_pressure, 10);
 					}
 					break;

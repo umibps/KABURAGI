@@ -42,11 +42,12 @@ typedef enum _eBRUSH_TYPE
 	BRUSH_TYPE_IMAGE_BRUSH,
 	BRUSH_TYPE_PICKER_IMAGE_BRUSH,
 	BRUSH_TYPE_SCRIPT_BRUSH,
+	BRUSH_TYPE_PLUG_IN,
 	NUM_BRUSH_TYPE
 } eBRUSH_TYPE;
 
 typedef void (*brush_core_func)(DRAW_WINDOW* window, gdouble x, gdouble y,
-	gdouble pressure, struct _BRUSH_CORE *core, void* state);
+	gdouble pressure, struct _BRUSH_CORE* core, void* state);
 
 typedef void (*brush_update_func)(DRAW_WINDOW* window, gdouble x, gdouble y, void* data);
 
@@ -83,7 +84,7 @@ typedef struct _BRUSH_CORE
 	GtkWidget* button;
 } BRUSH_CORE;
 
-extern void ChangeBrush(
+EXTERN void ChangeBrush(
 	BRUSH_CORE* core,
 	void* brush_data,
 	brush_core_func press_func,
@@ -91,14 +92,14 @@ extern void ChangeBrush(
 	brush_core_func release_func
 );
 
-extern void BrushCorePointReset(BRUSH_CORE* core);
+EXTERN void BrushCorePointReset(BRUSH_CORE* core);
 
-extern void AddBrushHistory(
+EXTERN void AddBrushHistory(
 	BRUSH_CORE* core,
 	LAYER* active
 );
 
-extern void AddSelectionEditHistory(BRUSH_CORE* core, LAYER* selection);
+EXTERN void AddSelectionEditHistory(BRUSH_CORE* core, LAYER* selection);
 
 /*****************************************************
 * SetBrushBaseScale関数                              *
@@ -107,7 +108,7 @@ extern void AddSelectionEditHistory(BRUSH_CORE* core, LAYER* selection);
 * widget	: 倍率設定用のコンボボックスウィジェット *
 * index		: 倍率のインデックスを保持するアドレス   *
 *****************************************************/
-extern void SetBrushBaseScale(GtkWidget* widget, int* index);
+EXTERN void SetBrushBaseScale(GtkWidget* widget, int* index);
 
 /***************************************
 * BrushCoreSetCirclePattern関数        *
@@ -120,7 +121,7 @@ extern void SetBrushBaseScale(GtkWidget* widget, int* index);
 * alpha				: 不透明度         *
 * color				: 色               *
 ***************************************/
-extern void BrushCoreSetCirclePattern(
+EXTERN void BrushCoreSetCirclePattern(
 	BRUSH_CORE* core,
 	FLOAT_T r,
 	FLOAT_T outline_hardness,
@@ -139,7 +140,7 @@ extern void BrushCoreSetCirclePattern(
 * blur				: ボケ足                   *
 * alpha				: 不透明度                 *
 ***********************************************/
-extern void BrushCoreSetGrayCirclePattern(
+EXTERN void BrushCoreSetGrayCirclePattern(
 	BRUSH_CORE* core,
 	FLOAT_T r,
 	FLOAT_T outline_hardness,
@@ -147,7 +148,33 @@ extern void BrushCoreSetGrayCirclePattern(
 	FLOAT_T alpha
 );
 
-extern void BrushCoreUndoRedo(DRAW_WINDOW* window, void* p);
+EXTERN void BrushCoreUndoRedo(DRAW_WINDOW* window, void* p);
+
+/*************************************************
+* DrawCircleBrushWorkLayer関数                   *
+* ブラシを作業レイヤーに描画する                 *
+* 引数                                           *
+* window	: キャンバス                         *
+* core		: ブラシの基本情報                   *
+* x			: 描画範囲の左上のX座標              *
+* y			: 描画範囲の左上のY座標              *
+* width		: 描画範囲の幅                       *
+* height	: 描画範囲の高さ                     *
+* mask		: 作業レイヤーにコピーする際のマスク *
+* zoom		: 拡大・縮小率                       *
+* alpha		: 不透明度                           *
+*************************************************/
+EXTERN void DrawCircleBrushWorkLayer(
+	DRAW_WINDOW* window,
+	BRUSH_CORE* core,
+	gdouble x,
+	gdouble y,
+	gdouble width,
+	gdouble height,
+	uint8** mask,
+	gdouble zoom,
+	gdouble alpha
+);
 
 /***************************************
 * DefaultToolUpdate関数                *
@@ -158,7 +185,7 @@ extern void BrushCoreUndoRedo(DRAW_WINDOW* window, void* p);
 * y			: マウスカーソルのY座標    *
 * dummy		: ダミーポインタ           *
 ***************************************/
-extern void DefaultToolUpdate(DRAW_WINDOW* window, gdouble x, gdouble y, void* dummy);
+EXTERN void DefaultToolUpdate(DRAW_WINDOW* window, gdouble x, gdouble y, void* dummy);
 
 #ifdef __cplusplus
 }

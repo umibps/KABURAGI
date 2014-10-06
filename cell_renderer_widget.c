@@ -170,11 +170,19 @@ static void gtk_cell_renderer_widget_get_size(
 		gtk_widget_size_request(crw->widget,&req);
 		if(width != NULL)
 		{
+#if GTK_MAJOR_VERSION <= 2
 			*width = req.width+2*cell->xpad;
+#else
+			*width = req.width + 2 * 3;
+#endif
 		}
 		if(height != NULL)
 		{
+#if GTK_MAJOR_VERSION <= 2
 			*height = req.height+2*cell->ypad;
+#else
+			*height = req.height + 2 * 3;
+#endif
 		}
 	}
 
@@ -230,7 +238,11 @@ static void gtk_cell_renderer_widget_render(
 	gtk_widget_show(crw->widget);
 
 	event = gtk_get_current_event();
+#if GTK_MAJOR_VERSION <= 2
 	gtk_container_propagate_expose(GTK_CONTAINER(widget), crw->widget, (GdkEventExpose*)event);
+#else
+	gtk_widget_queue_draw(widget);
+#endif
 	gdk_event_free(event);
 }
 

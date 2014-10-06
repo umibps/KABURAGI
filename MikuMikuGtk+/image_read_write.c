@@ -1956,6 +1956,539 @@ uint8* ReadBmpStream(
 	return pixels;
 }
 
+typedef struct _DDS_PIXEL_FORMAT
+{
+	uint32 size;
+	uint32 flags;
+	uint32 four_cc;
+	uint32 bpp;
+	uint32 red_mask;
+	uint32 green_mask;
+	uint32 blue_mask;
+	uint32 alpha_mask;
+} DDS_PIXEL_FORMAT;
+
+typedef struct _DDS_CAPS
+{
+	uint32 caps1;
+	uint32 caps2;
+	uint32 caps3;
+	uint32 caps4;
+} DDS_CAPS;
+
+typedef struct _DDS_COLOR_KEY
+{
+	uint32 low_value;
+	uint32 high_value;
+} DDS_COLOR_KEY;
+
+typedef struct _DDS_SURFACE_DESCRIPTION
+{
+	uint32 size;
+	uint32 flags;
+	uint32 height;
+	uint32 width;
+	uint32 pitch;
+	uint32 depth;
+	uint32 mip_map_levels;
+	uint32 alpha_bit_depth;
+	uint32 reserved;
+	uint32 surface;
+
+	DDS_COLOR_KEY color_key_dest_overlay;
+	DDS_COLOR_KEY color_key_dest_bitblt;
+	DDS_COLOR_KEY color_key_source_overlay;
+	DDS_COLOR_KEY color_key_source_bitblt;
+
+	DDS_PIXEL_FORMAT format;
+	DDS_CAPS caps;
+
+	uint32 texture_stage;
+} DDS_SURFACE_DESCRIPTION;
+
+static size_t ReadDdsPixelFormat(
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	DDS_PIXEL_FORMAT* format
+)
+{
+	size_t read_size = 0;
+	read_size += read_func(&format->size, 1, sizeof(format->size), src);
+	read_size += read_func(&format->flags, 1, sizeof(format->flags), src);
+	read_size += read_func(&format->four_cc, 1, sizeof(format->four_cc), src);
+	read_size += read_func(&format->bpp, 1, sizeof(format->bpp), src);
+	read_size += read_func(&format->red_mask, 1, sizeof(format->red_mask), src);
+	read_size += read_func(&format->green_mask, 1, sizeof(format->green_mask), src);
+	read_size += read_func(&format->blue_mask, 1, sizeof(format->blue_mask), src);
+	read_size += read_func(&format->alpha_mask, 1, sizeof(format->alpha_mask), src);
+
+	return read_size;
+}
+
+static size_t ReadDdsCaps(
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	DDS_CAPS* caps
+)
+{
+	size_t read_size = 0;
+	read_size += read_func(&caps->caps1, 1, sizeof(caps->caps1), src);
+	read_size += read_func(&caps->caps2, 1, sizeof(caps->caps2), src);
+	read_size += read_func(&caps->caps3, 1, sizeof(caps->caps3), src);
+	read_size += read_func(&caps->caps4, 1, sizeof(caps->caps4), src);
+
+	return read_size;
+}
+
+static size_t ReadDdsColorKey(
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	DDS_COLOR_KEY* color_key
+)
+{
+	size_t read_size = 0;
+	read_size += read_func(&color_key->low_value, 1, sizeof(color_key->low_value), src);
+	read_size += read_func(&color_key->high_value, 1, sizeof(color_key->high_value), src);
+
+	return read_size;
+}
+
+static size_t ReadDdsSurfaceDescription(
+	void* stream,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	DDS_SURFACE_DESCRIPTION* description
+)
+{
+	size_t read_size = 0;
+	read_size += read_func(&description->size, 1, sizeof(description->size), stream);
+	read_size += read_func(&description->flags, 1, sizeof(description->flags), stream);
+	read_size += read_func(&description->height, 1, sizeof(description->height), stream);
+	read_size += read_func(&description->width, 1, sizeof(description->width), stream);
+	read_size += read_func(&description->pitch, 1, sizeof(description->pitch), stream);
+	read_size += read_func(&description->depth, 1, sizeof(description->depth), stream);
+	read_size += read_func(&description->mip_map_levels, 1, sizeof(description->mip_map_levels), stream);
+	read_size += read_func(&description->alpha_bit_depth, 1, sizeof(description->alpha_bit_depth), stream);
+	read_size += read_func(&description->reserved, 1, sizeof(description->reserved), stream);
+	read_size += read_func(&description->surface, 1, sizeof(description->surface), stream);
+
+	read_size += ReadDdsColorKey(stream, read_func, &description->color_key_dest_overlay);
+	read_size += ReadDdsColorKey(stream, read_func, &description->color_key_dest_bitblt);
+	read_size += ReadDdsColorKey(stream, read_func, &description->color_key_source_overlay);
+	read_size += ReadDdsColorKey(stream, read_func, &description->color_key_source_bitblt);
+
+	read_size += ReadDdsPixelFormat(stream, read_func, &description->format);
+	read_size += ReadDdsCaps(stream, read_func, &description->caps);
+
+	read_size += read_func(&description->texture_stage, 1, sizeof(description->texture_stage), stream);
+
+	return read_size;
+}
+
+static void DecompressBlockDXT_Internal(
+	const uint8* block,
+	uint8* output,
+	unsigned int stride,
+	const uint8* alpha_values
+)
+{
+	uint32 code;
+	uint32 temp;
+	uint16 color0, color1;
+	uint8 r0, g0, b0, r1, g1, b1;
+	uint32 position_code;
+	uint8 alpha;
+	uint8 *pixel;
+
+	unsigned int i, j;
+
+	color0 = *(const uint16*)(block);
+	color1 = *(const uint16*)(block + 2);
+
+	temp = (color0 >> 11) * 255 + 16;
+	r0 = (uint8)((temp/32 + temp)/32);
+	temp = ((color0 & 0x7E0) >> 5) * 255 + 32;
+	g0 = (uint8)((temp/64 + temp)/64);
+	temp = (color0 & 0x001F) * 255 + 16;
+	b0 = (uint8)((temp/32 + temp)/32);
+
+	temp = (color1 >> 11) * 255 + 16;
+	r1 = (uint8)((temp/32 + temp)/32);
+	temp = ((color1 & 0x7E0) >> 5) * 255 + 32;
+	g1 = (uint8)((temp/64 + temp)/64);
+	temp = (color1 & 0x001F) * 255 + 16;
+	b1 = (uint8)((temp/32 + temp)/32);
+
+	code = *(const uint32*)(block + 4);
+
+	if(color0 > color1)
+	{
+		for(j=0; j<4; ++j)
+		{
+			for(i=0; i<4; ++i)
+			{
+				pixel = &output[j*stride + i*4];
+				alpha = alpha_values[j*4+i];
+
+				position_code = (code >> 2*(4*j+i)) & 0x03;
+
+				switch(position_code)
+				{
+				case 0:
+					pixel[0] = r0;
+					pixel[1] = g0;
+					pixel[2] = b0;
+					pixel[3] = alpha;
+					break;
+				case 1:
+					pixel[0] = r1;
+					pixel[1] = g1;
+					pixel[2] = b1;
+					pixel[3] = alpha;
+					break;
+				case 2:
+					pixel[0] = (2*r0+r1)/3;
+					pixel[1] = (2*g0+g1)/3;
+					pixel[2] = (2*b0+b1)/3;
+					pixel[3] = alpha;
+				case 3:
+					pixel[0] = (r0+2*r1)/3;
+					pixel[1] = (g0+2*g1)/3;
+					pixel[2] = (b0+2*b1)/3;
+					pixel[3] = alpha;
+					break;
+				}
+			}
+		}
+	}
+	else
+	{
+		for(j=0; j<4; ++j)
+		{
+			for(i=0; i<4; ++i)
+			{
+				pixel = &output[j*stride + i*4];
+				alpha = alpha_values[j*4+i];
+
+				position_code = (code >> 2*(4*j+i)) & 0x03;
+
+				switch(position_code)
+				{
+				case 0:
+					pixel[0] = r0;
+					pixel[1] = g0;
+					pixel[2] = b0;
+					pixel[3] = alpha;
+					break;
+				case 1:
+					pixel[0] = r1;
+					pixel[1] = g1;
+					pixel[2] = b1;
+					pixel[3] = alpha;
+					break;
+				case 2:
+					pixel[0] = (r0+r1)/3;
+					pixel[1] = (g0+g1)/3;
+					pixel[2] = (b0+b1)/3;
+					pixel[3] = alpha;
+				case 3:
+					pixel[0] = 0;
+					pixel[1] = 0;
+					pixel[2] = 0;
+					pixel[3] = alpha;
+					break;
+				}
+			}
+		}
+	}
+}
+
+void DecompressBlockDXT1(
+	uint32 x,
+	uint32 y,
+	uint32 width,
+	const uint8* block_storage,
+	uint8* image
+)
+{
+	const uint8 const_alpha[] =
+	{
+		0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff
+	};
+	DecompressBlockDXT_Internal(block_storage,
+		image + x*4 + (y*width*4), width*4, const_alpha);
+}
+
+void DecompressBlockDXT3(
+	uint32 x,
+	uint32 y,
+	uint32 width,
+	const uint8* block_storage,
+	uint8* image
+)
+{
+	uint8 alpha_values[16] = {0};
+	int i;
+
+	for(i=0; i<4; ++i)
+	{
+		const uint16* alpha_data = (const uint16*)(block_storage);
+		alpha_values[i*4 + 0] = (((*alpha_data) >> 0) & 0xF) * 17;
+		alpha_values[i*4 + 1] = (((*alpha_data) >> 4) & 0xF) * 17;
+		alpha_values[i*4 + 2] = (((*alpha_data) >> 8) & 0xF) * 17;
+		alpha_values[i*4 + 3] = (((*alpha_data) >> 12) & 0xF) * 17;
+
+		block_storage += 2;
+	}
+
+	DecompressBlockDXT_Internal(block_storage,
+		image + x*4 + (y*width*4), width*4, alpha_values);
+}
+
+void DecompressBlockDXT5(
+	uint32 x,
+	uint32 y,
+	uint32 width,
+	const uint8* block_storage,
+	uint8* image
+)
+{
+	uint32 temp, code;
+	uint8 alpha0, alpha1;
+	const uint8* bits;
+	uint32 alpha_code1;
+	uint16 alpha_code2;
+
+	uint16 color0, color1;
+	uint8 r0, g0, b0, r1, g1, b1;
+
+	int i, j;
+
+
+	alpha0 = *(block_storage);
+	alpha1 = *(block_storage + 1);
+
+	bits = block_storage + 2;
+	alpha_code1 = bits[2] | (bits[3] << 8) | (bits[4] << 16) | (bits[5] << 24);
+	alpha_code2 = bits[0] | (bits[1] << 8);
+
+	color0 = *(const uint16*)(block_storage + 8);
+	color1 = *(const uint16*)(block_storage + 10);	
+
+	temp = (color0 >> 11) * 255 + 16;
+	r0 = (uint8)((temp/32 + temp)/32);
+	temp = ((color0 & 0x07E0) >> 5) * 255 + 32;
+	g0 = (uint8)((temp/64 + temp)/64);
+	temp = (color0 & 0x001F) * 255 + 16;
+	b0 = (uint8)((temp/32 + temp)/32);
+
+	temp = (color1 >> 11) * 255 + 16;
+	r1 = (uint8)((temp/32 + temp)/32);
+	temp = ((color1 & 0x07E0) >> 5) * 255 + 32;
+	g1 = (uint8)((temp/64 + temp)/64);
+	temp = (color1 & 0x001F) * 255 + 16;
+	b1 = (uint8)((temp/32 + temp)/32);
+
+	code = *(const uint32*)(block_storage + 12);
+
+	for(j=0; j<4; j++)
+	{
+		for(i=0; i<4; i++)
+		{
+			uint8 final_alpha;
+			int alpha_code, alpha_code_index;
+			uint8 color_code;
+			uint8 *pixel;
+
+			pixel = &image[(i+x)*4 + (width*4 * (y+j))];
+			alpha_code_index = 3*(4*j+i);
+			if(alpha_code_index <= 12)
+			{
+				alpha_code = (alpha_code2 >> alpha_code_index) & 0x07;
+			}
+			else if(alpha_code_index == 15)
+			{
+				alpha_code = (alpha_code2 >> 15) | ((alpha_code1 << 1) & 0x06);
+			} else // alphaCodeIndex >= 18 && alphaCodeIndex <= 45
+			{
+				alpha_code = (alpha_code1 >> (alpha_code_index - 16)) & 0x07;
+			}
+
+			if (alpha_code == 0)
+			{
+				final_alpha = alpha0;
+			}
+			else if(alpha_code == 1)
+			{
+				final_alpha = alpha1;
+			}
+			else
+			{
+				if(alpha0 > alpha1)
+				{
+					final_alpha = (uint8)(((8-alpha_code)*alpha0 + (alpha_code-1)*alpha1)/7);
+				}
+				else
+				{
+					if (alpha_code == 6)
+					{
+						final_alpha = 0;
+					}
+					else if(alpha_code == 7)
+					{
+						final_alpha = 255;
+					}
+					else
+					{
+						final_alpha = (uint8)(((6-alpha_code)*alpha0 + (alpha_code-1)*alpha1)/5);
+					}
+				}
+			}
+
+			color_code = (code >> 2*(4*j+i)) & 0x03; 
+
+			switch (color_code)
+			{
+			case 0:
+				pixel[0] = r0;
+				pixel[1] = g0;
+				pixel[2] = b0;
+				pixel[3] = final_alpha;
+				break;
+			case 1:
+				pixel[0] = r1;
+				pixel[1] = g1;
+				pixel[2] = b1;
+				pixel[3] = final_alpha;
+				break;
+			case 2:
+				pixel[0] = (2*r0+r1)/3;
+				pixel[1] = (2*g0+g1)/3;
+				pixel[2] = (2*b0+b1)/3;
+				pixel[3] = final_alpha;
+				break;
+			case 3:
+				pixel[0] = (r0+2*r1)/3;
+				pixel[1] = (g0+2*g1)/3;
+				pixel[2] = (b0+2*b1)/3;
+				pixel[3] = final_alpha;
+				break;
+			}
+		}
+	}
+}
+
+/*****************************************
+* ReadDdsStream関数                      *
+* DDSファイルの読み込み                  *
+* 引数                                   *
+* stream	: 読み込み元                 *
+* read_func	: 読み込みに使う関数ポインタ *
+* data_size	: 画像データのバイト数       *
+* width		: 画像の幅                   *
+* height	: 画像の高さ                 *
+* channel	: 画像のチャンネル数         *
+* 返り値                                 *
+*	ピクセルデータ(失敗時はNULL)         *
+*****************************************/
+uint8* ReadDdsStream(
+	void* stream,
+	stream_func_t read_func,
+	seek_func_t seek_func,
+	size_t data_size,
+	int* width,
+	int* height,
+	int* channel
+)
+{
+	DDS_SURFACE_DESCRIPTION description;
+	size_t read_size = 0;
+	char magic[5] = {0};
+	uint8 *pixels;
+	uint8 *data;
+	uint8 *block_storage;
+	size_t compressed_data_size;
+	uint32 four_cc;
+	unsigned int block_count_x, block_count_y;
+	unsigned int i, j;
+
+	read_size += read_func(magic, 1, 4, stream);
+	if(strcmp(magic, "DDS ") != 0)
+	{
+		return NULL;
+	}
+
+	read_size += ReadDdsSurfaceDescription(stream, read_func, &description);
+
+	compressed_data_size = data_size - read_size;
+	data = (uint8*)MEM_ALLOC_FUNC(compressed_data_size);
+	(void)read_func(data, 1, compressed_data_size, stream);
+	pixels = (uint8*)MEM_ALLOC_FUNC(description.width * description.height * 4);
+
+	four_cc = UINT32_FROM_BE(description.format.four_cc);
+
+	block_count_x = (description.width + 3) / 4;
+	block_count_y = (description.height + 3) / 4;
+	block_storage = data;
+	switch(four_cc)
+	{
+	case 'DXT1':
+		for(i=0; i<block_count_y; i++)
+		{
+			for(j=0; j<block_count_x; j++)
+			{
+				DecompressBlockDXT1(j*4, i*4, description.width,
+					block_storage + j * 8, pixels);
+			}
+			block_storage += block_count_x * 8;
+		}
+		break;
+	case 'DXT3':
+		for(i=0; i<block_count_y; i++)
+		{
+			for(j=0; j<block_count_x; j++)
+			{
+				DecompressBlockDXT3(j*4, i*4, description.width,
+					block_storage + j * 16, pixels);
+			}
+			block_storage += block_count_x * 16;
+		}
+		break;
+	case 'DXT5':
+		for(i=0; i<block_count_y; i++)
+		{
+			for(j=0; j<block_count_x; j++)
+			{
+				DecompressBlockDXT5(j*4, i*4, description.width,
+					block_storage + j * 8, pixels);
+			}
+			block_storage += block_count_x * 8;
+		}
+		break;
+	default:
+		return NULL;
+	}
+
+	if(width != NULL)
+	{
+		*width = description.width;
+	}
+	if(height != NULL)
+	{
+		*height = description.height;
+	}
+	if(channel != NULL)
+	{
+		*channel = 4;
+	}
+
+	MEM_FREE_FUNC(data);
+
+	return pixels;
+}
+
 #ifdef __cplusplus
 }
 #endif

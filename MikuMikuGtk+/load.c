@@ -28,6 +28,7 @@ MODEL_INTERFACE* LoadModel(
 	if(StringCompareIgnoreCase(file_type, ".pmx") == 0)
 	{
 		PMX_MODEL *model = (PMX_MODEL*)MEM_ALLOC_FUNC(sizeof(*model));
+		RENDER_ENGINE_INTERFACE *engine;
 		char *utf8_path = Locale2UTF8(system_path);
 		char *model_path = GetDirectoryName(utf8_path);
 
@@ -58,23 +59,36 @@ MODEL_INTERFACE* LoadModel(
 			return NULL;
 		}
 
-		PointerArrayAppend(scene->models, model);
-		PointerArrayAppend(scene->engines, SceneCreateRenderEngine(
-			project->scene, RENDER_ENGINE_PMX, (MODEL_INTERFACE*)model, 0, project));
-		if((project->flags & PROJECT_FLAG_ALWAYS_PHYSICS) == 0)
+		engine = SceneCreateRenderEngine(scene, RENDER_ENGINE_PMX,
+			(MODEL_INTERFACE*)model, 0, project);
+		if(engine != NULL)
 		{
-			model->flags &= PMX_FLAG_ENABLE_PHYSICS;
+			PointerArrayAppend(scene->models, model);
+			PointerArrayAppend(scene->engines, engine);
+		
+			if((project->flags & PROJECT_FLAG_ALWAYS_PHYSICS) == 0)
+			{
+				model->flags &= PMX_FLAG_ENABLE_PHYSICS;
+			}
+		}
+		else
+		{
+			DeleteModel((MODEL_INTERFACE*)model);
+			model = NULL;
 		}
 
 		MEM_FREE_FUNC(utf8_path);
 		MEM_FREE_FUNC(model_path);
 
-		PmxModelJoinWorld(model, project->world.world);
-		scene->selected_model = (MODEL_INTERFACE*)model;
-		SceneSetEmptyMotion(scene, (MODEL_INTERFACE*)model);
-		if((project->flags & PROJECT_FLAG_ALWAYS_PHYSICS) != 0)
+		if(engine != NULL)
 		{
-			model->interface_data.set_enable_physics(model, TRUE);
+			PmxModelJoinWorld(model, project->world.world);
+			scene->selected_model = (MODEL_INTERFACE*)model;
+			SceneSetEmptyMotion(scene, (MODEL_INTERFACE*)model);
+			if((project->flags & PROJECT_FLAG_ALWAYS_PHYSICS) != 0)
+			{
+				model->interface_data.set_enable_physics(model, TRUE);
+			}
 		}
 
 		return (MODEL_INTERFACE*)model;
@@ -120,6 +134,7 @@ MODEL_INTERFACE* LoadModel(
 	}
 	else
 	{
+		RENDER_ENGINE_INTERFACE *engine;
 		ASSET_MODEL *model = (ASSET_MODEL*)MEM_ALLOC_FUNC(sizeof(*model));
 		char *utf8_path = Locale2UTF8(system_path);
 		char *model_path = GetDirectoryName(utf8_path);
@@ -159,9 +174,13 @@ MODEL_INTERFACE* LoadModel(
 			return NULL;
 		}
 
-		PointerArrayAppend(scene->models, model);
-		PointerArrayAppend(scene->engines, SceneCreateRenderEngine(
-			project->scene, RENDER_ENGINE_ASSET, (MODEL_INTERFACE*)model, 0, project));
+		engine = SceneCreateRenderEngine(
+			project->scene, RENDER_ENGINE_ASSET, (MODEL_INTERFACE*)model, 0, project);
+		if(engine != NULL)
+		{
+			PointerArrayAppend(scene->models, model);
+			PointerArrayAppend(scene->engines, engine);
+		}
 
 		MEM_FREE_FUNC(utf8_path);
 		MEM_FREE_FUNC(model_path);

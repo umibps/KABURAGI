@@ -44,15 +44,17 @@ static gboolean OnClosePreviewWindow(GtkWidget* window, GdkEvent* event_info, PR
 * widget	: プレビューウィンドウの描画領域ウィジェット *
 * display	: 描画イベントの情報                         *
 * app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	常にTRUE                                             *
 *********************************************************/
-#if MAJOR_VERSION == 1
-static void UpdatePreviewWindow(
+#if GTK_MAJOR_VERSION <= 2
+static gboolean UpdatePreviewWindow(
 	GtkWidget* widget,
 	GdkEventExpose *display,
 	APPLICATION* app
 )
 #else
-static void UpdatePreviewWindow(
+static gboolean UpdatePreviewWindow(
 	GtkWidget* widget,
 	cairo_t* cairo_p,
 	APPLICATION* app
@@ -61,7 +63,7 @@ static void UpdatePreviewWindow(
 {
 	// 描画領域のサイズ取得用
 	GtkAllocation preview_allocation;
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	// 描画用のCairo情報
 	cairo_t *cairo_p;
 #endif
@@ -72,7 +74,7 @@ static void UpdatePreviewWindow(
 
 	if(app->window_num == 0)
 	{
-		return;
+		return FALSE;
 	}
 
 	gtk_widget_get_allocation(app->preview_window.image, &preview_allocation);
@@ -158,16 +160,18 @@ static void UpdatePreviewWindow(
 	}
 
 	// 画面更新
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_p = gdk_cairo_create(app->preview_window.image->window);
 #endif
 	cairo_rectangle(cairo_p, 0, 0, app->preview_window.draw_width, app->preview_window.draw_height);
 	cairo_clip(cairo_p);
 	cairo_set_source_surface(cairo_p, app->preview_window.surface_p, 0, 0);
 	cairo_paint(cairo_p);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 #endif
+
+	return TRUE;
 }
 
 void InitializePreviewWindow(PREVIEW_WINDOW* preview, APPLICATION* app)
@@ -219,7 +223,7 @@ void InitializePreviewWindow(PREVIEW_WINDOW* preview, APPLICATION* app)
 	// ウィンドウに追加
 	gtk_container_add(GTK_CONTAINER(preview->window), preview->image);
 	// 描画用のコールバック関数をセット
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	g_signal_connect(G_OBJECT(preview->image), "expose_event",
 		G_CALLBACK(UpdatePreviewWindow), app);
 #else

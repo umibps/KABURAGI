@@ -268,6 +268,8 @@ static gboolean OnColorChooserClicked(GtkWidget *widget, GdkEventButton *event, 
 		}
 		hsv.s = (uint8)(draw_x * 255);
 		hsv.v = (uint8)(draw_y * 255);
+		chooser->hsv.s = hsv.s;
+		chooser->hsv.v = hsv.v;
 		HSV2RGB_Pixel(&hsv, chooser->rgb);
 
 		// çƒï`âÊ
@@ -451,13 +453,13 @@ static gboolean OnColorChooserMotion(GtkWidget *widget, GdkEventMotion *event, C
 	return TRUE;
 }
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 void DisplayColorChooser(GtkWidget* widget, GdkEventExpose* expose, COLOR_CHOOSER* chooser)
 #else
 void DisplayColorChooser(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* chooser)
 #endif
 {
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	// ï`âÊópÇÃCairoèÓïÒ
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 #endif
@@ -561,7 +563,7 @@ void DisplayColorChooser(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* cho
 	cairo_arc(cairo_p, draw_x, draw_y, 9, 0, (FLOAT_T)2.0*G_PI);
 	cairo_stroke(cairo_p);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 #endif
 }
@@ -2078,6 +2080,30 @@ cmsHPROFILE* GetPrimaryMonitorProfile(void)
 		return profile;
 #endif
 	return cmsOpenProfileFromMem(sRGB_profile, sizeof(sRGB_profile));
+}
+
+void GetColor(enum eCOLOR color_index, uint8* color)
+{
+	const uint8 colors[NUM_COLOR][3] =
+	{
+		{128, 128, 128},
+		{255, 255, 0},
+		{221, 160, 221},
+		{255, 0, 0},
+		{50, 205, 50},
+		{0, 255, 255},
+		{0, 255, 0},
+		{128, 0, 0},
+		{0, 0, 128},
+		{128, 128, 0},
+		{128, 0, 128},
+		{0, 128, 128},
+		{0, 0, 255}
+	};
+
+	color[0] = colors[color_index][0];
+	color[1] = colors[color_index][1];
+	color[2] = colors[color_index][2];
 }
 
 #ifdef __cplusplus

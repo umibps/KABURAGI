@@ -509,6 +509,11 @@ void InitializeAssetModelLabel(
 	label->interface_data.special = TRUE;
 }
 
+void ReleaseAssetModelLabel(ASSET_MODEL_LABEL* label)
+{
+	PointerArrayDestroy(&label->bones, NULL);
+}
+
 #ifdef __cplusplus
 }
 #endif

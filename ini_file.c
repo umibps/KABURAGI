@@ -797,7 +797,7 @@ char* IniFileStrdup(
 }
 
 /********************************************************
-* IniFileGetInt関数                                     *
+* IniFileGetInteger関数                                 *
 * iniファイルから数値を取得する                         *
 * 引数                                                  *
 * ini			: iniファイルを管理する構造体のアドレス *
@@ -806,7 +806,7 @@ char* IniFileStrdup(
 * 返り値                                                *
 *	キーに書かれている数値(失敗時は常に0)               *
 ********************************************************/
-int IniFileGetInt(
+int IniFileGetInteger(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name
@@ -835,7 +835,7 @@ int IniFileGetInt(
 	// 数値がバッファをオーバーしないかをチェック
 	if((len = (int)strlen(((ini->section + section_index)->key + key_index)->string)) > NUM_STRING_LEN)
 	{
-		(void)printf("Buffer over flow\n(In IniFileGetInt)\n");
+		(void)printf("Buffer over flow\n(In IniFileGetInteger)\n");
 
 		return 0;
 	}
@@ -891,7 +891,7 @@ double IniFileGetDouble(
 	// 数値がバッファをオーバーしないかをチェック
 	if((len = (int)strlen(((ini->section + section_index)->key + key_index)->string)) > NUM_STRING_LEN)
 	{
-		(void)printf("Buffer over flow\n(In IniFileGetInt)\n");
+		(void)printf("Buffer over flow\n(In IniFileGetInteger)\n");
 
 		return 0;
 	}

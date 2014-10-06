@@ -786,16 +786,17 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 		G_CALLBACK(ExecuteMakeLayerSet), app);
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	file_path = g_build_filename(app->current_path, "image/3d_icon.png", NULL);
-	image = gtk_image_new_from_file(file_path);
-	g_free(file_path);
-	button = gtk_button_new();
-	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
-		G_CALLBACK(ExecuteMake3DLayer), app);
-	gtk_container_add(GTK_CONTAINER(button), image);
-	gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
-#endif
+	if(GetHas3DLayer(app) != FALSE)
+	{
+		file_path = g_build_filename(app->current_path, "image/3d_icon.png", NULL);
+		image = gtk_image_new_from_file(file_path);
+		g_free(file_path);
+		button = gtk_button_new();
+		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
+			G_CALLBACK(ExecuteMake3DLayer), app);
+		gtk_container_add(GTK_CONTAINER(button), image);
+		gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
+	}
 	file_path = g_build_filename(app->current_path, "image/arrow.png", NULL);
 	src = gdk_pixbuf_new_from_file(file_path, NULL);
 	image_buff = gdk_pixbuf_rotate_simple(src, GDK_PIXBUF_ROTATE_CLOCKWISE);
@@ -1547,8 +1548,7 @@ static gint LayerViewChangeVisible(IMAGE_CHECK_BUTTON* button, void* data)
 
 	if(layer->window->app->draw_window[layer->window->app->active_window] != NULL)
 	{
-		layer->window->app->draw_window[layer->window->app->active_window]->flags
-			|= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+		layer->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 	}
 
 	return FALSE;

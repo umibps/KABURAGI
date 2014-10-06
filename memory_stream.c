@@ -136,7 +136,7 @@ size_t MemRead(
 *	‘‚«‚ñ‚¾ƒoƒCƒg”                                         *
 ***************************************************************/
 size_t MemWrite(
-	void* src,
+	const void* src,
 	size_t block_size,
 	size_t block_num,
 	MEMORY_STREAM_PTR mem

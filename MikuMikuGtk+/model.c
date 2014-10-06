@@ -51,6 +51,8 @@ void DeleteModel(MODEL_INTERFACE* model)
 	switch(model->type)
 	{
 	case MODEL_TYPE_ASSET_MODEL:
+		ReleaseAssetModel((ASSET_MODEL*)model);
+		MEM_FREE_FUNC(model);
 		break;
 	case MODEL_TYPE_PMX_MODEL:
 		ReleasePmxModel((PMX_MODEL*)model);
@@ -176,8 +178,10 @@ char** GetChildBoneNames(MODEL_INTERFACE* model, void* application_context)
 * data_size	: データのバイト数           *
 * read_func	: 読み込みに使う関数ポインタ *
 * seek_func	: シークに使う関数ポインタ   *
+* 返り値                                 *
+*	成功:TRUE!(0)	失敗:FALSE(0)        *
 *****************************************/
-void ReadModelData(
+int ReadModelData(
 	MODEL_INTERFACE* model,
 	void* scene,
 	void* src,
@@ -188,18 +192,17 @@ void ReadModelData(
 	switch(model->type)
 	{
 	case MODEL_TYPE_ASSET_MODEL:
-		ReadAssetModelDataAndState(scene, (ASSET_MODEL*)model,
+		return ReadAssetModelDataAndState(scene, (ASSET_MODEL*)model,
 			src, read_func, seek_func);
-		break;
 	case MODEL_TYPE_PMD_MODEL:
-		ReadPmd2ModelDataAndState(scene, (PMD2_MODEL*)model,
+		return ReadPmd2ModelDataAndState(scene, (PMD2_MODEL*)model,
 			src, read_func, seek_func);
-		break;
 	case MODEL_TYPE_PMX_MODEL:
-		ReadPmxModelDataAndState(scene, (PMX_MODEL*)model,
+		return ReadPmxModelDataAndState(scene, (PMX_MODEL*)model,
 			src, read_func, seek_func);
-		break;
 	}
+
+	return FALSE;
 }
 
 /*****************************************************

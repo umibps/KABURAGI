@@ -331,7 +331,7 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 	gdouble x, y, x0, y0;
 	gdouble rev_zoom = window->rev_zoom;
 	int update_window = 0;
-#if MAJOR_VERSION >= 2
+#if GTK_MAJOR_VERSION >= 3
 	GdkDevice *device;
 	GdkInputSource source;
 #endif
@@ -339,7 +339,12 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 	if(event->is_hint != 0)
 	{
 		gint get_x, get_y;
+#if GTK_MAJOR_VERSION <= 2
 		gdk_window_get_pointer(event->window, &get_x, &get_y, &state);
+#else
+		gdk_window_get_device_position(event->window, event->device,
+			&get_x, &get_y, &state);
+#endif
 		x0 = get_x, y0 = get_y;
 	}
 	else
@@ -454,7 +459,7 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 	}
 
 	// マウス以外なら筆圧を取得
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(event->device->source != GDK_SOURCE_MOUSE)
 	{
 		gdk_event_get_axis((GdkEvent*)event, GDK_AXIS_PRESSURE, &pressure);
@@ -1145,6 +1150,11 @@ func_end:
 	window->before_cursor_x = x0;
 	window->before_cursor_y = y0;
 
+	if(event->is_hint != FALSE)
+	{
+		gdk_event_request_motions(event);
+	}
+
 	return TRUE;
 }
 
@@ -1154,7 +1164,7 @@ gboolean ButtonReleaseEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDO
 	void *update_data = NULL;
 	gdouble pressure;
 	gdouble x, y;
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 	GdkDevice *device;
 	GdkInputSource source;
 #endif
@@ -1202,7 +1212,7 @@ gboolean ButtonReleaseEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDO
 	}
 
 	// マウス以外なら筆圧を取得
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(event->device->source != GDK_SOURCE_MOUSE)
 	{
 		gdk_event_get_axis((GdkEvent*)event, GDK_AXIS_PRESSURE, &pressure);
@@ -1464,7 +1474,7 @@ gboolean MouseWheelEvent(GtkWidget*widget, GdkEventScroll* event_info, DRAW_WIND
 	return FALSE;
 }
 
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 /***************************************
 * TouchEvent関数                       *
 * タッチ操作時のコールバック関数       *
@@ -2295,12 +2305,10 @@ gboolean KeyPressEvent(
 
 	window = GetActiveDrawWindow(application);
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	if(window->active_layer->layer_type == TYPE_3D_LAYER)
 	{
 		return FALSE;
 	}
-#endif
 
 	// レイヤーの名前変更中なら終了
 	if((window->active_layer->widget->flags & LAYER_WINDOW_IN_CHANGE_NAME) != 0)
@@ -2476,6 +2484,29 @@ gboolean EnterNotifyEvent(GtkWidget*widget, GdkEventCrossing* event_info, DRAW_W
 		counter++;
 		device_list = device_list->next;
 	}
+#else
+# if GDK_MAJOR_VERSION <= 2
+	GList *device_list;
+	GdkDevice *device;
+
+	device_list = gdk_devices_list();
+	while(device_list != NULL)
+	{
+		device = GDK_DEVICE(device_list->data);
+		gdk_pointer_grab(widget->window, FALSE,
+			GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_PRESS_MASK
+				| GDK_BUTTON_RELEASE_MASK | GDK_LEAVE_NOTIFY_MASK, NULL, NULL, event_info->time
+		);
+		device_list = device_list->next;
+	}
+# else
+	GdkDevice *device = gdk_device_manager_get_client_pointer(
+		gdk_display_get_device_manager(gdk_display_get_default()));
+	gdk_device_grab(device, gtk_widget_get_window(widget), GDK_OWNERSHIP_WINDOW, FALSE,
+		GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_PRESS_MASK
+			| GDK_BUTTON_RELEASE_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_TOUCH_MASK,
+				NULL, event_info->time);
+# endif
 #endif
 
 	if((window->state & GDK_BUTTON1_MASK) != 0)
@@ -2574,6 +2605,26 @@ gboolean LeaveNotifyEvent(GtkWidget* widget, GdkEventCrossing* event_info, DRAW_
 	}
 
 	gdk_flush();
+#else
+# if GDK_MAJOR_VERSION <= 2
+	gdk_pointer_ungrab(event_info->time);
+# else
+	{
+		GList *device_list, *check_list;
+		GdkDevice *device;
+		gdk_window_set_support_multidevice(gtk_widget_get_window(widget), TRUE);
+		device_list = gdk_device_manager_list_devices(
+			gdk_display_get_device_manager(gdk_display_get_default()), GDK_DEVICE_TYPE_MASTER);
+		check_list = device_list;
+		while(check_list != NULL)
+		{
+			device = (GdkDevice*)check_list->data;
+			gdk_device_ungrab(device, event_info->time);
+			check_list = check_list->next;
+		}
+		g_list_free(device_list);
+	}
+# endif
 #endif
 
 	// マウスカーソルが描画されないように外へ

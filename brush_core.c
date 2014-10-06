@@ -367,6 +367,275 @@ void AddSelectionEditHistory(BRUSH_CORE* core, LAYER* selection)
 	MEM_FREE_FUNC(buff);
 }
 
+/*************************************************
+* DrawCircleBrushWorkLayer関数                   *
+* ブラシを作業レイヤーに描画する                 *
+* 引数                                           *
+* window	: キャンバス                         *
+* core		: ブラシの基本情報                   *
+* x			: 描画範囲の左上のX座標              *
+* y			: 描画範囲の左上のY座標              *
+* width		: 描画範囲の幅                       *
+* height	: 描画範囲の高さ                     *
+* mask		: 作業レイヤーにコピーする際のマスク *
+* zoom		: 拡大・縮小率                       *
+* alpha		: 不透明度                           *
+*************************************************/
+void DrawCircleBrushWorkLayer(
+	DRAW_WINDOW* window,
+	BRUSH_CORE* core,
+	gdouble x,
+	gdouble y,
+	gdouble width,
+	gdouble height,
+	uint8** mask,
+	gdouble zoom,
+	gdouble alpha
+)
+{
+	// 描画を行うためのCairo情報
+	cairo_t *update;
+	cairo_surface_t *update_surface;
+	// 描画時の拡大・縮小、位置設定用
+	cairo_matrix_t matrix;
+	// 画像一行分のバイト数
+	int stride = (int)width * 4;
+	// ピクセルデータをリセットする座標
+	int start_x = (int)x, start_y = (int)y;
+	// for文用のカウンタ
+	int i;
+
+	// 描画用のCairo作成
+	update_surface = cairo_surface_create_for_rectangle(
+		window->mask_temp->surface_p, x, y,
+			width, height);
+	update = cairo_create(update_surface);
+
+	*mask = window->mask_temp->pixels;
+	if(window->app->textures.active_texture == 0)
+	{	// テクスチャ無	
+		if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+		{	// 選択範囲無
+			if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+			{	// 不透明保護無
+					// ブラシのサイズを設定して描画
+				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+				cairo_set_source(update, core->brush_pattern);
+				cairo_paint_with_alpha(update, alpha);
+			}
+			else
+			{	// 不透明保護有
+					// ブラシのサイズを設定して
+				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+				cairo_set_source(core->temp_cairo, core->brush_pattern);
+				// 一度、一時保存領域に描画
+				cairo_paint_with_alpha(core->temp_cairo, alpha);
+				// 描画する位置をリセット
+				cairo_matrix_init_translate(&matrix, 0,0);
+				cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+				// 描画結果を使って
+				cairo_set_source(update, core->temp_pattern);
+				// アクティブなレイヤーでマスク
+				cairo_mask_surface(update,
+					window->active_layer->surface_p, - x, - y);
+			}
+		}
+		else
+		{	// 選択範囲有
+			if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+			{	// 不透明保護無
+					// ブラシのサイズを設定して
+				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+				cairo_set_source(core->temp_cairo, core->brush_pattern);
+				// 一度一時保存領域に描画
+				cairo_paint_with_alpha(core->temp_cairo, alpha);
+				// 描画する位置をリセット
+				cairo_matrix_init_translate(&matrix, 0, 0);
+				cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+				// 描画結果を使って
+				cairo_set_source(update, core->temp_pattern);
+				// 選択範囲でマスク
+				cairo_mask_surface(window->mask_temp->cairo_p,
+					window->selection->surface_p, - x, - y);
+			}
+			else
+			{
+				// 選択範囲有
+					// アクティブなレイヤーと選択範囲でマスクする
+				// 描画用に一時的なCairoを作成
+				cairo_surface_t *temp_surface = cairo_surface_create_for_rectangle(
+					window->temp_layer->surface_p, x, y, width, height);
+				cairo_t *update_temp = cairo_create(temp_surface);
+
+				// まずは一時保存レイヤーに選択範囲でマスクして描画
+				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+				cairo_set_source(core->temp_cairo, core->brush_pattern);
+				cairo_paint_with_alpha(core->temp_cairo, alpha);
+				cairo_matrix_init_translate(&matrix, 0, 0);
+				cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+				cairo_set_source(update, core->temp_pattern);
+
+				// 描画前にピクセルデータを初期化しておく
+				for(i=0; i<height; i++)
+				{
+					(void)memset(&window->temp_layer->pixels[
+						(i+start_y)*window->temp_layer->stride+start_x*4],
+						0, stride
+					);
+				}
+
+				cairo_mask_surface(update,
+					window->selection->surface_p, - x, - y);
+				cairo_set_source_surface(update_temp,
+					update_surface, 0, 0);
+				cairo_mask_surface(update_temp,
+					window->active_layer->surface_p, - x, - y);
+
+				// 使用するマスクを変更
+				*mask = window->temp_layer->pixels;
+
+				// 一時的に作成したCairoを破棄
+				cairo_surface_destroy(temp_surface);
+				cairo_destroy(update_temp);
+			}
+		}
+	}
+	else
+	{	// テクスチャ有
+			// 一時保存用のCairo情報を作成
+		cairo_surface_t *temp_surface = cairo_surface_create_for_rectangle(
+			window->temp_layer->surface_p, x, y, width, height);
+		cairo_t *update_temp = cairo_create(temp_surface);
+
+		// 描画前に一時保存レイヤーのピクセルデータを初期化
+		for(i=0; i<height; i++)
+		{
+			(void)memset(&window->temp_layer->pixels[
+				(i+start_y)*window->temp_layer->stride+start_x*4],
+				0, stride
+			);
+		}
+
+		if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+		{	// 選択範囲無
+			if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+			{	// 不透明保護無
+					// 拡大・縮小率、不透明度を設定して描画
+				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+				cairo_set_source(update_temp, core->brush_pattern);
+				cairo_paint_with_alpha(update_temp, alpha);
+			}
+			else
+			{	// 不透明保護有
+					// アクティブなレイヤーでマスクして描画
+				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+				cairo_set_source(core->temp_cairo, core->brush_pattern);
+				cairo_paint_with_alpha(core->temp_cairo, alpha);
+				cairo_matrix_init_translate(&matrix, 0, 0);
+				cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+				cairo_set_source(update_temp, core->temp_pattern);
+				cairo_mask_surface(update_temp,
+					window->active_layer->surface_p, - x, - y);
+			}
+
+			cairo_set_source_surface(update, temp_surface, 0, 0);
+			cairo_mask_surface(update, window->texture->surface_p, - x, - y);
+
+			*mask = window->temp_layer->pixels;
+		}
+		else
+		{	// 選択範囲有
+			if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+			{	// 不透明保護無
+					// 選択範囲とテクスチャでマスク
+				// まずは一時保存領域に不透明度を指定して描画してから
+				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+				cairo_set_source(core->temp_cairo, core->brush_pattern);
+				cairo_paint_with_alpha(core->temp_cairo, alpha);
+				// 描画結果を使って
+				cairo_matrix_init_translate(&matrix, 0, 0);
+				cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+				cairo_set_source(update, core->temp_pattern);
+				// 選択範囲でマスク
+				cairo_mask_surface(update,
+					window->selection->surface_p, - x, - y);
+
+				// 一時保存領域のピクセルデータを一度リセットして
+				for(i=0; i<height; i++)
+				{
+					(void)memset(&window->temp_layer->pixels[
+						(i+start_y)*window->temp_layer->stride+start_x*4],
+						0, stride
+					);
+				}
+
+				// テクスチャでマスクして描画
+				cairo_set_source_surface(update_temp, update_surface, 0, 0);
+				cairo_mask_surface(update_temp, window->texture->surface_p, - x, - y);
+			}
+			else
+			{	// 不透明保護有
+					// 選択範囲、テクスチャ、アクティブなレイヤーでマスク
+				// まずは不透明度を設定して描画してから
+				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+				cairo_set_source(core->temp_cairo, core->brush_pattern);
+				cairo_paint_with_alpha(core->temp_cairo, alpha);
+				// 描画結果を使って
+				cairo_matrix_init_translate(&matrix, 0, 0);
+				cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+				cairo_set_source(update, core->temp_pattern);
+
+				// 描画前に一時保存領域のピクセルデータを初期化
+				for(i=0; i<height; i++)
+				{
+					(void)memset(&window->temp_layer->pixels[
+						(i+start_y)*window->temp_layer->stride+start_x*4],
+						0, stride
+					);
+				}
+
+				// 選択範囲でマスク
+				cairo_mask_surface(update,
+					window->selection->surface_p, - x, - y);
+				cairo_set_source_surface(update_temp,
+					update_surface, 0, 0);
+				// アクティブなレイヤーでマスク
+				cairo_mask_surface(update_temp,
+					window->active_layer->surface_p, - x, - y);
+
+				// 2つめの一時保存領域のピクセルデータを初期化
+				for(i=0; i<height; i++)
+				{
+					(void)memset(&window->mask_temp->pixels[
+						(i+start_y)*window->mask_temp->stride+start_x*4],
+						0, stride
+					);
+				}
+
+				// テクスチャでマスクして描画
+				cairo_set_source_surface(update, temp_surface, 0, 0);
+				cairo_mask_surface(update, window->texture->surface_p, - x, - y);
+			}
+		}
+
+		// 一時的に作成したCairo情報を破棄
+		cairo_surface_destroy(temp_surface);
+		cairo_destroy(update_temp);
+	}
+
+	// 更新用に作成したCairo情報を破棄
+	cairo_surface_destroy(update_surface);
+	cairo_destroy(update);
+}
+
 /*****************************************************
 * SetBrushBaseScale関数                              *
 * ブラシサイズの倍率を設定する                       *

@@ -902,6 +902,32 @@ void InvertMatrix(FLOAT_T **a, int n)
  }
 #endif
 
+void AdjustmentChangeValueCallBackInt(GtkAdjustment* adjustment, int* store)
+{
+	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
+	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
+
+	*store = (int)gtk_adjustment_get_value(adjustment);
+
+	if(func != NULL)
+	{
+		func(func_data);
+	}
+}
+
+void AdjustmentChangeValueCallBackUint(GtkAdjustment* adjustment, unsigned int* store)
+{
+	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
+	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
+
+	*store = (unsigned int)gtk_adjustment_get_value(adjustment);
+
+	if(func != NULL)
+	{
+		func(func_data);
+	}
+}
+
 void AdjustmentChangeValueCallBackInt8(GtkAdjustment* adjustment, int8* store)
 {
 	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
@@ -980,7 +1006,7 @@ void AdjustmentChangeValueCallBackUint32(GtkAdjustment* adjustment, uint32* stor
 	}
 }
 
-void AdjustmentChangeVaueCallBackDouble(GtkAdjustment* adjustment, gdouble* value)
+void AdjustmentChangeValueCallBackDouble(GtkAdjustment* adjustment, gdouble* value)
 {
 	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
 	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
@@ -1009,7 +1035,7 @@ static void CheckButtonChangeFlags(GtkWidget* button, guint32* flags)
 void CheckButtonSetFlagsCallBack(GtkWidget* button, guint32* flags, guint32 flag_value)
 {
 	g_object_set_data(G_OBJECT(button), "flag-value", GUINT_TO_POINTER(flag_value));
-	g_signal_connect(G_OBJECT(button), "toggled",
+	(void)g_signal_connect(G_OBJECT(button), "toggled",
 		G_CALLBACK(CheckButtonChangeFlags), flags);
 }
 
@@ -1104,6 +1130,49 @@ int DeflateData(
 	(void)deflateEnd(&compress_stream);
 
 	return 0;
+}
+
+void UpdateWidget(GtkWidget* widget)
+{
+#define MAX_EVENTS 500
+	GdkEvent *queued_event;
+	int counter = 0;
+	// イベントを回してメッセージを表示
+
+	gdk_threads_enter();
+#if GTK_MAJOR_VERSION <= 2
+	gdk_window_process_updates(widget->window, TRUE);
+#else
+	gdk_window_process_updates(gtk_widget_get_window(widget), TRUE);
+#endif
+
+	g_usleep(1);
+
+	gdk_threads_leave();
+
+	while(gdk_events_pending() != FALSE && counter < MAX_EVENTS)
+	{
+		counter++;
+		queued_event = gdk_event_get();
+		gtk_main_iteration();
+		if(queued_event != NULL)
+		{
+#if GTK_MAJOR_VERSION <= 2
+			if(queued_event->any.window == widget->window
+#else
+			if(queued_event->any.window == gtk_widget_get_window(widget)
+#endif
+				&& queued_event->any.type == GDK_EXPOSE)
+			{
+				gdk_event_free(queued_event);
+				break;
+			}
+			else
+			{
+				gdk_event_free(queued_event);
+			}
+		}
+	}
 }
 
 #ifdef __cplusplus

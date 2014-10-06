@@ -39,17 +39,26 @@ typedef struct _SCRIPT_BRUSH
 	uint8 *cursor_pixels;
 } SCRIPT_BRUSH;
 
+typedef struct _SCRIPT_HISTROY_DATA
+{
+	uint32 num_history;
+	uint32 data_size;
+	MEMORY_STREAM *data_stream;
+} SCRIPT_HISTORY_DATA;
+
 typedef struct _SCRIPT
 {
 	APPLICATION *app;
+	DRAW_WINDOW *window;
 	SCRIPT_BRUSH *brush_data;
+	SCRIPT_HISTORY_DATA history;
 	lua_State *state;
-	MEMORY_STREAM_PTR before_data;
 	GtkWidget *main_window;
 	GtkWidget *debug_window;
 	GtkWidget *debug_view;
 	GtkTextBuffer *debug_buffer;
 	LAYER *work[128];
+	cairo_surface_t *surfaces[128];
 	char *file_name;
 	int num_work;
 } SCRIPT;

@@ -21,6 +21,7 @@
 #include "filter.h"
 #include "transform.h"
 #include "printer.h"
+#include "plug_in.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -500,15 +501,16 @@ GtkWidget* GetMainMenu(
 	app->menus.num_disable_if_no_open++;
 
 	// 「3Dレイヤー」
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	(void)sprintf(buff, "%s", app->labels->menu.new_3d_modeling);
-	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
-		menu_item = gtk_menu_item_new_with_mnemonic(buff);
-	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
-		G_CALLBACK(ExecuteMake3DLayer), app);
-	app->menus.num_disable_if_no_open++;
-#endif
+	if(GetHas3DLayer(app) != FALSE)
+	{
+		(void)sprintf(buff, "%s", app->labels->menu.new_3d_modeling);
+		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+			menu_item = gtk_menu_item_new_with_mnemonic(buff);
+		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+			G_CALLBACK(ExecuteMake3DLayer), app);
+		app->menus.num_disable_if_no_open++;
+	}
 
 	// 「レイヤーを複製」
 	(void)sprintf(buff, "%s", app->labels->menu.copy_layer);
@@ -799,6 +801,35 @@ GtkWidget* GetMainMenu(
 	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteFillWithVectorLineFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	app->menus.num_disable_if_no_open++;
+
+	// 「下塗り」メニュー
+	(void)sprintf(buff, "%s",app->labels->menu.render);
+	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	app->menus.num_disable_if_no_open++;
+
+	// 「下塗り」メニューの下にサブメニュー作成
+	sub_menu = gtk_menu_new();
+	gtk_menu_item_set_submenu(GTK_MENU_ITEM(menu_item), sub_menu);
+
+	// 「雲」
+	(void)sprintf(buff, "%s", app->labels->menu.cloud);
+	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecutePerlinNoiseFilter), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
+	app->menus.num_disable_if_no_open++;
+
+	// 「フラクタル」
+	(void)sprintf(buff, "%s", app->labels->menu.fractal);
+	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteFractal), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
 
 	//----------------------------------------------------------//
@@ -1108,6 +1139,16 @@ GtkWidget* GetMainMenu(
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
 		GDK_KEY_Return, GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+
+	//-----------------------------------------------------------//
+
+	// 「プラグイン」メニュー
+	menu_item = PlugInMenuItemNew(app);
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ParentItemSelected), NULL);
+	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
+		'P', GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu_bar), menu_item);
 
 	//-----------------------------------------------------------//
 	// 「スクリプト」メニュー
@@ -1530,7 +1571,6 @@ void ExecuteMakeLayerSet(APPLICATION *app)
 	AddNewLayerHistory(layer, layer->layer_type);
 }
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 /*****************************************************
 * ExecuteMake3DLayer関数                             *
 * 3Dモデリングレイヤー作成を実行                     *
@@ -1596,8 +1636,6 @@ void ExecuteMake3DLayer(APPLICATION* app)
 	// 「新規ベクトルレイヤー」の履歴を登録
 	AddNewLayerHistory(layer, layer->layer_type);
 }
-
-#endif
 
 /*****************************************************
 * ExecuteUpLayer関数                                 *
@@ -1960,7 +1998,7 @@ void ExecuteDisplayReverseHorizontally(GtkWidget* menu_item, APPLICATION* app)
 	}
 
 #if GTK_MAJOR_VERSION >= 3
-	gtk_widget_get_allocation(window>scroll, &allocation);
+	gtk_widget_get_allocation(window->scroll, &allocation);
 #else
 	allocation = window->scroll->allocation;
 #endif

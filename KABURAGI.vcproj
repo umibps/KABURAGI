@@ -3,7 +3,7 @@
 	ProjectType="Visual C++"
 	Version="9.00"
 	Name="KABURAGI"
-	ProjectGUID="{5FD47FE5-7068-4378-8B8B-505192855303}"
+	ProjectGUID="{52E388B6-50DB-4C39-BCB6-1218DDFC55A7}"
 	RootNamespace="KABURAGI"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
@@ -11,9 +11,6 @@
 	<Platforms>
 		<Platform
 			Name="Win32"
-		/>
-		<Platform
-			Name="x64"
 		/>
 	</Platforms>
 	<ToolFiles>
@@ -92,82 +89,6 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Debug|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-				CommandLine=""
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				TargetEnvironment="3"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
-				PreprocessorDefinitions="USE_3D_LAYER=0"
-				MinimalRebuild="true"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="1"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="3"
-				CompileAs="0"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				LinkIncremental="2"
-				GenerateManifest="false"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				TargetMachine="17"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
 			Name="Release|Win32"
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
@@ -198,91 +119,8 @@
 				FavorSizeOrSpeed="1"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
-				StringPooling="true"
-				ExceptionHandling="0"
-				RuntimeLibrary="0"
-				EnableFunctionLevelLinking="true"
-				EnableEnhancedInstructionSet="2"
-				FloatingPointModel="2"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="3"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				LinkIncremental="1"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				OptimizeReferences="2"
-				EnableCOMDATFolding="2"
-				TargetMachine="1"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Release|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="1"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-				CommandLine=""
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				TargetEnvironment="3"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="3"
-				InlineFunctionExpansion="2"
-				EnableIntrinsicFunctions="true"
-				FavorSizeOrSpeed="1"
-				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
-				PreprocessorDefinitions="USE_3D_LAYER=0"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;USE_3D_LAYER=0"
+				GeneratePreprocessedFile="0"
 				StringPooling="true"
 				ExceptionHandling="0"
 				RuntimeLibrary="0"
@@ -309,7 +147,7 @@
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				TargetMachine="17"
+				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -378,6 +216,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalOptions="/Zi /PROFILE"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="1"
@@ -406,81 +245,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Profile|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-				CommandLine=""
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				TargetEnvironment="3"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
-				PreprocessorDefinitions="USE_3D_LAYER=0"
-				MinimalRebuild="true"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="3"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				LinkIncremental="2"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				TargetMachine="17"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Debug x64|Win32"
+			Name="デバッグ(日本語)|Win32"
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
@@ -551,80 +316,6 @@
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
-		<Configuration
-			Name="Debug x64|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-				CommandLine=""
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				TargetEnvironment="3"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
-				PreprocessorDefinitions="USE_3D_LAYER=0"
-				MinimalRebuild="true"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="3"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				LinkIncremental="2"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				TargetMachine="17"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
 	</Configurations>
 	<References>
 	</References>
@@ -637,6 +328,15 @@
 			<File
 				RelativePath=".\anti_alias.c"
 				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						GeneratePreprocessedFile="0"
+						KeepComments="false"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\application.c"
@@ -644,6 +344,10 @@
 			</File>
 			<File
 				RelativePath=".\bezier.c"
+				>
+			</File>
+			<File
+				RelativePath=".\bit_stream.c"
 				>
 			</File>
 			<File
@@ -684,6 +388,22 @@
 			</File>
 			<File
 				RelativePath=".\filter.c"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal.c"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_color_map.c"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_editor.c"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_point.c"
 				>
 			</File>
 			<File
@@ -751,7 +471,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\older_lib.c"
+				>
+			</File>
+			<File
 				RelativePath=".\pattern.c"
+				>
+			</File>
+			<File
+				RelativePath=".\plug_in.c"
 				>
 			</File>
 			<File
@@ -1453,6 +1181,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\bit_stream.h"
+				>
+			</File>
+			<File
 				RelativePath=".\brush_core.h"
 				>
 			</File>
@@ -1485,6 +1217,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\display_filter.h"
+				>
+			</File>
+			<File
 				RelativePath=".\drag_and_drop.h"
 				>
 			</File>
@@ -1494,6 +1230,26 @@
 			</File>
 			<File
 				RelativePath=".\filter.h"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal.h"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_color_map.h"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_editor.h"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_label.h"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_point.h"
 				>
 			</File>
 			<File
@@ -1557,7 +1313,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\MikuMikuGtk+\pose.h"
+				RelativePath=".\pcre_internal.h"
+				>
+			</File>
+			<File
+				RelativePath=".\plug_in.h"
 				>
 			</File>
 			<File
@@ -1573,11 +1333,19 @@
 				>
 			</File>
 			<File
-				RelativePath=".\reference_window.h"
+				RelativePath=".\resource.h"
+				>
+			</File>
+			<File
+				RelativePath=".\resource1.h"
 				>
 			</File>
 			<File
 				RelativePath=".\save.h"
+				>
+			</File>
+			<File
+				RelativePath=".\script.h"
 				>
 			</File>
 			<File
@@ -1598,6 +1366,10 @@
 			</File>
 			<File
 				RelativePath=".\text_layer.h"
+				>
+			</File>
+			<File
+				RelativePath=".\texture.h"
 				>
 			</File>
 			<File
@@ -1667,19 +1439,19 @@
 				>
 			</File>
 			<File
-				RelativePath=".\x64\Debug\lang\english.lang"
-				>
-			</File>
-			<File
 				RelativePath=".\HISTORY.TXT"
 				>
 			</File>
 			<File
-				RelativePath=".\x64\Debug\lang\japanese.lang"
+				RelativePath=".\icon.ico"
 				>
 			</File>
 			<File
-				RelativePath=".\resource.rc"
+				RelativePath=".\japanese.lang"
+				>
+			</File>
+			<File
+				RelativePath=".\KABURAGI.rc"
 				>
 			</File>
 			<File
@@ -1688,6 +1460,10 @@
 			</File>
 			<File
 				RelativePath=".\vector_brushes.ini"
+				>
+			</File>
+			<File
+				RelativePath=".\Debug\script\テスト.lua"
 				>
 			</File>
 		</Filter>

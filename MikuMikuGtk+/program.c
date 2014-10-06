@@ -29,6 +29,12 @@ void ReleaseShaderProgram(SHADER_PROGRAM* program)
 	program->program = 0;
 }
 
+void FreeShaderProgram(SHADER_PROGRAM* program)
+{
+	ReleaseShaderProgram(program);
+	MEM_FREE_FUNC(program);
+}
+
 void ShaderProgramBind(SHADER_PROGRAM* program)
 {
 	glUseProgram(program->program);

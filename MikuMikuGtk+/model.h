@@ -218,8 +218,10 @@ extern char** GetChildBoneNames(MODEL_INTERFACE* model, void* application_contex
 * data_size	: データのバイト数           *
 * read_func	: 読み込みに使う関数ポインタ *
 * seek_func	: シークに使う関数ポインタ   *
+* 返り値                                 *
+*	成功:TRUE!(0)	失敗:FALSE(0)        *
 *****************************************/
-extern void ReadModelData(
+extern int ReadModelData(
 	MODEL_INTERFACE* model,
 	void* scene,
 	void* src,

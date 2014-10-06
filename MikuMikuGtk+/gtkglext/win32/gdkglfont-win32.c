@@ -62,7 +62,7 @@ gdk_gl_font_use_pango_font (const PangoFontDescription *font_desc,
 
   font_cache = pango_win32_font_map_get_font_cache (font_map);
 
-  hfont = pango_win32_font_cache_load (font_cache, logfont);
+  hfont = pango_win32_font_cache_load (font_cache, (LOGFONTA*)logfont);
 
   hdc = CreateCompatibleDC (NULL);
   if (hdc == NULL)

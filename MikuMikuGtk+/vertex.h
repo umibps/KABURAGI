@@ -124,6 +124,10 @@ extern void Pmd2VertexMergeMorph(PMD2_VERTEX* vertex, float* value, FLOAT_T weig
 
 extern VERTEX_BUNDLE* VertexBundleNew(void);
 
+extern void ReleaseVertexBundle(VERTEX_BUNDLE* bundle);
+
+extern void FreeVertexBundle(VERTEX_BUNDLE* bundle);
+
 extern void DeleteVertexBundle(VERTEX_BUNDLE** bundle);
 
 extern void VertexBundleBind(
@@ -181,6 +185,10 @@ extern void VertexBundleWrite(
 );
 
 extern VERTEX_BUNDLE_LAYOUT* VertexBundleLayoutNew(void);
+
+extern void ReleaseVertexBundleLayout(VERTEX_BUNDLE_LAYOUT* layout);
+
+extern void FreeVertexBundleLayout(VERTEX_BUNDLE_LAYOUT* layout);
 
 extern void DeleteVertexBundleLayout(VERTEX_BUNDLE_LAYOUT** layout);
 

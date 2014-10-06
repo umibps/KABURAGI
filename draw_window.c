@@ -19,9 +19,7 @@
 #include "image_read_write.h"
 #include "utils.h"
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 # include "MikuMikuGtk+/ui.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,15 +27,16 @@ extern "C" {
 
 #define DRAW_AREA_FRAME_RATE 60
 
-static gboolean TimerCallBack(DRAW_WINDOW* window)
+/*********************************************
+* TimerCallBack関数                          *
+* 時限(1/60秒)で呼び出されるコールバック関数 *
+* 引数                                       *
+* window	: 対応する描画領域               *
+* 返り値                                     *
+*	常にTRUE                                 *
+*********************************************/
+gboolean TimerCallBack(DRAW_WINDOW* window)
 {
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	if(window->active_layer->layer_type == TYPE_3D_LAYER)
-	{
-		gtk_widget_queue_draw(window->gl_area);
-		return TRUE;
-	}
-#endif
 	if((window->flags & (DRAW_WINDOW_UPDATE_ACTIVE_OVER | DRAW_WINDOW_UPDATE_ACTIVE_UNDER)) != 0)
 	{
 		gtk_widget_queue_draw(window->window);
@@ -377,6 +376,11 @@ void SetDrawWindowCallbacks(
 		G_CALLBACK(EnterNotifyEvent), window);
 	window->callbacks.leave = g_signal_connect(G_OBJECT(widget), "leave_notify_event",
 		G_CALLBACK(LeaveNotifyEvent), window);
+
+	if(widget == window->gl_area)
+	{
+		window->flags |= DRAW_WINDOW_DISCONNECT_3D;
+	}
 }
 
 /***************************************************
@@ -391,12 +395,21 @@ void DisconnectDrawWindowCallbacks(
 	DRAW_WINDOW* window
 )
 {
-	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.display);
-	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_button_press);
-	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_move);
-	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_button_release);
-	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_wheel);
-	g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.configure);
+	if(window->callbacks.display != 0)
+	{
+		g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.display);
+		g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_button_press);
+		g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_move);
+		g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_button_release);
+		g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.mouse_wheel);
+		window->callbacks.display = 0;
+	}
+
+	if(window->callbacks.configure != 0)
+	{
+		g_signal_handler_disconnect(G_OBJECT(widget), window->callbacks.configure);
+		window->callbacks.configure = 0;
+	}
 }
 
 /***************************************************************
@@ -437,9 +450,7 @@ DRAW_WINDOW* CreateDrawWindow(
 	char layer_name[MAX_LAYER_NAME_LENGTH];
 	// キャンバスウィジェット
 	GtkWidget *canvas;
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	GtkWidget *canvas_box;
-#endif
 
 	// 新規作成描画領域作成中のフラグを立てる
 	app->flags |= APPLICATION_IN_MAKE_NEW_DRAW_AREA;
@@ -488,23 +499,29 @@ DRAW_WINDOW* CreateDrawWindow(
 	ret->flags = DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 
 	// 描画領域を作成
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	ret->first_project = ProjectContextNew(app->modeling,
-		width, height, (void**)&ret->gl_area);
-	canvas_box = gtk_hbox_new(FALSE, 0);
-	canvas = ret->gl_area;
-	gtk_box_pack_start(GTK_BOX(canvas_box), ret->gl_area, TRUE, TRUE, 0);
-	ret->window = gtk_drawing_area_new();
-	gtk_box_pack_start(GTK_BOX(canvas_box), ret->window, TRUE, TRUE, 0);
-#else
-	canvas = ret->window = gtk_drawing_area_new();
-#endif
+	if(GetHas3DLayer(app) != FALSE)
+	{
+		ret->first_project = ProjectContextNew(app->modeling,
+			width, height, (void**)&ret->gl_area);
+		canvas_box = gtk_hbox_new(FALSE, 0);
+		canvas = ret->gl_area;
+		gtk_box_pack_start(GTK_BOX(canvas_box), ret->gl_area, TRUE, TRUE, 0);
+		ret->window = gtk_drawing_area_new();
+		gtk_box_pack_start(GTK_BOX(canvas_box), ret->window, TRUE, TRUE, 0);
+	}
+	else
+	{
+		canvas = ret->window = gtk_drawing_area_new();
+	}
+
 	// イベントの種類をセット
 	gtk_widget_set_events(ret->window,
 		GDK_EXPOSURE_MASK | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_SCROLL_MASK
-		| GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_RELEASE_MASK
+		| GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_BUTTON_RELEASE_MASK
 #if GTK_MAJOR_VERSION >= 3
 			| GDK_TOUCH_MASK
+#else
+			| GDK_POINTER_MOTION_HINT_MASK
 #endif
 	);
 	// 描画領域を入れるスクロールを作成
@@ -555,14 +572,17 @@ DRAW_WINDOW* CreateDrawWindow(
 	SetDrawWindowCallbacks(canvas, ret);
 
 	// 描画領域を表示
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	gtk_container_add(GTK_CONTAINER(alignment), canvas_box);
-	gtk_widget_show_all(ret->scroll);
-	gtk_widget_hide(ret->window);
-#else
-	gtk_container_add(GTK_CONTAINER(alignment), ret->window);
-	gtk_widget_show_all(ret->scroll);
-#endif
+	if(GetHas3DLayer(app) != FALSE)
+	{
+		gtk_container_add(GTK_CONTAINER(alignment), canvas_box);
+		gtk_widget_show_all(ret->scroll);
+		gtk_widget_hide(ret->window);
+	}
+	else
+	{
+		gtk_container_add(GTK_CONTAINER(alignment), ret->window);
+		gtk_widget_show_all(ret->scroll);
+	}
 
 #if GTK_MAJOR_VERSION <= 2
 	gtk_notebook_set_page(GTK_NOTEBOOK(note_book), window_id);
@@ -576,6 +596,10 @@ DRAW_WINDOW* CreateDrawWindow(
 		(GSourceFunc)TimerCallBack, ret, NULL);
 	ret->timer = g_timer_new();
 	g_timer_start(ret->timer);
+
+	// レイヤー合成用の関数ポインタをセット
+	ret->layer_blend_functions = app->layer_blend_functions;
+	ret->part_layer_blend_functions = app->part_layer_blend_functions;
 
 	// 自動保存のコールバック関数をセット
 	if(app->preference.auto_save != 0)
@@ -828,6 +852,10 @@ DRAW_WINDOW* CreateTempDrawWindow(
 	ret->rev_add_cursor_x = ret->disp_layer->width/2 + (ret->half_size - ret->disp_layer->width/2);
 	ret->rev_add_cursor_y = ret->disp_layer->height/2 + (ret->half_size - ret->disp_layer->height/2);
 
+	// レイヤー合成用の関数ポインタをセット
+	ret->layer_blend_functions = app->layer_blend_functions;
+	ret->part_layer_blend_functions = app->part_layer_blend_functions;
+
 	// アクティブレイヤーより下を合成した画像の保存用
 	ret->under_active = CreateLayer(0, 0, width, height, 4, TYPE_NORMAL_LAYER,
 		NULL, NULL, NULL, ret);
@@ -865,6 +893,9 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 		return;
 	}
 
+	// 処理中のコールバック関数が呼ばれないように先に止める
+	DisconnectDrawWindowCallbacks(parent_window->window, parent_window);
+
 	// 選択範囲部分にフォーカスする
 	start_x = parent_window->selection_area.min_x;
 	start_y = parent_window->selection_area.min_y;
@@ -878,9 +909,10 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 	focal_window->focal_window = parent_window;
 	focal_window->scroll = parent_window->scroll;
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	focal_window->first_project = parent_window->first_project;
-#endif
+	if(GetHas3DLayer(parent_window->app) != FALSE)
+	{
+		focal_window->first_project = parent_window->first_project;
+	}
 	focal_window->flags |= DRAW_WINDOW_IS_FOCAL_WINDOW;
 
 	// 親キャンバスのレイヤー情報をコピーする
@@ -932,35 +964,8 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 
 	// キャンバスへのコールバック関数を変更
 	focal_window->window = parent_window->window;
-	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.display);
-	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.mouse_button_press);
-	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.mouse_move);
-	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.mouse_button_release);
-	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.mouse_wheel);
-	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.configure);
-	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.enter);
-	g_signal_handler_disconnect(G_OBJECT(parent_window->window), parent_window->callbacks.leave);
-#if GTK_MAJOR_VERSION <= 2
-	focal_window->callbacks.display = g_signal_connect(G_OBJECT(focal_window->window), "expose_event",
-		G_CALLBACK(DisplayDrawWindow), focal_window);
-#else
-	focal_window->callbacks.display = g_signal_connect(G_OBJECT(focal_window->window), "draw",
-		G_CALLBACK(DisplayDrawWindow), focal_window);
-#endif
-	focal_window->callbacks.mouse_button_press = g_signal_connect(G_OBJECT(focal_window->window), "button_press_event",
-		G_CALLBACK(ButtonPressEvent), focal_window);
-	focal_window->callbacks.mouse_move = g_signal_connect(G_OBJECT(focal_window->window), "motion_notify_event",
-		G_CALLBACK(MotionNotifyEvent), focal_window);
-	focal_window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(focal_window->window), "button_release_event",
-		G_CALLBACK(ButtonReleaseEvent), focal_window);
-	focal_window->callbacks.enter = g_signal_connect(G_OBJECT(focal_window->window), "enter_notify_event",
-		G_CALLBACK(EnterNotifyEvent), focal_window);
-	focal_window->callbacks.leave = g_signal_connect(G_OBJECT(focal_window->window), "leave_notify_event",
-		G_CALLBACK(LeaveNotifyEvent), focal_window);
-	focal_window->callbacks.configure = g_signal_connect(G_OBJECT(focal_window->window), "configure_event",
-		G_CALLBACK(DrawWindowConfigurEvent), focal_window);
-	focal_window->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(focal_window->window), "scroll_event",
-		G_CALLBACK(MouseWheelEvent), focal_window);
+	SetDrawWindowCallbacks(focal_window->window, focal_window);
+
 	// ウィジェットのサイズを変更
 	focal_window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 	DrawWindowChangeZoom(focal_window, focal_window->zoom);
@@ -1001,6 +1006,9 @@ void ReturnFromFocalMode(DRAW_WINDOW* parent_window)
 		return;
 	}
 
+	// 処理中にコールバック関数が呼ばれないように先に止める
+	DisconnectDrawWindowCallbacks(focal_window->window, focal_window);
+
 	// 選択範囲部分にピクセルデータを戻す
 	start_x = parent_window->selection_area.min_x;
 	start_y = parent_window->selection_area.min_y;
@@ -1010,7 +1018,7 @@ void ReturnFromFocalMode(DRAW_WINDOW* parent_window)
 	src_layer = focal_window->layer;
 	dst_layer = parent_window->layer;
 	parent_window->num_layer = 0;
-	while(src_layer != NULL)
+	while(src_layer != NULL && dst_layer != NULL)
 	{
 		dst_layer->layer_mode = src_layer->layer_mode;
 		dst_layer->flags = src_layer->flags;
@@ -1042,6 +1050,11 @@ void ReturnFromFocalMode(DRAW_WINDOW* parent_window)
 		dst_layer = dst_layer->next;
 		src_layer = src_layer->next;
 		parent_window->num_layer++;
+
+		if(src_layer == focal_window->active_layer)
+		{
+			parent_window->active_layer = dst_layer;
+		}
 	}
 
 	// レイヤービューをリセット
@@ -1049,35 +1062,8 @@ void ReturnFromFocalMode(DRAW_WINDOW* parent_window)
 	LayerViewSetDrawWindow(&app->layer_window, parent_window);
 
 	// コールバック関数を設定し直す
-	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.display);
-	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.mouse_button_press);
-	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.mouse_move);
-	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.mouse_button_release);
-	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.mouse_wheel);
-	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.configure);
-	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.enter);
-	g_signal_handler_disconnect(G_OBJECT(focal_window->window), focal_window->callbacks.leave);
-#if GTK_MAJOR_VERSION <= 2
-	parent_window->callbacks.display = g_signal_connect(G_OBJECT(parent_window->window), "expose_event",
-		G_CALLBACK(DisplayDrawWindow), parent_window);
-#else
-	parent_window->callbacks.display = g_signal_connect(G_OBJECT(parent_window->window), "draw",
-		G_CALLBACK(DisplayDrawWindow), parent_window);
-#endif
-	parent_window->callbacks.mouse_button_press = g_signal_connect(G_OBJECT(parent_window->window), "button_press_event",
-		G_CALLBACK(ButtonPressEvent), parent_window);
-	parent_window->callbacks.mouse_move = g_signal_connect(G_OBJECT(parent_window->window), "motion_notify_event",
-		G_CALLBACK(MotionNotifyEvent), parent_window);
-	parent_window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(parent_window->window), "button_release_event",
-		G_CALLBACK(ButtonReleaseEvent), parent_window);
-	parent_window->callbacks.mouse_wheel = g_signal_connect(G_OBJECT(parent_window->window), "scroll_event",
-		G_CALLBACK(MouseWheelEvent), parent_window);
-	parent_window->callbacks.enter = g_signal_connect(G_OBJECT(parent_window->window), "enter_notify_event",
-		G_CALLBACK(EnterNotifyEvent), parent_window);
-	parent_window->callbacks.leave = g_signal_connect(G_OBJECT(parent_window->window), "leave_notify_event",
-		G_CALLBACK(LeaveNotifyEvent), parent_window);
-	parent_window->callbacks.configure = g_signal_connect(G_OBJECT(parent_window->window), "configure_event",
-		G_CALLBACK(DrawWindowConfigurEvent), parent_window);
+	SetDrawWindowCallbacks(parent_window->window, parent_window);
+
 	// ウィジェットのサイズを変更
 	parent_window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 	DrawWindowChangeZoom(parent_window, parent_window->zoom);
@@ -2126,48 +2112,61 @@ void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_
 
 gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_info, DRAW_WINDOW* window)
 {
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	LAYER *layer = window->layer;
-	if((window->flags & DRAW_WINDOW_INITIALIZED) == 0)
+	if(GetHas3DLayer(window->app) != FALSE)
 	{
-		if(ConfigureEvent(widget, event_info, window->first_project) == FALSE)
+		LAYER *layer = window->layer;
+
+		if(window->focal_window != NULL)
 		{
 			return FALSE;
 		}
+
+		if((window->flags & DRAW_WINDOW_INITIALIZED) == 0)
+		{
+			if(ConfigureEvent(widget, event_info, window->first_project) == FALSE)
+			{
+				return FALSE;
+			}
+			window->flags |= DRAW_WINDOW_INITIALIZED;
+		}
+
+		while(layer != NULL)
+		{
+			if(layer->modeling_data != NULL)
+			{
+				MEMORY_STREAM stream = {(uint8*)layer->modeling_data, 0, layer->modeling_data_size, 1024};
+				LoadProjectContextData(layer->layer_data.project, (void*)&stream, (size_t (*)(void*, size_t, size_t, void*))MemRead,
+					(int (*)(void*, long, int))MemSeek);
+				MEM_FREE_FUNC(layer->modeling_data);
+				layer->modeling_data = NULL;
+			}
+			layer = layer->next;
+		}
+
+		if(window->active_layer == NULL)
+		{
+			return FALSE;
+		}
+		else if(window->active_layer->layer_type != TYPE_3D_LAYER
+			&& (window->flags & DRAW_WINDOW_DISCONNECT_3D) != 0)
+		{
+			gtk_widget_hide(window->gl_area);
+			DisconnectDrawWindowCallbacks(window->gl_area, window);
+			gtk_widget_show(window->window);
+			SetDrawWindowCallbacks(window->window, window);
+			g_signal_handler_disconnect(window->window, window->callbacks.configure);
+			window->callbacks.configure = 0;
+			gtk_widget_queue_draw(window->window);
+
+			window->flags &= ~(window->flags & DRAW_WINDOW_DISCONNECT_3D);
+		}
+	}
+	else
+	{
+		g_signal_handler_disconnect(window->window, window->callbacks.configure);
+		window->callbacks.configure = 0;
 		window->flags |= DRAW_WINDOW_INITIALIZED;
 	}
-
-	while(layer != NULL)
-	{
-		if(layer->modeling_data != NULL)
-		{
-			MEMORY_STREAM stream = {(uint8*)layer->modeling_data, 0, layer->modeling_data_size, 1024};
-			LoadProjectContextData(layer->layer_data.project, (void*)&stream, (size_t (*)(void*, size_t, size_t, void*))MemRead,
-				(int (*)(void*, long, int))MemSeek);
-			MEM_FREE_FUNC(layer->modeling_data);
-			layer->modeling_data = NULL;
-		}
-		layer = layer->next;
-	}
-
-	if(window->active_layer == NULL)
-	{
-		return FALSE;
-	}
-	else if(window->active_layer->layer_type != TYPE_3D_LAYER)
-	{
-		gtk_widget_hide(window->gl_area);
-		DisconnectDrawWindowCallbacks(window->gl_area, window);
-		gtk_widget_show(window->window);
-		SetDrawWindowCallbacks(window->window, window);
-		g_signal_handler_disconnect(window->window, window->callbacks.configure);
-		gtk_widget_queue_draw(window->window);
-	}
-#else
-	g_signal_handler_disconnect(window->window, window->callbacks.configure);
-	window->callbacks.configure = 0;
-	window->flags |= DRAW_WINDOW_INITIALIZED;
-#endif
 
 	return FALSE;
 }
@@ -2175,7 +2174,7 @@ gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_inf
 void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* window)
 {
 	LAYER *layer = window->active_layer;
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+
 	if(layer->layer_type == TYPE_3D_LAYER
 		&& (window->flags & DRAW_WINDOW_EDITTING_3D_MODEL) != 0)
 	{
@@ -2192,7 +2191,12 @@ void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* w
 		gtk_widget_set_size_request(layer->window->window, width, height);
 		gtk_widget_show_all(layer->window->window);
 	}
-#endif
+}
+
+void UpdateDrawWindow(DRAW_WINDOW* window)
+{
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	gtk_widget_queue_draw(window->window);
 }
 
 #ifdef __cplusplus

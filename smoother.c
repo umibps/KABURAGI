@@ -172,6 +172,21 @@ gboolean AddAverageSmoothPoint(
 		if(fabs(smoother->before_point.x - *x) +
 			 fabs(smoother->before_point.y - *y) < 0.8 * zoom_rate)
 		{
+			int before_index = ref_index - 1;
+			if(before_index < 0)
+			{
+				before_index = smoother->num_use - 1;
+				if(before_index < 0)
+				{
+					return FALSE;
+				}
+			}
+
+			if(smoother->velocity[before_index] < *pressure)
+			{
+				smoother->velocity[before_index] = *pressure;
+			}
+			
 			return FALSE;
 		}
 

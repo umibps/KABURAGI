@@ -167,7 +167,7 @@ extern "C" {
 
 extern int LoadPmd2Model(PMD2_MODEL* model, uint8* data, size_t data_size);
 
-extern void ReadPmd2ModelDataAndState(
+extern int ReadPmd2ModelDataAndState(
 	void *scene,
 	PMD2_MODEL* model,
 	void* src,

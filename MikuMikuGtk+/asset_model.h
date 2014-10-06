@@ -45,6 +45,8 @@ typedef struct _ASSET_MODEL
 extern "C" {
 #endif
 
+extern void ReleaseAssetModel(ASSET_MODEL* model);
+
 extern int LoadAssetModel(
 	ASSET_MODEL* model,
 	uint8* data,
@@ -54,7 +56,7 @@ extern int LoadAssetModel(
 	const char* model_path
 );
 
-extern void ReadAssetModelDataAndState(
+extern int ReadAssetModelDataAndState(
 	void *scene,
 	ASSET_MODEL* model,
 	void* src,
@@ -106,6 +108,8 @@ extern void InitializeAssetModelLabel(
 	ASSET_MODEL* model,
 	POINTER_ARRAY* bones
 );
+
+extern void ReleaseAssetModelLabel(ASSET_MODEL_LABEL* label);
 
 extern void InitializeAssetMaterial(
 	ASSET_MATERIAL* material,

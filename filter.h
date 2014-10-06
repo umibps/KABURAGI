@@ -23,6 +23,8 @@ typedef enum _eFILTER_FUNC_ID
 	FILTER_FUNC_COLORIZE_WITH_UNDER,
 	FILTER_FUNC_GRADATION_MAP,
 	FILTER_FUNC_FILL_WITH_VECTOR,
+	FILTER_FUNC_PERLIN_NOISE,
+	FILTER_FUNC_FRACTAL,
 	NUM_FILTER_FUNC
 } eFILTER_FUNC_ID;
 
@@ -36,7 +38,16 @@ extern selection_filter_func g_selection_filter_funcs[NUM_FILTER_FUNC];
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteBlurFilter(APPLICATION* app);
+EXTERN void ExecuteBlurFilter(APPLICATION* app);
+
+/*********************************************************
+* ApplyBlurFilter関数                                    *
+* ぼかしフィルターを適用する                             *
+* 引数                                                   *
+* target	: ぼかしフィルターを適用するレイヤー         *
+* size		: ぼかしフィルターで平均色を計算する矩形範囲 *
+*********************************************************/
+EXTERN void ApplyBlurFilter(LAYER* target, int size);
 
 /*****************************************************
 * ExecuteMotionBlurFilter関数                        *
@@ -44,7 +55,7 @@ extern void ExecuteBlurFilter(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteMotionBlurFilter(APPLICATION* app);
+EXTERN void ExecuteMotionBlurFilter(APPLICATION* app);
 
 /*****************************************************
 * ExecuteChangeBrightContrastFilter関数              *
@@ -52,7 +63,7 @@ extern void ExecuteMotionBlurFilter(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteChangeBrightContrastFilter(APPLICATION* app);
+EXTERN void ExecuteChangeBrightContrastFilter(APPLICATION* app);
 
 /*****************************************************
 * ExecuteChangeHueSaturationFilter関数               *
@@ -60,7 +71,7 @@ extern void ExecuteChangeBrightContrastFilter(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteChangeHueSaturationFilter(APPLICATION* app);
+EXTERN void ExecuteChangeHueSaturationFilter(APPLICATION* app);
 
 /*****************************************************
 * ExecuteLuminosity2OpacityFilter関数                *
@@ -68,7 +79,7 @@ extern void ExecuteChangeHueSaturationFilter(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteLuminosity2OpacityFilter(APPLICATION* app);
+EXTERN void ExecuteLuminosity2OpacityFilter(APPLICATION* app);
 
 /*****************************************************
 * ExecuteColor2AlphaFilter関数                       *
@@ -76,7 +87,7 @@ extern void ExecuteLuminosity2OpacityFilter(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteColor2AlphaFilter(APPLICATION* app);
+EXTERN void ExecuteColor2AlphaFilter(APPLICATION* app);
 
 /*****************************************************
 * ExecuteColorizeWithUnderFilter関数                 *
@@ -84,7 +95,7 @@ extern void ExecuteColor2AlphaFilter(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteColorizeWithUnderFilter(APPLICATION* app);
+EXTERN void ExecuteColorizeWithUnderFilter(APPLICATION* app);
 
 /*****************************************************
 * ExecuteGradationMapFilter関数                      *
@@ -92,7 +103,7 @@ extern void ExecuteColorizeWithUnderFilter(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteGradationMapFilter(APPLICATION* app);
+EXTERN void ExecuteGradationMapFilter(APPLICATION* app);
 
 /*****************************************************
 * ExecuteFillWithVectorLineFilter関数                *
@@ -100,7 +111,23 @@ extern void ExecuteGradationMapFilter(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteFillWithVectorLineFilter(APPLICATION* app);
+EXTERN void ExecuteFillWithVectorLineFilter(APPLICATION* app);
+
+/*****************************************************
+* ExecutePerlinNoiseFilter関数                       *
+* パーリンノイズで下塗りを実行                       *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+EXTERN void ExecutePerlinNoiseFilter(APPLICATION* app);
+
+/*****************************************************
+* ExecuteFractal関数                                 *
+* フラクタル図形で下塗り実行                         *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+EXTERN void ExecuteFractal(APPLICATION* app);
 
 #ifdef __cplusplus
 }

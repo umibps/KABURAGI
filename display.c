@@ -1,10 +1,12 @@
 #include "configure.h"
 #include <string.h>
 #include <gtk/gtk.h>
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-# include <GL/glew.h>
-# include <gtk/gtkgl.h>
+#include <GL/glew.h>
+#if GTK_MAJOR_VERSION >= 3
+# include <gdk/gdk.h>
 #endif
+#include <gtk/gtkgl.h>
+
 #include "application.h"
 #include "display.h"
 #include "draw_window.h"
@@ -32,9 +34,9 @@ typedef enum _eUPDATE_MODE
 *	常にFALSE                            *
 *****************************************/
 gboolean DisplayDrawWindow(
-	GtkWidget *widget,
-	GdkEventExpose *event_info,
-	struct _DRAW_WINDOW *window
+	GtkWidget* widget,
+	GdkEventExpose* event_info,
+	struct _DRAW_WINDOW* window
 )
 {
 	// 合成するレイヤー
@@ -42,7 +44,7 @@ gboolean DisplayDrawWindow(
 	// マウスの情報取得用
 	GdkModifierType state;
 	// 拡大・縮小を元に戻すための値
-	gdouble rev_zoom = 1.0 / (window->zoom * 0.01);
+	gdouble rev_zoom = window->rev_zoom;
 	// for文用のカウンタ
 	gint x, y;
 	// 画面更新のモード
@@ -200,7 +202,7 @@ gboolean DisplayDrawWindow(
 					{	// 通常レイヤーは
 							// 作業レイヤーとアクティブレイヤーを一度合成してから下のレイヤーと合成
 						(void)memcpy(window->temp_layer->pixels, layer->pixels, layer->stride*layer->height);
-						g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, window->temp_layer);
+						window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->temp_layer);
 						blend_layer = window->temp_layer;
 						blend_layer->alpha = layer->alpha;
 						blend_layer->flags = layer->flags;
@@ -212,7 +214,7 @@ gboolean DisplayDrawWindow(
 						RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
 						if(window->work_layer->layer_mode != LAYER_BLEND_NORMAL)
 						{
-							g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, layer);
+							window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, layer);
 						}
 					}
 					else if(layer->layer_type == TYPE_TEXT_LAYER)
@@ -229,7 +231,7 @@ gboolean DisplayDrawWindow(
 				}
 
 				// 合成する対象と方法が確定したので合成を実行する
-				g_layer_blend_funcs[blend_mode](blend_layer, window->mixed_layer);
+				window->layer_blend_functions[blend_mode](blend_layer, window->mixed_layer);
 				// 合成したらデータを元に戻す
 				window->temp_layer->alpha = 100;
 				window->temp_layer->flags = 0;
@@ -280,7 +282,7 @@ gboolean DisplayDrawWindow(
 					{	// 通常レイヤーは
 							// 作業レイヤーとアクティブレイヤーを一度合成してから下のレイヤーと合成
 						(void)memcpy(window->temp_layer->pixels, layer->pixels, layer->stride*layer->height);
-						g_part_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, &window->temp_update);
+						window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->temp_update);
 						//g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, window->temp_layer);
 						blend_layer = window->temp_layer;
 						blend_layer->alpha = layer->alpha;
@@ -293,7 +295,7 @@ gboolean DisplayDrawWindow(
 						RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
 						if(window->work_layer->layer_mode != LAYER_BLEND_NORMAL)
 						{
-							g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, layer);
+							window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, layer);
 						}
 					}
 					else if(layer->layer_type == TYPE_TEXT_LAYER)
@@ -307,7 +309,7 @@ gboolean DisplayDrawWindow(
 				}
 
 				// 合成する対象と方法が確定したので合成を実行する
-				g_part_layer_blend_funcs[blend_mode](blend_layer, &window->update);
+				window->part_layer_blend_functions[blend_mode](blend_layer, &window->update);
 				// 合成したらデータを元に戻す
 				window->temp_layer->alpha = 100;
 				window->temp_layer->flags = 0;
@@ -400,7 +402,7 @@ gboolean DisplayDrawWindow(
 			window->app->tool_window.active_common_tool->display_func(
 				window, window->app->tool_window.active_common_tool);
 
-			g_layer_blend_funcs[window->effect->layer_mode](window->effect, window->disp_layer);
+			window->layer_blend_functions[window->effect->layer_mode](window->effect, window->disp_layer);
 			// 表示用に使用したデータを初期化
 			window->effect->layer_mode = LAYER_BLEND_NORMAL;
 			(void)memset(window->effect->pixels, 0, window->effect->stride*window->effect->height);
@@ -432,7 +434,7 @@ gboolean DisplayDrawWindow(
 				DisplayTextLayerRange(window, window->active_layer->layer_data.text_layer_p);
 			}
 			// 作成したデータを表示データに合成
-			g_layer_blend_funcs[LAYER_BLEND_DIFFERENCE](window->disp_temp, window->disp_layer);
+			window->layer_blend_functions[LAYER_BLEND_DIFFERENCE](window->disp_temp, window->disp_layer);
 		}	// マウスカーソルの描画処理
 					// ブラシが持つカーソル表示用の関数を呼び出す
 			// if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0) else
@@ -451,7 +453,7 @@ gboolean DisplayDrawWindow(
 			if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 			{
 				DrawSelectionArea(&window->selection_area, window);
-				g_layer_blend_funcs[LAYER_BLEND_NORMAL](window->effect, window->disp_layer);
+				window->layer_blend_functions[LAYER_BLEND_NORMAL](window->effect, window->disp_layer);
 				(void)memset(window->effect->pixels, 0, window->effect->stride*window->effect->height);
 			}
 		}
@@ -540,7 +542,7 @@ LAYER* MixLayerForSave(DRAW_WINDOW* window)
 		{
 			if(!(src->layer_set != NULL && (src->layer_set->flags & LAYER_FLAG_INVISIBLE) != 0))
 			{
-				g_layer_blend_funcs[src->layer_mode](src, ret);
+				window->layer_blend_functions[src->layer_mode](src, ret);
 			}
 		}
 
@@ -576,7 +578,7 @@ LAYER* MixLayerForSaveWithBackGround(DRAW_WINDOW* window)
 		{
 			if(!(src->layer_set != NULL && (src->layer_set->flags & LAYER_FLAG_INVISIBLE) != 0))
 			{
-				g_layer_blend_funcs[src->layer_mode](src, ret);
+				window->layer_blend_functions[src->layer_mode](src, ret);
 			}
 		}
 

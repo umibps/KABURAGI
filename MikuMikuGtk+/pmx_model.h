@@ -204,7 +204,7 @@ extern "C" {
 
 extern int LoadPmxModel(PMX_MODEL* model, uint8* data, size_t data_size);
 
-extern void ReadPmxModelDataAndState(
+extern int ReadPmxModelDataAndState(
 	void *scene,
 	PMX_MODEL* model,
 	void* src,

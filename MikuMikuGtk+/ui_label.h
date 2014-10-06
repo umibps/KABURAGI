@@ -42,6 +42,7 @@ typedef struct _UI_LABEL
 		char *model_connect_to;
 		char *enable_physics;
 		char *display_grid;
+		char *delete_current_model;
 		char *render_shadow;
 		char *render_edge_only;
 		struct

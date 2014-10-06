@@ -40,7 +40,7 @@ typedef enum _eIMAGE_DATA_TYPE
 * 返り値                                                         *
 *	デコードしたピクセルデータ                                   *
 *****************************************************************/
-extern uint8* DecodeImageData(
+EXTERN uint8* DecodeImageData(
 	uint8* data,
 	size_t data_size,
 	const char* file_type,
@@ -65,7 +65,7 @@ extern uint8* DecodeImageData(
 * 返り値                                                   *
 *	ピクセルデータ                                         *
 ***********************************************************/
-extern uint8* ReadPNGStream(
+EXTERN uint8* ReadPNGStream(
 	void* stream,
 	stream_func_t read_func,
 	gint32* width,
@@ -87,7 +87,7 @@ extern uint8* ReadPNGStream(
 * icc_profile_data	: ICCプロファイルのデータを受けるポインタ             *
 * icc_profile_size	: ICCプロファイルのデータのバイト数を格納するアドレス *
 **************************************************************************/
-extern void ReadPNGHeader(
+EXTERN void ReadPNGHeader(
 	void* stream,
 	stream_func_t read_func,
 	gint32* width,
@@ -115,7 +115,7 @@ extern void ReadPNGHeader(
 * 返り値                                                                  *
 *	ピクセルデータ                                                        *
 **************************************************************************/
-extern uint8* ReadPNGDetailData(
+EXTERN uint8* ReadPNGDetailData(
 	void* stream,
 	stream_func_t read_func,
 	gint32* width,
@@ -141,7 +141,7 @@ extern uint8* ReadPNGDetailData(
 * interlace		: インターレースの有無       *
 * compression	: 圧縮レベル                 *
 *********************************************/
-extern void WritePNGStream(
+EXTERN void WritePNGStream(
 	void* stream,
 	stream_func_t write_func,
 	void (*flush_func)(void*),
@@ -172,7 +172,7 @@ extern void WritePNGStream(
 * icc_profile_data	: ICCプロファイルのデータ           *
 * icc_profile_data	: ICCプロファイルのデータのバイト数 *
 ********************************************************/
-extern void WritePNGDetailData(
+EXTERN void WritePNGDetailData(
 	void* stream,
 	stream_func_t write_func,
 	void (*flush_func)(void*),
@@ -200,7 +200,7 @@ extern void WritePNGDetailData(
 * icc_profile_data	: ICCプロファイルのデータを受けるポインタ       *
 * icc_profile_size	: ICCプロファイルのデータのバイト数の読み込み先 *
 ********************************************************************/
-extern void ReadJpegHeader(
+EXTERN void ReadJpegHeader(
 	const char* system_file_path,
 	int* width,
 	int* height,
@@ -225,7 +225,7 @@ extern void ReadJpegHeader(
 * 返り値                                                            *
 *	デコードしたピクセルデータ(失敗したらNULL)                      *
 ********************************************************************/
-extern uint8* ReadJpegStream(
+EXTERN uint8* ReadJpegStream(
 	void* stream,
 	stream_func_t read_func,
 	size_t data_size,
@@ -254,7 +254,7 @@ extern uint8* ReadJpegStream(
 * icc_profile_size	: 埋め込むICCプロファイルのデータのバイト数 *
 * resolution		: 解像度(dpi)                               *
 ****************************************************************/
-extern void WriteJpegFile(
+EXTERN void WriteJpegFile(
 	const char* system_file_path,
 	uint8* pixels,
 	int width,
@@ -280,7 +280,7 @@ extern void WriteJpegFile(
 * 返り値                                                   *
 *	描画領域のデータ                                       *
 ***********************************************************/
-extern DRAW_WINDOW* ReadOriginalFormat(
+EXTERN DRAW_WINDOW* ReadOriginalFormat(
 	void* stream,
 	stream_func_t read_func,
 	size_t stream_size,
@@ -300,7 +300,7 @@ extern DRAW_WINDOW* ReadOriginalFormat(
 * 返り値                                                   *
 *	合成したレイヤー                                       *
 ***********************************************************/
-extern LAYER* ReadOriginalFormatMixedData(
+EXTERN LAYER* ReadOriginalFormatMixedData(
 	void* stream,
 	stream_func_t read_func,
 	size_t stream_size,
@@ -315,7 +315,7 @@ extern LAYER* ReadOriginalFormatMixedData(
 * window	: データの読み込み先                                   *
 * stream	: メモリストリーム                                     *
 *******************************************************************/
-extern void ReadOriginalFormatMemoryStream(
+EXTERN void ReadOriginalFormatMemoryStream(
 	DRAW_WINDOW* window,
 	MEMORY_STREAM_PTR stream
 );
@@ -330,7 +330,7 @@ extern void ReadOriginalFormatMemoryStream(
 * add_thumbnail	: サムネイルの有無         *
 * compress		: 圧縮率                   *
 *******************************************/
-extern void WriteOriginalFormat(
+EXTERN void WriteOriginalFormat(
 	void* stream,
 	stream_func_t write_func,
 	DRAW_WINDOW* window,
@@ -349,7 +349,7 @@ extern void WriteOriginalFormat(
 * 返り値                                         *
 *	正常終了時:一番下のレイヤー, 異常終了時:NULL *
 *************************************************/
-extern LAYER* ReadPhotoShopDocument(
+EXTERN LAYER* ReadPhotoShopDocument(
 	void* stream,
 	stream_func_t read_func,
 	seek_func_t seek_func,
@@ -366,7 +366,7 @@ extern LAYER* ReadPhotoShopDocument(
 * tell_func		: シーク位置取得用の関数ポインタ *
 * window		: 描画領域の情報                 *
 *************************************************/
-extern void WritePhotoShopDocument(
+EXTERN void WritePhotoShopDocument(
 	void* stream,
 	stream_func_t write_func,
 	seek_func_t seek_func,
@@ -383,7 +383,7 @@ extern void WritePhotoShopDocument(
 * icc_profile_data	: ICCプロファイルのデータを受けるポインタ *
 * icc_profile_size	: ICCプロファイルのデータのバイト数       *
 **************************************************************/
-extern void ReadTiffTagData(
+EXTERN void ReadTiffTagData(
 	const char* system_file_path,
 	int* resolution,
 	uint8** icc_profile_data,
@@ -402,7 +402,7 @@ extern void ReadTiffTagData(
 *					  (書き出さない場合はNULL)         *
 * profile_data_size	: ICCプロファイルのデータバイト数  *
 *******************************************************/
-extern void WriteTiff(
+EXTERN void WriteTiff(
 	const char* system_file_path,
 	DRAW_WINDOW* window,
 	gboolean write_alpha,
@@ -424,7 +424,7 @@ extern void WriteTiff(
 * 返り値                                      *
 *	ピクセルデータ(失敗時はNULL)              *
 **********************************************/
-extern uint8* ReadTgaStream(
+EXTERN uint8* ReadTgaStream(
 	void* stream,
 	stream_func_t read_func,
 	size_t data_size,
@@ -448,7 +448,7 @@ extern uint8* ReadTgaStream(
 * 返り値                                               *
 *	ピクセルデータ(失敗時はNULL)                       *
 *******************************************************/
-extern uint8* ReadBmpStream(
+EXTERN uint8* ReadBmpStream(
 	void* stream,
 	stream_func_t read_func,
 	seek_func_t seek_func,
@@ -459,13 +459,36 @@ extern uint8* ReadBmpStream(
 	int* resolution
 );
 
+/*****************************************
+* ReadDdsStream関数                      *
+* DDSファイルの読み込み                  *
+* 引数                                   *
+* stream	: 読み込み元                 *
+* read_func	: 読み込みに使う関数ポインタ *
+* data_size	: 画像データのバイト数       *
+* width		: 画像の幅                   *
+* height	: 画像の高さ                 *
+* channel	: 画像のチャンネル数         *
+* 返り値                                 *
+*	ピクセルデータ(失敗時はNULL)         *
+*****************************************/
+EXTERN uint8* ReadDdsStream(
+	void* stream,
+	stream_func_t read_func,
+	seek_func_t seek_func,
+	size_t data_size,
+	int* width,
+	int* height,
+	int* channel
+);
+
 /*******************************************************
 * SetFileChooserPreview関数                            *
 * ファイル選択ダイアログにプレビューウィジェットを設定 *
 * 引数                                                 *
 * file_chooser	: ファイル選択ダイアログウィジェット   *
 *******************************************************/
-extern void SetFileChooserPreview(GtkWidget *file_chooser);
+EXTERN void SetFileChooserPreview(GtkWidget *file_chooser);
 
 #ifdef __cplusplus
 }

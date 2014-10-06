@@ -113,4 +113,18 @@ typedef struct PTR_PTR_MAPRBTree *PTR_PTR_MAPIterator;
 
 #endif
 
+#ifdef EXTERN
+# undef EXTERN
+#endif
+
+#ifdef _MSC_VER
+# ifdef __cplusplus
+#  define EXTERN extern "C" __declspec(dllexport)
+# else
+#  define EXTERN extern __declspec(dllexport)
+# endif
+#else
+# define EXTERN extern
+#endif
+
 #endif	// #ifndef _INCLUDE_TYPES_H_

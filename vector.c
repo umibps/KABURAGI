@@ -1,5 +1,6 @@
 #include <string.h>
 #include <math.h>
+#include <zlib.h>
 #include <gtk/gtk.h>
 #include "application.h"
 #include "draw_window.h"
@@ -698,7 +699,7 @@ void RasterizeVectorLayer(
 
 		RasterizeVectorLine(window, layer, layer->top_line, &rect);
 
-		g_layer_blend_funcs[LAYER_BLEND_NORMAL](window->work_layer, window->active_layer);
+		window->layer_blend_functions[LAYER_BLEND_NORMAL](window->work_layer, window->active_layer);
 
 		if((layer->flags & VECTOR_LAYER_FIX_LINE) != 0)
 		{
@@ -806,7 +807,7 @@ void RasterizeVectorLayer(
 				rasterize->layer = CreateVectorLineLayer(window->work_layer, layer->active_line, &rect);
 			}
 
-			g_layer_blend_funcs[LAYER_BLEND_NORMAL](window->work_layer, target);
+			window->layer_blend_functions[LAYER_BLEND_NORMAL](window->work_layer, target);
 
 			rasterize = rasterize->next;
 		}
@@ -821,7 +822,7 @@ void RasterizeVectorLayer(
 			rasterize->layer = CreateVectorLineLayer(window->work_layer, layer->active_line, &rect);
 		}
 
-		g_layer_blend_funcs[LAYER_BLEND_NORMAL](window->work_layer, target);
+		window->layer_blend_functions[LAYER_BLEND_NORMAL](window->work_layer, target);
 
 		(void)memcpy(layer->mix->pixels, target->pixels, window->pixel_buf_size);
 	}
@@ -832,6 +833,229 @@ void RasterizeVectorLayer(
 
 end:
 	layer->flags = 0;
+}
+
+/***********************************************
+* ReadVectorLineData関数                       *
+* ベクトルレイヤーのデータを読み込む           *
+* 引数                                         *
+* data		: ベクトルレイヤーのデータ(圧縮済) *
+* target	: データを読み込むレイヤー         *
+* 返り値                                       *
+*	読み込んだバイト数                         *
+***********************************************/
+uint32 ReadVectorLineData(uint8* data, LAYER* target)
+{
+	// ベクトルレイヤーのデータ
+	VECTOR_LAYER *layer = target->layer_data.vector_layer_p;
+	// ベクトルレイヤーの基本情報読み込み用
+	VECTOR_LINE_BASE_DATA line_base;
+	// 線データ
+	VECTOR_LINE *line;
+	// データ読み込み用ストリーム
+	MEMORY_STREAM read_stream;
+	// ZIP圧縮展開用ストリーム
+	MEMORY_STREAM *data_stream;
+	// ZIP圧縮展開用データ
+	z_stream decompress_stream;
+	// 読み込んだ総バイト数
+	guint32 data_size;
+	// 4バイト読み込み用
+	guint32 data32;
+	// for文用のカウンタ
+	unsigned int i, j;
+
+	// データの総バイト数を読み込む
+	(void)memcpy(&data_size, data, sizeof(data_size));
+
+	// 読み込み用データの初期化
+	read_stream.buff_ptr = data + sizeof(data_size);
+	read_stream.data_point = 0;
+	read_stream.data_size = data_size;
+
+	// 展開後のバイト数を読み込む
+	(void)MemRead(&data32, sizeof(data32), 1, &read_stream);
+	// 展開後のデータを入れるストリーム作成
+	data_stream = CreateMemoryStream(data32);
+
+	// データを展開
+		// ZIPデータ展開前の準備
+	decompress_stream.zalloc = Z_NULL;
+	decompress_stream.zfree = Z_NULL;
+	decompress_stream.opaque = Z_NULL;
+	decompress_stream.avail_in = 0;
+	decompress_stream.next_in = Z_NULL;
+	(void)inflateInit(&decompress_stream);
+	// ZIPデータ展開
+	decompress_stream.avail_in = (uInt)data_size;
+	decompress_stream.next_in = &read_stream.buff_ptr[read_stream.data_point];
+	decompress_stream.avail_out = (uInt)data32;
+	decompress_stream.next_out = data_stream->buff_ptr;
+	(void)inflate(&decompress_stream, Z_NO_FLUSH);
+	(void)inflateEnd(&decompress_stream);
+
+	// 線の数を読み込む
+	(void)MemRead(&data32, sizeof(data32), 1, data_stream);
+	layer->num_lines = data32;
+	// フラグの情報を読み込む
+	(void)MemRead(&data32, sizeof(data32), 1, data_stream);
+	layer->flags = data32;
+
+	for(i=0; i<layer->num_lines; i++)
+	{
+		(void)MemRead(&line_base.vector_type, sizeof(line_base.vector_type), 1, data_stream);
+		(void)MemRead(&line_base.flags, sizeof(line_base.flags), 1, data_stream);
+		(void)MemRead(&line_base.num_points, sizeof(line_base.num_points), 1, data_stream);
+		(void)MemRead(&line_base.blur, sizeof(line_base.blur), 1, data_stream);
+		(void)MemRead(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, data_stream);
+		line = CreateVectorLine(layer->top_line, NULL);
+		line->vector_type = line_base.vector_type;
+		line->flags = line_base.flags;
+		line->num_points = line_base.num_points;
+		line->blur = line_base.blur;
+		line->outline_hardness = line_base.outline_hardness;
+		// 制御点情報の読み込み
+		line->buff_size =
+			((line_base.num_points / VECTOR_LINE_BUFFER_SIZE) + 1) * VECTOR_LINE_BUFFER_SIZE;
+		line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(*line->points)*line->buff_size);
+		(void)memset(line->points, 0, sizeof(*line->points)*line->buff_size);
+		for(j=0; j<line->num_points; j++)
+		{
+			(void)MemRead(&line->points[j].vector_type, sizeof(line->points->vector_type), 1, data_stream);
+			(void)MemRead(&line->points[j].flags, sizeof(line->points->flags), 1, data_stream);
+			(void)MemRead(&line->points[j].color, sizeof(line->points->color), 1, data_stream);
+			(void)MemRead(&line->points[j].pressure, sizeof(line->points->pressure), 1, data_stream);
+			(void)MemRead(&line->points[j].size, sizeof(line->points->size), 1, data_stream);
+			(void)MemRead(&line->points[j].x, sizeof(line->points->x), 1, data_stream);
+			(void)MemRead(&line->points[j].y, sizeof(line->points->y), 1, data_stream);
+		}
+
+		if(line->points->size == 0.0)
+		{
+			DeleteVectorLine(&line);
+			layer->num_lines--;
+		}
+		else
+		{
+			layer->top_line = line;
+		}
+	}
+
+	(void)DeleteMemoryStream(data_stream);
+
+	return data_size + sizeof(data_size);
+}
+
+/*********************************************************
+* WriteVectorLineData関数                                *
+* ベクトルレイヤーのデータを書き出す                     *
+* 引数                                                   *
+* target			: データを書き出すレイヤー           *
+* dst				: 書き出し先のポインタ               *
+* write_func		: 書き出しに使う関数ポインタ         *
+* data_stream		: 圧縮前のデータを作成するストリーム *
+* write_stream		: 書き出しデータを作成するストリーム *
+* compress_level	: ZIP圧縮のレベル                    *
+*********************************************************/
+void WriteVectorLineData(
+	LAYER* target,
+	void* dst,
+	stream_func_t write_func,
+	MEMORY_STREAM* data_stream,
+	MEMORY_STREAM* write_stream,
+	int compress_level
+)
+{
+	// ベクトルレイヤーデータの基本情報
+	VECTOR_LINE_BASE_DATA line_base;
+	// ZIP圧縮用
+	z_stream compress_stream;
+	// ベクトルレイヤーのデータバイト数
+	guint32 vector_data_size;
+	guint32 data_size;
+	// ラインの数
+	guint32 num_line = 0;
+	// ラインデータ書き出し用
+	VECTOR_LINE *line = target->layer_data.vector_layer_p->base->next;
+	// 4バイト書き出し用
+	guint32 data32;
+	// for文用のカウンタ
+	unsigned int i;
+
+	// ベクトルの座標、サイズ、筆圧、色を一度メモリに溜める
+		// ラインの数を書き込む領域を開けておく
+	(void)MemSeek(data_stream, sizeof(guint32), SEEK_SET);
+	// ベクトルレイヤーのフラグを書き出す
+	data32 = target->layer_data.vector_layer_p->flags;
+	(void)MemWrite(&data32, sizeof(data32), 1, data_stream);
+
+	while(line != NULL)
+	{
+		line_base.vector_type = line->vector_type;
+		line_base.flags = line->flags;
+		line_base.num_points = line->num_points;
+		line_base.blur = line->blur;
+		line_base.outline_hardness = line->outline_hardness;
+
+		(void)MemWrite(&line_base.vector_type, sizeof(line_base.vector_type), 1, data_stream);
+		(void)MemWrite(&line_base.flags, sizeof(line_base.flags), 1, data_stream);
+		(void)MemWrite(&line_base.num_points, sizeof(line_base.num_points), 1, data_stream);
+		(void)MemWrite(&line_base.blur, sizeof(line_base.blur), 1, data_stream);
+		(void)MemWrite(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, data_stream);
+		for(i=0; i<line->num_points; i++)
+		{
+			(void)MemWrite(&line->points[i].vector_type, sizeof(line->points->vector_type), 1, data_stream);
+			(void)MemWrite(&line->points[i].flags, sizeof(line->points->flags), 1, data_stream);
+			(void)MemWrite(&line->points[i].color, sizeof(line->points->color), 1, data_stream);
+			(void)MemWrite(&line->points[i].pressure, sizeof(line->points->pressure), 1, data_stream);
+			(void)MemWrite(&line->points[i].size, sizeof(line->points->size), 1, data_stream);
+			(void)MemWrite(&line->points[i].x, sizeof(line->points->x), 1, data_stream);
+			(void)MemWrite(&line->points[i].y, sizeof(line->points->y), 1, data_stream);
+		}
+
+		line = line->next;
+		num_line++;
+	}
+
+	// データサイズ記憶
+	vector_data_size = (guint32)data_stream->data_point;
+	// ラインの数書き出し
+	(void)MemSeek(data_stream, 0, SEEK_SET);
+	(void)MemWrite(&num_line, sizeof(num_line), 1, data_stream);
+
+	// ストリームのサイズが足りなければ再確保
+	if(write_stream->data_size < data_stream->data_size)
+	{
+		write_stream->data_size = data_stream->data_size;
+		write_stream->buff_ptr =
+			(uint8*)MEM_REALLOC_FUNC(write_stream->buff_ptr, write_stream->data_size);
+	}
+
+	// ベクトルデータをZIP圧縮する
+		// 圧縮用ストリームのデータをセット
+	compress_stream.zalloc = Z_NULL;
+	compress_stream.zfree = Z_NULL;
+	compress_stream.opaque = Z_NULL;
+	(void)deflateInit(&compress_stream, compress_level);
+	compress_stream.avail_in = (uInt)vector_data_size;
+	compress_stream.next_in = data_stream->buff_ptr;
+	compress_stream.avail_out = (uInt)write_stream->data_size;
+	compress_stream.next_out = write_stream->buff_ptr;
+	// 圧縮実行
+	(void)deflate(&compress_stream, Z_FINISH);
+
+	// 圧縮後のデータサイズを書き込む
+	data_size = (guint32)(write_stream->data_size - compress_stream.avail_out
+		+ sizeof(vector_data_size));
+	(void)write_func(&data_size, sizeof(data_size), 1, dst);
+	// 圧縮前のデータサイズを書き込む
+	(void)write_func(&vector_data_size, sizeof(vector_data_size), 1, dst);
+	// 圧縮したデータを書き込む
+	(void)write_func(write_stream->buff_ptr, 1,
+		data_size - sizeof(data_size), dst);
+
+	// 圧縮用ストリームを開放
+	(void)deflateEnd(&compress_stream);
 }
 
 /***********************************************

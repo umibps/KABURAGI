@@ -85,9 +85,9 @@ void ExecutePrint(APPLICATION* app)
 			printer, app->print_settings);
 	}
 
-	g_signal_connect(G_OBJECT(printer), "begin_print",
+	(void)g_signal_connect(G_OBJECT(printer), "begin_print",
 		G_CALLBACK(BeginPrint), app->draw_window[app->active_window]);
-	g_signal_connect(G_OBJECT(printer), "draw_page",
+	(void)g_signal_connect(G_OBJECT(printer), "draw_page",
 		G_CALLBACK(DrawPage), app->draw_window[app->active_window]);
 
 	result = gtk_print_operation_run(printer,

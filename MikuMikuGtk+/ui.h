@@ -51,6 +51,8 @@ extern gboolean MouseWheelScrollEvent(GtkWidget* widget, GdkEventScroll* event_i
 
 extern void BoneTreeViewSetBones(GtkWidget *tree_view, void* model_interface, void* application_context);
 
+extern void ClearBoneTreeView(GtkWidget* tree_view);
+
 extern gboolean ConfigureEvent(
 	GtkWidget* widget,
 	void* event_info,

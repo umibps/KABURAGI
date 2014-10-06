@@ -107,6 +107,8 @@ extern void ExecuteControlRedo(APPLICATION* application);
 extern void ModelJoinWorld(MODEL_INTERFACE* model, WORLD* world);
 extern void ModelLeaveWorld(MODEL_INTERFACE* model, WORLD* world);
 
+extern int ExecuteRemoveModel(APPLICATION* application);
+
 #ifdef __cplusplus
 }
 #endif

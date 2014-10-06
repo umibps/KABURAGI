@@ -208,7 +208,7 @@ GtkWidget* CreateTextLayerDetailUI(APPLICATION* app, LAYER* target, TEXT_LAYER* 
 #define MAX_STR_LENGTH 256
 #define UI_FONT_SIZE 8.0
 	GtkWidget* vbox = gtk_vbox_new(FALSE, 0), *hbox = gtk_hbox_new(FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	GtkWidget* font_selection = gtk_combo_box_new_text();
 #else
 	GtkWidget* font_selection = gtk_combo_box_text_new();
@@ -227,7 +227,7 @@ GtkWidget* CreateTextLayerDetailUI(APPLICATION* app, LAYER* target, TEXT_LAYER* 
 		font_name = pango_font_family_get_name(app->font_list[i]);
 		(void)sprintf(item_str, "<span font_family=\"%s\">%s</span>",
 			font_name, font_name);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(font_selection), item_str);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(font_selection), item_str);
@@ -265,7 +265,7 @@ GtkWidget* CreateTextLayerDetailUI(APPLICATION* app, LAYER* target, TEXT_LAYER* 
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), item_str);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);

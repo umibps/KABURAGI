@@ -164,7 +164,7 @@ static void OnDestroyReferenceImageDrawArea(GtkWidget* widget, REFERENCE_IMAGE* 
 * 返り値                                           *
 *	常にTRUE                                       *
 ***************************************************/
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 static gboolean DisplayReferenceImage(
 	GtkWidget* widget,
 	GdkEventExpose* event_info,
@@ -178,7 +178,7 @@ static gboolean DisplayReferenceImage(
 )
 #endif
 {
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 	gdk_cairo_region(cairo_p, event_info->region);
 	cairo_clip(cairo_p);
@@ -186,7 +186,7 @@ static gboolean DisplayReferenceImage(
 	cairo_scale(cairo_p, image->zoom, image->zoom);
 	cairo_set_source_surface(cairo_p, image->surface_p, 0, 0);
 	cairo_paint(cairo_p);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 #endif
 
@@ -344,7 +344,7 @@ static void AddReferenceImage(
 		| GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
 	(void)g_signal_connect(G_OBJECT(image->draw_area), "destroy",
 		G_CALLBACK(OnDestroyReferenceImageDrawArea), image);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	(void)g_signal_connect(G_OBJECT(image->draw_area), "expose_event",
 		G_CALLBACK(DisplayReferenceImage), image);
 #else
@@ -368,7 +368,7 @@ static void AddReferenceImage(
 	gtk_widget_show_all(image->scroll);
 	gtk_widget_set_sensitive(reference->data->scale, TRUE);
 	reference->data->active_image = reference->data->num_image;
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gtk_notebook_set_page(GTK_NOTEBOOK(reference->data->note_book), reference->data->active_image);
 #else
 	gtk_notebook_set_current_page(GTK_NOTEBOOK(reference->data->note_book), reference->data->active_image);
@@ -439,7 +439,7 @@ void OpenAsReferenceImage(char* file_path, REFERENCE_WINDOW* reference)
 		message_id = gtk_statusbar_push(GTK_STATUSBAR(app->status_bar),
 			context_id, app->labels->window.loading);
 		// イベントを回してメッセージを表示
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gdk_window_process_updates(app->status_bar->window, TRUE);
 #else
 		gdk_window_process_updates(gtk_widget_get_window(app->status_bar), TRUE);
@@ -451,7 +451,7 @@ void OpenAsReferenceImage(char* file_path, REFERENCE_WINDOW* reference)
 			gtk_main_iteration();
 			if(queued_event != NULL)
 			{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 				if(queued_event->any.window == app->status_bar->window
 #else
 				if(queued_event->any.window == gtk_widget_get_window(app->status_bar)

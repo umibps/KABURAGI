@@ -317,7 +317,7 @@ static void SelectRectangleMotion(
 	}
 }
 
-static SelectRectangleRelease(
+static void SelectRectangleRelease(
 	DRAW_WINDOW* window,
 	gdouble x,
 	gdouble y,
@@ -379,6 +379,10 @@ static SelectRectangleRelease(
 		{
 			min_x = 0;
 		}
+		else if(min_x >= window->width)
+		{
+			return;
+		}
 		if(max_x > window->width)
 		{
 			max_x = window->width;
@@ -386,6 +390,10 @@ static SelectRectangleRelease(
 		if(min_y < 0)
 		{
 			min_y = 0;
+		}
+		else if(min_y >= window->height)
+		{
+			return;
 		}
 		if(max_y > window->height)
 		{
@@ -2034,7 +2042,7 @@ void LoadCommonToolDetailData(
 		core->tool_data = MEM_ALLOC_FUNC(sizeof(*select));
 		(void)memset(core->tool_data, 0, sizeof(*select));
 		select = (SELECT_RECTANGLE*)core->tool_data;
-		select->select_start = IniFileGetInt(file, section_name, "START");
+		select->select_start = IniFileGetInteger(file, section_name, "START");
 		core->press_func = SelectRectangleButtonPress;
 		core->motion_func = SelectRectangleMotion;
 		core->release_func = SelectRectangleRelease;
@@ -2049,7 +2057,7 @@ void LoadCommonToolDetailData(
 		core->tool_data = MEM_ALLOC_FUNC(sizeof(*select));
 		(void)memset(core->tool_data, 0, sizeof(*select));
 		select = (SELECT_ECLIPSE*)core->tool_data;
-		select->select_start = IniFileGetInt(file, section_name, "START");
+		select->select_start = IniFileGetInteger(file, section_name, "START");
 		core->press_func = SelectEclipseButtonPress;
 		core->motion_func = SelectEclipseMotion;
 		core->release_func = SelectEclipseButtonRelease;
@@ -2079,10 +2087,10 @@ void LoadCommonToolDetailData(
 		core->tool_data = MEM_ALLOC_FUNC(sizeof(*fuzzy));
 		(void)memset(core->tool_data, 0, sizeof(*fuzzy));
 		fuzzy = (FUZZY_SELECT*)core->tool_data;
-		fuzzy->threshold = (uint16)IniFileGetInt(file, section_name, "THRESHOLD");
-		fuzzy->select_mode = (uint8)IniFileGetInt(file, section_name, "MODE");
-		fuzzy->select_target = (uint8)IniFileGetInt(file, section_name, "TARGET");
-		fuzzy->extend = (int16)IniFileGetInt(file, section_name, "EXTEND");
+		fuzzy->threshold = (uint16)IniFileGetInteger(file, section_name, "THRESHOLD");
+		fuzzy->select_mode = (uint8)IniFileGetInteger(file, section_name, "MODE");
+		fuzzy->select_target = (uint8)IniFileGetInteger(file, section_name, "TARGET");
+		fuzzy->extend = (int16)IniFileGetInteger(file, section_name, "EXTEND");
 		core->press_func = FuzzySelectButtonPress;
 		core->motion_func = FuzzySelectMotion;
 		core->release_func = FuzzySelectRelease;
@@ -2097,9 +2105,9 @@ void LoadCommonToolDetailData(
 		core->tool_data = MEM_ALLOC_FUNC(sizeof(*select));
 		(void)memset(core->tool_data, 0, sizeof(*select));
 		select = (SELECT_BY_COLOR*)core->tool_data;
-		select->threshold = (uint16)IniFileGetInt(file, section_name, "THRESHOLD");
-		select->select_mode = (uint8)IniFileGetInt(file, section_name, "MODE");
-		select->select_target = (uint8)IniFileGetInt(file, section_name, "TARGET");
+		select->threshold = (uint16)IniFileGetInteger(file, section_name, "THRESHOLD");
+		select->select_mode = (uint8)IniFileGetInteger(file, section_name, "MODE");
+		select->select_target = (uint8)IniFileGetInteger(file, section_name, "TARGET");
 		core->press_func = SelectByColorButtonPress;
 		core->motion_func = SelectByColorMotion;
 		core->release_func = SelectByColorRelease;
@@ -2115,7 +2123,7 @@ void LoadCommonToolDetailData(
 		(void)memset(core->tool_data, 0, sizeof(*picker));
 		picker = (COLOR_PICKER*)core->tool_data;
 
-		picker->mode = (uint8)IniFileGetInt(file, section_name, "MODE");
+		picker->mode = (uint8)IniFileGetInteger(file, section_name, "MODE");
 		picker->app = app;
 		app->tool_window.color_picker.mode = picker->mode;
 

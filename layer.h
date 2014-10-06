@@ -66,7 +66,8 @@ typedef enum _eLAYER_BLEND_MODE
 	LAYER_BLEND_SOURCE,
 	LAYER_BLEND_ATOP,
 	LAYER_BLEND_SOURCE_OVER,
-	LAYER_BLEND_OVER
+	LAYER_BLEND_OVER,
+	NUM_LAYER_BLEND_FUNCTIONS
 } eLAYER_BLEND_MODE;
 
 /***************************
@@ -110,10 +111,8 @@ typedef struct _LAYER
 		TEXT_LAYER* text_layer_p;
 		LAYER_SET* layer_set_p;
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 		// 3Dモデリング用データ
 		void *project;
-#endif
 	} layer_data;
 
 	// 前後のレイヤーへのポインタ
@@ -127,10 +126,8 @@ typedef struct _LAYER
 	EXTRA_LAYER_DATA extra_data[MAX_LAYER_EXTRA_DATA_NUM];
 
 	// ファイル読み込み時の3Dモデルデータ
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	void *modeling_data;
 	size_t modeling_data_size;
-#endif
 
 	// 描画領域へのポインタ
 	struct _DRAW_WINDOW *window;
@@ -163,7 +160,7 @@ typedef struct _RGBA_DATA
 } RGBA_DATA;
 
 // 関数のプロトタイプ宣言
-extern LAYER* CreateLayer(
+EXTERN LAYER* CreateLayer(
 	int32 x,
 	int32 y,
 	int32 width,
@@ -200,22 +197,21 @@ LAYER* CreateDispTempLayer(
 	struct _DRAW_WINDOW* window
 );
 
-/*************************************
-* g_layer_blend_funcs配列            *
-* レイヤー合成用関数へのポインタ配列 *
-* 引数                               *
-* src	: 上側のレイヤー             *
-* dst	: 下側のレイヤー             *
-*************************************/
-extern void (*g_layer_blend_funcs[])(LAYER* src, LAYER* dst);
-
 /*********************************************
 * DeleteLayer関数                            *
 * レイヤーを削除する                         *
 * 引数                                       *
 * layer	: 削除するレイヤーポインタのアドレス *
 *********************************************/
-extern void DeleteLayer(LAYER** layer);
+EXTERN void DeleteLayer(LAYER** layer);
+
+/*********************************************************
+* RemoveLayer関数                                        *
+* レイヤーを削除する(キャンバスに登録されているもののみ) *
+* 引数                                                   *
+* target	: 削除するレイヤー                           *
+*********************************************************/
+EXTERN void RemoveLayer(LAYER* target);
 
 /*********************************************
 * DeleteTempLayer関数                        *
@@ -223,7 +219,7 @@ extern void DeleteLayer(LAYER** layer);
 * 引数                                       *
 * layer	: 削除するレイヤーポインタのアドレス *
 *********************************************/
-extern void DeleteTempLayer(LAYER** layer);
+EXTERN void DeleteTempLayer(LAYER** layer);
 
 /*********************************
 * AddDeleteLayerHistory関数      *
@@ -232,7 +228,7 @@ extern void DeleteTempLayer(LAYER** layer);
 * window	: 描画領域のデータ   *
 * target	: 削除するレイヤー   *
 *********************************/
-extern void AddDeleteLayerHistory(
+EXTERN void AddDeleteLayerHistory(
 	struct _DRAW_WINDOW* window,
 	LAYER* target
 );
@@ -245,7 +241,7 @@ extern void AddDeleteLayerHistory(
 * new_width		: 新しいレイヤーの幅                       *
 * new_height	: 新しいレイヤーの高さ                     *
 ***********************************************************/
-extern void ResizeLayerBuffer(
+EXTERN void ResizeLayerBuffer(
 	LAYER* target,
 	int32 new_width,
 	int32 new_height
@@ -259,7 +255,7 @@ extern void ResizeLayerBuffer(
 * new_width		: 新しいレイヤーの幅       *
 * new_height	: 新しいレイヤーの高さ     *
 *******************************************/
-extern void ResizeLayer(
+EXTERN void ResizeLayer(
 	LAYER* target,
 	int32 new_width,
 	int32 new_height
@@ -273,15 +269,15 @@ extern void ResizeLayer(
 * new_width		: 新しいレイヤーの幅       *
 * new_height	: 新しいレイヤーの高さ     *
 *******************************************/
-extern void ChangeLayerSize(
+EXTERN void ChangeLayerSize(
 	LAYER* target,
 	int32 new_width,
 	int32 new_height
 );
 
-extern int CorrectLayerName(const LAYER* bottom_layer, const char* name);
+EXTERN int CorrectLayerName(const LAYER* bottom_layer, const char* name);
 
-extern void ChangeActiveLayer(struct _DRAW_WINDOW* window, LAYER* layer);
+EXTERN void ChangeActiveLayer(struct _DRAW_WINDOW* window, LAYER* layer);
 
 /*******************************
 * LayerMergeDown関数           *
@@ -289,7 +285,7 @@ extern void ChangeActiveLayer(struct _DRAW_WINDOW* window, LAYER* layer);
 * 引数                         *
 * target	: 結合するレイヤー *
 *******************************/
-extern void LayerMergeDown(LAYER* target);
+EXTERN void LayerMergeDown(LAYER* target);
 
 /*******************************************
 * AddLayerMergeDownHistory関数             *
@@ -298,16 +294,16 @@ extern void LayerMergeDown(LAYER* target);
 * window	: 描画領域の情報               *
 * target	: 結合するレイヤー             *
 *******************************************/
-extern void AddLayerMergeDownHistory(
+EXTERN void AddLayerMergeDownHistory(
 	struct _DRAW_WINDOW* window,
 	LAYER* target
 );
 
-extern void ChangeLayerOrder(LAYER* change_layer, LAYER* new_prev, LAYER** bottom);
+EXTERN void ChangeLayerOrder(LAYER* change_layer, LAYER* new_prev, LAYER** bottom);
 
-extern LAYER* SearchLayer(LAYER* bottom_layer, const gchar* name);
+EXTERN LAYER* SearchLayer(LAYER* bottom_layer, const gchar* name);
 
-extern int32 GetLayerID(const LAYER* bottom, const LAYER* prev, uint16 num_layer);
+EXTERN int32 GetLayerID(const LAYER* bottom, const LAYER* prev, uint16 num_layer);
 
 /*********************************
 * AddDeleteLayerHistory関数      *
@@ -316,7 +312,7 @@ extern int32 GetLayerID(const LAYER* bottom, const LAYER* prev, uint16 num_layer
 * window	: 描画領域のデータ   *
 * target	: 削除するレイヤー   *
 *********************************/
-extern void AddNewLayerHistory(
+EXTERN void AddNewLayerHistory(
 	const LAYER* new_layer,
 	uint16 layer_type
 );
@@ -333,7 +329,7 @@ extern void AddNewLayerHistory(
 * channel		: 画像データのチャンネル数   *
 * history_name	: 履歴の名前                 *
 *********************************************/
-extern void AddNewLayerWithImageHistory(
+EXTERN void AddNewLayerWithImageHistory(
 	const LAYER* new_layer,
 	uint8* pixels,
 	int32 width,
@@ -352,7 +348,7 @@ extern void AddNewLayerWithImageHistory(
 * after_prev	: 順序変更後の前のレイヤー       *
 * before_parent	: 順序変更前の所属レイヤーセット *
 *************************************************/
-extern void AddChangeLayerOrderHistory(
+EXTERN void AddChangeLayerOrderHistory(
 	const LAYER* change_layer,
 	const LAYER* before_prev,
 	const LAYER* after_prev,
@@ -367,16 +363,16 @@ extern void AddChangeLayerOrderHistory(
 * before_parent	: レイヤーセット変更前の所属レイヤーセット *
 * after_parent	: レイヤーセット変更後の所属レイヤーセット *
 ***********************************************************/
-extern void AddChangeLayerSetHistory(
+EXTERN void AddChangeLayerSetHistory(
 	const LAYER* change_layer,
 	const LAYER* before_parent,
 	const LAYER* after_parent
 );
 
-extern void FillLayerColor(LAYER* target, uint8 color[3]);
+EXTERN void FillLayerColor(LAYER* target, uint8 color[3]);
 
-extern void FlipLayerHorizontally(LAYER* target, LAYER* temp);
-extern void FlipLayerVertically(LAYER* target, LAYER* temp);
+EXTERN void FlipLayerHorizontally(LAYER* target, LAYER* temp);
+EXTERN void FlipLayerVertically(LAYER* target, LAYER* temp);
 
 /***************************************
 * RasterizeLayer関数                   *
@@ -384,7 +380,7 @@ extern void FlipLayerVertically(LAYER* target, LAYER* temp);
 * 引数                                 *
 * target	: ラスタライズするレイヤー *
 ***************************************/
-extern void RasterizeLayer(LAYER* target);
+EXTERN void RasterizeLayer(LAYER* target);
 
 /*****************************
 * CreateLayerCopy関数        *
@@ -394,7 +390,7 @@ extern void RasterizeLayer(LAYER* target);
 * 返り値                     *
 *	作成したレイヤー         *
 *****************************/
-extern LAYER* CreateLayerCopy(LAYER* src);
+EXTERN LAYER* CreateLayerCopy(LAYER* src);
 
 /*************************************************
 * GetLayerChain関数                              *
@@ -405,7 +401,7 @@ extern LAYER* CreateLayerCopy(LAYER* src);
 * 返り値                                         *
 *	レイヤー配列                                 *
 *************************************************/
-extern LAYER** GetLayerChain(struct _DRAW_WINDOW* window, uint16* num_layer);
+EXTERN LAYER** GetLayerChain(struct _DRAW_WINDOW* window, uint16* num_layer);
 
 /***************************************************
 * LayerSetShowChildren関数                         *
@@ -414,7 +410,7 @@ extern LAYER** GetLayerChain(struct _DRAW_WINDOW* window, uint16* num_layer);
 * layer_set	: 子を表示するレイヤーセット           *
 * prev		: 関数終了後の次にチェックするレイヤー *
 ***************************************************/
-extern void LayerSetShowChildren(LAYER* layer_set, LAYER **prev);
+EXTERN void LayerSetShowChildren(LAYER* layer_set, LAYER **prev);
 
 /***************************************************
 * LayerSetHideChildren関数                         *
@@ -423,7 +419,7 @@ extern void LayerSetShowChildren(LAYER* layer_set, LAYER **prev);
 * layer_set	: 子を表示するレイヤーセット           *
 * prev		: 関数終了後の次にチェックするレイヤー *
 ***************************************************/
-extern void LayerSetHideChildren(LAYER* layer_set, LAYER **prev);
+EXTERN void LayerSetHideChildren(LAYER* layer_set, LAYER **prev);
 
 /***********************************************
 * DeleteSelectAreaPixels関数                   *
@@ -433,7 +429,7 @@ extern void LayerSetHideChildren(LAYER* layer_set, LAYER **prev);
 * target	: ピクセルデータを削除するレイヤー *
 * selection	: 選択範囲を管理するレイヤー       *
 ***********************************************/
-extern void DeleteSelectAreaPixels(
+EXTERN void DeleteSelectAreaPixels(
 	struct _DRAW_WINDOW* window,
 	LAYER* target,
 	LAYER* selection
@@ -450,7 +446,7 @@ extern void DeleteSelectAreaPixels(
 * max_x		: ピクセルデータのX座標最大値              *
 * max_y		: ピクセルデータのY座標最大値              *
 *******************************************************/
-extern void AddDeletePixelsHistory(
+EXTERN void AddDeletePixelsHistory(
 	const char* tool_name,
 	struct _DRAW_WINDOW* window,
 	LAYER* target,
@@ -468,7 +464,7 @@ extern void AddDeletePixelsHistory(
 * 返り値                                             *
 *	対象レイヤーの平均ピクセルデータ値               *
 *****************************************************/
-extern RGBA_DATA CalcLayerAverageRGBA(LAYER* target);
+EXTERN RGBA_DATA CalcLayerAverageRGBA(LAYER* target);
 
 /*****************************************************
 * CalcLayerAverageRGBAwithAlpha関数                  *
@@ -478,11 +474,11 @@ extern RGBA_DATA CalcLayerAverageRGBA(LAYER* target);
 * 返り値                                             *
 *	対象レイヤーの平均ピクセルデータ値               *
 *****************************************************/
-extern RGBA_DATA CalcLayerAverageRGBAwithAlpha(LAYER* target);
+EXTERN RGBA_DATA CalcLayerAverageRGBAwithAlpha(LAYER* target);
 
-extern void OnChangeTextCallBack(GtkTextBuffer* buffer, LAYER* layer);
+EXTERN void OnChangeTextCallBack(GtkTextBuffer* buffer, LAYER* layer);
 
-extern VECTOR_LINE_LAYER* CreateVectorLineLayer(
+EXTERN VECTOR_LINE_LAYER* CreateVectorLineLayer(
 	struct _LAYER* work,
 	VECTOR_LINE* line,
 	VECTOR_LAYER_RECTANGLE* rect
@@ -496,7 +492,7 @@ extern VECTOR_LINE_LAYER* CreateVectorLineLayer(
 * 返り値                                             *
 *	作成したボタンウィジェット                       *
 *****************************************************/
-extern GtkWidget* CreateLayerSetChildButton(LAYER* layer_set);
+EXTERN GtkWidget* CreateLayerSetChildButton(LAYER* layer_set);
 
 /*******************************************************
 * FillTextureLayer関数                                 *
@@ -505,7 +501,7 @@ extern GtkWidget* CreateLayerSetChildButton(LAYER* layer_set);
 * layer		: テクスチャレイヤー                       *
 * textures	: テクスチャのパラメーター                 *
 *******************************************************/
-extern void FillTextureLayer(LAYER* layer, TEXTURES* textures);
+EXTERN void FillTextureLayer(LAYER* layer, TEXTURES* textures);
 
 /******************************************
 * GetAverageColor関数                     *
@@ -517,7 +513,7 @@ extern void FillTextureLayer(LAYER* layer, TEXTURES* textures);
 * size		: 色を取得する範囲            *
 * color		: 取得した色を格納(4バイト分) *
 ******************************************/
-extern void GetAverageColor(LAYER* target, int x, int y, int size, uint8 color[4]);
+EXTERN void GetAverageColor(LAYER* target, int x, int y, int size, uint8 color[4]);
 
 #ifdef __cplusplus
 }

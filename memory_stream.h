@@ -8,6 +8,20 @@
 extern "C" {
 #endif
 
+#ifdef EXTERN
+# undef EXTERN
+#endif
+
+#ifdef _MSC_VER
+# ifdef __cplusplus
+#  define EXTERN extern "C" __declspec(dllexport)
+# else
+#  define EXTERN extern __declspec(dllexport)
+# endif
+#else
+# define EXTERN extern
+#endif
+
 typedef struct _MEMORY_STREAM
 {
 	unsigned char* buff_ptr;	// バッファ
@@ -25,7 +39,7 @@ typedef struct _MEMORY_STREAM
 * 返り値                                                 *
 *	初期化された構造体のアドレス                         *
 *********************************************************/
-extern MEMORY_STREAM_PTR CreateMemoryStream(
+EXTERN MEMORY_STREAM_PTR CreateMemoryStream(
 	size_t buff_size
 );
 
@@ -37,7 +51,7 @@ extern MEMORY_STREAM_PTR CreateMemoryStream(
 * 返り値                                             *
 *	常に0                                            *
 *****************************************************/
-extern int DeleteMemoryStream(MEMORY_STREAM_PTR mem);
+EXTERN int DeleteMemoryStream(MEMORY_STREAM_PTR mem);
 
 /***************************************************************
 * MemRead関数                                                  *
@@ -50,7 +64,7 @@ extern int DeleteMemoryStream(MEMORY_STREAM_PTR mem);
 * 返り値                                                       *
 *	読み込んだバイト数                                         *
 ***************************************************************/
-extern size_t MemRead(
+EXTERN size_t MemRead(
 	void* dst,
 	size_t block_size,
 	size_t block_num,
@@ -68,8 +82,8 @@ extern size_t MemRead(
 * 返り値                                                       *
 *	書き込んだバイト数                                         *
 ***************************************************************/
-extern size_t MemWrite(
-	void* src,
+EXTERN size_t MemWrite(
+	const void* src,
 	size_t block_size,
 	size_t block_num,
 	MEMORY_STREAM_PTR mem
@@ -85,7 +99,7 @@ extern size_t MemWrite(
 * 返り値                                                       *
 *	正常終了(0)、異常終了(0以外)                               *
 ***************************************************************/
-extern int MemSeek(MEMORY_STREAM_PTR mem, long offset, int origin);
+EXTERN int MemSeek(MEMORY_STREAM_PTR mem, long offset, int origin);
 
 /***************************************************************
 * MemSeek64関数                                                *
@@ -97,7 +111,7 @@ extern int MemSeek(MEMORY_STREAM_PTR mem, long offset, int origin);
 * 返り値                                                       *
 *	正常終了(0)、異常終了(0以外)                               *
 ***************************************************************/
-extern int MemSeek64(MEMORY_STREAM_PTR mem, long long int offset, int origin);
+EXTERN int MemSeek64(MEMORY_STREAM_PTR mem, long long int offset, int origin);
 
 /*****************************************************
 * MemTell関数                                        *
@@ -106,7 +120,7 @@ extern int MemSeek64(MEMORY_STREAM_PTR mem, long long int offset, int origin);
 * 返り値                                             *
 *	データの参照位置                                 *
 *****************************************************/
-extern long MemTell(MEMORY_STREAM_PTR mem);
+EXTERN long MemTell(MEMORY_STREAM_PTR mem);
 
 /***************************************************************
 * MemGets関数                                                  *
@@ -118,7 +132,7 @@ extern long MemTell(MEMORY_STREAM_PTR mem);
 * 返り値                                                       *
 *	成功(string)、失敗(NULL)                                   *
 ***************************************************************/
-extern char* MemGets(char* string, int n, MEMORY_STREAM_PTR mem);
+EXTERN char* MemGets(char* string, int n, MEMORY_STREAM_PTR mem);
 
 // C++でコンパイルする際のエラー回避
 #ifdef __cplusplus

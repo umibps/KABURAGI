@@ -874,35 +874,41 @@ void BlendSourceOver_c(LAYER* src, LAYER* dst)
 	*/
 }
 
-void (*g_layer_blend_funcs[])(LAYER* src, LAYER* dst) =
+/*********************************************************
+* SetLayerBlendFunctions関数                             *
+* レイヤー合成に使用する関数ポインタ配列の中身を設定する *
+* 引数                                                   *
+* layer_blend_functions	: 中身を設定する関数ポインタ配列 *
+*********************************************************/
+void SetLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, LAYER* dst))
 {
-	BlendNormal_c,
-	BlendAdd_c,
-	BlendMultiply_c,
-	BlendScreen_c,
-	BlendOverLay_c,
-	BlendLighten_c,
-	BlendDarken_c,
-	BlendDodge_c,
-	BlendBurn_c,
-	BlendHardLight_c,
-	BlendSoftLight_c,
-	BlendDifference_c,
-	BlendExclusion_c,
-	BlendHslHue_c,
-	BlendHslSaturation_c,
-	BlendHslColor_c,
-	BlendHslLuminosity_c,
-	BlendBinalize_c,
-	BlendColorReverse_c,
-	BlendGrater_c,
-	BlendAlphaMinus_c,
-	BlendSource_c,
-	BlendAtop_c,
-	BlendSourceOver_c,
+	layer_blend_functions[LAYER_BLEND_NORMAL] = BlendNormal_c;
+	layer_blend_functions[LAYER_BLEND_ADD] = BlendAdd_c;
+	layer_blend_functions[LAYER_BLEND_MULTIPLY] = BlendMultiply_c;
+	layer_blend_functions[LAYER_BLEND_SCREEN] = BlendScreen_c;
+	layer_blend_functions[LAYER_BLEND_OVERLAY] = BlendOverLay_c;
+	layer_blend_functions[LAYER_BLEND_LIGHTEN] = BlendLighten_c;
+	layer_blend_functions[LAYER_BLEND_DARKEN] = BlendDarken_c;
+	layer_blend_functions[LAYER_BLEND_DODGE] = BlendDodge_c;
+	layer_blend_functions[LAYER_BLEND_BURN] = BlendBurn_c;
+	layer_blend_functions[LAYER_BLEND_HARD_LIGHT] = BlendHardLight_c;
+	layer_blend_functions[LAYER_BLEND_SOFT_LIGHT] = BlendSoftLight_c;
+	layer_blend_functions[LAYER_BLEND_DIFFERENCE] = BlendDifference_c;
+	layer_blend_functions[LAYER_BLEND_EXCLUSION] = BlendExclusion_c;
+	layer_blend_functions[LAYER_BLEND_HSL_HUE] = BlendHslHue_c;
+	layer_blend_functions[LAYER_BLEND_HSL_SATURATION] = BlendHslSaturation_c;
+	layer_blend_functions[LAYER_BLEND_HSL_COLOR] = BlendHslColor_c;
+	layer_blend_functions[LAYER_BLEND_HSL_LUMINOSITY] = BlendHslLuminosity_c;
+	layer_blend_functions[LAYER_BLEND_BINALIZE] = BlendBinalize_c;
+	layer_blend_functions[LAYER_BLEND_COLOR_REVERSE] = BlendColorReverse_c;
+	layer_blend_functions[LAYER_BLEND_GREATER] = BlendGrater_c;
+	layer_blend_functions[LAYER_BLEND_ALPHA_MINUS] = BlendAlphaMinus_c;
+	layer_blend_functions[LAYER_BLEND_SOURCE] = BlendSource_c;
+	layer_blend_functions[LAYER_BLEND_ATOP] = BlendAtop_c;
+	layer_blend_functions[LAYER_BLEND_SOURCE_OVER] = BlendSourceOver_c;
 	//BlendOver_c
-	BlendNormal_c
-};
+	layer_blend_functions[LAYER_BLEND_OVER] = BlendNormal_c;
+}
 
 static void PartBlendNormal_c(LAYER* src, UPDATE_RECTANGLE* update)
 {
@@ -2052,35 +2058,41 @@ static void PartBlendAtop_c(LAYER* src, UPDATE_RECTANGLE* update)
 
 #define PartBlendSourceOver_c DummyPartBlend
 
-void (*g_part_layer_blend_funcs[])(LAYER* src, UPDATE_RECTANGLE* update) =
+/*************************************************************
+* SetPartLayerBlendFunctions関数                             *
+* ブラシ使用時のレイヤー合成関数ポインタ配列の中身を設定する *
+* 引数                                                       *
+* layer_blend_functions	: 中身を設定する関数ポインタ配列     *
+*************************************************************/
+void SetPartLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, UPDATE_RECTANGLE* update))
 {
-	PartBlendNormal_c,
-	PartBlendAdd_c,
-	PartBlendMultiply_c,
-	PartBlendScreen_c,
-	PartBlendOverLay_c,
-	PartBlendLighten_c,
-	PartBlendDarken_c,
-	PartBlendDodge_c,
-	PartBlendBurn_c,
-	PartBlendHardLight_c,
-	PartBlendSoftLight_c,
-	PartBlendDifference_c,
-	PartBlendExclusion_c,
-	PartBlendHslHue_c,
-	PartBlendHslSaturation_c,
-	PartBlendHslColor_c,
-	PartBlendHslLuminosity_c,
-	PartBlendBinalize_c,
-	PartBlendColorReverse_c,
-	PartBlendGrater_c,
-	PartBlendAlphaMinus_c,
-	PartBlendSource_c,
-	PartBlendAtop_c,
-	PartBlendSourceOver_c,
+	layer_blend_functions[LAYER_BLEND_NORMAL] = PartBlendNormal_c;
+	layer_blend_functions[LAYER_BLEND_ADD] = PartBlendAdd_c;
+	layer_blend_functions[LAYER_BLEND_MULTIPLY] = PartBlendMultiply_c;
+	layer_blend_functions[LAYER_BLEND_SCREEN] = PartBlendScreen_c;
+	layer_blend_functions[LAYER_BLEND_OVERLAY] = PartBlendOverLay_c;
+	layer_blend_functions[LAYER_BLEND_LIGHTEN] = PartBlendLighten_c;
+	layer_blend_functions[LAYER_BLEND_DARKEN] = PartBlendDarken_c;
+	layer_blend_functions[LAYER_BLEND_DODGE] = PartBlendDodge_c;
+	layer_blend_functions[LAYER_BLEND_BURN] = PartBlendBurn_c;
+	layer_blend_functions[LAYER_BLEND_HARD_LIGHT] = PartBlendHardLight_c;
+	layer_blend_functions[LAYER_BLEND_SOFT_LIGHT] = PartBlendSoftLight_c;
+	layer_blend_functions[LAYER_BLEND_DIFFERENCE] = PartBlendDifference_c;
+	layer_blend_functions[LAYER_BLEND_EXCLUSION] = PartBlendExclusion_c;
+	layer_blend_functions[LAYER_BLEND_HSL_HUE] = PartBlendHslHue_c;
+	layer_blend_functions[LAYER_BLEND_HSL_SATURATION] = PartBlendHslSaturation_c;
+	layer_blend_functions[LAYER_BLEND_HSL_COLOR] = PartBlendHslColor_c;
+	layer_blend_functions[LAYER_BLEND_HSL_LUMINOSITY] = PartBlendHslLuminosity_c;
+	layer_blend_functions[LAYER_BLEND_BINALIZE] = PartBlendBinalize_c;
+	layer_blend_functions[LAYER_BLEND_COLOR_REVERSE] = PartBlendColorReverse_c;
+	layer_blend_functions[LAYER_BLEND_GREATER] = PartBlendGrater_c;
+	layer_blend_functions[LAYER_BLEND_ALPHA_MINUS] = PartBlendAlphaMinus_c;
+	layer_blend_functions[LAYER_BLEND_SOURCE] = PartBlendSource_c;
+	layer_blend_functions[LAYER_BLEND_ATOP] = PartBlendAtop_c;
+	layer_blend_functions[LAYER_BLEND_SOURCE_OVER] = PartBlendSourceOver_c;
 	//BlendOver_c
-	PartBlendNormal_c
-};
+	layer_blend_functions[LAYER_BLEND_OVER] = PartBlendNormal_c;
+}
 
 #ifdef __cplusplus
 }

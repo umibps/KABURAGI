@@ -7,7 +7,15 @@
 extern "C" {
 #endif
 
-	typedef struct _BYTE_ARRAY
+#define SWAP_LE_BE(val)	((uint32) ( \
+	(((uint32) (val) & (uint32) 0x000000ffU) << 24) | \
+	(((uint32) (val) & (uint32) 0x0000ff00U) <<  8) | \
+	(((uint32) (val) & (uint32) 0x00ff0000U) >>  8) | \
+	(((uint32) (val) & (uint32) 0xff000000U) >> 24)))
+
+#define UINT32_FROM_BE(value) SWAP_LE_BE(value)
+
+typedef struct _BYTE_ARRAY
 {
 	uint8 *buffer;
 	size_t num_data;
@@ -57,7 +65,7 @@ typedef struct _STRUCT_ARRAY
 * 返り値                              *
 *	文字列の差(同文字列なら0)         *
 **************************************/
-extern int StringCompareIgnoreCase(const char* str1, const char* str2);
+EXTERN int StringCompareIgnoreCase(const char* str1, const char* str2);
 
 /**************************************
 * memset32関数                        *
@@ -67,7 +75,7 @@ extern int StringCompareIgnoreCase(const char* str1, const char* str2);
 * value	: 埋める値                    *
 * size	: 埋めるバイト数              *
 **************************************/
-extern void memset32(void* buff, uint32 value, size_t size);
+EXTERN void memset32(void* buff, uint32 value, size_t size);
 
 /**************************************
 * memset64関数                        *
@@ -77,61 +85,61 @@ extern void memset32(void* buff, uint32 value, size_t size);
 * value	: 埋める値                    *
 * size	: 埋めるバイト数              *
 **************************************/
-extern void memset64(void* buff, uint64 value, size_t size);
+EXTERN void memset64(void* buff, uint64 value, size_t size);
 
-extern BYTE_ARRAY* ByteArrayNew(size_t block_size);
-extern void ByteArrayAppend(BYTE_ARRAY* barray, uint8 data);
-extern void ByteArrayDesteroy(BYTE_ARRAY** barray);
-extern void ByteArrayResize(BYTE_ARRAY* barray, size_t new_size);
+EXTERN BYTE_ARRAY* ByteArrayNew(size_t block_size);
+EXTERN void ByteArrayAppend(BYTE_ARRAY* barray, uint8 data);
+EXTERN void ByteArrayDesteroy(BYTE_ARRAY** barray);
+EXTERN void ByteArrayResize(BYTE_ARRAY* barray, size_t new_size);
 
-extern WORD_ARRAY* WordArrayNew(size_t block_size);
-extern void WordArrayAppend(WORD_ARRAY* warray, uint16 data);
-extern void WordArrayDestroy(WORD_ARRAY** warray);
-extern void WordArrayResize(WORD_ARRAY* warray, size_t new_size);
+EXTERN WORD_ARRAY* WordArrayNew(size_t block_size);
+EXTERN void WordArrayAppend(WORD_ARRAY* warray, uint16 data);
+EXTERN void WordArrayDestroy(WORD_ARRAY** warray);
+EXTERN void WordArrayResize(WORD_ARRAY* warray, size_t new_size);
 
-extern UINT32_ARRAY* Uint32ArrayNew(size_t block_size);
-extern void Uint32ArrayAppend(UINT32_ARRAY* uarray, uint32 data);
-extern void Uint32ArrayDestroy(UINT32_ARRAY** uarray);
-extern void Uint32ArrayResize(UINT32_ARRAY* uint32_array, size_t new_size);
+EXTERN UINT32_ARRAY* Uint32ArrayNew(size_t block_size);
+EXTERN void Uint32ArrayAppend(UINT32_ARRAY* uarray, uint32 data);
+EXTERN void Uint32ArrayDestroy(UINT32_ARRAY** uarray);
+EXTERN void Uint32ArrayResize(UINT32_ARRAY* uint32_array, size_t new_size);
 
-extern POINTER_ARRAY* PointerArrayNew(size_t block_size);
-extern void PointerArrayRelease(
+EXTERN POINTER_ARRAY* PointerArrayNew(size_t block_size);
+EXTERN void PointerArrayRelease(
 	POINTER_ARRAY* pointer_array,
 	void (*destroy_func)(void*)
 );
-extern void PointerArrayDestroy(
+EXTERN void PointerArrayDestroy(
 	POINTER_ARRAY** pointer_array,
 	void (*destroy_func)(void*)
 );
 void PointerArrayAppend(POINTER_ARRAY* pointer_array, void* data);
-extern void PointerArrayRemoveByIndex(
+EXTERN void PointerArrayRemoveByIndex(
 	POINTER_ARRAY* pointer_array,
 	size_t index,
 	void (*destroy_func)(void*)
 );
-extern void PointerArrayRemoveByData(
+EXTERN void PointerArrayRemoveByData(
 	POINTER_ARRAY* pointer_array,
 	void* data,
 	void (*destroy_func)(void*)
 );
-extern int PointerArrayDoesCointainData(POINTER_ARRAY* pointer_array, void* data);
+EXTERN int PointerArrayDoesCointainData(POINTER_ARRAY* pointer_array, void* data);
 
-extern STRUCT_ARRAY* StructArrayNew(size_t data_size, size_t block_size);
-extern void StructArrayDestroy(
+EXTERN STRUCT_ARRAY* StructArrayNew(size_t data_size, size_t block_size);
+EXTERN void StructArrayDestroy(
 	STRUCT_ARRAY** struct_array,
 	void (*destroy_func)(void*)
 );
-extern void StructArrayAppend(STRUCT_ARRAY* struct_array, void* data);
-extern void* StructArrayReserve(STRUCT_ARRAY* struct_array);
-extern void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size);
-extern void StructArrayRemoveByIndex(
+EXTERN void StructArrayAppend(STRUCT_ARRAY* struct_array, void* data);
+EXTERN void* StructArrayReserve(STRUCT_ARRAY* struct_array);
+EXTERN void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size);
+EXTERN void StructArrayRemoveByIndex(
 	STRUCT_ARRAY* struct_array,
 	size_t index,
 	void (*destroy_func)(void*)
 );
 
 #ifdef _MSC_VER
-extern int strncasecmp(const char* s1, const char* s2, size_t n);
+EXTERN int strncasecmp(const char* s1, const char* s2, size_t n);
 #endif
 
 /**************************************************************
@@ -142,7 +150,7 @@ extern int strncasecmp(const char* s1, const char* s2, size_t n);
 * 返り値                                                      *
 *	文字列発見:発見した位置のポインタ	見つからない:NULL     *
 **************************************************************/
-extern char* StringStringIgnoreCase(const char* str, const char* search);
+EXTERN char* StringStringIgnoreCase(const char* str, const char* search);
 
 /*********************************
 * GetFileExtention関数           *
@@ -152,7 +160,7 @@ extern char* StringStringIgnoreCase(const char* str, const char* search);
 * 返り値                         *
 *	拡張子の文字列               *
 *********************************/
-extern char* GetFileExtention(char* file_name);
+EXTERN char* GetFileExtention(char* file_name);
 
 /***************************************
 * StringReplace関数                    *
@@ -162,13 +170,13 @@ extern char* GetFileExtention(char* file_name);
 * replace_from	: 置き換えられる文字列 *
 * replace_to	: 置き換える文字列     *
 ***************************************/
-extern void StringRepalce(
+EXTERN void StringRepalce(
 	char* str,
 	char* replace_from,
 	char* replace_to
 );
 
-extern int ForFontFamilySearchCompare(const char* str, PangoFontFamily** font);
+EXTERN int ForFontFamilySearchCompare(const char* str, PangoFontFamily** font);
 
 /*******************************************
 * FileRead関数                             *
@@ -181,7 +189,7 @@ extern int ForFontFamilySearchCompare(const char* str, PangoFontFamily** font);
 * 返り値                                   *
 *	読み込んだブロック数                   *
 *******************************************/
-extern size_t FileRead(void* dst, size_t block_size, size_t read_num, GFileInputStream* stream);
+EXTERN size_t FileRead(void* dst, size_t block_size, size_t read_num, GFileInputStream* stream);
 
 /*******************************************
 * FileWrite関数                            *
@@ -194,7 +202,7 @@ extern size_t FileRead(void* dst, size_t block_size, size_t read_num, GFileInput
 * 返り値                                   *
 *	書き込んだブロック数                   *
 *******************************************/
-extern size_t FileWrite(void* src, size_t block_size, size_t read_num, GFileOutputStream* stream);
+EXTERN size_t FileWrite(void* src, size_t block_size, size_t read_num, GFileOutputStream* stream);
 
 /********************************************
 * FileSeek関数                              *
@@ -206,7 +214,7 @@ extern size_t FileWrite(void* src, size_t block_size, size_t read_num, GFileOutp
 * 返り値                                    *
 *	正常終了(0), 異常終了(0以外)            *
 ********************************************/
-extern int FileSeek(void* stream, long offset, int origin);
+EXTERN int FileSeek(void* stream, long offset, int origin);
 
 /************************************************
 * FileSeekTell関数                              *
@@ -216,7 +224,7 @@ extern int FileSeek(void* stream, long offset, int origin);
 * 返り値                                        *
 *	シーク位置                                  *
 ************************************************/
-extern long FileSeekTell(void* stream);
+EXTERN long FileSeekTell(void* stream);
 
 /***********************************************
 * InvertMatrix関数                             *
@@ -225,7 +233,7 @@ extern long FileSeekTell(void* stream);
 * a	: 計算対象の行列(逆行列データはここに入る) *
 * n	: 行列の次数                               *
 ***********************************************/
-extern void InvertMatrix(FLOAT_T **a, int n);
+EXTERN void InvertMatrix(FLOAT_T **a, int n);
 
 /*********************************
 * FLAG_CHECKマクロ関数           *
@@ -256,15 +264,17 @@ extern void InvertMatrix(FLOAT_T **a, int n);
 *****************************/
 #define FLAG_OFF(FLAGS, ID) FLAGS[((ID)/8)] &= ~(1 << ((ID)%8))
 
-extern void AdjustmentChangeValueCallBackInt8(GtkAdjustment* adjustment, int8* store);
-extern void AdjustmentChangeValueCallBackUint8(GtkAdjustment* adjustment, uint8* store);
-extern void AdjustmentChangeValueCallBackInt16(GtkAdjustment* adjustment, int16* store);
-extern void AdjustmentChangeValueCallBackUint16(GtkAdjustment* adjustment, uint16* store);
-extern void AdjustmentChangeValueCallBackInt32(GtkAdjustment* adjustment, int32* store);
-extern void AdjustmentChangeValueCallBackUint32(GtkAdjustment* adjustment, uint32* store);
-extern void AdjustmentChangeVaueCallBackDouble(GtkAdjustment* adjustment, gdouble* value);
+EXTERN void AdjustmentChangeValueCallBackInt(GtkAdjustment* adjustment, int* store);
+EXTERN void AdjustmentChangeValueCallBackUint(GtkAdjustment* adjustment, unsigned int* store);
+EXTERN void AdjustmentChangeValueCallBackInt8(GtkAdjustment* adjustment, int8* store);
+EXTERN void AdjustmentChangeValueCallBackUint8(GtkAdjustment* adjustment, uint8* store);
+EXTERN void AdjustmentChangeValueCallBackInt16(GtkAdjustment* adjustment, int16* store);
+EXTERN void AdjustmentChangeValueCallBackUint16(GtkAdjustment* adjustment, uint16* store);
+EXTERN void AdjustmentChangeValueCallBackInt32(GtkAdjustment* adjustment, int32* store);
+EXTERN void AdjustmentChangeValueCallBackUint32(GtkAdjustment* adjustment, uint32* store);
+EXTERN void AdjustmentChangeValueCallBackDouble(GtkAdjustment* adjustment, gdouble* value);
 
-extern void CheckButtonSetFlagsCallBack(GtkWidget* button, guint32* flags, guint32 flag_value);
+EXTERN void CheckButtonSetFlagsCallBack(GtkWidget* button, guint32* flags, guint32 flag_value);
 
 /*******************************************************
 * InflateData関数                                      *
@@ -278,7 +288,7 @@ extern void CheckButtonSetFlagsCallBack(GtkWidget* button, guint32* flags, guint
 * 返り値                                               *
 *	正常終了:0、失敗:0以外                             *
 *******************************************************/
-extern int InflateData(
+EXTERN int InflateData(
 	uint8* data,
 	uint8* out_buffer,
 	size_t in_size,
@@ -299,7 +309,7 @@ extern int InflateData(
 * 返り値                                           *
 *	正常終了:0、失敗:0以外                         *
 ***************************************************/
-extern int DeflateData(
+EXTERN int DeflateData(
 	uint8* data,
 	uint8* out_buffer,
 	size_t target_data_size,
@@ -307,6 +317,8 @@ extern int DeflateData(
 	size_t* compressed_data_size,
 	int compress_level
 );
+
+EXTERN void UpdateWidget(GtkWidget* widget);
 
 #ifdef __cplusplus
 }

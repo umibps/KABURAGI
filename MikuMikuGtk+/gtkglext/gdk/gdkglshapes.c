@@ -608,8 +608,8 @@ initDodecahedron(void)
   GLfloat alpha, beta;
 
   alpha = sqrtf(2.0f / (3.0f + sqrtf(5.0f)));
-  beta = 1.0f + sqrtf(6.0f / (3.0f + sqrt(5.0f)) -
-    2.0f + 2.0f * sqrtf(2.0f / (3.0f + sqrt(5.0f))));
+  beta = 1.0f + sqrtf(6.0f / (3.0f + sqrtf(5.0f)) -
+    2.0f + 2.0f * sqrtf(2.0f / (3.0f + sqrtf(5.0f))));
   /* *INDENT-OFF* */
   dodec[0][0] = -alpha; dodec[0][1] = 0; dodec[0][2] = beta;
   dodec[1][0] = alpha; dodec[1][1] = 0; dodec[1][2] = beta;

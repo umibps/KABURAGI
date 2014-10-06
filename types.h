@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#if defined(_WIN32) && !defined(__GNUC__)
+#if defined(_MSC_VER)
 
 typedef char int8;
 typedef short int16;
@@ -44,5 +44,19 @@ typedef double FLOAT_T;
 
 typedef size_t (*stream_func_t)(void*, size_t, size_t, void*);
 typedef int (*seek_func_t)(void*, long, int);
+
+#ifdef EXTERN
+# undef EXTERN
+#endif
+
+#ifdef _MSC_VER
+# ifdef __cplusplus
+#  define EXTERN extern "C" __declspec(dllexport)
+# else
+#  define EXTERN extern __declspec(dllexport)
+# endif
+#else
+# define EXTERN extern
+#endif
 
 #endif	// #ifndef _INCLUDE_TYPES_H_

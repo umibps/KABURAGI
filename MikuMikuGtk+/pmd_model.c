@@ -860,7 +860,7 @@ int LoadPmd2Model(PMD2_MODEL* model, uint8* data, size_t data_size)
 	return FALSE;
 }
 
-void ReadPmd2ModelDataAndState(
+int ReadPmd2ModelDataAndState(
 	void *scene,
 	PMD2_MODEL* model,
 	void* src,
@@ -888,7 +888,7 @@ void ReadPmd2ModelDataAndState(
 		(void)read_func(section_data, 1, section_size, src);
 		if(InflateData(section_data, decode_data, section_size, decode_size, NULL) != 0)
 		{
-			return;
+			return FALSE;
 		}
 		LoadPmd2Model(model, decode_data, decode_size);
 		MEM_FREE_FUNC(section_data);
@@ -903,13 +903,19 @@ void ReadPmd2ModelDataAndState(
 
 	// テクスチャデータを読み込む
 	{
+		RENDER_ENGINE_INTERFACE *engine;
 		(void)read_func(&section_size, sizeof(section_size), 1, src);
 		model->interface_data.texture_archive_size = section_size;
 		model->interface_data.texture_archive = MEM_ALLOC_FUNC(section_size);
 		(void)read_func(model->interface_data.texture_archive, 1, section_size, src);
 
-		PointerArrayAppend(scene_ptr->engines, SceneCreateRenderEngine(
-			scene_ptr, RENDER_ENGINE_PMX, &model->interface_data, 0, scene_ptr->project));
+		engine = SceneCreateRenderEngine(
+			scene_ptr, RENDER_ENGINE_PMX, &model->interface_data, 0, scene_ptr->project);
+		if(engine == NULL)
+		{
+			return FALSE;
+		}
+		PointerArrayAppend(scene_ptr->engines, engine);
 
 		Pmd2ModelJoinWorld(model, scene_ptr->project->world.world);
 	}
@@ -957,6 +963,8 @@ void ReadPmd2ModelDataAndState(
 			(BONE_INTERFACE*)MEM_ALLOC_FUNC(data32);
 		(void)read_func(model->interface_data.parent_bone, 1, data32, src);
 	}
+
+	return TRUE;
 }
 
 size_t WritePmd2ModelDataAndState(

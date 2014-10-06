@@ -1907,7 +1907,7 @@ void DisplayTransform(DRAW_WINDOW *window)
 
 	cairo_set_line_cap(window->disp_temp->cairo_p, before_line_type);
 
-	g_layer_blend_funcs[LAYER_BLEND_DIFFERENCE](window->disp_temp, window->disp_layer);
+	window->layer_blend_functions[LAYER_BLEND_DIFFERENCE](window->disp_temp, window->disp_layer);
 }
 
 static void ChangeTransformMode(GtkWidget* radio_button, APPLICATION* app)

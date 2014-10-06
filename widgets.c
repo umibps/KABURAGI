@@ -82,7 +82,7 @@ static gint OnImageCheckButtonClicked(GtkWidget *widget, GdkEventButton *event, 
 		cairo_surface_destroy(surface_p);
 
 		// WindowsならRGB→BGR
-#if 1 //defined(DISPLAY_BGR) && DISPLAY_BGR != 0
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
 		{
 			uint8 r;
 			for(i=0; i<width*height; i++)
@@ -103,7 +103,7 @@ static gint OnImageCheckButtonClicked(GtkWidget *widget, GdkEventButton *event, 
 	gtk_image_set_from_pixbuf(GTK_IMAGE(button->image), pixbuf);
 
 	// イメージの再描画
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	if(button->image->window != NULL)
 	{
 		gdk_window_process_updates(button->image->window, FALSE);
@@ -453,6 +453,113 @@ extern void icc_button_run_dialog (GtkWidget *widget, gpointer data);
 void IccProfileChooserDialogRun(GtkWidget* dialog)
 {
 	icc_button_run_dialog(NULL, dialog);
+}
+
+typedef struct _TOGGLE_RADIO_BUTTON_DATA
+{
+	gboolean ui_disabled;
+	GtkWidget *current;
+	GList *button_list;
+	void (*callback_func)(GtkWidget* button, void* data);
+	void *callback_data;
+} TOGGLE_RADIO_BUTTON_DATA;
+
+static void OnDestroyToggleRadioButton(TOGGLE_RADIO_BUTTON_DATA* data)
+{
+	g_list_free(data->button_list);
+	MEM_FREE_FUNC(data);
+}
+
+static void OnToggledToggleRadioButton(GtkWidget* button, TOGGLE_RADIO_BUTTON_DATA* data)
+{
+	if(data->ui_disabled != FALSE)
+	{
+		return;
+	}
+
+	data->ui_disabled = TRUE;
+	if(button == data->current && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
+	{
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), TRUE);
+		data->ui_disabled = FALSE;
+		return;
+	}
+
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE
+		&& data->callback_func != NULL)
+	{
+		GList *list = data->button_list;
+		while(list != NULL)
+		{
+			if(list->data != button)
+			{
+				gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(list->data), FALSE);
+			}
+			list = list->next;
+		}
+
+		if(data->callback_func != NULL)
+		{
+			data->callback_func(button, data->callback_data);
+		}
+	}
+	data->ui_disabled = FALSE;
+}
+
+/***************************************************************
+* ToggleRadioButtonNew関数                                     *
+* ラジオアクションを設定したトグルボタンウィジェットを作成     *
+* 引数                                                         *
+* list			: ボタンリストの入ったGList                    *
+*				  先頭のボタンはNULLの入ったlistを渡す         *
+*				  g_list_freeしないこと                        *
+* callback_func	: ボタンが有効状態になった時のコールバック関数 *
+* callback_data	: コールバック関数に渡すデータ                 *
+* 返り値                                                       *
+*	ボタンウィジェット                                         *
+***************************************************************/
+GtkWidget* ToggleRadioButtonNew(
+	GList** list,
+	void (*callback_func)(GtkWidget* button, void* data),
+	void* callback_data
+)
+{
+	TOGGLE_RADIO_BUTTON_DATA *data;
+	GtkWidget *button;
+	GList *button_list;
+
+	if(list == NULL)
+	{
+		return NULL;
+	}
+	else if(*list == NULL)
+	{
+		data = (TOGGLE_RADIO_BUTTON_DATA*)MEM_ALLOC_FUNC(sizeof(*data));
+		(void)memset(data, 0, sizeof(*data));
+		*list = data->button_list = g_list_alloc();
+		(*list)->data = (gpointer)(button = gtk_toggle_button_new());
+		g_object_set_data(G_OBJECT(button), "widget_data", data);
+		(void)g_signal_connect_swapped(G_OBJECT(button), "destroy",
+			G_CALLBACK(OnDestroyToggleRadioButton), data);
+		data->callback_func = callback_func;
+		data->callback_data = callback_data;
+		(void)g_signal_connect(G_OBJECT(button), "toggled",
+			G_CALLBACK(OnToggledToggleRadioButton), data);
+
+		return button;
+	}
+
+	data = (TOGGLE_RADIO_BUTTON_DATA*)g_object_get_data(G_OBJECT((*list)->data), "widget_data");
+	button_list = *list;
+	while(button_list->next != NULL)
+	{
+		button_list = button_list->next;
+	}
+	(void)g_list_append(button_list, (gpointer)(button = gtk_toggle_button_new()));
+	(void)g_signal_connect(G_OBJECT(button), "toggled",
+		G_CALLBACK(OnToggledToggleRadioButton), data);
+
+	return button;
 }
 
 #ifdef __cplusplus

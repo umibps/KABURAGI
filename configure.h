@@ -31,4 +31,12 @@
 
 // #define OLD_SELECTION_AREA
 
+#if defined(_WIN32)
+# define DYNAMICL_LIBRARY_EXTENTION "dll"
+#elif defined(_MAC_OS_)
+# define DYNAMICL_LIBRARY_EXTENTION "dylib"
+#else
+# define DYNAMICL_LIBRARY_EXTENTION "so"
+#endif
+
 #endif	// #ifndef _INCLUDED_CONFIGURE_H_

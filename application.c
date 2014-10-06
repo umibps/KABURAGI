@@ -64,6 +64,11 @@ typedef struct _REALIZE_DATA
 DRAW_WINDOW* GetActiveDrawWindow(APPLICATION* app)
 {
 	DRAW_WINDOW *ret = app->draw_window[app->active_window];
+	if(ret == NULL)
+	{
+		return NULL;
+	}
+
 	if(ret->focal_window != NULL)
 	{
 		return ret->focal_window;
@@ -96,11 +101,14 @@ void InitializeSplashWindow(SPLASH_WINDOW* window)
 {
 	// イメージ画像のパス(Mac対策)
 	gchar *file_path;
+	// ウィンドウに設定するタイトル
+	char title[256];
 
 	// ウィンドウ作成
 	window->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	// ウィンドウタイトルを設定
-	gtk_window_set_title(GTK_WINDOW(window->window), "Paint Soft " APPLICATION_NAME);
+	(void)sprintf(title, "Paint Soft %s", (GetHas3DLayer(window->app) == FALSE) ? "KABURAGI" : "MIKADO");
+	gtk_window_set_title(GTK_WINDOW(window->window), title);
 	// スプラッシュウィンドウへ
 	gtk_window_set_type_hint(GTK_WINDOW(window->window), GDK_WINDOW_TYPE_HINT_SPLASHSCREEN);
 	// イメージをロード
@@ -196,17 +204,17 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	app->script_path = IniFileStrdup(file, "SCRIPT_DIRECTORY", "PATH");
 
 	// ウィンドウの位置とサイズを読み込む
-	app->window_x = IniFileGetInt(file, "WINDOW", "X");
-	app->window_y = IniFileGetInt(file, "WINDOW", "Y");
-	app->window_width = IniFileGetInt(file, "WINDOW", "WIDTH");
-	app->window_height = IniFileGetInt(file, "WINDOW", "HEIGHT");
-	app->left_pane_position = IniFileGetInt(file, "WINDOW", "LEFT_PANE");
-	app->right_pane_position = IniFileGetInt(file, "WINDOW", "RIGHT_PANE");
-	if(IniFileGetInt(file, "WINDOW", "FULLSCREEN") != 0)
+	app->window_x = IniFileGetInteger(file, "WINDOW", "X");
+	app->window_y = IniFileGetInteger(file, "WINDOW", "Y");
+	app->window_width = IniFileGetInteger(file, "WINDOW", "WIDTH");
+	app->window_height = IniFileGetInteger(file, "WINDOW", "HEIGHT");
+	app->left_pane_position = IniFileGetInteger(file, "WINDOW", "LEFT_PANE");
+	app->right_pane_position = IniFileGetInteger(file, "WINDOW", "RIGHT_PANE");
+	if(IniFileGetInteger(file, "WINDOW", "FULLSCREEN") != 0)
 	{
 		app->flags |= APPLICATION_FULL_SCREEN;
 	}
-	if(IniFileGetInt(file, "WINDOW", "MAXIMIZE") != 0)
+	if(IniFileGetInteger(file, "WINDOW", "MAXIMIZE") != 0)
 	{
 		app->flags |= APPLICATION_WINDOW_MAXIMIZE;
 	}
@@ -230,12 +238,12 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	}
 
 	// ツールボックスウィンドウの位置とサイズを読み込む
-	app->tool_window.window_x = IniFileGetInt(file, "TOOL_BOX", "X");
-	app->tool_window.window_y = IniFileGetInt(file, "TOOL_BOX", "Y");
-	app->tool_window.window_width = IniFileGetInt(file, "TOOL_BOX", "WIDTH");
-	app->tool_window.window_height = IniFileGetInt(file, "TOOL_BOX", "HEIGHT");
-	app->tool_window.place = IniFileGetInt(file, "TOOL_BOX", "PLACE");
-	app->tool_window.pane_position = IniFileGetInt(file, "TOOL_BOX", "PANE");
+	app->tool_window.window_x = IniFileGetInteger(file, "TOOL_BOX", "X");
+	app->tool_window.window_y = IniFileGetInteger(file, "TOOL_BOX", "Y");
+	app->tool_window.window_width = IniFileGetInteger(file, "TOOL_BOX", "WIDTH");
+	app->tool_window.window_height = IniFileGetInteger(file, "TOOL_BOX", "HEIGHT");
+	app->tool_window.place = IniFileGetInteger(file, "TOOL_BOX", "PLACE");
+	app->tool_window.pane_position = IniFileGetInteger(file, "TOOL_BOX", "PANE");
 	// 色データを読み込む
 	{
 		uint8 *color_buff = (uint8*)&color;
@@ -279,11 +287,11 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 		}
 	}
 
-	if(IniFileGetInt(file, "TOOL_BOX", "SHOW_COLOR_CIRCLE") != 0)
+	if(IniFileGetInteger(file, "TOOL_BOX", "SHOW_COLOR_CIRCLE") != 0)
 	{
 		app->tool_window.flags |= TOOL_SHOW_COLOR_CIRCLE;
 	}
-	if(IniFileGetInt(file, "TOOL_BOX", "SHOW_COLOR_PALLETE") != 0)
+	if(IniFileGetInteger(file, "TOOL_BOX", "SHOW_COLOR_PALLETE") != 0)
 	{
 		app->tool_window.flags |= TOOL_SHOW_COLOR_PALLETE;
 	}
@@ -301,12 +309,12 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	}
 
 	// レイヤービューウィンドウの位置とサイズを読み込む
-	app->layer_window.window_x = IniFileGetInt(file, "LAYER_VIEW", "X");
-	app->layer_window.window_y = IniFileGetInt(file, "LAYER_VIEW", "Y");
-	app->layer_window.window_width = IniFileGetInt(file, "LAYER_VIEW", "WIDTH");
-	app->layer_window.window_height = IniFileGetInt(file, "LAYER_VIEW", "HEIGHT");
-	app->layer_window.place = IniFileGetInt(file, "LAYER_VIEW", "PLACE");
-	app->layer_window.pane_position = IniFileGetInt(file, "LAYER_VIEW", "POSITION");
+	app->layer_window.window_x = IniFileGetInteger(file, "LAYER_VIEW", "X");
+	app->layer_window.window_y = IniFileGetInteger(file, "LAYER_VIEW", "Y");
+	app->layer_window.window_width = IniFileGetInteger(file, "LAYER_VIEW", "WIDTH");
+	app->layer_window.window_height = IniFileGetInteger(file, "LAYER_VIEW", "HEIGHT");
+	app->layer_window.place = IniFileGetInteger(file, "LAYER_VIEW", "PLACE");
+	app->layer_window.pane_position = IniFileGetInteger(file, "LAYER_VIEW", "POSITION");
 
 	switch(app->layer_window.place)
 	{
@@ -321,28 +329,28 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	}
 
 	// ナビゲーションウィンドウの位置とサイズを読み込む
-	app->navigation_window.window_x = IniFileGetInt(file, "NAVIGATION", "X");
-	app->navigation_window.window_y = IniFileGetInt(file, "NAVIGATION", "Y");
-	app->navigation_window.window_width = IniFileGetInt(file, "NAVIGATION", "WIDTH");
-	app->navigation_window.window_height = IniFileGetInt(file, "NAVIGATION", "HEIGHT");
+	app->navigation_window.window_x = IniFileGetInteger(file, "NAVIGATION", "X");
+	app->navigation_window.window_y = IniFileGetInteger(file, "NAVIGATION", "Y");
+	app->navigation_window.window_width = IniFileGetInteger(file, "NAVIGATION", "WIDTH");
+	app->navigation_window.window_height = IniFileGetInteger(file, "NAVIGATION", "HEIGHT");
 
 	// プレビューウィンドウの位置とサイズを読み込む
-	app->preview_window.window_x = IniFileGetInt(file, "PREVIEW", "X");
-	app->preview_window.window_y = IniFileGetInt(file, "PREVIEW", "Y");
-	app->preview_window.window_width = IniFileGetInt(file, "PREVIEW", "WIDTH");
-	app->preview_window.window_height = IniFileGetInt(file, "PREVIEW", "HEIGHT");
+	app->preview_window.window_x = IniFileGetInteger(file, "PREVIEW", "X");
+	app->preview_window.window_y = IniFileGetInteger(file, "PREVIEW", "Y");
+	app->preview_window.window_width = IniFileGetInteger(file, "PREVIEW", "WIDTH");
+	app->preview_window.window_height = IniFileGetInteger(file, "PREVIEW", "HEIGHT");
 
 	// 参考用画像表示ウィンドウの位置とサイズを読み込む
-	app->reference_window.window_x = IniFileGetInt(file, "REFERENCE", "X");
-	app->reference_window.window_y = IniFileGetInt(file, "REFERENCE", "Y");
-	app->reference_window.window_width = IniFileGetInt(file, "REFERENCE", "WIDTH");
-	app->reference_window.window_height = IniFileGetInt(file, "REFERENCE", "HEIGHT");
+	app->reference_window.window_x = IniFileGetInteger(file, "REFERENCE", "X");
+	app->reference_window.window_y = IniFileGetInteger(file, "REFERENCE", "Y");
+	app->reference_window.window_width = IniFileGetInteger(file, "REFERENCE", "WIDTH");
+	app->reference_window.window_height = IniFileGetInteger(file, "REFERENCE", "HEIGHT");
 
 	// メニューデータを読み込む
 		// 新規作成
-	app->menu_data.make_new.width = IniFileGetInt(file, "NEW", "WIDTH");
-	app->menu_data.make_new.height = IniFileGetInt(file, "NEW", "HEIGHT");
-	app->menu_data.make_new.resolution = IniFileGetInt(file, "NEW", "RESOLUTION");
+	app->menu_data.make_new.width = IniFileGetInteger(file, "NEW", "WIDTH");
+	app->menu_data.make_new.height = IniFileGetInteger(file, "NEW", "HEIGHT");
+	app->menu_data.make_new.resolution = IniFileGetInteger(file, "NEW", "RESOLUTION");
 	if(IniFileGetString(file, "NEW", "SECOND_BG_COLOR", color_string, sizeof(color_string)) != 0)
 	{
 		uint8 *color_buff = (uint8*)&color;
@@ -360,9 +368,9 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	}
 
 	// 手ブレ補正
-	app->tool_window.smoother.num_use = IniFileGetInt(file, "SMOOTH", "LEVEL");
-	app->tool_window.smoother.rate = IniFileGetInt(file, "SMOOTH", "RATE");
-	app->tool_window.smoother.mode = IniFileGetInt(file, "SMOOTH", "MODE");
+	app->tool_window.smoother.num_use = IniFileGetInteger(file, "SMOOTH", "LEVEL");
+	app->tool_window.smoother.rate = IniFileGetInteger(file, "SMOOTH", "RATE");
+	app->tool_window.smoother.mode = IniFileGetInteger(file, "SMOOTH", "MODE");
 
 	// テクスチャの設定を読み込む
 	app->textures.strength = IniFileGetDouble(file, "TEXTURE", "STRENGTH");
@@ -371,18 +379,18 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	// 環境設定を読み込む
 	ReadPreference(file, &app->preference);
 	// タッチイベントの処理方法を読み込む
-	if(IniFileGetInt(file, "PREFERENCE", "DRAW_WITH_TOUCH") != 0)
+	if(IniFileGetInteger(file, "PREFERENCE", "DRAW_WITH_TOUCH") != 0)
 	{
 		app->flags |= APPLICATION_DRAW_WITH_TOUCH;
 	}
 	// 背景色を変更するかを読み込む
-	if(IniFileGetInt(file, "PREFERENCE", "CHANGE_BACK_GROUND") != 0)
+	if(IniFileGetInteger(file, "PREFERENCE", "CHANGE_BACK_GROUND") != 0)
 	{
 		app->flags |= APPLICATION_SET_BACK_GROUND_COLOR;
 	}
 
 	// プレビューウィンドウをタスクバーに表示するかを読み込む
-	if(IniFileGetInt(file, "PREFERENCE", "SHOW_PREVIEW_WINDOW_ON_TASKBAR") != 0)
+	if(IniFileGetInteger(file, "PREFERENCE", "SHOW_PREVIEW_WINDOW_ON_TASKBAR") != 0)
 	{
 		app->flags |= APPLICATION_SHOW_PREVIEW_ON_TASK_BAR;
 	}
@@ -806,8 +814,10 @@ gboolean OnQuitApplication(APPLICATION* app)
 	// ブラシファイルを更新する
 	if(app->common_tool_file_path[0] == '.' && app->common_tool_file_path[1] == '/')
 	{
-		if(WriteCommonToolData(&app->tool_window, app->common_tool_file_path, app) < 0)
+		file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
+		if(WriteCommonToolData(&app->tool_window, file_path, app) < 0)
 		{
+			g_free(file_path);
 			dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
 			make_app_dir = TRUE;
 			if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
@@ -846,6 +856,10 @@ gboolean OnQuitApplication(APPLICATION* app)
 			}
 			g_free(dir_path);
 		}
+		else
+		{
+			g_free(file_path);
+		}
 	}
 	else
 	{
@@ -854,8 +868,10 @@ gboolean OnQuitApplication(APPLICATION* app)
 
 	if(app->brush_file_path[0] == '.' && app->brush_file_path[1] == '/')
 	{
-		if(WriteBrushDetailData(&app->tool_window, app->brush_file_path, app) < 0)
+		file_path = g_build_filename(app->current_path, &app->brush_file_path[2], NULL);
+		if(WriteBrushDetailData(&app->tool_window, file_path, app) < 0)
 		{
+			g_free(file_path);
 			dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
 			make_app_dir = TRUE;
 			if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
@@ -894,6 +910,10 @@ gboolean OnQuitApplication(APPLICATION* app)
 			}
 			g_free(dir_path);
 		}
+		else
+		{
+			g_free(file_path);
+		}
 	}
 	else
 	{
@@ -902,8 +922,10 @@ gboolean OnQuitApplication(APPLICATION* app)
 
 	if(app->vector_brush_file_path[0] == '.' && app->vector_brush_file_path[1] == '/')
 	{
-		if(WriteVectorBrushData(&app->tool_window, app->vector_brush_file_path, app) < 0)
+		file_path = g_build_filename(app->current_path, &app->vector_brush_file_path[2], NULL);
+		if(WriteVectorBrushData(&app->tool_window, file_path, app) < 0)
 		{
+			g_free(file_path);
 			dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
 			make_app_dir = TRUE;
 			if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
@@ -941,6 +963,10 @@ gboolean OnQuitApplication(APPLICATION* app)
 				g_free(file_path);
 			}
 			g_free(dir_path);
+		}
+		else
+		{
+			g_free(file_path);
 		}
 	}
 	else
@@ -1172,12 +1198,13 @@ static void OnChangeCurrentTab(
 		layer = window->layer;
 
 		// ビューに全てのレイヤーを追加
-		for(i=0; i<window->num_layer; i++)
+		for(i=0; i<window->num_layer && layer != NULL; i++)
 		{
 			LayerViewAddLayer(layer, window->layer,
 				app->layer_window.view, i+1);
 			layer = layer->next;
 		}
+		window->num_layer = (uint16)i;
 
 		// アクティブレイヤーをセット
 		LayerViewSetActiveLayer(window->active_layer, app->layer_window.view);
@@ -1227,8 +1254,9 @@ static void OnChangeCurrentTab(
 		else
 		{	// 描画領域が無ければメインウィンドウのキャプションを変更
 			char window_title[512];
-			(void)sprintf(window_title, "Paint Soft " APPLICATION_NAME " %d.%d.%d.%d",
-				MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
+			(void)sprintf(window_title, "Paint Soft %s %d.%d.%d.%d",
+				(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIAKDO",
+					MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
 			gtk_window_set_title(GTK_WINDOW(app->window), window_title);
 		}
 	}
@@ -1293,7 +1321,7 @@ static void ChangeSmootherQuality(GtkAdjustment* spin, SMOOTHER* smoother)
 {
 	smoother->num_use = (int)gtk_adjustment_get_value(spin);
 
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 	{
 		APPLICATION *app = (APPLICATION*)g_object_get_data(
 			G_OBJECT(spin), "application");
@@ -1317,7 +1345,7 @@ static void ChangeSmootherRate(GtkAdjustment* spin, SMOOTHER* smoother)
 {
 	smoother->rate = gtk_adjustment_get_value(spin);
 
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 	{
 		APPLICATION *app = (APPLICATION*)g_object_get_data(
 			G_OBJECT(spin), "application");
@@ -1458,13 +1486,13 @@ static void MainWindowRealizeCallBack(
 	child = gtk_paned_get_child1(GTK_PANED(app->left_pane));
 	if(child != NULL)
 	{
-			gtk_paned_set_position(GTK_PANED(app->left_pane), app->left_pane_position);
+		gtk_paned_set_position(GTK_PANED(app->left_pane), app->left_pane_position);
 	}
 
 	child = gtk_paned_get_child2(GTK_PANED(app->right_pane));
 	if(child != NULL)
 	{
-			gtk_paned_set_position(GTK_PANED(app->right_pane), app->right_pane_position);
+		gtk_paned_set_position(GTK_PANED(app->right_pane), app->right_pane_position);
 	}
 
 	gtk_paned_set_position(GTK_PANED(app->tool_window.pane), app->tool_window.pane_position);
@@ -1533,7 +1561,9 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	gtk_window_set_auto_startup_notification(TRUE);
 
 	// アプリケーション名の設定
-	g_set_application_name("Paint Soft " APPLICATION_NAME);
+	(void)sprintf(window_title, "Paint Soft %s",
+		(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIKADO");
+	g_set_application_name(window_title);
 
 	// フルスクリーンの設定
 	if((app->flags & APPLICATION_FULL_SCREEN) != 0)
@@ -1551,8 +1581,9 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	g_free(file_path);
 
 	// ウィンドウタイトルを作成する
-	(void)sprintf(window_title, "Paint Soft " APPLICATION_NAME " %d.%d.%d.%d",
-		MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
+	(void)sprintf(window_title, "Paint Soft %s %d.%d.%d.%d",
+		(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIAKDO",
+			MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
 
 	// ラベルの文字列を読み込む
 	if(app->language_file_path != NULL)
@@ -1562,12 +1593,12 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		{
 			file_path = g_build_filename(app->current_path,
 				&app->language_file_path[2], NULL);
-			LoadLabels(app->labels, file_path);
+			LoadLabels(app->labels, app->fractal_labels, file_path);
 			g_free(file_path);
 		}
 		else
 		{
-			LoadLabels(app->labels, app->language_file_path);
+			LoadLabels(app->labels, app->fractal_labels, app->language_file_path);
 		}
 	}
 
@@ -1727,13 +1758,13 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		// 手ブレ補正の方式選択ラジオボタン
 		button = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.smooth_gaussian);
 		g_object_set_data(G_OBJECT(button), "smooth_method", GINT_TO_POINTER(0));
-		g_signal_connect(G_OBJECT(button), "toggled",
+		(void)g_signal_connect(G_OBJECT(button), "toggled",
 			G_CALLBACK(ChangeSmoothMethod), &app->tool_window.smoother);
 		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
 		button = gtk_radio_button_new_with_label(gtk_radio_button_get_group(
 			GTK_RADIO_BUTTON(button)), app->labels->tool_box.smooth_average);
 		g_object_set_data(G_OBJECT(button), "smooth_method", GINT_TO_POINTER(1));
-		g_signal_connect(G_OBJECT(button), "toggled",
+		(void)g_signal_connect(G_OBJECT(button), "toggled",
 			G_CALLBACK(ChangeSmoothMethod), &app->tool_window.smoother);
 		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
 		if(app->tool_window.smoother.mode == SMOOTH_AVERAGE)
@@ -1751,7 +1782,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		g_object_set_data(G_OBJECT(smooth_adjustment), "application", app);
 #endif
 		// コールバック関数の設定
-		g_signal_connect(G_OBJECT(smooth_adjustment), "value_changed",
+		(void)g_signal_connect(G_OBJECT(smooth_adjustment), "value_changed",
 			G_CALLBACK(ChangeSmootherQuality), &app->tool_window.smoother);
 		// 小数点以下は表示しない
 		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(smooth_spin), 0);
@@ -1770,13 +1801,13 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		g_object_set_data(G_OBJECT(smooth_adjustment), "application", app);
 #endif
 		// コールバック関数の設定
-		g_signal_connect(G_OBJECT(smooth_adjustment), "value_changed",
+		(void)g_signal_connect(G_OBJECT(smooth_adjustment), "value_changed",
 			G_CALLBACK(ChangeSmootherRate), &app->tool_window.smoother);
 
 		// 拡大ボタン
 		button = gtk_button_new_with_label(app->labels->menu.zoom_in);
 		gtk_widget_set_sensitive(button, FALSE);
-		g_signal_connect_swapped(G_OBJECT(button), "clicked",
+		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 			G_CALLBACK(ExecuteZoomIn), app);
 		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 3);
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
@@ -1785,7 +1816,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		// 縮小ボタン
 		button = gtk_button_new_with_label(app->labels->menu.zoom_out);
 		gtk_widget_set_sensitive(button, FALSE);
-		g_signal_connect_swapped(G_OBJECT(button), "clicked",
+		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 			G_CALLBACK(ExecuteZoomOut), app);
 		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
@@ -1794,7 +1825,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		// 等倍表示ボタン
 		button = gtk_button_new_with_label(app->labels->menu.zoom_reset);
 		gtk_widget_set_sensitive(button, FALSE);
-		g_signal_connect_swapped(G_OBJECT(button), "clicked",
+		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 			G_CALLBACK(ExecuteZoomReset), app);
 		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
@@ -1804,7 +1835,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		app->reverse_label = gtk_label_new(app->labels->window.normal);
 		app->reverse_button = gtk_toggle_button_new();
 		gtk_widget_set_sensitive(app->reverse_button, FALSE);
-		g_signal_connect(G_OBJECT(app->reverse_button), "toggled",
+		(void)g_signal_connect(G_OBJECT(app->reverse_button), "toggled",
 			G_CALLBACK(DisplayReverseButtonClicked), app);
 		gtk_container_add(GTK_CONTAINER(app->reverse_button), app->reverse_label);
 		gtk_box_pack_start(GTK_BOX(smooth_box), app->reverse_button, FALSE, FALSE, 3);
@@ -1816,7 +1847,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		file_path = g_build_filename(app->current_path, "image/counter_clockwise.png", NULL);
 		gtk_container_add(GTK_CONTAINER(button), gtk_image_new_from_file(file_path));
 		g_free(file_path);
-		g_signal_connect_swapped(G_OBJECT(button), "clicked",
+		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 			G_CALLBACK(ExecuteRotateCounterClockwise), app);
 		gtk_widget_set_sensitive(button, FALSE);
 		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 3);
@@ -1828,7 +1859,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		file_path = g_build_filename(app->current_path, "image/clockwise.png", NULL);
 		gtk_container_add(GTK_CONTAINER(button), gtk_image_new_from_file(file_path));
 		g_free(file_path);
-		g_signal_connect_swapped(G_OBJECT(button), "clicked",
+		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 			G_CALLBACK(ExecuteRotateClockwise), app);
 		gtk_widget_set_sensitive(button, FALSE);
 		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
@@ -1850,7 +1881,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		g_free(file_path);
 		button = gtk_button_new();
 		gtk_container_add(GTK_CONTAINER(button), gtk_image_new_from_pixbuf(image_buf));
-		g_signal_connect_swapped(G_OBJECT(button), "clicked",
+		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 			G_CALLBACK(ExecuteUndo), app);
 		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 3);
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
@@ -1882,7 +1913,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 
 		button = gtk_button_new();
 		gtk_container_add(GTK_CONTAINER(button), gtk_image_new_from_pixbuf(image_buf));
-		g_signal_connect_swapped(G_OBJECT(button), "clicked",
+		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 			G_CALLBACK(ExecuteRedo), app);
 		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
@@ -1892,7 +1923,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		app->edit_selection = gtk_toggle_button_new_with_label(app->labels->window.edit_selection);
 		gtk_widget_set_sensitive(app->edit_selection, FALSE);
 		gtk_box_pack_end(GTK_BOX(smooth_box), app->edit_selection, FALSE, FALSE, 0);
-		g_signal_connect(G_OBJECT(app->edit_selection), "toggled",
+		(void)g_signal_connect(G_OBJECT(app->edit_selection), "toggled",
 			G_CALLBACK(DisplayEditSelectionButtonClicked), app);
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = app->edit_selection;
 		app->menus.num_disable_if_no_open++;
@@ -2026,6 +2057,10 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		app->tool_window.color_chooser->flags |= COLOR_CHOOSER_SHOW_PALLETE;
 	}
 
+	// レイヤー合成の設定
+	SetLayerBlendFunctions(app->layer_blend_functions);
+	SetPartLayerBlendFunctions(app->part_layer_blend_functions);
+
 	// 入力デバイスの設定
 	{
 		GList *device_list;
@@ -2036,7 +2071,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		device_list = gdk_devices_list();
 #else
 		device = gdk_device_manager_get_client_pointer(
-			gdk_display_get_device_manager(gdk_display_get_default()), GDK_DEVICE_TYPE_SLAVE);
+			gdk_display_get_device_manager(gdk_display_get_default()));
 		device_list = gdk_device_list_slave_devices(device);
 #endif
 
@@ -2059,7 +2094,7 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 
 			while(check_list != NULL)
 			{
-				device = (GdkDevice*)device_list->data;
+				device = (GdkDevice*)check_list->data;
 				device_name = gdk_device_get_name(device);
 
 				if(StringStringIgnoreCase(device_name, "ERASER") != NULL)
@@ -2125,6 +2160,20 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 
 #if GTK_MAJOR_VERSION >= 3
 		g_list_free(device_list);
+
+		{
+			GList *check_list = device_list;
+			device_list = gdk_device_manager_list_devices(
+				gdk_display_get_device_manager(gdk_display_get_default()), GDK_DEVICE_TYPE_MASTER);
+			check_list = device_list;
+			while(check_list != NULL)
+			{
+				device = (GdkDevice*)check_list->data;
+				(void)gdk_device_set_mode(device, GDK_MODE_SCREEN);
+				check_list = check_list->next;
+			}
+			g_list_free(device_list);
+		}
 #endif
 	}
 
@@ -2164,30 +2213,28 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	}
 
 	// 3Dモデリングの準備
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	app->modeling = ApplicationContextNew(app->window_width, app->window_height,
-		app->current_path);
-	// ラベルの文字列を読み込む
-	if(app->language_file_path != NULL)
+	if(GetHas3DLayer(app) != FALSE)
 	{
-		if(app->language_file_path[0] == '.'
-			&& app->language_file_path[1] == '/')
+		app->modeling = ApplicationContextNew(app->window_width, app->window_height,
+			app->current_path);
+		// ラベルの文字列を読み込む
+		if(app->language_file_path != NULL)
 		{
-			file_path = g_build_filename(app->current_path,
-				&app->language_file_path[2], NULL);
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-			Load3dModelingLabels(app, file_path);
-#endif
-			g_free(file_path);
-		}
-		else
-		{
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-			Load3dModelingLabels(app, app->language_file_path);
-#endif
+			if(app->language_file_path[0] == '.'
+				&& app->language_file_path[1] == '/')
+			{
+				file_path = g_build_filename(app->current_path,
+					&app->language_file_path[2], NULL);
+				Load3dModelingLabels(app, file_path);
+
+				g_free(file_path);
+			}
+			else
+			{
+				Load3dModelingLabels(app, app->language_file_path);
+			}
 		}
 	}
-#endif
 
 	// 初期化済みのフラグを立てる
 	app->flags |= APPLICATION_INITIALIZED;
@@ -2745,6 +2792,165 @@ void OpenFile(char *file_path, APPLICATION* app)
 			// ウィンドウのタイトルを画像名に
 			gtk_window_set_title(GTK_WINDOW(app->window), file_name);
 		}
+	}
+	else if(StringCompareIgnoreCase(str, ".dds") == 0)
+	{
+		// ファイル読み込みストリーム
+		gchar *system_path = g_locale_from_utf8(file_path, -1, NULL, NULL, NULL);
+		FILE *fp = fopen(system_path, "rb");
+
+		if(fp != NULL)
+		{
+			uint8 *pixels;
+			int width, height;
+			int channel;
+			size_t file_size;
+
+			(void)fseek(fp, 0, SEEK_END);
+			file_size = ftell(fp);
+			rewind(fp);
+
+			pixels = ReadDdsStream((void*)fp, (stream_func_t)fread,
+				(seek_func_t)fseek, file_size, &width, &height, &channel);
+
+			if(pixels != NULL)
+			{
+				// ピクセルデータを写すレイヤー
+				LAYER *target;
+				// 1行分のバイト数
+				int stride = width * 4;
+				// 上下反転用
+				uint8 *trans = (uint8*)MEM_ALLOC_FUNC(width*height*4);
+
+				// ファイルパスからファイル名だけを取り出す
+				file_name = str = file_path;
+				while(*str != '\0')
+				{
+					if(*str == '/' || *str == '\\')
+					{
+						file_name = str+1;
+					}
+
+					str = g_utf8_next_char(str);
+				}
+
+				if(channel == 1)
+				{
+					uint8 *old_pixels = pixels;
+					pixels = (uint8*)MEM_ALLOC_FUNC(width*height*4);
+					for(i=0; i<width*height; i++)
+					{
+						pixels[i*4] = old_pixels[i];
+						pixels[i*4+1] = old_pixels[i];
+						pixels[i*4+2] = old_pixels[i];
+						pixels[i*4+3] = 0xff;
+					}
+
+					MEM_FREE_FUNC(old_pixels);
+				}
+				else if(channel == 2)
+				{
+					uint8 *old_pixels = pixels;
+					pixels = (uint8*)MEM_ALLOC_FUNC(width*height*4);
+					for(i=0; i<width*height; i++)
+					{
+						pixels[i*4] = old_pixels[i*2];
+						pixels[i*4+1] = old_pixels[i*2];
+						pixels[i*4+2] = old_pixels[i*2];
+						pixels[i*4+3] = old_pixels[i*2+1];
+					}
+
+					MEM_FREE_FUNC(old_pixels);
+				}
+				else if(channel == 3)
+				{
+					uint8 *old_pixels = pixels;
+					pixels = (uint8*)MEM_ALLOC_FUNC(width*height*4);
+					for(i=0; i<width*height; i++)
+					{
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+						pixels[i*4] = old_pixels[i*3];
+						pixels[i*4+1] = old_pixels[i*3+1];
+						pixels[i*4+2] = old_pixels[i*3+2];
+#else
+						pixels[i*4] = old_pixels[i*3+2];
+						pixels[i*4+1] = old_pixels[i*3+1];
+						pixels[i*4+2] = old_pixels[i*3];
+#endif
+						pixels[i*4+3] = 0xff;
+					}
+
+					MEM_FREE_FUNC(old_pixels);
+				}
+#if !defined(USE_BGR_COLOR_SPACE) || USE_BGR_COLOR_SPACE == 0
+				else
+				{
+					uint8 b;
+					for(i=0; i<width*height; i++)
+					{
+						b = pixels[i*4];
+						pixels[i*4] = pixels[i*4+2];
+						pixels[i*4+2] = b;
+					}
+				}
+#endif
+				for(i=0; i<height; i++)
+				{
+					(void)memcpy(&trans[stride*i], &pixels[(height-i-1)*stride], stride);
+				}
+				MEM_FREE_FUNC(pixels);
+				pixels = trans;
+
+				// 描画領域を新たに追加
+				app->draw_window[app->window_num] = CreateDrawWindow(
+					width, height, 4, file_name, app->note_book, app->window_num, app);
+
+				app->active_window = app->window_num;
+				app->window_num++;
+
+				// ファイルパスを設定
+				app->draw_window[app->active_window]->file_path = MEM_STRDUP_FUNC(file_path);
+
+				// ナビゲーションの表示を更新
+				ChangeNavigationDrawWindow(&app->navigation_window, app->draw_window[app->active_window]);
+
+				// 画像データを一番下のレイヤーにコピー
+				target = app->draw_window[app->active_window]->active_layer;
+
+				for(i=0; i<height; i++)
+				{
+					for(j=0; j<width; j++)
+					{
+						target->pixels[target->stride*i+target->channel*j] =
+							pixels[(height-i-1)*stride+j*target->channel+2];
+						target->pixels[target->stride*i+target->channel*j+1] =
+							pixels[(height-i-1)*stride+j*target->channel+1];
+						target->pixels[target->stride*i+target->channel*j+2] =
+							pixels[(height-i-1)*stride+j*target->channel];
+						target->pixels[target->stride*i+target->channel*j+3] =
+							pixels[(height-i-1)*stride+j*target->channel+3];
+					}
+				}
+
+				// 一番下のレイヤーをアクティブ表示に
+				LayerViewSetActiveLayer(
+					app->draw_window[app->active_window]->active_layer, app->layer_window.view
+				);
+
+				// 無効にしていた一部のメニューを有効に
+				for(i=0; i<app->menus.num_disable_if_no_open; i++)
+				{
+					gtk_widget_set_sensitive(app->menus.disable_if_no_open[i], TRUE);
+				}
+				gtk_widget_set_sensitive(app->layer_window.layer_control.mode, TRUE);
+				gtk_widget_set_sensitive(app->layer_window.layer_control.lock_opacity, TRUE);
+
+				// ウィンドウのタイトルを画像名に
+				gtk_window_set_title(GTK_WINDOW(app->window), file_name);
+			}
+		}
+
+		g_free(system_path);
 	}
 	else
 	{
@@ -4426,33 +4632,33 @@ GtkWidget* CreateTextureChooser(TEXTURES* textures, APPLICATION* app)
 	path = gtk_tree_model_get_path(GTK_TREE_MODEL(list_store), &active);
 	gtk_icon_view_select_path(GTK_ICON_VIEW(icon_view), path);
 	// アイコン選択時のコールバック関数をセット
-	g_signal_connect(G_OBJECT(icon_view), "selection_changed",
+	(void)g_signal_connect(G_OBJECT(icon_view), "selection_changed",
 		G_CALLBACK(TextureChange), app);
 
 	// テクスチャの強さを設定するウィジェットを作成
 	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(textures->strength, 0, 100, 1, 1, 0));
 	scale = SpinScaleNew(adjust, app->labels->tool_box.texture_strength, 1);
-	g_signal_connect(G_OBJECT(adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeTextureStrength), app);
 	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
 
 	// テクスチャの拡大率を設定するウィジェットを作成
 	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(textures->scale, 0.1, 10, 0.1, 1, 0));
 	scale = SpinScaleNew(adjust, app->labels->menu.zoom, 1);
-	g_signal_connect(G_OBJECT(adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeTextureScale), app);
 	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
 
 	// テクスチャの回転角度を設定するウィジェットを作成
 	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(textures->angle, -180, 180, 1, 1, 0));
 	scale = SpinScaleNew(adjust, app->labels->menu.rotate, 1);
-	g_signal_connect(G_OBJECT(adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeTextureRotate), app);
 	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
 
 	// 「閉じる」ボタンを作成
 	button = gtk_button_new_with_label(app->labels->window.close);
-	g_signal_connect(G_OBJECT(button), "clicked",
+	(void)g_signal_connect(G_OBJECT(button), "clicked",
 		G_CALLBACK(ClickedCloseButton), ret);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
 
@@ -4482,6 +4688,356 @@ void ReturnFromLoupeMode(APPLICATION* app)
 {
 	ReturnFromFocalMode(app->draw_window[app->active_window]);
 }
+
+/**********************************************************
+* MemoryAllocate関数                                      *
+* KABURAGI / MIKADOで使用するメモリアロケータでメモリ確保 *
+* 引数                                                    *
+* size	: 確保するバイト数                                *
+* 返り値                                                  *
+*	確保したメモリのアドレス                              *
+**********************************************************/
+void* MemoryAllocate(size_t size)
+{
+	return MEM_ALLOC_FUNC(size);
+}
+
+/**************************************************************
+* MemoryFree関数                                              *
+* KABURAGI / MIKADOで確保されたメモリを開放する(プラグイン用) *
+* 引数                                                        *
+* memory	: 開放するメモリのポインタ                        *
+**************************************************************/
+void MemoryFree(void* memory)
+{
+	MEM_FREE_FUNC(memory);
+}
+
+/*********************************************************
+* SetHas3DLayer関数                                      *
+* 3Dモデリングの有効/無効を設定する                      *
+* 引数                                                   *
+* app		: アプリケーションを管理する構造体のアドレス *
+* enable	: 有効:TRUE	無効:FALSE                       *
+*********************************************************/
+void SetHas3DLayer(APPLICATION* app, int enable)
+{
+	if(enable == FALSE)
+	{
+		app->flags &= ~(APPLICATION_HAS_3D_LAYER);
+	}
+	else
+	{
+		app->flags |= APPLICATION_HAS_3D_LAYER;
+	}
+}
+
+/*****************************************************
+* GetHas3DLayer関数                                  *
+* 3Dモデリングの有効/無効を返す                      *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+* 返り値                                             *
+*	3Dモデリング有効:TRUE	無効:FALSE               *
+*****************************************************/
+int GetHas3DLayer(APPLICATION* app)
+{
+	if((app->flags & APPLICATION_HAS_3D_LAYER) != 0)
+	{
+		return TRUE;
+	}
+	return FALSE;
+}
+
+#ifdef _MSC_VER
+
+#if 1
+# pragma comment(lib, "OpenGL32.lib")
+# pragma comment(lib, "GlU32.lib")
+# ifdef TEST //_DEBUG
+#  pragma comment(lib, "tbb_debug.lib")
+#  pragma comment(lib, "tbb_preview_debug.lib")
+#  pragma comment(lib, "tbbmalloc_debug.lib")
+#  pragma comment(lib, "tbbproxy_debug.lib")
+#  pragma comment(lib, "tbbmalloc_proxy_debug.lib")
+#  pragma comment(lib, "BulletCollision_vs2008_debug.lib")
+#  pragma comment(lib, "BulletDynamics_vs2008_debug.lib")
+#  pragma comment(lib, "BulletSoftBody_vs2008_debug.lib")
+#  pragma comment(lib, "ConvexDecomposition_vs2008_debug.lib")
+#  pragma comment(lib, "LinearMath_vs2008_debug.lib")
+#  pragma comment(lib, "OpenGLSupport_vs2008_debug.lib")
+# else
+#  pragma comment(lib, "tbb.lib")
+#  pragma comment(lib, "tbb_preview.lib")
+#  pragma comment(lib, "tbbmalloc.lib")
+#  pragma comment(lib, "tbbproxy.lib")
+#  pragma comment(lib, "tbbmalloc_proxy.lib")
+#  pragma comment(lib, "BulletCollision_vs2008.lib")
+#  pragma comment(lib, "BulletDynamics_vs2008.lib")
+#  pragma comment(lib, "BulletSoftBody_vs2008.lib")
+#  pragma comment(lib, "ConvexDecomposition_vs2008.lib")
+#  pragma comment(lib, "LinearMath_vs2008.lib")
+#  pragma comment(lib, "OpenGLSupport_vs2008.lib")
+# endif
+#endif
+
+# ifndef BUILD64BIT
+#  if defined(USE_STATIC_LIB) && USE_STATIC_LIB != 0
+#   ifdef _DEBUG
+#    pragma comment(linker, "/NODEFAULTLIB:LIBCMTD.lib")
+#    pragma comment(lib, "gtk_libsd.lib")
+#    pragma comment(lib, "Dnsapi.lib")
+#    pragma comment(lib, "ws2_32.lib")
+#    pragma comment(lib, "Shlwapi.lib")
+#    pragma comment(lib, "imm32.lib")
+#    pragma comment(lib, "zlib.lib")
+#    pragma comment(lib, "libpng.lib")
+#    pragma comment(lib, "usp10.lib")
+cairo_surface_t *
+cairo_image_surface_create_from_png (const char	*filename)
+{
+	return 0;
+}
+/*
+#    pragma comment(linker, "/NODEFAULTLIB:LIBCMTD.lib")
+#    pragma comment(lib, "Dnsapi.lib")
+#    pragma comment(lib, "ws2_32.lib")
+#    pragma comment(lib, "pcre3d.lib")
+#    pragma comment(lib, "Shlwapi.lib")
+#    pragma comment(lib, "atk-1.0.lib")
+#    pragma comment(lib, "cairo.lib")
+#    pragma comment(lib, "expat.lib")
+#    pragma comment(lib, "fontconfig.lib")
+#    pragma comment(lib, "freetype.lib")
+#    pragma comment(lib, "gailutil.lib")
+#    pragma comment(lib, "gdk_pixbuf-2.0.lib")
+#    pragma comment(lib, "gdk-win32-2.0.lib")
+#    pragma comment(lib, "./STATIC_LIB/giod.lib")
+#    pragma comment(lib, "./STATIC_LIB/glibd.lib")
+#    pragma comment(lib, "./STATIC_LIB/gmoduled.lib")
+#    pragma comment(lib, "./STATIC_LIB/gobjectd.lib")
+#    pragma comment(lib, "./STATIC_LIB/gthreadd.lib")
+#    pragma comment(lib, "gtk-win32-2.0.lib")
+#    pragma comment(lib, "intl.lib")
+#    pragma comment(lib, "libpng.lib")
+#    pragma comment(lib, "pango-1.0.lib")
+#    pragma comment(lib, "pangocairo-1.0.lib")
+#    pragma comment(lib, "pangoft2-1.0.lib")
+#    pragma comment(lib, "pangowin32-1.0.lib")
+#    pragma comment(lib, "zlib.lib")
+*/
+#   else
+#    pragma comment(lib, "./STATIC_LIB/libatk-1.0.a")
+#    pragma comment(lib, "./STATIC_LIB/libcairo.a")
+#    pragma comment(lib, "./STATIC_LIB/libcairo-gobject.a")
+#    pragma comment(lib, "./STATIC_LIB/libcairo-script-interpreter.a")
+#    pragma comment(lib, "./STATIC_LIB/libcharset.a")
+#    pragma comment(lib, "./STATIC_LIB/libexpat.a")
+#    pragma comment(lib, "./STATIC_LIB/libffi.a")
+#    pragma comment(lib, "./STATIC_LIB/libfontconfig.a")
+#    pragma comment(lib, "./STATIC_LIB/libfreetype.a")
+#    pragma comment(lib, "./STATIC_LIB/libgailutil.a")
+#    pragma comment(lib, "./STATIC_LIB/libgdk_pixbuf-2.0.a")
+#    pragma comment(lib, "./STATIC_LIB/libgdk-win32-2.0.a")
+#    pragma comment(lib, "./STATIC_LIB/libgio-2.0.a")
+#    pragma comment(lib, "./STATIC_LIB/libglib-2.0.a")
+#    pragma comment(lib, "./STATIC_LIB/libgmodule-2.0.a")
+#    pragma comment(lib, "gobject-2.0.lib")
+#    pragma comment(lib, "gthread-2.0.lib")
+#    pragma comment(lib, "gtk-win32-2.0.lib")
+#    pragma comment(lib, "intl.lib")
+#    pragma comment(lib, "libpng.lib")
+#    pragma comment(lib, "pango-1.0.lib")
+#    pragma comment(lib, "pangocairo-1.0.lib")
+#    pragma comment(lib, "pangoft2-1.0.lib")
+#    pragma comment(lib, "pangowin32-1.0.lib")
+#    pragma comment(lib, "zlib.lib")
+#   endif
+#  else
+#  ifdef _DEBUG
+#   pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
+#  else
+#   if _MSC_VER >= 1600
+#    pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
+#   endif
+#  endif
+#   if GTK_MAJOR_VERSION <= 2
+#    pragma comment(lib, "atk-1.0.lib")
+#    pragma comment(lib, "cairo.lib")
+#    pragma comment(lib, "expat.lib")
+#    pragma comment(lib, "fontconfig.lib")
+#    pragma comment(lib, "freetype.lib")
+#    pragma comment(lib, "gailutil.lib")
+#    pragma comment(lib, "gdk_pixbuf-2.0.lib")
+#    pragma comment(lib, "gdk-win32-2.0.lib")
+#    pragma comment(lib, "gio-2.0.lib")
+#    pragma comment(lib, "glib-2.0.lib")
+#    pragma comment(lib, "gmodule-2.0.lib")
+#    pragma comment(lib, "gobject-2.0.lib")
+#    pragma comment(lib, "gthread-2.0.lib")
+#    pragma comment(lib, "gtk-win32-2.0.lib")
+#    pragma comment(lib, "intl.lib")
+#    pragma comment(lib, "libpng.lib")
+#    pragma comment(lib, "pango-1.0.lib")
+#    pragma comment(lib, "pangocairo-1.0.lib")
+#    pragma comment(lib, "pangoft2-1.0.lib")
+#    pragma comment(lib, "pangowin32-1.0.lib")
+#    if defined(_M_X64) || defined(_M_IA64)
+#     pragma comment(lib, "zdll.lib")
+#    else
+#     pragma comment(lib, "zlib.lib")
+#    endif
+#   else
+#    ifdef _DEBUG
+//#     pragma comment(linker, "/NODEFAULTLIB:MSVCRTD")
+#    else
+#     pragma comment(linker, "/NODEFAULTLIB:MSVCRT")
+#    endif
+
+#    if defined(_M_X64) || defined(_M_IA64)
+#     pragma comment(lib, "libpng.lib")
+#    else
+#     pragma comment(lib, "libpng.lib")
+#    endif
+#    pragma comment(lib, "zlib.lib")
+#    pragma comment(lib, "cairo.lib")
+#    pragma comment(lib, "atk-1.0.lib")
+#    pragma comment(lib, "fontconfig.lib")
+#    pragma comment(lib, "gailutil.lib")
+#    pragma comment(lib, "gdk_pixbuf-2.0.lib")
+#    pragma comment(lib, "gdk-win32-3.0.lib")
+#    pragma comment(lib, "gio-2.0.lib")
+#    pragma comment(lib, "glib-2.0.lib")
+#    pragma comment(lib, "gmodule-2.0.lib")
+#    pragma comment(lib, "gobject-2.0.lib")
+#    pragma comment(lib, "gthread-2.0.lib")
+#    pragma comment(lib, "gtk-win32-3.0.lib")
+#    pragma comment(lib, "pango-1.0.lib")
+#    pragma comment(lib, "pangocairo-1.0.lib")
+#    pragma comment(lib, "pangoft2-1.0.lib")
+#    pragma comment(lib, "pangowin32-1.0.lib")
+#    pragma comment(lib, "libgettextsrc-0-18-2.lib")
+#    pragma comment(lib, "libgettextpo-0.lib")
+#    pragma comment(lib, "libgettextlib-0-18-2.lib")
+#    pragma comment(lib, "libintl-8.lib")
+
+#    pragma comment(lib, "libatk-1.0-0.lib")
+#    pragma comment(lib, "libcairo-2.lib")
+#    pragma comment(lib, "libcairo-gobject-2.lib")
+#    pragma comment(lib, "libcairo-script-interpreter-2.lib")
+#    pragma comment(lib, "libcroco-0.6-3.lib")
+#    pragma comment(lib, "libffi-6.lib")
+#    pragma comment(lib, "libfontconfig-1.lib")
+#    pragma comment(lib, "libfreetype-6.lib")
+#    pragma comment(lib, "libgailutil-3-0.lib")
+#    pragma comment(lib, "libgdk_pixbuf-2.0-0.lib")
+#    pragma comment(lib, "libgdk-3-0.lib")
+#    pragma comment(lib, "libgio-2.0-0.lib")
+#    pragma comment(lib, "libglib-2.0-0.lib")
+#    pragma comment(lib, "libgmodule-2.0-0.lib")
+#    pragma comment(lib, "libgthread-2.0-0.lib")
+#    pragma comment(lib, "libgtk-3-0.lib")
+#    pragma comment(lib, "libjasper-1.lib")
+#    pragma comment(lib, "libjpeg-9.lib")
+#    pragma comment(lib, "liblzma-5.lib")
+#    pragma comment(lib, "libpango-1.0-0.lib")
+#    pragma comment(lib, "libpangocairo-1.0-0.lib")
+#    pragma comment(lib, "libpangoft2-1.0-0.lib")
+#    pragma comment(lib, "libpangowin32-1.0-0.lib")
+#    pragma comment(lib, "libpixman-1-0.lib")
+#    pragma comment(lib, "librsvg-2-2.lib")
+#    pragma comment(lib, "libtiff-5.lib")
+#    pragma comment(lib, "libxml2-2.lib")
+#    pragma comment(lib, "zdll.lib")
+
+#   endif
+#  endif
+# else
+#  ifdef _DEBUG
+#   pragma comment(linker, "/NODEFAULTLIB:LIBCMTD")
+#  else
+//#   pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
+#  endif
+#  if GTK_MAJOR_VERSION <= 2
+#   pragma comment(lib, "atk-1.0.lib")
+#   pragma comment(lib, "cairo.lib")
+#   pragma comment(lib, "expat.lib")
+#   pragma comment(lib, "fontconfig.lib")
+#   pragma comment(lib, "freetype.lib")
+#   pragma comment(lib, "gailutil.lib")
+#   pragma comment(lib, "gdk_pixbuf-2.0.lib")
+#   pragma comment(lib, "gdk-win32-2.0.lib")
+#   pragma comment(lib, "gio-2.0.lib")
+#   pragma comment(lib, "glib-2.0.lib")
+#   pragma comment(lib, "gmodule-2.0.lib")
+#   pragma comment(lib, "gobject-2.0.lib")
+#   pragma comment(lib, "gthread-2.0.lib")
+#   pragma comment(lib, "gtk-win32-2.0.lib")
+#   pragma comment(lib, "intl.lib")
+#   pragma comment(lib, "libpng.lib")
+#   pragma comment(lib, "pango-1.0.lib")
+#   pragma comment(lib, "pangocairo-1.0.lib")
+#   pragma comment(lib, "pangoft2-1.0.lib")
+#   pragma comment(lib, "pangowin32-1.0.lib")
+#   if defined(_M_X64) || defined(_M_IA64)
+#    pragma comment(lib, "zdll.lib")
+#   else
+#    pragma comment(lib, "zlib.lib")
+#   endif
+#  else
+#    pragma comment(lib, "libpng15-15.lib")
+#    pragma comment(lib, "zlib.lib")
+#    pragma comment(lib, "libz.dll.a")
+#    pragma comment(lib, "cairo.lib")
+#    pragma comment(lib, "atk-1.0.lib")
+#    pragma comment(lib, "fontconfig.lib")
+#    pragma comment(lib, "gailutil.lib")
+#    pragma comment(lib, "gdk_pixbuf-2.0.lib")
+#    pragma comment(lib, "gdk-win32-3.0.lib")
+#    pragma comment(lib, "gio-2.0.lib")
+#    pragma comment(lib, "glib-2.0.lib")
+#    pragma comment(lib, "gmodule-2.0.lib")
+#    pragma comment(lib, "gobject-2.0.lib")
+#    pragma comment(lib, "gthread-2.0.lib")
+#    pragma comment(lib, "gtk-win32-3.0.lib")
+#    pragma comment(lib, "pango-1.0.lib")
+#    pragma comment(lib, "pangocairo-1.0.lib")
+#    pragma comment(lib, "pangoft2-1.0.lib")
+#    pragma comment(lib, "pangowin32-1.0.lib")
+#    pragma comment(lib, "intl.lib")
+
+#    pragma comment(lib, "libatk-1.0-0.lib")
+#    pragma comment(lib, "libcairo.dll.a")
+#    pragma comment(lib, "libcairo-gobject.dll.a")
+#    pragma comment(lib, "libcairo-script-interpreter.dll.a")
+#    pragma comment(lib, "libcroco-0.6.dll.a")
+#    pragma comment(lib, "libffi.dll.a")
+#    pragma comment(lib, "libfontconfig.dll.a")
+#    pragma comment(lib, "libfreetype.dll.a")
+#    pragma comment(lib, "libgailutil-3.dll.a")
+#    pragma comment(lib, "libgdk_pixbuf-2.0.dll.a")
+#    pragma comment(lib, "libgdk-3.dll.a")
+#    pragma comment(lib, "libgio-2.0.dll.a")
+#    pragma comment(lib, "libglib-2.0.dll.a")
+#    pragma comment(lib, "libgmodule-2.0.dll.a")
+#    pragma comment(lib, "libgthread-2.0.dll.a")
+#    pragma comment(lib, "libgtk-3.dll.a")
+#    pragma comment(lib, "libjasper.dll.a")
+#    pragma comment(lib, "libjpeg.dll.a")
+#    pragma comment(lib, "liblzma.dll.a")
+#    pragma comment(lib, "libpango-1.0.dll.a")
+#    pragma comment(lib, "libpangocairo-1.0.dll.a")
+#    pragma comment(lib, "libpangoft2-1.0.dll.a")
+#    pragma comment(lib, "libpangowin32-1.0.dll.a")
+#    pragma comment(lib, "libpixman-1.dll.a")
+#    pragma comment(lib, "librsvg-2.dll.a")
+#    pragma comment(lib, "libtiff.dll.a")
+#    pragma comment(lib, "libtiffxx.dll.a")
+#    pragma comment(lib, "libxml2.dll.a")
+#  endif
+# endif
+
+#endif
 
 #ifdef __cplusplus
 }

@@ -31,7 +31,11 @@ lcms_open_profile (gchar *filename)
   cmsHPROFILE profile;
 
 #ifdef _WIN32  // #ifdef G_OS_WIN32
+#if GTK_MAJOR_VERSION <= 2
   gchar *_filename = g_win32_locale_filename_from_utf8 (filename);
+#else
+  gchar *_filename = g_locale_from_utf8(filename, -1, NULL, NULL, NULL);
+#endif
 
   profile = cmsOpenProfileFromFile (_filename, "r");
 
@@ -177,6 +181,81 @@ lcms_has_lut (cmsHPROFILE profile)
   else
     return FALSE;
 }
+
+#if GTK_MAJOR_VERSION >= 3
+gchar *
+g_win32_getlocale (void)
+{
+  LCID lcid;
+  LANGID langid;
+  gchar *ev;
+  gint primary, sub;
+  char iso639[10];
+  char iso3166[10];
+  const gchar *script = NULL;
+
+  /* Let the user override the system settings through environment
+   * variables, as on POSIX systems. Note that in GTK+ applications
+   * since GTK+ 2.10.7 setting either LC_ALL or LANG also sets the
+   * Win32 locale and C library locale through code in gtkmain.c.
+   */
+  if (((ev = getenv ("LC_ALL")) != NULL && ev[0] != '\0')
+      || ((ev = getenv ("LC_MESSAGES")) != NULL && ev[0] != '\0')
+      || ((ev = getenv ("LANG")) != NULL && ev[0] != '\0'))
+    return g_strdup (ev);
+
+  lcid = GetThreadLocale ();
+
+  if (!GetLocaleInfo (lcid, LOCALE_SISO639LANGNAME, iso639, sizeof (iso639)) ||
+      !GetLocaleInfo (lcid, LOCALE_SISO3166CTRYNAME, iso3166, sizeof (iso3166)))
+    return g_strdup ("C");
+  
+  /* Strip off the sorting rules, keep only the language part.  */
+  langid = LANGIDFROMLCID (lcid);
+
+  /* Split into language and territory part.  */
+  primary = PRIMARYLANGID (langid);
+  sub = SUBLANGID (langid);
+
+  /* Handle special cases */
+  switch (primary)
+    {
+    case LANG_AZERI:
+      switch (sub)
+	{
+	case SUBLANG_AZERI_LATIN:
+	  script = "@Latn";
+	  break;
+	case SUBLANG_AZERI_CYRILLIC:
+	  script = "@Cyrl";
+	  break;
+	}
+      break;
+    case LANG_SERBIAN:		/* LANG_CROATIAN == LANG_SERBIAN */
+      switch (sub)
+	{
+	case SUBLANG_SERBIAN_LATIN:
+	case 0x06: /* Serbian (Latin) - Bosnia and Herzegovina */
+	  script = "@Latn";
+	  break;
+	}
+      break;
+    case LANG_UZBEK:
+      switch (sub)
+	{
+	case SUBLANG_UZBEK_LATIN:
+	  script = "@Latn";
+	  break;
+	case SUBLANG_UZBEK_CYRILLIC:
+	  script = "@Cyrl";
+	  break;
+	}
+      break;
+    }
+  return g_strconcat (iso639, "_", iso3166, script, NULL);
+}
+
+#endif
 
 /***************************************************************
   Get a localized text from the 'mluc' type tag

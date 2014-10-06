@@ -85,7 +85,6 @@ typedef struct _PROJECT
 	SCENE *scene;
 	POINTER_ARRAY *motions;
 	SHADOW_MAP *shadow_map;
-	MODEL *current_model;
 	DEBUG_DRAWER debug_drawer;
 	GRID grid;
 	CONTROL control;

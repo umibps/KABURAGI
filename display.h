@@ -19,9 +19,9 @@ extern "C" {
 *	èÌÇ…FALSE                            *
 *****************************************/
 extern gboolean DisplayDrawWindow(
-	GtkWidget *widget,
-	GdkEventExpose *event_info,
-	struct _DRAW_WINDOW *window
+	GtkWidget* widget,
+	GdkEventExpose* event_info,
+	struct _DRAW_WINDOW* window
 );
 
 /*****************************
@@ -30,7 +30,7 @@ extern gboolean DisplayDrawWindow(
 * à¯êî                       *
 * window	: ï`âÊóÃàÊÇÃèÓïÒ *
 *****************************/
-extern void UpdateDrawWindow(struct _DRAW_WINDOW *window);
+extern void UpdateDrawWindow(struct _DRAW_WINDOW* window);
 
 /*******************************************************
 * MixLayerForSaveä÷êî                                  *

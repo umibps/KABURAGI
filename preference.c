@@ -128,7 +128,7 @@ static void BackupDirectoryChanged(GtkFileChooser* chooser, SET_PREFERENCE* pref
 	}
 }
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 static void InputDeviceButtonClicked(GtkWidget* button, SET_PREFERENCE* setting)
 {
 	GtkWidget *dialog = gtk_input_dialog_new();
@@ -284,7 +284,7 @@ static GtkWidget* CreateSettingWidget(SET_PREFERENCE *setting)
 				G_CALLBACK(SetShowPreviewWindowOnTaskbar), setting);
 			gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, TRUE, 3);
 
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 			{
 				GtkWidget *radio_buttons[2];
 				hbox = gtk_hbox_new(FALSE, 0);
@@ -505,7 +505,7 @@ static GtkWidget* CreateChooseThemeWidget(SET_PREFERENCE* preference, APPLICATIO
 	}
 
 	list = first_list;
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	combo = gtk_combo_box_new_text();
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo), app->labels->preference.default_theme);
 #else
@@ -515,7 +515,7 @@ static GtkWidget* CreateChooseThemeWidget(SET_PREFERENCE* preference, APPLICATIO
 	while(list != NULL)
 	{
 		index++;
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), list->file_name);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), list->file_name);
@@ -552,7 +552,7 @@ void SetLanguage(GtkWidget* combo, SET_PREFERENCE* preference)
 	g_free(preference->language_name);
 	MEM_FREE_FUNC(preference->language_path);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	preference->language_name = g_strdup(
 		gtk_combo_box_get_active_text(GTK_COMBO_BOX(combo)));
 #else
@@ -615,7 +615,7 @@ static GtkWidget* CreateChooseLanguageWidget(SET_PREFERENCE* preference, APPLICA
 	}
 
 	vbox = gtk_vbox_new(FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	combo = gtk_combo_box_new_text();
 #else
 	combo = gtk_combo_box_text_new();
@@ -645,7 +645,7 @@ static GtkWidget* CreateChooseLanguageWidget(SET_PREFERENCE* preference, APPLICA
 			if(lang_name[0] != '\0')
 			{
 				disp_str = g_convert(lang_name, -1, "UTF-8", code, NULL, NULL, NULL);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 				gtk_combo_box_append_text(GTK_COMBO_BOX(combo), disp_str);
 #else
 				gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), disp_str);
@@ -1226,9 +1226,9 @@ void ReadPreference(INI_FILE_PTR file, PREFERENCE* preference)
 	uint8 *color_buff = (uint8*)&color;
 	char color_string[128] = {0};
 
-	preference->compress = (int8)IniFileGetInt(file, "PREFERENCE", "COMPRESSION");
-	preference->auto_save = (int8)IniFileGetInt(file, "PREFERENCE", "AUTO_SAVE");
-	preference->auto_save_time = (int32)IniFileGetInt(file, "PREFERENCE", "AUTO_SAVE_INTERVAL") * 60;
+	preference->compress = (int8)IniFileGetInteger(file, "PREFERENCE", "COMPRESSION");
+	preference->auto_save = (int8)IniFileGetInteger(file, "PREFERENCE", "AUTO_SAVE");
+	preference->auto_save_time = (int32)IniFileGetInteger(file, "PREFERENCE", "AUTO_SAVE_INTERVAL") * 60;
 	if(preference->auto_save_time < 300)
 	{
 		preference->auto_save_time = 300;

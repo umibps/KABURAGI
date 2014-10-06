@@ -110,22 +110,10 @@ LAYER* CreateLayer(
 		ret->layer_data.layer_set_p->active_under =
 			CreateLayer(0, 0, width, height, channel, TYPE_NORMAL_LAYER, NULL, NULL, NULL, window);
 	}
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	else if(layer_type == TYPE_3D_LAYER)
 	{
-		/*
-		GtkAllocation allocation;
-#if GTK_MAJOR_VERSION >= 3
-		gtk_widget_get_allocation(window->scroll, &allocation);
-#else
-		allocation = window->scroll->allocation;
-#endif
-		ret->layer_data.project = ProjectContextNew(
-			window->app->modeling, allcation.width, allocation.height;
-		*/
 		ret->layer_data.project = window->first_project;
 	}
-#endif
 
 	// 前後のレイヤーが存在するなら関係をセット
 	if(prev_layer != NULL)
@@ -141,6 +129,89 @@ LAYER* CreateLayer(
 	}
 
 	return ret;
+}
+
+/*************************************************************
+* AddLayer関数                                               *
+* 描画領域にレイヤーを追加する                               *
+* 引数                                                       *
+* canvas		: レイヤーを追加する描画領域                 *
+* layer_type	: 追加するレイヤーのタイプ(通常、ベクトル等) *
+* layer_name	: 追加するレイヤーの名前                     *
+* prev_layer	: 追加したレイヤーの下にくるレイヤー         *
+* 返り値                                                     *
+*	成功:レイヤー構造体のアドレス	失敗:NULL                *
+*************************************************************/
+LAYER* AddLayer(
+	DRAW_WINDOW* window,
+	eLAYER_TYPE layer_type,
+	const char* layer_name,
+	LAYER* prev_layer
+)
+{
+	LAYER *new_layer;
+	LAYER *prev = prev_layer;
+	LAYER *next;
+
+	if(layer_name == NULL)
+	{
+		return NULL;
+	}
+
+	if(*layer_name == '\0')
+	{
+		return NULL;
+	}
+
+	if(CorrectLayerName(window->layer, layer_name) == FALSE)
+	{
+		return NULL;
+	}
+
+	if(prev == NULL)
+	{
+		next = window->layer;
+	}
+	else
+	{
+		next = prev->next;
+	}
+
+	new_layer = CreateLayer(0, 0, window->width, window->height, window->channel,
+		layer_type, prev, next, layer_name, window);
+	window->num_layer++;
+
+	LayerViewAddLayer(new_layer, window->layer, window->app->layer_window.view, window->num_layer);
+
+	return new_layer;
+}
+
+/*********************************************************
+* RemoveLayer関数                                        *
+* レイヤーを削除する(キャンバスに登録されているもののみ) *
+* 引数                                                   *
+* target	: 削除するレイヤー                           *
+*********************************************************/
+void RemoveLayer(LAYER* target)
+{
+	DRAW_WINDOW *window;
+	LAYER *layer = target;
+
+	if(target == NULL || target->name == NULL || target->window == NULL)
+	{
+		return;
+	}
+
+	window = target->window;
+	if(target->window->num_layer <= 1)
+	{
+		return;
+	}
+
+	DeleteLayer(&layer);
+	window->num_layer--;
+
+	UpdateDrawWindow(window);
 }
 
 /*****************************************************
@@ -1044,11 +1115,9 @@ void AddNewLayerHistory(
 	case TYPE_VECTOR_LAYER:
 		history_name = new_layer->window->app->labels->layer_window.add_vector;
 		break;
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	case TYPE_3D_LAYER:
 		history_name = new_layer->window->app->labels->layer_window.add_3d_modeling;
 		break;
-#endif
 	default:
 		history_name = new_layer->window->app->labels->layer_window.add_layer_set;
 	}
@@ -1467,11 +1536,9 @@ void ChangeActiveLayer(DRAW_WINDOW* window, LAYER* layer)
 				);
 			}
 			break;
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 		case TYPE_3D_LAYER:
 			CreateChange3DLayerUI(layer->window->app, &layer->window->app->tool_window);
 			break;
-#endif
 		}
 
 		gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(layer->window->app->tool_window.brush_scroll),
@@ -1760,7 +1827,7 @@ void LayerMergeDown(LAYER* target)
 				(void)memcpy(temp_layer->pixels, window->back_ground, window->pixel_buf_size);
 				while(blend != target)
 				{
-					g_layer_blend_funcs[blend->layer_mode](blend, temp_layer);
+					window->layer_blend_functions[blend->layer_mode](blend, temp_layer);
 
 					blend = blend->next;
 
@@ -1773,10 +1840,10 @@ void LayerMergeDown(LAYER* target)
 						}
 					}
 				}
-				g_layer_blend_funcs[blend->layer_mode](blend, temp_layer);
+				window->layer_blend_functions[blend->layer_mode](blend, temp_layer);
 
 				(void)memcpy(window->temp_layer->pixels, target->prev->pixels, window->pixel_buf_size);
-				g_layer_blend_funcs[LAYER_BLEND_NORMAL](target, window->temp_layer);
+				window->layer_blend_functions[LAYER_BLEND_NORMAL](target, window->temp_layer);
 
 				for(i=0; i<target->width * target->height; i++)
 				{
@@ -1804,7 +1871,7 @@ void LayerMergeDown(LAYER* target)
 
 			break;
 		default:
-			g_layer_blend_funcs[target->layer_mode](target, target->prev);
+			target->window->layer_blend_functions[target->layer_mode](target, target->prev);
 		}
 
 		DeleteLayer(&target);
@@ -2409,12 +2476,10 @@ LAYER* CreateLayerCopy(LAYER* src)
 		ret->layer_data.text_layer_p->text = MEM_STRDUP_FUNC(
 			src->layer_data.text_layer_p->text);
 	}
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	else
 	{
 		ret->layer_type = TYPE_NORMAL_LAYER;
 	}
-#endif
 
 	return ret;
 }
@@ -2489,7 +2554,7 @@ void DeleteSelectAreaPixels(
 	}
 
 	// レイヤー合成でピクセルデータの削除を実行
-	g_layer_blend_funcs[LAYER_BLEND_ALPHA_MINUS](window->temp_layer, target);
+	window->layer_blend_functions[LAYER_BLEND_ALPHA_MINUS](window->temp_layer, target);
 }
 
 typedef struct _DELETE_SELECT_AREA_PIXELS_HISTORY
@@ -2855,7 +2920,7 @@ LAYER* GetBlendedUnderLayer(LAYER* target, DRAW_WINDOW* window, int use_back_gro
 	{
 		if((src->flags & LAYER_FLAG_INVISIBLE) == 0)
 		{
-			g_layer_blend_funcs[src->layer_mode](src, ret);
+			window->layer_blend_functions[src->layer_mode](src, ret);
 		}
 		src = src->next;
 	}

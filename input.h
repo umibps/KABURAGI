@@ -36,7 +36,7 @@ extern gboolean ButtonReleaseEvent(GtkWidget *widget, GdkEventButton *event, DRA
 
 extern gboolean MouseWheelEvent(GtkWidget*widget, GdkEventScroll* event_info, DRAW_WINDOW* window);
 
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 /***************************************
 * TouchEvent関数                       *
 * タッチ操作時のコールバック関数       *

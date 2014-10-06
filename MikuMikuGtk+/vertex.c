@@ -822,6 +822,23 @@ void VertexBundleRelease(
 	}
 }
 
+void ReleaseVertexBundle(VERTEX_BUNDLE* bundle)
+{
+	if(bundle == NULL)
+	{
+		return;
+	}
+
+	HashTableReleaseAll(bundle->vertex_buffers, (void (*)(void*))DeleteVertexBuffer);
+	ght_finalize(bundle->vertex_buffers);
+}
+
+void FreeVertexBundle(VERTEX_BUNDLE* bundle)
+{
+	ReleaseVertexBundle(bundle);
+	MEM_FREE_FUNC(bundle);
+}
+
 void DeleteVertexBundle(VERTEX_BUNDLE** bundle)
 {
 	if(bundle == NULL || *bundle == NULL)
@@ -934,6 +951,22 @@ VERTEX_BUNDLE_LAYOUT* VertexBundleLayoutNew(void)
 	}
 
 	return ret;
+}
+
+void ReleaseVertexBundleLayout(VERTEX_BUNDLE_LAYOUT* layout)
+{
+	if(layout == NULL)
+	{
+		return;
+	}
+
+	glDeleteVertexArrays(1, &layout->name);
+}
+
+void FreeVertexBundleLayout(VERTEX_BUNDLE_LAYOUT* layout)
+{
+	ReleaseVertexBundleLayout(layout);
+	MEM_FREE_FUNC(layout);
 }
 
 void DeleteVertexBundleLayout(VERTEX_BUNDLE_LAYOUT** layout)

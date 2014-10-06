@@ -5,6 +5,20 @@
 extern "C" {
 #endif
 
+#ifdef EXTERN
+# undef EXTERN
+#endif
+
+#ifdef _MSC_VER
+# ifdef __cplusplus
+#  define EXTERN extern "C" __declspec(dllexport)
+# else
+#  define EXTERN extern __declspec(dllexport)
+# endif
+#else
+# define EXTERN extern
+#endif
+
 #define KEY_BUFF_SIZE 256		// キーにつけられる名前の最大長
 #define SECTION_BUFF_SIZE 256	// セクションにつけられる名前の最大長
 #define INI_ALLOC_SIZE 10		// サイズ更新時の更新値
@@ -63,7 +77,7 @@ typedef struct _INI_FILE
 * 返り値                                        *
 *	初期化された構造体のアドレス                *
 ************************************************/
-extern INI_FILE_PTR CreateIniFile(
+EXTERN INI_FILE_PTR CreateIniFile(
 	void* io,
 	size_t (*read_func)(void*, size_t, size_t, void*),
 	size_t data_size,
@@ -79,7 +93,7 @@ extern INI_FILE_PTR CreateIniFile(
 * 返り値                                                *
 *	正常終了(0)、以上終了(0以外)                        *
 ********************************************************/
-extern int WriteIniFile(
+EXTERN int WriteIniFile(
 	INI_FILE_PTR ini,
 	size_t (*write_func)(void*, size_t, size_t, void*)
 );
@@ -96,7 +110,7 @@ extern int WriteIniFile(
 * 返り値                                                *
 *	発見した文字列の長さ(見つからなかったら0)           *
 ********************************************************/
-extern long IniFileGetString(
+EXTERN long IniFileGetString(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name,
@@ -114,14 +128,14 @@ extern long IniFileGetString(
 * 返り値                                                *
 *	確保したメモリのアドレス(失敗時はNULL)              *
 ********************************************************/
-extern char* IniFileStrdup(
+EXTERN char* IniFileStrdup(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name
 );
 
 /********************************************************
-* IniFileGetInt関数                                     *
+* IniFileGetInteger関数                                 *
 * iniファイルから数値を取得する                         *
 * 引数                                                  *
 * ini			: iniファイルを管理する構造体のアドレス *
@@ -130,7 +144,7 @@ extern char* IniFileStrdup(
 * 返り値                                                *
 *	キーに書かれている数値(失敗時は常に0)               *
 ********************************************************/
-extern int IniFileGetInt(
+EXTERN int IniFileGetInteger(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name
@@ -146,7 +160,7 @@ extern int IniFileGetInt(
 * 返り値                                                *
 *	キーに書かれている数値(失敗時は常に0)               *
 ********************************************************/
-extern double IniFileGetDouble(
+EXTERN double IniFileGetDouble(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name
@@ -164,7 +178,7 @@ extern double IniFileGetDouble(
 * 返り値                                                *
 *	正常終了(0)、以上終了(負の値)                       *
 ********************************************************/
-extern int IniFileGetArray(
+EXTERN int IniFileGetArray(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name,
@@ -183,7 +197,7 @@ extern int IniFileGetArray(
 * 返り値                                                *
 *	正常終了(0)、以上終了(負の値)                       *
 ********************************************************/
-extern int IniFileAddString(
+EXTERN int IniFileAddString(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name,
@@ -202,7 +216,7 @@ extern int IniFileAddString(
 * 返り値                                                 *
 *	正常終了(0)、以上終了(負の値)                        *
 *********************************************************/
-extern int IniFileAddInteger(
+EXTERN int IniFileAddInteger(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name,
@@ -221,7 +235,7 @@ extern int IniFileAddInteger(
 * 返り値                                                *
 *	正常終了(0)、以上終了(負の値)                       *
 ********************************************************/
-extern int IniFileAddDouble(
+EXTERN int IniFileAddDouble(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name,
@@ -236,7 +250,7 @@ extern int IniFileAddDouble(
 * 返り値                                                *
 *	正常終了(0)、異常終了(負の値)                       *
 ********************************************************/
-extern int Change_INI_FILE_MODE(INI_FILE_PTR ini, eINI_MODE mode);
+EXTERN int Change_INI_FILE_MODE(INI_FILE_PTR ini, eINI_MODE mode);
 
 #ifdef __cplusplus
 }

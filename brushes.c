@@ -53,7 +53,7 @@ static void DefaultReleaseCallBack(
 	{
 		AddBrushHistory(core, window->active_layer);
 
-		g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, window->active_layer);
+		window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->active_layer);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -99,7 +99,7 @@ static void PencilPressCallBack(
 	gdouble x,
 	gdouble y,
 	gdouble pressure,
-	BRUSH_CORE *core,
+	BRUSH_CORE* core,
 	void* state
 )
 {
@@ -107,7 +107,7 @@ static void PencilPressCallBack(
 	if(((GdkEventButton*)state)->button == 1)
 	{
 		// ブラシの詳細情報にキャスト
-		PENCIL* pen = (PENCIL*)core->brush_data;
+		PENCIL *pen = (PENCIL*)core->brush_data;
 		// 描画範囲のイメージ情報
 		cairo_t *update;
 		cairo_surface_t *update_surface;
@@ -129,6 +129,12 @@ static void PencilPressCallBack(
 
 		// 作業レイヤーの合成方法を設定
 		window->work_layer->layer_mode = pen->blend_mode;
+
+		// 最低筆圧のチェック
+		if(pressure < pen->minimum_pressure)
+		{
+			pressure = pen->minimum_pressure;
+		}
 
 		// 筆圧でサイズ変更するかフラグを見てからブラシの半径決定
 		if((pen->flags & BRUSH_FLAG_SIZE) == 0)
@@ -175,6 +181,7 @@ static void PencilPressCallBack(
 			max_y = window->work_layer->height;
 		}
 
+		// 再描画の範囲を指定
 		window->update.x = start_x = (int)min_x;
 		window->update.y = start_y = (int)min_y;
 		window->update.width = (int)max_x - window->update.x;
@@ -409,6 +416,12 @@ static void PencilMotionCallBack(
 		uint8 *mask;
 		uint8 *ref_pix, *mask_pix;
 		int i, j;
+
+		// 最低筆圧のチェック
+		if(pressure < pen->minimum_pressure)
+		{
+			pressure = pen->minimum_pressure;
+		}
 
 		if((pen->flags & BRUSH_FLAG_SIZE) == 0)
 		{
@@ -816,7 +829,7 @@ static void PencilReleaseCallBack(
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
 
-		g_part_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -828,7 +841,6 @@ static void PencilReleaseCallBack(
 }
 
 #define PencilEditSelectionReleaseCallBack DefaultEditSelectionReleaseCallBack
-
 
 static void PencilDrawCursor(
 	DRAW_WINDOW* window,
@@ -981,6 +993,18 @@ static void PencilSetBlendMode(GtkComboBox* combo, PENCIL* pen)
 	pen->blend_mode = (uint16)gtk_combo_box_get_active(combo);
 }
 
+static void PencilSetMinimumPressure(
+	GtkAdjustment* slider,
+	PENCIL* pen
+)
+{
+	pen->minimum_pressure = gtk_adjustment_get_value(slider) * 0.01;
+	if(pen->minimum_pressure < 0.005)
+	{
+		pen->minimum_pressure = 0.005;
+	}
+}
+
 static GtkWidget* CreatePencilDetailUI(APPLICATION* app, BRUSH_CORE* core)
 {
 #define UI_FONT_SIZE 8.0
@@ -1024,7 +1048,7 @@ static GtkWidget* CreatePencilDetailUI(APPLICATION* app, BRUSH_CORE* core)
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);
@@ -1042,19 +1066,19 @@ static GtkWidget* CreatePencilDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	brush_scale = SpinScaleNew(brush_scale_adjustment,
 		app->labels->tool_box.brush_scale, 1);
-	g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(PencilScaleChange), core->brush_data);
 	gtk_table_attach_defaults(GTK_TABLE(table), brush_scale, 0, 3, 0, 1);
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
 
 	g_object_set_data(G_OBJECT(base_scale), "scale", brush_scale);
-	g_signal_connect(G_OBJECT(base_scale), "changed", G_CALLBACK(SetBrushBaseScale), &pen->base_scale);
+	(void)g_signal_connect(G_OBJECT(base_scale), "changed", G_CALLBACK(SetBrushBaseScale), &pen->base_scale);
 
 	brush_scale_adjustment =
 		GTK_ADJUSTMENT(gtk_adjustment_new(pen->alpha, 0.0, 100.0, 1.0, 1.0, 0.0));
 	brush_scale = SpinScaleNew(brush_scale_adjustment,
 		app->labels->tool_box.flow, 1);
-	g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(PencilFlowChange), core->brush_data);
 	table = gtk_table_new(1, 3, TRUE);
 	gtk_table_attach_defaults(GTK_TABLE(table), brush_scale, 0, 3, 0, 1);
@@ -1063,7 +1087,7 @@ static GtkWidget* CreatePencilDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	table = gtk_hbox_new(FALSE, 0);
 	brush_scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(pen->outline_hardness,
 		0, 100, 1, 1, 0));
-	g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(PencilOutlineHardnessChange), core->brush_data);
 	brush_scale = SpinScaleNew(brush_scale_adjustment,
 		app->labels->tool_box.outline_hardness, 1);
@@ -1072,7 +1096,7 @@ static GtkWidget* CreatePencilDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	hbox = gtk_hbox_new(FALSE, 0);
 	label = gtk_label_new("");
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	combo = gtk_combo_box_new_text();
 #else
 	combo = gtk_combo_box_text_new();
@@ -1083,7 +1107,7 @@ static GtkWidget* CreatePencilDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
 	for(i=0; i<LAYER_BLEND_SLELECTABLE_NUM; i++)
 	{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), app->labels->layer_window.blend_modes[i]);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), app->labels->layer_window.blend_modes[i]);
@@ -1102,19 +1126,26 @@ static GtkWidget* CreatePencilDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 	gtk_box_pack_start(GTK_BOX(table), label, FALSE, TRUE, 0);
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.scale);
-	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(PencilPressureSizeChange), core->brush_data);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(PencilPressureSizeChange), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), pen->flags & BRUSH_FLAG_SIZE);
 	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.flow);
-	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(PencilPressureFlowChange), core->brush_data);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(PencilPressureFlowChange), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), pen->flags & BRUSH_FLAG_FLOW);
 	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
-	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(PencilSetAntiAlias), core->brush_data);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(PencilSetAntiAlias), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), pen->flags & BRUSH_FLAG_ANTI_ALIAS);
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
+
+	brush_scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(pen->minimum_pressure * 100,
+		0, 100, 1, 1, 0));
+	brush_scale = SpinScaleNew(brush_scale_adjustment, app->labels->tool_box.min_pressure, 0);
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+		G_CALLBACK(PencilSetMinimumPressure), pen);
+	gtk_box_pack_start(GTK_BOX(vbox), brush_scale, FALSE, TRUE, 0);
 
 	BrushCoreSetCirclePattern(core, pen->r, pen->outline_hardness * 0.01,
 		0.5, pen->alpha * 0.01, *core->color);
@@ -1171,6 +1202,12 @@ static void HardPenButtonPressCallBack(
 
 		// 作業レイヤーの合成方法を設定
 		window->work_layer->layer_mode = pen->blend_mode;
+
+		// 最低筆圧のチェック
+		if(pressure < pen->minimum_pressure)
+		{
+			pressure = pen->minimum_pressure;
+		}
 
 		// 筆圧でサイズ変更するかフラグを見てからブラシの半径決定
 		if((pen->flags & BRUSH_FLAG_SIZE) == 0)
@@ -1481,6 +1518,12 @@ static void HardPenMotionCallBack(
 		// 作業レイヤーへの描画結果転写用
 		uint8 *mask_pix, *ref;
 		int i, j;
+
+		// 最低筆圧のチェック
+		if(pressure < pen->minimum_pressure)
+		{
+			pressure = pen->minimum_pressure;
+		}
 
 		if((pen->flags & BRUSH_FLAG_SIZE) == 0)
 		{
@@ -1875,7 +1918,7 @@ static void HardPenButtonReleaseCallBack(
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
 
-		g_part_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -2018,6 +2061,18 @@ static void HardPenSetBlendMode(GtkComboBox* combo, HARD_PEN* pen)
 	pen->blend_mode = (uint16)gtk_combo_box_get_active(combo);
 }
 
+static void HardPenSetMinimumPressure(
+	GtkAdjustment* slider,
+	HARD_PEN* pen
+)
+{
+	pen->minimum_pressure = gtk_adjustment_get_value(slider) * 0.01;
+	if(pen->minimum_pressure < 0.005)
+	{
+		pen->minimum_pressure = 0.005;
+	}
+}
+
 static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 {
 #define UI_FONT_SIZE 8.0
@@ -2061,7 +2116,7 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);
@@ -2079,7 +2134,7 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	brush_scale = SpinScaleNew(brush_scale_adjustment,
 		app->labels->tool_box.brush_scale, 1);
-	g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(HardPenScaleChange), core->brush_data);
 	gtk_table_attach_defaults(GTK_TABLE(table), brush_scale, 0, 3, 0, 1);
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
@@ -2091,7 +2146,7 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 		GTK_ADJUSTMENT(gtk_adjustment_new(pen->alpha, 0.0, 100.0, 1.0, 1.0, 0.0));
 	brush_scale = SpinScaleNew(brush_scale_adjustment,
 		app->labels->tool_box.flow, 1);
-	g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(HardPenFlowChange), core->brush_data);
 	table = gtk_table_new(1, 3, TRUE);
 	gtk_table_attach_defaults(GTK_TABLE(table), brush_scale, 0, 3, 0, 1);
@@ -2099,7 +2154,7 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	hbox = gtk_hbox_new(FALSE, 0);
 	label = gtk_label_new("");
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	combo = gtk_combo_box_new_text();
 #else
 	combo = gtk_combo_box_text_new();
@@ -2110,7 +2165,7 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
 	for(i=0; i<LAYER_BLEND_SLELECTABLE_NUM; i++)
 	{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), app->labels->layer_window.blend_modes[i]);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), app->labels->layer_window.blend_modes[i]);
@@ -2129,19 +2184,26 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 	gtk_box_pack_start(GTK_BOX(table), label, FALSE, TRUE, 0);
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.scale);
-	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(HardPenPressureSizeChange), core->brush_data);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(HardPenPressureSizeChange), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), pen->flags & BRUSH_FLAG_SIZE);
 	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.flow);
-	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(HardPenPressureFlowChange), core->brush_data);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(HardPenPressureFlowChange), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), pen->flags & BRUSH_FLAG_FLOW);
 	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
-	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(HardPenSetAntiAlias), core->brush_data);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(HardPenSetAntiAlias), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), pen->flags & BRUSH_FLAG_ANTI_ALIAS);
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
+
+	brush_scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(pen->minimum_pressure * 100,
+		0, 100, 1, 1, 0));
+	brush_scale = SpinScaleNew(brush_scale_adjustment, app->labels->tool_box.min_pressure, 0);
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+		G_CALLBACK(PencilSetMinimumPressure), pen);
+	gtk_box_pack_start(GTK_BOX(vbox), brush_scale, FALSE, TRUE, 0);
 
 	return vbox;
 }
@@ -2213,9 +2275,17 @@ static void AirBrushPressCallBack(
 		{
 			min_x = 0.0;
 		}
+		else if(min_x > window->width)
+		{
+			return;
+		}
 		if(min_y < 0.0)
 		{
 			min_y = 0.0;
+		}
+		else if(min_y > window->height)
+		{
+			return;
 		}
 		if(max_x > window->work_layer->width)
 		{
@@ -3435,7 +3505,7 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		g_part_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
 		cairo_surface_destroy(window->update.surface_p);
 		cairo_destroy(window->update.cairo_p);
 
@@ -3948,7 +4018,7 @@ static GtkWidget* CreateAirBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		combo = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), mag_str[1]);
@@ -4024,7 +4094,7 @@ static GtkWidget* CreateAirBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	hbox = gtk_hbox_new(FALSE, 0);
 	label = gtk_label_new("");
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	combo = gtk_combo_box_new_text();
 #else
 	combo = gtk_combo_box_text_new();
@@ -4035,7 +4105,7 @@ static GtkWidget* CreateAirBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
 	for(i=0; i<LAYER_BLEND_SLELECTABLE_NUM; i++)
 	{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), app->labels->layer_window.blend_modes[i]);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), app->labels->layer_window.blend_modes[i]);
@@ -5393,7 +5463,7 @@ static void BlendBrushButtonReleaseCallBack(
 		// ブラシの傾き用
 		gdouble diff_x, diff_y;
 		// ブラシの移動量
-		gdouble d, step;
+		gdouble d = MIN_BRUSH_STEP, step;
 		// 描画を行う座標
 		gdouble draw_x, draw_y;
 		// 入り、抜き時の色補正
@@ -5880,7 +5950,7 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		g_part_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
 		cairo_surface_destroy(window->update.surface_p);
 		cairo_destroy(window->update.cairo_p);
 
@@ -6403,7 +6473,7 @@ static GtkWidget* CreateBlendBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		combo = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), mag_str[1]);
@@ -6479,7 +6549,7 @@ static GtkWidget* CreateBlendBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	hbox = gtk_hbox_new(FALSE, 0);
 	label = gtk_label_new("");
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	combo = gtk_combo_box_new_text();
 #else
 	combo = gtk_combo_box_text_new();
@@ -6490,7 +6560,7 @@ static GtkWidget* CreateBlendBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
 	for(i=0; i<LAYER_BLEND_SLELECTABLE_NUM; i++)
 	{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), app->labels->layer_window.blend_modes[i]);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), app->labels->layer_window.blend_modes[i]);
@@ -8618,7 +8688,7 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		g_part_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
 		cairo_surface_destroy(window->update.surface_p);
 		cairo_destroy(window->update.cairo_p);
 
@@ -9125,7 +9195,7 @@ static GtkWidget* CreateWaterColorBrushDetailUI(APPLICATION* app, BRUSH_CORE* co
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);
@@ -9434,13 +9504,13 @@ static void LoadStampCoreData(
 	APPLICATION* app
 )
 {
-	core->inv_scale = IniFileGetInt(file, section_name, "SIZE") * 0.01;
+	core->inv_scale = IniFileGetInteger(file, section_name, "SIZE") * 0.01;
 	core->scale = 1 / core->inv_scale;
-	core->flow = IniFileGetInt(file, section_name, "FLOW") * 0.01;
+	core->flow = IniFileGetInteger(file, section_name, "FLOW") * 0.01;
 	core->stamp_distance = IniFileGetDouble(file, section_name, "DISTANCE");
-	core->rotate_start = IniFileGetInt(file, section_name, "ROTATE_START") * G_PI / 180;
-	core->rotate_speed = IniFileGetInt(file, section_name, "ROTATE_SPEED") * G_PI / 180;
-	core->rotate_direction = IniFileGetInt(file, section_name, "ROTATE_DIRECTION");
+	core->rotate_start = IniFileGetInteger(file, section_name, "ROTATE_START") * G_PI / 180;
+	core->rotate_speed = IniFileGetInteger(file, section_name, "ROTATE_SPEED") * G_PI / 180;
+	core->rotate_direction = IniFileGetInteger(file, section_name, "ROTATE_DIRECTION");
 	if(core->rotate_direction < 0)
 	{
 		core->rotate_direction = -1;
@@ -9449,24 +9519,24 @@ static void LoadStampCoreData(
 	{
 		core->rotate_direction = 1;
 	}
-	core->stamp_id = IniFileGetInt(file, section_name, "STAMP_ID");
+	core->stamp_id = IniFileGetInteger(file, section_name, "STAMP_ID");
 	if(mode != NULL)
 	{
-		*mode = (uint8)IniFileGetInt(file, section_name, "MODE");
+		*mode = (uint8)IniFileGetInteger(file, section_name, "MODE");
 	}
-	if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+	if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 	{
 		core->flags |= STAMP_PRESSURE_SIZE;
 	}
-	if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+	if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 	{
 		core->flags |= STAMP_PRESSURE_FLOW;
 	}
-	if(IniFileGetInt(file, section_name, "RANDOM_ROTATE") != 0)
+	if(IniFileGetInteger(file, section_name, "RANDOM_ROTATE") != 0)
 	{
 		core->flags |= STAMP_RANDOM_ROTATE;
 	}
-	if(IniFileGetInt(file, section_name, "RANDOM_SIZE") != 0)
+	if(IniFileGetInteger(file, section_name, "RANDOM_SIZE") != 0)
 	{
 		core->flags |= STAMP_RANDOM_SIZE;
 	}
@@ -9509,23 +9579,23 @@ static void LoadStampCoreDefaultData(
 	/*
 	if(mode != NULL)
 	{
-		*mode = (uint8)IniFileGetInt(file, section_name, "MODE");
+		*mode = (uint8)IniFileGetInteger(file, section_name, "MODE");
 	}
 	*/
 	/*
-	if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+	if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 	{
 		core->flags |= STAMP_PRESSURE_SIZE;
 	}
-	if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+	if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 	{
 		core->flags |= STAMP_PRESSURE_FLOW;
 	}
-	if(IniFileGetInt(file, section_name, "RANDOM_ROTATE") != 0)
+	if(IniFileGetInteger(file, section_name, "RANDOM_ROTATE") != 0)
 	{
 		core->flags |= STAMP_RANDOM_ROTATE;
 	}
-	if(IniFileGetInt(file, section_name, "RANDOM_SIZE") != 0)
+	if(IniFileGetInteger(file, section_name, "RANDOM_SIZE") != 0)
 	{
 		core->flags |= STAMP_RANDOM_SIZE;
 	}
@@ -10592,7 +10662,7 @@ static void StampToolReleaseCallBack(
 
 		AddBrushHistory(core, window->active_layer);
 
-		g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, window->active_layer);
+		window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->active_layer);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -11681,7 +11751,7 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		g_part_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
 		cairo_destroy(window->update.cairo_p);
 		cairo_surface_destroy(window->update.surface_p);
 
@@ -12412,7 +12482,7 @@ static GtkWidget* CreateImageBrushDetailUI(APPLICATION* app, BRUSH_CORE* brush_c
 
 	table = gtk_hbox_new(FALSE, 0);
 	label = gtk_label_new("");
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	combo = gtk_combo_box_new_text();
 #else
 	combo = gtk_combo_box_text_new();
@@ -12423,7 +12493,7 @@ static GtkWidget* CreateImageBrushDetailUI(APPLICATION* app, BRUSH_CORE* brush_c
 	gtk_box_pack_start(GTK_BOX(table), label, FALSE, FALSE, 0);
 	for(i=0; i<LAYER_BLEND_SLELECTABLE_NUM; i++)
 	{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), app->labels->layer_window.blend_modes[i]);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), app->labels->layer_window.blend_modes[i]);
@@ -12793,7 +12863,7 @@ static void PickerBrushButtonPressCallBack(
 			(void)memcpy(window->mask_temp->pixels, window->active_layer->pixels,
 				window->pixel_buf_size);
 			target = window->mask_temp;
-			g_layer_blend_funcs[brush->blend_mode](window->work_layer, target);
+			window->layer_blend_functions[brush->blend_mode](window->work_layer, target);
 		}
 		else
 		{
@@ -13255,7 +13325,7 @@ static void PickerBrushMotionCallBack(
 				(void)memcpy(window->mask_temp->pixels, window->active_layer->pixels,
 					window->pixel_buf_size);
 				target = window->mask_temp;
-				g_layer_blend_funcs[brush->blend_mode](window->work_layer, target);
+				window->layer_blend_functions[brush->blend_mode](window->work_layer, target);
 			}
 			else
 			{
@@ -13646,7 +13716,7 @@ static GtkWidget* CreatePickerBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		combo = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), mag_str[1]);
@@ -13708,7 +13778,7 @@ static GtkWidget* CreatePickerBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	hbox = gtk_hbox_new(FALSE, 0);
 	label = gtk_label_new("");
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	combo = gtk_combo_box_new_text();
 #else
 	combo = gtk_combo_box_text_new();
@@ -13719,7 +13789,7 @@ static GtkWidget* CreatePickerBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
 	for(i=0; i<LAYER_BLEND_SLELECTABLE_NUM; i++)
 	{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), app->labels->layer_window.blend_modes[i]);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), app->labels->layer_window.blend_modes[i]);
@@ -14309,7 +14379,7 @@ static void PickerImageBrushMotionCallBack(
 								(void)memcpy(window->mask->pixels, window->active_layer->pixels,
 									window->pixel_buf_size);
 								target = window->mask;
-								g_layer_blend_funcs[brush->blend_mode](window->work_layer, target);
+								window->layer_blend_functions[brush->blend_mode](window->work_layer, target);
 							}
 							else
 							{
@@ -14916,7 +14986,7 @@ static void PickerImageBrushReleaseCallBack(
 						(void)memcpy(window->mask_temp->pixels, window->active_layer->pixels,
 							window->pixel_buf_size);
 						target = window->mask_temp;
-						g_layer_blend_funcs[brush->blend_mode](window->work_layer, target);
+						window->layer_blend_functions[brush->blend_mode](window->work_layer, target);
 					}
 					else
 					{
@@ -15115,7 +15185,7 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		g_part_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
 		cairo_destroy(window->update.cairo_p);
 		cairo_surface_destroy(window->update.surface_p);
 
@@ -15475,7 +15545,7 @@ static GtkWidget* CreatePickerImageBrushDetailUI(APPLICATION* app, BRUSH_CORE* b
 
 	table = gtk_hbox_new(FALSE, 0);
 	label = gtk_label_new("");
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	combo = gtk_combo_box_new_text();
 #else
 	combo = gtk_combo_box_text_new();
@@ -15486,7 +15556,7 @@ static GtkWidget* CreatePickerImageBrushDetailUI(APPLICATION* app, BRUSH_CORE* b
 	gtk_box_pack_start(GTK_BOX(table), label, FALSE, FALSE, 0);
 	for(i=0; i<LAYER_BLEND_SLELECTABLE_NUM; i++)
 	{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), app->labels->layer_window.blend_modes[i]);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), app->labels->layer_window.blend_modes[i]);
@@ -16355,7 +16425,7 @@ static GtkWidget* CreateEraserDetailUI(APPLICATION* app, BRUSH_CORE* core)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);
@@ -16648,7 +16718,7 @@ static void BucketPressCallBack(
 
 		AddBrushHistory(core, window->active_layer);
 
-		g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, window->active_layer);
+		window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->active_layer);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -17150,7 +17220,7 @@ static void PatternFillPressCallBack(
 
 		AddBrushHistory(core, window->active_layer);
 
-		g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, window->active_layer);
+		window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->active_layer);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -18184,7 +18254,7 @@ static void GradationReleaseCallBack(
 
 		AddBrushHistory(core, window->active_layer);
 
-		g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, window->active_layer);
+		window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->active_layer);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -20443,7 +20513,7 @@ static GtkWidget* CreateBlurToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);
@@ -21376,7 +21446,7 @@ static void SmudgeReleaseCallBack(
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		g_part_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
 		cairo_destroy(window->update.cairo_p);
 		cairo_surface_destroy(window->update.surface_p);
 
@@ -21584,7 +21654,7 @@ static GtkWidget* CreateSmudgeDetailUI(APPLICATION* app, BRUSH_CORE* core)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);
@@ -22877,7 +22947,7 @@ static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 #define UI_FONT_SIZE 8.0
 	TEXT_TOOL* text = (TEXT_TOOL*)core->brush_data;
 	GtkWidget* vbox = gtk_vbox_new(FALSE, 0), *hbox = gtk_hbox_new(FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	GtkWidget* font_selection = gtk_combo_box_new_text();
 #else
 	GtkWidget* font_selection = gtk_combo_box_text_new();
@@ -22897,7 +22967,7 @@ static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 		font_name = pango_font_family_get_name(app->font_list[i]);
 		(void)sprintf(item_str, "<span font_family=\"%s\">%s</span>",
 			font_name, font_name);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(font_selection), item_str);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX(font_selection), item_str);
@@ -22907,7 +22977,7 @@ static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(font_selection), list->data, "markup", 0, NULL);
 	gtk_widget_set_size_request(font_selection, 128, 32);
 	gtk_combo_box_set_active(GTK_COMBO_BOX(font_selection), text->font_id);
-	g_signal_connect(G_OBJECT(font_selection), "changed", G_CALLBACK(ChangeTextToolFontFamily), core->brush_data);
+	(void)g_signal_connect(G_OBJECT(font_selection), "changed", G_CALLBACK(ChangeTextToolFontFamily), core->brush_data);
 	gtk_box_pack_start(GTK_BOX(vbox), font_selection, FALSE, TRUE, 0);
 
 	switch(text->base_size)
@@ -22924,7 +22994,7 @@ static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	font_scale = SpinScaleNew(adjust,
 		app->labels->tool_box.scale, 1);
-	g_signal_connect(G_OBJECT(adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeTextToolFontSize), core->brush_data);
 
 	{
@@ -22934,7 +23004,7 @@ static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 			UI_FONT_SIZE, app->labels->tool_box.base_scale);
 		gtk_label_set_markup(GTK_LABEL(label), item_str);
 		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		base_scale = gtk_combo_box_new_text();
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[0]);
 		gtk_combo_box_append_text(GTK_COMBO_BOX(base_scale), mag_str[1]);
@@ -22955,7 +23025,7 @@ static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 0);
 
 	g_object_set_data(G_OBJECT(base_scale), "scale", font_scale);
-	g_signal_connect(G_OBJECT(base_scale), "changed", G_CALLBACK(SetBrushBaseScale), &text->base_size);
+	(void)g_signal_connect(G_OBJECT(base_scale), "changed", G_CALLBACK(SetBrushBaseScale), &text->base_size);
 
 	hbox = gtk_hbox_new(TRUE, 0);
 	radio_buttons[0] = gtk_radio_button_new_with_label(
@@ -23150,7 +23220,7 @@ static void ScriptBrushButtonReleaseCallBack(
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
 
-		g_part_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -23277,6 +23347,80 @@ static GtkWidget* CreateScriptBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	return ui;
 }
 
+static GtkWidget* CreatePlugInBrushDetailUI(APPLICATION* app, BRUSH_CORE* core);
+
+gboolean LoadPlugInBrushCallbacks(GModule* module, BRUSH_CORE* core, PLUG_IN_BRUSH* brush)
+{
+	gpointer function;
+
+	if(g_module_symbol(module, "ButtonPress", (gpointer*)&core->press_func) == FALSE)
+	{
+		return FALSE;
+	}
+
+	if(g_module_symbol(module, "Motion", (gpointer*)&core->motion_func) == FALSE)
+	{
+		return FALSE;
+	}
+
+	if(g_module_symbol(module, "ButtonRelease", (gpointer*)&core->release_func) == FALSE)
+	{
+		return FALSE;
+	}
+
+	if(g_module_symbol(module, "DrawCursor", (gpointer*)&core->draw_cursor) == FALSE)
+	{
+		return FALSE;
+	}
+
+	if(g_module_symbol(module, "ButtonUpdate", (gpointer*)&core->button_update) == FALSE)
+	{
+		core->button_update = DefaultToolUpdate;
+	}
+
+	if(g_module_symbol(module, "MotionUpdate", (gpointer*)&core->motion_update) == FALSE)
+	{
+		core->motion_update = DefaultToolUpdate;
+	}
+
+	(void)g_module_symbol(module, "ColorChange", (gpointer*)&core->color_change);
+
+	if(g_module_symbol(module, "SettingWidgetNew", (gpointer*)&function) == FALSE)
+	{
+		return FALSE;
+	}
+	else
+	{
+		if(brush != NULL)
+		{
+			brush->setting_widget_new = (GtkWidget* (*)(APPLICATION*, BRUSH_CORE*))function;
+			core->create_detail_ui = CreatePlugInBrushDetailUI;
+		}
+	}
+
+	return TRUE;
+}
+
+static GtkWidget* CreatePlugInBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
+{
+	PLUG_IN_BRUSH *brush = (PLUG_IN_BRUSH*)core->brush_data;
+	gchar *file_path;
+
+	if(app->tool_window.plug_in_brush != NULL)
+	{
+		(void)g_module_close(app->tool_window.plug_in_brush);
+	}
+
+	file_path = g_build_filename(app->current_path, PLUG_IN_DIRECTORY, brush->plug_in_name, NULL);
+
+	app->tool_window.plug_in_brush = g_module_open(file_path, G_MODULE_BIND_LOCAL);
+	g_free(file_path);
+
+	LoadPlugInBrushCallbacks(app->tool_window.plug_in_brush, core, brush);
+
+	return brush->setting_widget_new(app, core);
+}
+
 void LoadBrushDetailData(
 	BRUSH_CORE* core,
 	INI_FILE_PTR file,
@@ -23294,10 +23438,15 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*pen);
 		pen = (PENCIL*)core->brush_data;
 
-		pen->base_scale = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		pen->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		pen->alpha = IniFileGetInt(file, section_name, "FLOW");
-		pen->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
+		pen->base_scale = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		pen->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		pen->alpha = IniFileGetInteger(file, section_name, "FLOW");
+		pen->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		pen->minimum_pressure = IniFileGetInteger(file, section_name, "MINIMUM_PRESSURE") * 0.01;
+		if(pen->minimum_pressure < 0.005)
+		{
+			pen->minimum_pressure = 0.005;
+		}
 		core->press_func = PencilPressCallBack;
 		core->motion_func = PencilMotionCallBack;
 		core->release_func = PencilReleaseCallBack;
@@ -23306,15 +23455,15 @@ void LoadBrushDetailData(
 		core->motion_update = (brush_update_func)PencilMotionUpdate;
 		core->color_change = PencilColorChange;
 		core->create_detail_ui = CreatePencilDetailUI;
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			pen->flags |= BRUSH_FLAG_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 		{
 			pen->flags |= BRUSH_FLAG_FLOW;
 		}
-		if(IniFileGetInt(file, section_name, "ANTI_ALIAS") != 0)
+		if(IniFileGetInteger(file, section_name, "ANTI_ALIAS") != 0)
 		{
 			pen->flags |= BRUSH_FLAG_ANTI_ALIAS;
 		}
@@ -23328,9 +23477,14 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*pen);
 		pen = (HARD_PEN*)core->brush_data;
 
-		pen->base_scale = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		pen->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		pen->alpha = IniFileGetInt(file, section_name, "FLOW");
+		pen->base_scale = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		pen->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		pen->alpha = IniFileGetInteger(file, section_name, "FLOW");
+		pen->minimum_pressure = IniFileGetInteger(file, section_name, "MINIMUM_PRESSURE") * 0.01;
+		if(pen->minimum_pressure < 0.005)
+		{
+			pen->minimum_pressure = 0.005;
+		}
 		core->press_func = HardPenButtonPressCallBack;
 		core->motion_func = HardPenMotionCallBack;
 		core->release_func = HardPenButtonReleaseCallBack;
@@ -23338,15 +23492,15 @@ void LoadBrushDetailData(
 		core->button_update = (brush_update_func)HardPenButtonUpdate;
 		core->motion_update = (brush_update_func)HardPenMotionUpdate;
 		core->create_detail_ui = CreateHardPenDetailUI;
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			pen->flags |= BRUSH_FLAG_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 		{
 			pen->flags |= BRUSH_FLAG_FLOW;
 		}
-		if(IniFileGetInt(file, section_name, "ANTI_ALIAS") != 0)
+		if(IniFileGetInteger(file, section_name, "ANTI_ALIAS") != 0)
 		{
 			pen->flags |= BRUSH_FLAG_ANTI_ALIAS;
 		}
@@ -23360,14 +23514,14 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*brush);
 		brush = (AIR_BRUSH*)core->brush_data;
 
-		brush->base_scale = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		brush->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		brush->opacity = IniFileGetInt(file, section_name, "FLOW");
-		brush->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		brush->blur = IniFileGetInt(file, section_name, "BLUR");
-		brush->enter = IniFileGetInt(file, section_name, "ENTER_SIZE");
-		brush->out = IniFileGetInt(file, section_name, "OUT_SIZE");
-		brush->blend_mode = IniFileGetInt(file, section_name, "BLEND_MODE");
+		brush->base_scale = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		brush->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		brush->opacity = IniFileGetInteger(file, section_name, "FLOW");
+		brush->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		brush->blur = IniFileGetInteger(file, section_name, "BLUR");
+		brush->enter = IniFileGetInteger(file, section_name, "ENTER_SIZE");
+		brush->out = IniFileGetInteger(file, section_name, "OUT_SIZE");
+		brush->blend_mode = IniFileGetInteger(file, section_name, "BLEND_MODE");
 		brush->core = core;
 
 		core->press_func = AirBrushPressCallBack;
@@ -23379,15 +23533,15 @@ void LoadBrushDetailData(
 		core->create_detail_ui = CreateAirBrushDetailUI;
 		core->color_change = AirBrushColorChange;
 
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			brush->flags |= BRUSH_FLAG_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 		{
 			brush->flags |= BRUSH_FLAG_FLOW;
 		}
-		if(IniFileGetInt(file, section_name, "ANTI_ALIAS") != 0)
+		if(IniFileGetInteger(file, section_name, "ANTI_ALIAS") != 0)
 		{
 			brush->flags |= BRUSH_FLAG_ANTI_ALIAS;
 		}
@@ -23401,21 +23555,21 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*brush);
 		brush = (OLD_AIR_BRUSH*)core->brush_data;
 
-		brush->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		brush->opacity = IniFileGetInt(file, section_name, "FLOW");
-		brush->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		brush->blur = IniFileGetInt(file, section_name, "BLUR");
+		brush->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		brush->opacity = IniFileGetInteger(file, section_name, "FLOW");
+		brush->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		brush->blur = IniFileGetInteger(file, section_name, "BLUR");
 
 		core->press_func = OldAirBrushPressCallBack;
 		core->motion_func = OldAirBrushMotionCallBack;
 		core->release_func = OldAirBrushReleaseCallBack;
 		core->draw_cursor = OldAirBrushDrawCursor;
 		core->create_detail_ui = CreateOldAirBrushDetailUI;
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			brush->flags |= BRUSH_FLAG_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 		{
 			brush->flags |= BRUSH_FLAG_FLOW;
 		}
@@ -23429,15 +23583,15 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*brush);
 		brush = (BLEND_BRUSH*)core->brush_data;
 
-		brush->base_scale = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		brush->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		brush->opacity = IniFileGetInt(file, section_name, "FLOW");
-		brush->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		brush->blur = IniFileGetInt(file, section_name, "BLUR");
-		brush->enter = IniFileGetInt(file, section_name, "ENTER_SIZE");
-		brush->out = IniFileGetInt(file, section_name, "OUT_SIZE");
-		brush->target = IniFileGetInt(file, section_name, "TARGET");
-		brush->blend_mode = IniFileGetInt(file, section_name, "BLEND_MODE");
+		brush->base_scale = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		brush->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		brush->opacity = IniFileGetInteger(file, section_name, "FLOW");
+		brush->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		brush->blur = IniFileGetInteger(file, section_name, "BLUR");
+		brush->enter = IniFileGetInteger(file, section_name, "ENTER_SIZE");
+		brush->out = IniFileGetInteger(file, section_name, "OUT_SIZE");
+		brush->target = IniFileGetInteger(file, section_name, "TARGET");
+		brush->blend_mode = IniFileGetInteger(file, section_name, "BLEND_MODE");
 		brush->core = core;
 
 		core->press_func = BlendBrushButtonPressCallBack;
@@ -23449,15 +23603,15 @@ void LoadBrushDetailData(
 		core->create_detail_ui = CreateBlendBrushDetailUI;
 		core->color_change = BlendBrushColorChange;
 
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			brush->flags |= BRUSH_FLAG_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 		{
 			brush->flags |= BRUSH_FLAG_FLOW;
 		}
-		if(IniFileGetInt(file, section_name, "ANTI_ALIAS") != 0)
+		if(IniFileGetInteger(file, section_name, "ANTI_ALIAS") != 0)
 		{
 			brush->flags |= BRUSH_FLAG_ANTI_ALIAS;
 		}
@@ -23471,21 +23625,21 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*brush);
 		brush = (WATER_COLOR_BRUSH*)core->brush_data;
 
-		brush->base_scale = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		brush->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		brush->alpha = IniFileGetInt(file, section_name, "FLOW");
-		brush->outline_hardness = IniFileGetInt(file, section_name,
+		brush->base_scale = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		brush->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		brush->alpha = IniFileGetInteger(file, section_name, "FLOW");
+		brush->outline_hardness = IniFileGetInteger(file, section_name,
 			"OUTLINE_HARDNESS");
-		brush->blur = IniFileGetInt(file, section_name, "BLUR");
-		brush->mix = IniFileGetInt(file, section_name, "COLOR_MIX");
-		brush->extend = IniFileGetInt(file, section_name, "COLOR_EXTEND");
-		brush->enter = IniFileGetInt(file, section_name, "ENTER_SIZE");
-		brush->out = IniFileGetInt(file, section_name, "OUT_SIZE");
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		brush->blur = IniFileGetInteger(file, section_name, "BLUR");
+		brush->mix = IniFileGetInteger(file, section_name, "COLOR_MIX");
+		brush->extend = IniFileGetInteger(file, section_name, "COLOR_EXTEND");
+		brush->enter = IniFileGetInteger(file, section_name, "ENTER_SIZE");
+		brush->out = IniFileGetInteger(file, section_name, "OUT_SIZE");
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			brush->flags |= BRUSH_FLAG_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 		{
 			brush->flags |= BRUSH_FLAG_FLOW;
 		}
@@ -23529,10 +23683,10 @@ void LoadBrushDetailData(
 
 		brush->core.brush_core = core;
 		LoadStampCoreData(file, section_name, &brush->core, &brush->mode, app);
-		brush->size_range = IniFileGetInt(file, section_name, "SIZE_RANGE") * 0.01;
-		brush->random_rotate_range = IniFileGetInt(file, section_name, "ROTATE_RANGE");
+		brush->size_range = IniFileGetInteger(file, section_name, "SIZE_RANGE") * 0.01;
+		brush->random_rotate_range = IniFileGetInteger(file, section_name, "ROTATE_RANGE");
 
-		if(IniFileGetInt(file, section_name, "ROTATE_TO_BRUSH_DIRECTION") != 0)
+		if(IniFileGetInteger(file, section_name, "ROTATE_TO_BRUSH_DIRECTION") != 0)
 		{
 			brush->core.flags |= BRUSH_FLAG_ROTATE;
 		}
@@ -23556,26 +23710,26 @@ void LoadBrushDetailData(
 		brush = (PICKER_BRUSH*)core->brush_data;
 
 		brush->core = core;
-		brush->base_scale = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		brush->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		brush->alpha = IniFileGetInt(file, section_name, "FLOW");
-		brush->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		brush->blur = IniFileGetInt(file, section_name, "BLUR");
-		brush->picker_mode = IniFileGetInt(file, section_name, "PICK_MODE");
-		brush->picker_source = IniFileGetInt(file, section_name, "PICK_TARGET");
-		brush->blend_mode = IniFileGetInt(file, section_name, "BLEND_MODE");
-		brush->add_h = IniFileGetInt(file, section_name, "HUE");
-		brush->add_s = IniFileGetInt(file, section_name, "SATURATION");
-		brush->add_v = IniFileGetInt(file, section_name, "BRIGHTNESS");
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		brush->base_scale = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		brush->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		brush->alpha = IniFileGetInteger(file, section_name, "FLOW");
+		brush->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		brush->blur = IniFileGetInteger(file, section_name, "BLUR");
+		brush->picker_mode = IniFileGetInteger(file, section_name, "PICK_MODE");
+		brush->picker_source = IniFileGetInteger(file, section_name, "PICK_TARGET");
+		brush->blend_mode = IniFileGetInteger(file, section_name, "BLEND_MODE");
+		brush->add_h = IniFileGetInteger(file, section_name, "HUE");
+		brush->add_s = IniFileGetInteger(file, section_name, "SATURATION");
+		brush->add_v = IniFileGetInteger(file, section_name, "BRIGHTNESS");
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			brush->flags |= PICKER_FLAG_PRESSURE_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 		{
 			brush->flags |= PICKER_FLAG_PRESSURE_FLOW;
 		}
-		if(IniFileGetInt(file, section_name, "ANTI_ALIAS") != 0)
+		if(IniFileGetInteger(file, section_name, "ANTI_ALIAS") != 0)
 		{
 			brush->flags |= PICKER_FLAG_ANTI_ALIAS;
 		}
@@ -23599,15 +23753,15 @@ void LoadBrushDetailData(
 
 		brush->core.brush_core = core;
 		LoadStampCoreData(file, section_name, &brush->core, NULL, app);
-		brush->picker_mode = IniFileGetInt(file, section_name, "PICK_MODE");
-		brush->picker_source = IniFileGetInt(file, section_name, "PICK_TARGET");
-		brush->add_h = IniFileGetInt(file, section_name, "HUE");
-		brush->add_s = IniFileGetInt(file, section_name, "SATURATION");
-		brush->add_v = IniFileGetInt(file, section_name, "BRIGHTNESS");
-		brush->size_range = IniFileGetInt(file, section_name, "SIZE_RANGE") * 0.01;
-		brush->random_rotate_range = IniFileGetInt(file, section_name, "ROTATE_RANGE");
+		brush->picker_mode = IniFileGetInteger(file, section_name, "PICK_MODE");
+		brush->picker_source = IniFileGetInteger(file, section_name, "PICK_TARGET");
+		brush->add_h = IniFileGetInteger(file, section_name, "HUE");
+		brush->add_s = IniFileGetInteger(file, section_name, "SATURATION");
+		brush->add_v = IniFileGetInteger(file, section_name, "BRIGHTNESS");
+		brush->size_range = IniFileGetInteger(file, section_name, "SIZE_RANGE") * 0.01;
+		brush->random_rotate_range = IniFileGetInteger(file, section_name, "ROTATE_RANGE");
 
-		if(IniFileGetInt(file, section_name, "ROTATE_TO_BRUSH_DIRECTION") != 0)
+		if(IniFileGetInteger(file, section_name, "ROTATE_TO_BRUSH_DIRECTION") != 0)
 		{
 			brush->core.flags |= BRUSH_FLAG_ROTATE;
 		}
@@ -23629,11 +23783,11 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*eraser);
 		eraser = (ERASER*)core->brush_data;
 
-		eraser->base_scale = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		eraser->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		eraser->alpha = IniFileGetInt(file, section_name, "FLOW");
-		eraser->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		eraser->blur = IniFileGetInt(file, section_name, "BLUR");
+		eraser->base_scale = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		eraser->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		eraser->alpha = IniFileGetInteger(file, section_name, "FLOW");
+		eraser->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		eraser->blur = IniFileGetInteger(file, section_name, "BLUR");
 		core->press_func = EraserButtonPressCallBack;
 		core->motion_func = EraserMotionCallBack;
 		core->release_func = EraserReleaseCallBack;
@@ -23641,11 +23795,11 @@ void LoadBrushDetailData(
 		core->button_update = EraserButtonUpdate;
 		core->motion_update = EraserMotionUpdate;
 		core->create_detail_ui = CreateEraserDetailUI;
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			eraser->flags |= BRUSH_FLAG_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 		{
 			eraser->flags |= BRUSH_FLAG_FLOW;
 		}
@@ -23659,10 +23813,10 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*bucket);
 		bucket = (BUCKET*)core->brush_data;
 
-		bucket->threshold = (uint16)IniFileGetInt(file, section_name, "THRESHOLD");
-		bucket->mode = (uint8)IniFileGetInt(file, section_name, "MODE");
-		bucket->target = (uint8)IniFileGetInt(file, section_name, "TARGET");
-		bucket->extend = (int16)IniFileGetInt(file, section_name, "EXTEND");
+		bucket->threshold = (uint16)IniFileGetInteger(file, section_name, "THRESHOLD");
+		bucket->mode = (uint8)IniFileGetInteger(file, section_name, "MODE");
+		bucket->target = (uint8)IniFileGetInteger(file, section_name, "TARGET");
+		bucket->extend = (int16)IniFileGetInteger(file, section_name, "EXTEND");
 
 		core->press_func = BucketPressCallBack;
 		core->motion_func = BucketMotionCallBack;
@@ -23679,13 +23833,13 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*fill);
 		fill = (PATTERN_FILL*)core->brush_data;
 
-		fill->threshold = (uint16)IniFileGetInt(file, section_name, "THRESHOLD");
-		fill->mode = (uint8)IniFileGetInt(file, section_name, "MODE");
-		fill->target = (uint8)IniFileGetInt(file, section_name, "TARGET");
-		fill->pattern_id = IniFileGetInt(file, section_name, "PATTERN_ID");
-		fill->scale = IniFileGetInt(file, section_name, "SIZE");
-		fill->flow = IniFileGetInt(file, section_name, "FLOW") * 0.01;
-		fill->extend = (int16)IniFileGetInt(file, section_name, "EXTEND");
+		fill->threshold = (uint16)IniFileGetInteger(file, section_name, "THRESHOLD");
+		fill->mode = (uint8)IniFileGetInteger(file, section_name, "MODE");
+		fill->target = (uint8)IniFileGetInteger(file, section_name, "TARGET");
+		fill->pattern_id = IniFileGetInteger(file, section_name, "PATTERN_ID");
+		fill->scale = IniFileGetInteger(file, section_name, "SIZE");
+		fill->flow = IniFileGetInteger(file, section_name, "FLOW") * 0.01;
+		fill->extend = (int16)IniFileGetInteger(file, section_name, "EXTEND");
 
 		core->press_func = PatternFillPressCallBack;
 		core->motion_func = PatternFillMotionCallBack;
@@ -23703,7 +23857,7 @@ void LoadBrushDetailData(
 		core->brush_type = BRUSH_TYPE_GRADATION;
 		gradation = (GRADATION*)core->brush_data;
 
-		if(IniFileGetInt(file, section_name, "COLOR_REVERSE") != 0)
+		if(IniFileGetInteger(file, section_name, "COLOR_REVERSE") != 0)
 		{
 			gradation->flags |= GRADATION_COLOR_REVERSE;
 		}
@@ -23725,12 +23879,12 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*blur);
 		blur = (BLUR_TOOL*)core->brush_data;
 
-		blur->base_scale = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		blur->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		blur->alpha = IniFileGetInt(file, section_name, "FLOW");
-		blur->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		blur->blur = IniFileGetInt(file, section_name, "BLUR");
-		blur->color_extend = IniFileGetInt(file, section_name, "COLOR_EXTEND");
+		blur->base_scale = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		blur->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		blur->alpha = IniFileGetInteger(file, section_name, "FLOW");
+		blur->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		blur->blur = IniFileGetInteger(file, section_name, "BLUR");
+		blur->color_extend = IniFileGetInteger(file, section_name, "COLOR_EXTEND");
 		core->press_func = BlurToolPressCallBack;
 		core->motion_func = BlurToolMotionCallBack;
 		core->release_func = BlurToolReleaseCallBack;
@@ -23738,11 +23892,11 @@ void LoadBrushDetailData(
 		core->button_update = BlurToolButtonUpdate;
 		core->motion_update = BlurToolMotionUpdate;
 		core->create_detail_ui = CreateBlurToolDetailUI;
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			blur->flags |= BRUSH_FLAG_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 		{
 			blur->flags |= BRUSH_FLAG_FLOW;
 		}
@@ -23756,12 +23910,12 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*smudge);
 		smudge = (SMUDGE*)core->brush_data;
 
-		smudge->base_scale = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		smudge->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		smudge->opacity = IniFileGetInt(file, section_name, "OPACITY");
-		smudge->blur = IniFileGetInt(file, section_name, "BLUR");
-		smudge->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		smudge->extention = IniFileGetInt(file, section_name, "COLOR_EXTEND");
+		smudge->base_scale = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		smudge->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		smudge->opacity = IniFileGetInteger(file, section_name, "OPACITY");
+		smudge->blur = IniFileGetInteger(file, section_name, "BLUR");
+		smudge->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		smudge->extention = IniFileGetInteger(file, section_name, "COLOR_EXTEND");
 
 		core->press_func = SmudgePressCallBack;
 		core->motion_func = SmudgeMotionCallBack;
@@ -23770,11 +23924,11 @@ void LoadBrushDetailData(
 		core->button_update = SmudgeButtonUpdate;
 		core->motion_update = SmudgeMotionUpdate;
 		core->create_detail_ui = CreateSmudgeDetailUI;
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			smudge->flags |= SMUDGE_PRESSURE_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_EXTENTION") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_EXTENTION") != 0)
 		{
 			smudge->flags |= SMUDGE_PRESSURE_EXTENTION;
 		}
@@ -23788,17 +23942,17 @@ void LoadBrushDetailData(
 		core->detail_data_size = sizeof(*mix);
 		mix = (MIX_BRUSH*)core->brush_data;
 
-		mix->base_scale = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		mix->r = IniFileGetInt(file, section_name, "SIZE") * 0.5;
-		mix->alpha = IniFileGetInt(file, section_name, "FLOW");
-		mix->outline_hardness = IniFileGetInt(file, section_name, "OUTLINE_HARDNESS");
-		mix->blur = IniFileGetInt(file, section_name, "BLUR");
+		mix->base_scale = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		mix->r = IniFileGetInteger(file, section_name, "SIZE") * 0.5;
+		mix->alpha = IniFileGetInteger(file, section_name, "FLOW");
+		mix->outline_hardness = IniFileGetInteger(file, section_name, "OUTLINE_HARDNESS");
+		mix->blur = IniFileGetInteger(file, section_name, "BLUR");
 
-		if(IniFileGetInt(file, section_name, "PRESSURE_SIZE") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_SIZE") != 0)
 		{
 			mix->flags |= BRUSH_FLAG_SIZE;
 		}
-		if(IniFileGetInt(file, section_name, "PRESSURE_FLOW") != 0)
+		if(IniFileGetInteger(file, section_name, "PRESSURE_FLOW") != 0)
 		{
 			mix->flags |= BRUSH_FLAG_FLOW;
 		}
@@ -23828,9 +23982,9 @@ void LoadBrushDetailData(
 		core->draw_cursor = TextToolDrawCursor;
 		core->create_detail_ui = CreateTextToolDetailUI;
 
-		text->base_size = IniFileGetInt(file, section_name, "MAGNIFICATION");
-		text->font_size = IniFileGetInt(file, section_name, "SIZE");
-		if(IniFileGetInt(file, section_name, "VERTICAL") != 0)
+		text->base_size = IniFileGetInteger(file, section_name, "MAGNIFICATION");
+		text->font_size = IniFileGetInteger(file, section_name, "SIZE");
+		if(IniFileGetInteger(file, section_name, "VERTICAL") != 0)
 		{
 			text->flags |= TEXT_TOOL_VERTICAL;
 		}
@@ -23881,6 +24035,53 @@ void LoadBrushDetailData(
 			core->color_change = ScriptBrushColorChange;
 			core->create_detail_ui = CreateScriptBrushDetailUI;
 		}
+	}
+	else if(StringCompareIgnoreCase(brush_type, "PLUG_IN_BRUSH") == 0)
+	{
+		PLUG_IN_BRUSH *brush = (PLUG_IN_BRUSH*)MEM_ALLOC_FUNC(sizeof(*brush));
+		GModule *module;
+		gpointer function;
+		gchar *file_path;
+
+		core->brush_data = (void*)brush;
+		brush->plug_in_name = IniFileStrdup(file, section_name, "PLUG_IN_FILE");
+		core->detail_data_size = sizeof(*brush);
+		file_path = g_build_filename(app->current_path, PLUG_IN_DIRECTORY, brush->plug_in_name, NULL);
+
+		module = g_module_open(file_path, G_MODULE_BIND_LOCAL);
+
+		if(module != NULL)
+		{
+			if(g_module_symbol(module, "BrushDataNew", &function) != FALSE)
+			{
+				brush->detail_data = ((void* (*)(void))function)();
+			}
+
+			if(LoadPlugInBrushCallbacks(module, core, brush) == FALSE)
+			{
+				MEM_FREE_FUNC(brush->plug_in_name);
+				MEM_FREE_FUNC(brush->detail_data);
+				MEM_FREE_FUNC(brush);
+			}
+			else
+			{
+				core->brush_type = (uint8)BRUSH_TYPE_PLUG_IN;
+				core->create_detail_ui = CreatePlugInBrushDetailUI;
+
+				if(g_module_symbol(module, "LoadBrushSetting", &function) != FALSE)
+				{
+					((void (*)(BRUSH_CORE*, INI_FILE_PTR, const char*, APPLICATION*))function)(
+						core, file, section_name, app);
+				}
+			}
+		}
+		else
+		{
+			MEM_FREE_FUNC(brush->plug_in_name);
+			MEM_FREE_FUNC(brush);
+		}
+
+		g_module_close(module);
 	}
 
 	if(core->button_update == NULL)
@@ -24466,6 +24667,8 @@ int WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATION
 						(void)IniFileAddInteger(file, brush_section_name,
 							"OUTLINE_HARDNESS", (int)(pen->outline_hardness), 10);
 						(void)IniFileAddInteger(file, brush_section_name,
+							"MINIMUM_PRESSURE", (int)(pen->minimum_pressure * 100 + 0.5), 10);
+						(void)IniFileAddInteger(file, brush_section_name,
 							"ANTI_ALIAS", ((pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0) ? 1 : 0, 10);
 					}
 					break;
@@ -24484,6 +24687,8 @@ int WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATION
 							"PRESSURE_SIZE", ((pen->flags & BRUSH_FLAG_SIZE) != 0) ? 1 : 0 , 10);
 						(void)IniFileAddInteger(file, brush_section_name,
 							"PRESSURE_FLOW", ((pen->flags & BRUSH_FLAG_FLOW) != 0) ? 1 : 0 , 10);
+						(void)IniFileAddInteger(file, brush_section_name,
+							"MINIMUM_PRESSURE", (int)(pen->minimum_pressure * 100 + 0.5), 10);
 						(void)IniFileAddInteger(file, brush_section_name,
 							"ANTI_ALIAS", ((pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0) ? 1 : 0, 10);
 					}
@@ -24826,6 +25031,30 @@ int WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATION
 						(void)IniFileAddString(file, brush_section_name, "TYPE", "SCRIPT_BRUSH");
 						(void)IniFileAddString(file, brush_section_name, "FILE_NAME", system_name);
 						g_free(system_name);
+					}
+					break;
+				case BRUSH_TYPE_PLUG_IN:
+					{
+						PLUG_IN_BRUSH *brush = (PLUG_IN_BRUSH*)window->brushes[y][x].brush_data;
+						GModule *module;
+						gpointer function;
+						gchar *file_path;
+
+						file_path = g_build_filename(app->current_path, PLUG_IN_DIRECTORY, brush->plug_in_name, NULL);
+
+						module = g_module_open(file_path, G_MODULE_BIND_LOCAL);
+
+						if(module != NULL)
+						{
+							(void)IniFileAddString(file, brush_section_name, "TYPE", "PLUG_IN_BRUSH");
+							(void)IniFileAddString(file, brush_section_name, "PLUG_IN_FILE", brush->plug_in_name);
+
+							if(g_module_symbol(module, "SaveBrushSetting", &function) != FALSE)
+							{
+								((void (*)(BRUSH_CORE*, INI_FILE_PTR, const char*, APPLICATION*))function)(
+									&window->brushes[y][x], file, brush_section_name, app);
+							}
+						}
 					}
 					break;
 				}

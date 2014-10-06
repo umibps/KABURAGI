@@ -14,6 +14,8 @@
 #include "application.h"
 #include "image_read_write.h"
 #include "texture.h"
+#include "text_encode.h"
+#include "libguess/libguess.h"
 #include "memory.h"
 
 #ifdef __cplusplus
@@ -155,7 +157,7 @@ int PmxRenderEngineCreateProgram(
 
 static int PmxRenderEngineUploadMaterialsFromArchive(
 	PMX_RENDER_ENGINE* engine,
-	PMX_RENDER_ENGINE_MATERIAL_TEXTURE *textures,
+	PMX_RENDER_ENGINE_MATERIAL_TEXTURE* textures,
 	MATERIAL_INTERFACE** materials,
 	int num_materials,
 	PROJECT* project
@@ -1186,8 +1188,25 @@ ASSET_RENDER_ENGINE* AssetRenderEngineNew(
 		(void (*)(void*))DummyFuncNoReturn;
 	ret->interface_data.get_effect =
 		(EFFECT_INTERFACE* (*)(void*, eEFFECT_SCRIPT_ORDER_TYPE))AssetRenderEngineGetEffect;
+	ret->interface_data.delete_func = (void (*)(void*))DeleteAssetRenderEngine;
 
 	return ret;
+}
+
+void DeleteAssetRenderEngine(ASSET_RENDER_ENGINE* engine)
+{
+	DeleteVertexBundleLayout(&engine->layout);
+	ght_finalize(engine->textures);
+	HashTableReleaseAll(engine->vao, (void (*)(void*))FreeVertexBundleLayout);
+	ght_finalize(engine->vao);
+	HashTableReleaseAll(engine->vbo, (void (*)(void*))FreeVertexBundle);
+	ght_finalize(engine->vbo);
+	ght_finalize(engine->indices);
+	HashTableReleaseAll(engine->asset_programs, (void (*)(void*))FreeShaderProgram);
+	ght_finalize(engine->asset_programs);
+	HashTableReleaseAll(engine->z_plot_programs, (void (*)(void*))FreeShaderProgram);
+	ght_finalize(engine->z_plot_programs);
+	MEM_FREE_FUNC(engine);
 }
 
 int AssetModelSplitTexturePath(
@@ -1456,17 +1475,20 @@ int AssetRenderEngineUploadMaterials(
 	PROJECT *project = engine->project;
 	ASSET_MODEL *model = (ASSET_MODEL*)engine->interface_data.model;
 	TEXTURE_DATA_BRIDGE bridge = {NULL, TEXTURE_FLAG_TEXTURE_2D};
+	TEXT_ENCODE *encode = NULL;
 	struct aiString texture_path;
 	char full_path[4096];
+	char *file_name;
 	char *path;
 	char *main_texture;
 	char *sub_texture;
+	const char *system_code;
 	int ret = TRUE;
 	unsigned int num_items;
 	unsigned int i;
 
 	num_items = scene->mNumMaterials;
-	for(i=0; i<num_items; i++)
+	for(i=0; i<num_items && ret != FALSE; i++)
 	{
 		struct aiMaterial *material = scene->mMaterials[i];
 		enum aiReturn found = AI_SUCCESS;
@@ -1479,9 +1501,44 @@ int AssetRenderEngineUploadMaterials(
 				break;
 			}
 			path = texture_path.data;
+			if((system_code = guess_jp(path, (int)strlen(path))) != NULL)
+			{
+				if(strcmp(system_code, "UTF-8") != 0)
+				{
+					if(encode != NULL)
+					{
+						ReleaseTextEncode(encode);
+					}
+					else
+					{
+						encode = (TEXT_ENCODE*)MEM_ALLOC_FUNC(sizeof(*encode));
+					}
+					InitializeTextEncode(encode, system_code, "UTF-8");
+				}
+				else
+				{
+					if(encode != NULL)
+					{
+						ReleaseTextEncode(encode);
+						MEM_FREE_FUNC(encode);
+						encode = NULL;
+					}
+				}
+			}
+
 			if(AssetModelSplitTexturePath(path, &main_texture, &sub_texture) != FALSE)
 			{
-				(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+				if(encode == NULL)
+				{
+					(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+				}
+				else
+				{
+					file_name = EncodeText(encode, main_texture, strlen(main_texture)+1);
+					(void)sprintf(full_path, "%s/%s", model->model_path, file_name);
+					MEM_FREE_FUNC(file_name);
+				}
+
 				if(ght_get(engine->textures, (unsigned int)strlen(main_texture), main_texture) == NULL)
 				{
 					ret = UploadTexture(full_path, &bridge, project);
@@ -1492,10 +1549,21 @@ int AssetRenderEngineUploadMaterials(
 					}
 					else
 					{
-						return ret;
+						break;
 					}
 				}
-				(void)sprintf(full_path, "%s/%s", model->model_path, sub_texture);
+
+				if(encode == NULL)
+				{
+					(void)sprintf(full_path, "%s/%s", model->model_path, sub_texture);
+				}
+				else
+				{
+					file_name = EncodeText(encode, sub_texture, strlen(main_texture)+1);
+					(void)sprintf(full_path, "%s/%s", model->model_path, file_name);
+					MEM_FREE_FUNC(file_name);
+				}
+
 				if(ght_get(engine->textures, (unsigned int)strlen(sub_texture), sub_texture) == NULL)
 				{
 					ret = UploadTexture(full_path, &bridge, project);
@@ -1506,13 +1574,23 @@ int AssetRenderEngineUploadMaterials(
 					}
 					else
 					{
-						return ret;
+						break;
 					}
 				}
 			}
 			else if(ght_get(engine->textures, (unsigned int)strlen(main_texture), main_texture) == NULL)
 			{
-				(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+				if(encode == NULL)
+				{
+					(void)sprintf(full_path, "%s/%s", model->model_path, main_texture);
+				}
+				else
+				{
+					file_name = EncodeText(encode, main_texture, strlen(main_texture)+1);
+					(void)sprintf(full_path, "%s/%s", model->model_path, file_name);
+					MEM_FREE_FUNC(file_name);
+				}
+
 				ret = UploadTexture(full_path, &bridge, project);
 				if(ret != FALSE)
 				{
@@ -1521,11 +1599,17 @@ int AssetRenderEngineUploadMaterials(
 				}
 				else
 				{
-					return ret;
+					break;
 				}
 			}
 			texture_index++;
 		} while(found == AI_SUCCESS);
+	}
+
+	if(encode != NULL)
+	{
+		ReleaseTextEncode(encode);
+		MEM_FREE_FUNC(encode);
 	}
 
 	return ret;
@@ -1793,10 +1877,10 @@ void AssetRenderEngineSetMaterial(
 	aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE, &asset_color);
 	diffuse[0] = asset_color.r, diffuse[1] = asset_color.g, diffuse[2] = asset_color.b, diffuse[3] = asset_color.a;
 	light_color = engine->project->scene->light.vertex.color;
-	color[0] = diffuse[0] * (0.7f - light_color[0] * DIV_PIXEL);
-	color[1] = diffuse[0] * (0.7f - light_color[1] * DIV_PIXEL);
-	color[2] = diffuse[0] * (0.7f - light_color[2] * DIV_PIXEL);
-	color[3] = 1;
+	color[0] = diffuse[0] * (0.7f - light_color[0] * DIV_PIXEL) + ambient[0];
+	color[1] = diffuse[1] * (0.7f - light_color[1] * DIV_PIXEL) + ambient[1];
+	color[2] = diffuse[2] * (0.7f - light_color[2] * DIV_PIXEL) + ambient[2];
+	color[3] = diffuse[3];
 	AssetModelProgramSetMaterialColor(program, color);
 	AssetModelProgramSetMaterialDiffuse(program, diffuse);
 	aiGetMaterialColor(material, AI_MATKEY_COLOR_SPECULAR, &asset_color);

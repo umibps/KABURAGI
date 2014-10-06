@@ -356,7 +356,7 @@ void MixLayerSet(LAYER* bottom, LAYER** next, DRAW_WINDOW* window)
 				{	// 通常レイヤーは
 						// 作業レイヤーとアクティブレイヤーを一度合成してから下のレイヤーと合成
 					(void)memcpy(window->temp_layer->pixels, layer->pixels, layer->stride*layer->height);
-					g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, window->temp_layer);
+					window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->temp_layer);
 					blend_layer = window->temp_layer;
 					blend_layer->alpha = layer->alpha;
 					blend_layer->flags = layer->flags;
@@ -366,7 +366,7 @@ void MixLayerSet(LAYER* bottom, LAYER** next, DRAW_WINDOW* window)
 				{	// ベクトルレイヤーは
 						// レイヤーのラスタライズ処理を行なってから作業レイヤーと下のレイヤーを合成
 					RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
-					g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, layer);
+					window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, layer);
 				}
 				else if(layer->layer_type == TYPE_TEXT_LAYER)
 				{	// テキストレイヤーは
@@ -376,7 +376,7 @@ void MixLayerSet(LAYER* bottom, LAYER** next, DRAW_WINDOW* window)
 
 				
 				// 合成する対象と方法が確定したので合成を実行する
-				g_layer_blend_funcs[blend_mode](blend_layer, layer->layer_set);
+				window->layer_blend_functions[blend_mode](blend_layer, layer->layer_set);
 				// 合成したらデータを元に戻す
 				window->temp_layer->alpha = 100;
 				window->temp_layer->flags = 0;
@@ -394,7 +394,7 @@ void MixLayerSet(LAYER* bottom, LAYER** next, DRAW_WINDOW* window)
 			// 可視判定
 			if((blend_layer->flags & LAYER_FLAG_INVISIBLE) == 0)
 			{
-				g_layer_blend_funcs[blend_mode](blend_layer, layer_set);
+				window->layer_blend_functions[blend_mode](blend_layer, layer_set);
 			}
 		}
 
@@ -457,7 +457,7 @@ void MixLayerSetActiveOver(LAYER* start, LAYER** next, DRAW_WINDOW* window)
 				{	// 通常レイヤーは
 						// 作業レイヤーとアクティブレイヤーを一度合成してから下のレイヤーと合成
 					(void)memcpy(window->temp_layer->pixels, layer->pixels, layer->stride*layer->height);
-					g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, window->temp_layer);
+					window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->temp_layer);
 					blend_layer = window->temp_layer;
 					blend_layer->alpha = layer->alpha;
 					blend_layer->flags = layer->flags;
@@ -467,7 +467,7 @@ void MixLayerSetActiveOver(LAYER* start, LAYER** next, DRAW_WINDOW* window)
 				{	// ベクトルレイヤーは
 						// レイヤーのラスタライズ処理を行なってから作業レイヤーと下のレイヤーを合成
 					RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
-					g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, layer);
+					window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, layer);
 				}
 				else if(layer->layer_type == TYPE_TEXT_LAYER)
 				{	// テキストレイヤーは
@@ -481,7 +481,7 @@ void MixLayerSetActiveOver(LAYER* start, LAYER** next, DRAW_WINDOW* window)
 					// if(blend_layer == window->active_layer)
 
 			// 合成する対象と方法が確定したので合成を実行する
-			g_layer_blend_funcs[blend_mode](blend_layer, layer_set);
+			window->layer_blend_functions[blend_mode](blend_layer, layer_set);
 			// 合成したらデータを元に戻す
 			window->temp_layer->alpha = 100;
 			window->temp_layer->flags = 0;

@@ -3,18 +3,12 @@
 
 #include "configure.h"
 
-#if !defined(USE_3D_LAYER) || USE_3D_LAYER == 0
-# define APPLICATION_NAME "KABURAGI"
-#else
-# define APPLICATION_NAME "MIKADO"
-#endif
-
 #define MAJOR_VERSION 1
 
 #if MAJOR_VERSION == 1
 # define MINOR_VERSION 3
-# define RELEASE_VERSION 1
-# define BUILD_VERSION 6
+# define RELEASE_VERSION 2
+# define BUILD_VERSION 2
 #elif MAJOR_VERSION == 2
 # define MINOR_VERSION 0
 # define RELEASE_VERSION 1
@@ -48,11 +42,10 @@
 #include "smoother.h"
 #include "preference.h"
 #include "display_filter.h"
+#include "fractal_label.h"
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-# include "MikuMikuGtk+/mikumikugtk.h"
-# include "MikuMikuGtk+/ui_label.h"
-#endif
+#include "MikuMikuGtk+/mikumikugtk.h"
+#include "MikuMikuGtk+/ui_label.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,6 +55,8 @@ extern "C" {
 #define INITIALIZE_FILE_NAME "application.ini"
 // パレットファイルのパス
 #define PALLETE_FILE_NAME "pallete.kpl"
+// プラグインのパス
+#define PLUG_IN_DIRECTORY "plug-in"
 // デフォルトの解像度
 #define DEFALUT_RESOLUTION 96
 
@@ -101,7 +96,8 @@ typedef enum _eAPPLICATION_FLAGS
 	APPLICATION_DRAW_WITH_TOUCH = 0x800,			// タッチイベントで描画する
 	APPLICATION_SET_BACK_GROUND_COLOR = 0x1000,		// キャンバスの背景を設定する
 	APPLICATION_SHOW_PREVIEW_ON_TASK_BAR = 0x2000,	// プレビューウィンドウをタスクバーに表示する
-	APPLICATION_IN_SWITCH_DRAW_WINDOW = 0x4000		// 描画領域の切替中
+	APPLICATION_IN_SWITCH_DRAW_WINDOW = 0x4000,		// 描画領域の切替中
+	APPLICATION_HAS_3D_LAYER = 0x8000				// 3Dモデリングの使用可否
 } eAPPLICATION_FLAGS;
 
 #define DND_THRESHOLD 20
@@ -166,21 +162,23 @@ typedef struct _TOOL_WINDOW
 	// ブラシ画像のピクセルデータ
 	uint8 *brush_pattern_buff, *temp_pattern_buff;
 	// コピーするブラシへのポインタ
-	void* copy_brush;
+	void *copy_brush;
 	// ブラシファイルの文字コード
-	char* brush_code;
+	char *brush_code;
+	// プラグインブラシのモジュール
+	GModule *plug_in_brush;
 	// 共通ツールのブラシテーブル
 	COMMON_TOOL_CORE common_tools[COMMON_TOOL_TABLE_HEIGHT][COMMON_TOOL_TABLE_WIDTH];
 	// 現在使用している共通ツールへのポインタ
 	COMMON_TOOL_CORE* active_common_tool;
 	// 共通ツールファイルの文字コード
-	char* common_tool_code;
+	char *common_tool_code;
 	// ベクトルブラシのコアテーブル
 	VECTOR_BRUSH_CORE vector_brushes[VECTOR_BRUSH_TABLE_HEIGHT][VECTOR_BRUSH_TABLE_WIDTH];
 	// 現在使用しているベクトルブラシへのポインタ
 	VECTOR_BRUSH_CORE *active_vector_brush[2];
 	// ベクトルブラシファイルの文字コード
-	char* vector_brush_code;
+	char *vector_brush_code;
 	// 通常レイヤーでControlキーが押されているときはスポイトツールに偏差させるため
 		// スポイトツールのデータを保持しておく
 	COMMON_TOOL_CORE color_picker_core;
@@ -288,7 +286,7 @@ typedef struct _APPLICATION
 	// 入力デバイス
 	eINPUT_DEVICE input;
 	// 描画領域
-	DRAW_WINDOW* draw_window[MAX_DRAW_WINDOW];
+	DRAW_WINDOW *draw_window[MAX_DRAW_WINDOW];
 	// ツールウィンドウ
 	TOOL_WINDOW tool_window;
 	// レイヤーウィンドウ
@@ -322,29 +320,30 @@ typedef struct _APPLICATION
 
 	// UIに表示する文字列
 	APPLICATION_LABELS *labels;
+	FRACTAL_LABEL *fractal_labels;
 
 	// システムのコード
-	char* system_code;
+	char *system_code;
 	// 実行ファイルのパス
-	char* current_path;
+	char *current_path;
 	// 言語ファイルのパス
-	char* language_file_path;
+	char *language_file_path;
 	// ブラシファイルのパス
-	char* brush_file_path;
+	char *brush_file_path;
 	// ベクトルブラシファイルのパス
-	char* vector_brush_file_path;
+	char *vector_brush_file_path;
 	// 共通ツールファイルのパス
-	char* common_tool_file_path;
+	char *common_tool_file_path;
 	// バックアップを作成するディレクトリのパス
 	char *backup_directory_path;
 	// パターンファイルのあるディレクトリへのパス
-	char* pattern_path;
+	char *pattern_path;
 	// スタンプファイルのあるディレクトリへのパス
-	char* stamp_path;
+	char *stamp_path;
 	// テクスチャ画像のあるディレクトリへのパス
-	char* texture_path;
+	char *texture_path;
 	// スクリプトファイルのあるディレクトリへのパス
-	char* script_path;
+	char *script_path;
 
 	// スクリプトのファイル情報
 	SCRIPTS scripts;
@@ -385,10 +384,14 @@ typedef struct _APPLICATION
 	PATTERNS patterns;
 	// スタンプ用
 	PATTERNS stamps;
-	uint8* stamp_buff;
-	uint8* stamp_shape;
-	uint8* stamp_alpha;
+	uint8 *stamp_buff;
+	uint8 *stamp_shape;
+	uint8 *stamp_alpha;
 	size_t stamp_buff_size;
+
+	// レイヤー合成用の関数ポインタ配列
+	void (*layer_blend_functions[NUM_LAYER_BLEND_FUNCTIONS])(LAYER* src, LAYER* dst);
+	void (*part_layer_blend_functions[NUM_LAYER_BLEND_FUNCTIONS])(LAYER* src, UPDATE_RECTANGLE* update);
 
 #ifndef _WIN32
 	// Ubuntuではツールの切り替えが効かなくなるので
@@ -398,10 +401,8 @@ typedef struct _APPLICATION
 	gboolean *set_input_modes;
 #endif
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	// 3Dモデリング用データ
 	void *modeling;
-#endif
 } APPLICATION;
 
 // 関数のプロトタイプ宣言
@@ -412,7 +413,7 @@ typedef struct _APPLICATION
 * app				: アプリケーション全体を管理する構造体のアドレス *
 * init_file_name	: 初期化ファイルの名前                           *
 *********************************************************************/
-extern void InitializeApplication(APPLICATION* app, char* init_file_name);
+EXTERN void InitializeApplication(APPLICATION* app, char* init_file_name);
 
 /*********************************************************
 * GetActiveDrawWindow関数                                *
@@ -422,7 +423,7 @@ extern void InitializeApplication(APPLICATION* app, char* init_file_name);
 * 返り値                                                 *
 *	アクティブな描画領域                                 *
 *********************************************************/
-extern DRAW_WINDOW* GetActiveDrawWindow(APPLICATION* app);
+EXTERN DRAW_WINDOW* GetActiveDrawWindow(APPLICATION* app);
 
 /*****************************************************
 * RecoverBackUp関数                                  *
@@ -430,28 +431,26 @@ extern DRAW_WINDOW* GetActiveDrawWindow(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void RecoverBackUp(APPLICATION* app);
+EXTERN void RecoverBackUp(APPLICATION* app);
 
-extern GtkWidget *CreateToolBoxWindow(struct _APPLICATION* app, GtkWidget *parent);
+EXTERN GtkWidget *CreateToolBoxWindow(struct _APPLICATION* app, GtkWidget *parent);
 
-extern void CreateBrushTable(
+EXTERN void CreateBrushTable(
 	APPLICATION* app,
 	TOOL_WINDOW* window,
 	BRUSH_CORE brush_data[BRUSH_TABLE_HEIGHT][BRUSH_TABLE_WIDTH]
 );
 
-extern void CreateVectorBrushTable(
+EXTERN void CreateVectorBrushTable(
 	APPLICATION* app,
 	TOOL_WINDOW* window,
 	VECTOR_BRUSH_CORE brush_data[VECTOR_BRUSH_TABLE_HEIGHT][VECTOR_BRUSH_TABLE_WIDTH]
 );
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-extern void CreateChange3DLayerUI(
+EXTERN void CreateChange3DLayerUI(
 	APPLICATION* app,
 	TOOL_WINDOW* window
 );
-#endif
 
 /*********************************************************
 * WriteCommonToolData関数                                *
@@ -463,7 +462,7 @@ extern void CreateChange3DLayerUI(
 * 返り値                                                 *
 *	正常終了:0 失敗:負の値                               *
 *********************************************************/
-extern int WriteCommonToolData(
+EXTERN int WriteCommonToolData(
 	TOOL_WINDOW* window,
 	const char* file_path,
 	APPLICATION* app
@@ -479,7 +478,7 @@ extern int WriteCommonToolData(
 * 返り値                                                 *
 *	正常終了:0	失敗:負の値                              *
 *********************************************************/
-extern int WriteVectorBrushData(
+EXTERN int WriteVectorBrushData(
 	struct _TOOL_WINDOW* window,
 	const char* file_path,
 	struct _APPLICATION* app
@@ -493,7 +492,7 @@ extern int WriteVectorBrushData(
 * 返り値                                               *
 *	終了中止:TRUE	終了続行:FALSE                     *
 *******************************************************/
-extern gboolean OnQuitApplication(APPLICATION* app);
+EXTERN gboolean OnQuitApplication(APPLICATION* app);
 
 #ifndef INCLUDE_WIN_DEFAULT_API
 /*********************************************************
@@ -503,7 +502,7 @@ extern gboolean OnQuitApplication(APPLICATION* app);
 * file_path	: ファイルパス                               *
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
-extern void OpenFile(char *file_path, APPLICATION* app);
+EXTERN void OpenFile(char *file_path, APPLICATION* app);
 #endif
 
 /*********************************************************
@@ -512,7 +511,7 @@ extern void OpenFile(char *file_path, APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteOpenFile(APPLICATION* app);
+EXTERN void ExecuteOpenFile(APPLICATION* app);
 
 /*********************************************************
 * ExecuteOpenFileAsLayer関数                             *
@@ -520,7 +519,7 @@ extern void ExecuteOpenFile(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteOpenFileAsLayer(APPLICATION* app);
+EXTERN void ExecuteOpenFileAsLayer(APPLICATION* app);
 
 /*********************************************************
 * ExecuteSave関数                                        *
@@ -528,7 +527,7 @@ extern void ExecuteOpenFileAsLayer(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteSave(APPLICATION* app);
+EXTERN void ExecuteSave(APPLICATION* app);
 
 /*********************************************************
 * ExecuteSaveAs関数                                      *
@@ -536,7 +535,7 @@ extern void ExecuteSave(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteSaveAs(APPLICATION* app);
+EXTERN void ExecuteSaveAs(APPLICATION* app);
 
 /*********************************************************
 * ExecuteClose関数                                       *
@@ -544,7 +543,7 @@ extern void ExecuteSaveAs(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteClose(APPLICATION* app);
+EXTERN void ExecuteClose(APPLICATION* app);
 
 /*****************************************************
 * ExecuteMakeColorLayer関数                          *
@@ -552,7 +551,7 @@ extern void ExecuteClose(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteMakeColorLayer(APPLICATION *app);
+EXTERN void ExecuteMakeColorLayer(APPLICATION *app);
 
 /*****************************************************
 * ExecuteMakeVectorLayer関数                         *
@@ -560,7 +559,7 @@ extern void ExecuteMakeColorLayer(APPLICATION *app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteMakeVectorLayer(APPLICATION *app);
+EXTERN void ExecuteMakeVectorLayer(APPLICATION *app);
 
 /*****************************************************
 * ExecuteMakeLayerSet関数                            *
@@ -568,17 +567,15 @@ extern void ExecuteMakeVectorLayer(APPLICATION *app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteMakeLayerSet(APPLICATION *app);
+EXTERN void ExecuteMakeLayerSet(APPLICATION *app);
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 /*****************************************************
 * ExecuteMake3DLayer関数                             *
 * 3Dモデリングレイヤー作成を実行                     *
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteMake3DLayer(APPLICATION* app);
-#endif
+EXTERN void ExecuteMake3DLayer(APPLICATION* app);
 
 /*********************************************************
 * DeleteActiveLayer関数                                  *
@@ -586,7 +583,7 @@ extern void ExecuteMake3DLayer(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void DeleteActiveLayer(APPLICATION* app);
+EXTERN void DeleteActiveLayer(APPLICATION* app);
 
 /*****************************************************
 * ExecuteUpLayer関数                                 *
@@ -594,7 +591,7 @@ extern void DeleteActiveLayer(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteUpLayer(APPLICATION* app);
+EXTERN void ExecuteUpLayer(APPLICATION* app);
 
 /*****************************************************
 * ExecuteDownLayer関数                               *
@@ -602,7 +599,7 @@ extern void ExecuteUpLayer(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteDownLayer(APPLICATION* app);
+EXTERN void ExecuteDownLayer(APPLICATION* app);
 
 /*********************************************************
 * FillForeGroundColor関数                                *
@@ -610,7 +607,7 @@ extern void ExecuteDownLayer(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void FillForeGroundColor(APPLICATION* app);
+EXTERN void FillForeGroundColor(APPLICATION* app);
 
 /*********************************************************
 * FillPattern関数                                        *
@@ -618,7 +615,7 @@ extern void FillForeGroundColor(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void FillPattern(APPLICATION* app);
+EXTERN void FillPattern(APPLICATION* app);
 
 /*********************************************************
 * FlipImageHorizontally関数                              *
@@ -626,7 +623,7 @@ extern void FillPattern(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void FlipImageHorizontally(APPLICATION* app);
+EXTERN void FlipImageHorizontally(APPLICATION* app);
 
 /*********************************************************
 * FlipImageVertically関数                                *
@@ -634,7 +631,7 @@ extern void FlipImageHorizontally(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void FlipImageVertically(APPLICATION* app);
+EXTERN void FlipImageVertically(APPLICATION* app);
 
 /*****************************************************
 * SwitchSecondBackColor関数                          *
@@ -643,7 +640,7 @@ extern void FlipImageVertically(APPLICATION* app);
 * menu	: メニューウィジェット                       *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void SwitchSecondBackColor(GtkWidget* menu, APPLICATION* app);
+EXTERN void SwitchSecondBackColor(GtkWidget* menu, APPLICATION* app);
 
 /*****************************************************
 * Change2ndBackColor関数                             *
@@ -651,7 +648,7 @@ extern void SwitchSecondBackColor(GtkWidget* menu, APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void Change2ndBackColor(APPLICATION* app);
+EXTERN void Change2ndBackColor(APPLICATION* app);
 
 /*********************************************************
 * MergeDownActiveLayer関数                               *
@@ -659,7 +656,7 @@ extern void Change2ndBackColor(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void MergeDownActiveLayer(APPLICATION* app);
+EXTERN void MergeDownActiveLayer(APPLICATION* app);
 
 /*********************************************************
 * FlattenImage関数                                       *
@@ -667,7 +664,7 @@ extern void MergeDownActiveLayer(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void FlattenImage(APPLICATION* app);
+EXTERN void FlattenImage(APPLICATION* app);
 
 /*********************************************************
 * ActiveLayerAlpha2SelectionArea関数                     *
@@ -675,7 +672,7 @@ extern void FlattenImage(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void ActiveLayerAlpha2SelectionArea(APPLICATION* app);
+EXTERN void ActiveLayerAlpha2SelectionArea(APPLICATION* app);
 
 /*********************************************************
 * ActiveLayerAlphaAddSelectionArea関数                   *
@@ -683,7 +680,7 @@ extern void ActiveLayerAlpha2SelectionArea(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void ActiveLayerAlphaAddSelectionArea(APPLICATION* app);
+EXTERN void ActiveLayerAlphaAddSelectionArea(APPLICATION* app);
 
 /*********************************************************
 * ExecuteCopyLayer関数                                   *
@@ -691,7 +688,7 @@ extern void ActiveLayerAlphaAddSelectionArea(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteCopyLayer(APPLICATION* app);
+EXTERN void ExecuteCopyLayer(APPLICATION* app);
 
 /*********************************************************
 * ExecuteVisible2Layer関数                               *
@@ -699,7 +696,7 @@ extern void ExecuteCopyLayer(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteVisible2Layer(APPLICATION* app);
+EXTERN void ExecuteVisible2Layer(APPLICATION* app);
 
 /*********************************************************
 * RasterizeActiveLayer関数                               *
@@ -707,7 +704,7 @@ extern void ExecuteVisible2Layer(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void RasterizeActiveLayer(APPLICATION* app);
+EXTERN void RasterizeActiveLayer(APPLICATION* app);
 
 /*********************************************************
 * ExecuteSelectAll関数                                   *
@@ -715,7 +712,7 @@ extern void RasterizeActiveLayer(APPLICATION* app);
 * 引数                                                   *
 * app	: アプリケーション全体を管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteSelectAll(APPLICATION* app);
+EXTERN void ExecuteSelectAll(APPLICATION* app);
 
 /*****************************************************
 * ExecuteZoomIn関数                                  *
@@ -723,7 +720,7 @@ extern void ExecuteSelectAll(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteZoomIn(APPLICATION *app);
+EXTERN void ExecuteZoomIn(APPLICATION *app);
 
 /*****************************************************
 * ExecuteZoomReset関数                               *
@@ -731,7 +728,7 @@ extern void ExecuteZoomIn(APPLICATION *app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteZoomReset(APPLICATION* app);
+EXTERN void ExecuteZoomReset(APPLICATION* app);
 
 /*****************************************************
 * ExecuteRotateClockwise関数                         *
@@ -739,7 +736,7 @@ extern void ExecuteZoomReset(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteRotateClockwise(APPLICATION* app);
+EXTERN void ExecuteRotateClockwise(APPLICATION* app);
 
 /*****************************************************
 * ExecuteRotateCounterClockwise関数                  *
@@ -747,7 +744,7 @@ extern void ExecuteRotateClockwise(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteRotateCounterClockwise(APPLICATION* app);
+EXTERN void ExecuteRotateCounterClockwise(APPLICATION* app);
 
 /*****************************************************
 * ExecuteRotateReset関数                             *
@@ -755,7 +752,7 @@ extern void ExecuteRotateCounterClockwise(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteRotateReset(APPLICATION* app);
+EXTERN void ExecuteRotateReset(APPLICATION* app);
 
 /*****************************************************
 * ExecuteChangeResolution関数                        *
@@ -763,7 +760,7 @@ extern void ExecuteRotateReset(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteChangeResolution(APPLICATION* app);
+EXTERN void ExecuteChangeResolution(APPLICATION* app);
 
 /*****************************************************
 * ExecuteZoomOut関数                                 *
@@ -771,7 +768,7 @@ extern void ExecuteChangeResolution(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteZoomOut(APPLICATION *app);
+EXTERN void ExecuteZoomOut(APPLICATION *app);
 
 /*****************************************************
 * ExecuteChangeCanvasSize関数                        *
@@ -779,7 +776,7 @@ extern void ExecuteZoomOut(APPLICATION *app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteChangeCanvasSize(APPLICATION* app);
+EXTERN void ExecuteChangeCanvasSize(APPLICATION* app);
 
 /*****************************************************
 * ExecuteChangeCanvasIccProfile関数                  *
@@ -787,10 +784,10 @@ extern void ExecuteChangeCanvasSize(APPLICATION* app);
 * menu	: メニューウィジェット                       *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteChangeCanvasIccProfile(GtkWidget* menu, APPLICATION* app);
+EXTERN void ExecuteChangeCanvasIccProfile(GtkWidget* menu, APPLICATION* app);
 
-extern void ExecuteUndo(struct _APPLICATION* app);
-extern void ExecuteRedo(struct _APPLICATION* app);
+EXTERN void ExecuteUndo(struct _APPLICATION* app);
+EXTERN void ExecuteRedo(struct _APPLICATION* app);
 
 /*********************************************************
 * FillLayerPattern関数                                   *
@@ -801,14 +798,14 @@ extern void ExecuteRedo(struct _APPLICATION* app);
 * app		: アプリケーションを管理する構造体のアドレス *
 * color		: パターンがグレースケールのときに使う色     *
 *********************************************************/
-extern void FillLayerPattern(
+EXTERN void FillLayerPattern(
 	struct _LAYER* target,
 	struct _PATTERNS* patterns,
 	struct _APPLICATION* app,
 	uint8 color[3]
 );
 
-extern void AddLayerNameChangeHistory(
+EXTERN void AddLayerNameChangeHistory(
 	APPLICATION* app,
 	const gchar* before_name,
 	const gchar* after_name
@@ -822,17 +819,17 @@ extern void AddLayerNameChangeHistory(
 * app			: アプリケーションを管理する構造体のアドレス         *
 * box			: ドッキングする場合はボックスウィジェットを指定     *
 *********************************************************************/
-extern void InitializeNavigation(
+EXTERN void InitializeNavigation(
 	NAVIGATION_WINDOW* navigation,
 	APPLICATION *app,
 	GtkWidget* box
 );
 
-extern void InitializePreviewWindow(PREVIEW_WINDOW* preview, APPLICATION* app);
+EXTERN void InitializePreviewWindow(PREVIEW_WINDOW* preview, APPLICATION* app);
 
-extern void UnSetSelectionArea(APPLICATION* app);
+EXTERN void UnSetSelectionArea(APPLICATION* app);
 
-extern void InvertSelectionArea(APPLICATION* app);
+EXTERN void InvertSelectionArea(APPLICATION* app);
 
 /*****************************************************
 * ReductSelectionArea関数                            *
@@ -840,7 +837,7 @@ extern void InvertSelectionArea(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ReductSelectionArea(APPLICATION* app);
+EXTERN void ReductSelectionArea(APPLICATION* app);
 
 /*********************************************************
 * ChangeEditSelectionMode関数                            *
@@ -849,7 +846,7 @@ extern void ReductSelectionArea(APPLICATION* app);
 * menu_item	: メニューアイテムウィジェット               *
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
-extern void ChangeEditSelectionMode(GtkWidget* menu_item, APPLICATION* app);
+EXTERN void ChangeEditSelectionMode(GtkWidget* menu_item, APPLICATION* app);
 
 /*************************************************************
 * Move2ActiveLayer                                           *
@@ -858,23 +855,23 @@ extern void ChangeEditSelectionMode(GtkWidget* menu_item, APPLICATION* app);
 * allocation	: ウィジェットに割り当てられたサイズ         *
 * app			: アプリケーションを管理する構造体のアドレス *
 *************************************************************/
-extern void Move2ActiveLayer(GtkWidget* widget, GdkRectangle * allocation, APPLICATION* app);
+EXTERN void Move2ActiveLayer(GtkWidget* widget, GdkRectangle * allocation, APPLICATION* app);
 
-extern void TextLayerButtonPressCallBack(
+EXTERN void TextLayerButtonPressCallBack(
 	DRAW_WINDOW* window,
 	gdouble x,
 	gdouble y,
 	GdkEventButton* event
 );
 
-extern void TextLayerMotionCallBack(
+EXTERN void TextLayerMotionCallBack(
 	DRAW_WINDOW* window,
 	gdouble x,
 	gdouble y,
 	GdkModifierType state
 );
 
-extern GtkWidget* CreateTextLayerDetailUI(APPLICATION* app, struct _LAYER* target, TEXT_LAYER* layer);
+EXTERN GtkWidget* CreateTextLayerDetailUI(APPLICATION* app, struct _LAYER* target, TEXT_LAYER* layer);
 
 /*********************************************************
 * ExecuteChangeToolWindowPlace関数                       *
@@ -883,7 +880,7 @@ extern GtkWidget* CreateTextLayerDetailUI(APPLICATION* app, struct _LAYER* targe
 * menu_item	: メニューアイテムウィジェット               *
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app);
+EXTERN void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app);
 
 /*********************************************************
 * ExecuteChangeNavigationLayerWindowPlace関数            *
@@ -892,7 +889,7 @@ extern void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 * menu_item	: 位置変更メニューアイテムウィジェット       *
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* app);
+EXTERN void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* app);
 
 /*************************************************************
 * TextFieldFocusIn関数                                       *
@@ -905,7 +902,7 @@ extern void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLIC
 * 返り値                                                     *
 *	常にFALSE                                                *
 *************************************************************/
-extern gboolean TextFieldFocusIn(GtkWidget* text_field, GdkEventFocus* focus, APPLICATION* app);
+EXTERN gboolean TextFieldFocusIn(GtkWidget* text_field, GdkEventFocus* focus, APPLICATION* app);
 
 /*******************************************************************
 * TextFieldFocusOut関数                                            *
@@ -918,7 +915,7 @@ extern gboolean TextFieldFocusIn(GtkWidget* text_field, GdkEventFocus* focus, AP
 * 返り値                                                           *
 *	常にFALSE                                                      *
 *******************************************************************/
-extern gboolean TextFieldFocusOut(GtkWidget* text_field, GdkEventFocus* focus, APPLICATION* app);
+EXTERN gboolean TextFieldFocusOut(GtkWidget* text_field, GdkEventFocus* focus, APPLICATION* app);
 
 /*************************************************************
 * OnDestroyTextField関数                                     *
@@ -928,7 +925,7 @@ extern gboolean TextFieldFocusOut(GtkWidget* text_field, GdkEventFocus* focus, A
 * text_field	: テキストレイヤーの編集ウィジェット         *
 * app			: アプリケーションを管理する構造体のアドレス *
 *************************************************************/
-extern void OnDestroyTextField(GtkWidget* text_field, APPLICATION* app);
+EXTERN void OnDestroyTextField(GtkWidget* text_field, APPLICATION* app);
 
 /*****************************************************
 * ExtendSelectionArea関数                            *
@@ -936,7 +933,7 @@ extern void OnDestroyTextField(GtkWidget* text_field, APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExtendSelectionArea(APPLICATION* app);
+EXTERN void ExtendSelectionArea(APPLICATION* app);
 
 /*****************************************************
 * ExecuteSetPreference関数                           *
@@ -944,7 +941,7 @@ extern void ExtendSelectionArea(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteSetPreference(APPLICATION* app);
+EXTERN void ExecuteSetPreference(APPLICATION* app);
 
 /*****************************************************
 * DisplayVersion関数                                 *
@@ -952,7 +949,7 @@ extern void ExecuteSetPreference(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void DisplayVersion(APPLICATION* app);
+EXTERN void DisplayVersion(APPLICATION* app);
 
 /*************************************************
 * ChangeNavigationRotate関数                     *
@@ -961,7 +958,7 @@ extern void DisplayVersion(APPLICATION* app);
 * navigation	: ナビゲーションウィンドウの情報 *
 * draw_window	: 表示する描画領域               *
 *************************************************/
-extern void ChangeNavigationRotate(NAVIGATION_WINDOW* navigation, DRAW_WINDOW* window);
+EXTERN void ChangeNavigationRotate(NAVIGATION_WINDOW* navigation, DRAW_WINDOW* window);
 
 /*************************************************
 * ChangeNavigationDrawWindow関数                 *
@@ -970,7 +967,7 @@ extern void ChangeNavigationRotate(NAVIGATION_WINDOW* navigation, DRAW_WINDOW* w
 * navigation	: ナビゲーションウィンドウの情報 *
 * draw_window	: 表示する描画領域               *
 *************************************************/
-extern void ChangeNavigationDrawWindow(NAVIGATION_WINDOW* navigation, DRAW_WINDOW* window);
+EXTERN void ChangeNavigationDrawWindow(NAVIGATION_WINDOW* navigation, DRAW_WINDOW* window);
 
 /*****************************************************
 * NoDisplayFilter関数                                *
@@ -978,7 +975,7 @@ extern void ChangeNavigationDrawWindow(NAVIGATION_WINDOW* navigation, DRAW_WINDO
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void NoDisplayFilter(APPLICATION* app);
+EXTERN void NoDisplayFilter(APPLICATION* app);
 
 /*****************************************************
 * GrayScaleDisplayFilter関数                         *
@@ -986,7 +983,7 @@ extern void NoDisplayFilter(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void GrayScaleDisplayFilter(APPLICATION* app);
+EXTERN void GrayScaleDisplayFilter(APPLICATION* app);
 
 /******************************************************************
 * GrayScaleDisplayFilterYIQ関数                                   *
@@ -994,7 +991,7 @@ extern void GrayScaleDisplayFilter(APPLICATION* app);
 * 引数                                                            *
 * app	: アプリケーションを管理する構造体のアドレス              *
 ******************************************************************/
-extern void GrayScaleDisplayFilterYIQ(APPLICATION* app);
+EXTERN void GrayScaleDisplayFilterYIQ(APPLICATION* app);
 
 /*****************************************************
 * IccProfileDisplayFilter関数                        *
@@ -1003,7 +1000,7 @@ extern void GrayScaleDisplayFilterYIQ(APPLICATION* app);
 * menu	: メニューウィジェット                       *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void IccProfileDisplayFilter(GtkWidget* menu, APPLICATION* app);
+EXTERN void IccProfileDisplayFilter(GtkWidget* menu, APPLICATION* app);
 
 /*********************************************************
 * CreateTextureChooser関数                               *
@@ -1014,7 +1011,7 @@ extern void IccProfileDisplayFilter(GtkWidget* menu, APPLICATION* app);
 * 返り値                                                 *
 *	テクスチャを選択するウィンドウウィジェット           *
 *********************************************************/
-extern GtkWidget* CreateTextureChooser(TEXTURES* textures, struct _APPLICATION* app);
+EXTERN GtkWidget* CreateTextureChooser(TEXTURES* textures, struct _APPLICATION* app);
 
 /***************************************************************
 * InitializeScripts関数                                        *
@@ -1023,7 +1020,7 @@ extern GtkWidget* CreateTextureChooser(TEXTURES* textures, struct _APPLICATION* 
 * scripts		: スクリプトファイルを管理する構造体のアドレス *
 * scripts_path	: スクリプトディレクトリのパス                 *
 ***************************************************************/
-extern void InitializeScripts(SCRIPTS* scripts, const char* scripts_path);
+EXTERN void InitializeScripts(SCRIPTS* scripts, const char* scripts_path);
 
 /*********************************************************
 * ExecuteScript関数                                      *
@@ -1032,7 +1029,7 @@ extern void InitializeScripts(SCRIPTS* scripts, const char* scripts_path);
 * menu_item	: メニューアイテムウィジェット               *
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
-extern void ExecuteScript(GtkWidget* menu_item, APPLICATION* app);
+EXTERN void ExecuteScript(GtkWidget* menu_item, APPLICATION* app);
 
 /*********************************************************
 * Change2LoupeMode関数                                   *
@@ -1040,7 +1037,7 @@ extern void ExecuteScript(GtkWidget* menu_item, APPLICATION* app);
 * 引数                                                   *
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
-extern void Change2LoupeMode(APPLICATION* app);
+EXTERN void Change2LoupeMode(APPLICATION* app);
 
 /*********************************************************
 * ReturnFromLoupeMode関数                                *
@@ -1048,7 +1045,7 @@ extern void Change2LoupeMode(APPLICATION* app);
 * 引数                                                   *
 * app		: アプリケーションを管理する構造体のアドレス *
 *********************************************************/
-extern void ReturnFromLoupeMode(APPLICATION* app);
+EXTERN void ReturnFromLoupeMode(APPLICATION* app);
 
 /*********************************************************
 * LayerViewSetDrawWindow関数                             *
@@ -1057,7 +1054,7 @@ extern void ReturnFromLoupeMode(APPLICATION* app);
 * layer_window	: レイヤービューを持つウィンドウ         *
 * draw_window	: 描画領域                               *
 *********************************************************/
-extern void LayerViewSetDrawWindow(LAYER_WINDOW* layer_window, DRAW_WINDOW* draw_window);
+EXTERN void LayerViewSetDrawWindow(LAYER_WINDOW* layer_window, DRAW_WINDOW* draw_window);
 
 /*****************************************************************
 * LoupeButtonToggled関数                                         *
@@ -1066,17 +1063,52 @@ extern void LayerViewSetDrawWindow(LAYER_WINDOW* layer_window, DRAW_WINDOW* draw
 * button	: ボタンウィジェット                                 *
 * app		: アプリケーションを管理する構造体のアドレス         *
 *****************************************************************/
-extern void LoupeButtonToggled(GtkWidget* button, APPLICATION* app);
+EXTERN void LoupeButtonToggled(GtkWidget* button, APPLICATION* app);
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+/**********************************************************
+* MemoryAllocate関数                                      *
+* KABURAGI / MIKADOで使用するメモリアロケータでメモリ確保 *
+* 引数                                                    *
+* size	: 確保するバイト数                                *
+* 返り値                                                  *
+*	確保したメモリのアドレス                              *
+**********************************************************/
+EXTERN void* MemoryAllocate(size_t size);
+
+/**************************************************************
+* MemoryFree関数                                              *
+* KABURAGI / MIKADOで確保されたメモリを開放する(プラグイン用) *
+* 引数                                                        *
+* memory	: 開放するメモリのポインタ                        *
+**************************************************************/
+EXTERN void MemoryFree(void* memory);
+
+/*********************************************************
+* SetHas3DLayer関数                                      *
+* 3Dモデリングの有効/無効を設定する                      *
+* 引数                                                   *
+* app		: アプリケーションを管理する構造体のアドレス *
+* enable	: 有効:TRUE	無効:FALSE                       *
+*********************************************************/
+EXTERN void SetHas3DLayer(APPLICATION* app, int enable);
+
+/*****************************************************
+* GetHas3DLayer関数                                  *
+* 3Dモデリングの有効/無効を返す                      *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+* 返り値                                             *
+*	3Dモデリング有効:TRUE	無効:FALSE               *
+*****************************************************/
+EXTERN int GetHas3DLayer(APPLICATION* app);
+
 /*****************************************************************
 * Load3dModelingLabels関数                                       *
 * 3Dモデル操作時のラベルデータを読み込む                         *
 * app				: アプリケーションを管理する構造体のアドレス *
 * lang_file_path	: ラベルのテキストデータファイルのパス       *
 *****************************************************************/
-extern void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path);
-#endif
+EXTERN void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path);
 
 #ifdef __cplusplus
 }

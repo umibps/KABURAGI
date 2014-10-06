@@ -2,9 +2,7 @@
 #define _INCLUDED_DRAW_WINDOW_H_
 
 #include "configure.h"
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-# include <GL/glew.h>
-#endif
+#include <GL/glew.h>
 #include <gtk/gtk.h>
 #include "lcms/lcms2.h"
 #include "layer.h"
@@ -30,7 +28,8 @@ typedef enum _eDRAW_WINDOW_FLAGS
 	DRAW_WINDOW_TOOL_CHANGING = 0x100,
 	DRAW_WINDOW_EDITTING_3D_MODEL = 0x200,
 	DRAW_WINDOW_IS_FOCAL_WINDOW = 0x400,
-	DRAW_WINDOW_INITIALIZED = 0x800
+	DRAW_WINDOW_INITIALIZED = 0x800,
+	DRAW_WINDOW_DISCONNECT_3D = 0x1000
 } eDRAW_WINDOW_FLAGS;
 
 typedef struct _UPDATE_RECTANGLE
@@ -137,6 +136,10 @@ typedef struct _DRAW_WINDOW
 	// αチャンネルのみのイメージ
 	cairo_t *alpha_cairo, *alpha_temp_cairo, *gray_mask_cairo;
 
+	// レイヤー合成用の関数群
+	void (**layer_blend_functions)(LAYER* src, LAYER* dst);
+	void (**part_layer_blend_functions)(LAYER* src, UPDATE_RECTANGLE* update);
+
 	uint16 num_layer;		// レイヤーの数
 	uint16 zoom;			// 拡大・縮小率
 	FLOAT_T zoom_rate;		// 浮動小数点型の拡大・縮小率
@@ -190,12 +193,10 @@ typedef struct _DRAW_WINDOW
 	// アプリケーション全体管理用構造体へのポインタ
 	struct _APPLICATION* app;
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	// 3Dモデリング用データ
 	void *first_project;
 	// OpenGL対応ウィジェット
 	GtkWidget *gl_area;
-#endif
 } DRAW_WINDOW;
 
 // 関数のプロトタイプ宣言
@@ -213,7 +214,7 @@ typedef struct _DRAW_WINDOW
 * 返り値                                                       *
 *	描画領域の情報を管理する構造体のアドレス                   *
 ***************************************************************/
-extern DRAW_WINDOW* CreateDrawWindow(
+EXTERN DRAW_WINDOW* CreateDrawWindow(
 	int32 width,
 	int32 height,
 	uint8 channel,
@@ -237,7 +238,7 @@ extern DRAW_WINDOW* CreateDrawWindow(
 * 返り値                                                       *
 *	描画領域の情報を管理する構造体のアドレス                   *
 ***************************************************************/
-extern DRAW_WINDOW* CreateTempDrawWindow(
+EXTERN DRAW_WINDOW* CreateTempDrawWindow(
 	int32 width,
 	int32 height,
 	uint8 channel,
@@ -253,7 +254,17 @@ extern DRAW_WINDOW* CreateTempDrawWindow(
 * 引数                                 *
 * window	: 描画領域の情報のアドレス *
 ***************************************/
-extern void DeleteDrawWindow(DRAW_WINDOW** window);
+EXTERN void DeleteDrawWindow(DRAW_WINDOW** window);
+
+/*********************************************
+* TimerCallBack関数                          *
+* 時限(1/60秒)で呼び出されるコールバック関数 *
+* 引数                                       *
+* window	: 対応する描画領域               *
+* 返り値                                     *
+*	常にTRUE                                 *
+*********************************************/
+EXTERN gboolean TimerCallBack(DRAW_WINDOW* window);
 
 /*******************************************************
 * SetDrawWindowCallbacks関数                           *
@@ -262,7 +273,7 @@ extern void DeleteDrawWindow(DRAW_WINDOW** window);
 * widget	: コールバック関数をセットするウィジェット *
 * window	: 描画領域の情報                           *
 *******************************************************/
-void SetDrawWindowCallbacks(
+EXTERN void SetDrawWindowCallbacks(
 	GtkWidget* widget,
 	DRAW_WINDOW* window
 );
@@ -274,7 +285,7 @@ void SetDrawWindowCallbacks(
 * widget	: コールバック関数を止めるウィジェット *
 * window	: 描画領域の情報                       *
 ***************************************************/
-extern void DisconnectDrawWindowCallbacks(
+EXTERN void DisconnectDrawWindowCallbacks(
 	GtkWidget* widget,
 	DRAW_WINDOW* window
 );
@@ -286,7 +297,7 @@ extern void DisconnectDrawWindowCallbacks(
 * window	: 描画領域の情報                         *
 * stream	: メモリー上の描画領域のデータストリーム *
 *****************************************************/
-extern void SwapDrawWindowFromMemoryStream(DRAW_WINDOW* window, MEMORY_STREAM_PTR stream);
+EXTERN void SwapDrawWindowFromMemoryStream(DRAW_WINDOW* window, MEMORY_STREAM_PTR stream);
 
 /***********************************************
 * OnCloseDrawWindow関数                        *
@@ -297,7 +308,7 @@ extern void SwapDrawWindowFromMemoryStream(DRAW_WINDOW* window, MEMORY_STREAM_PT
 * 返り値                                       *
 *	閉じる操作の中止:TRUE 閉じる操作続行:FALSE *
 ***********************************************/
-extern gboolean OnCloseDrawWindow(void* data, gint page);
+EXTERN gboolean OnCloseDrawWindow(void* data, gint page);
 
 /***********************************************************
 * GetWindowID関数                                          *
@@ -308,7 +319,7 @@ extern gboolean OnCloseDrawWindow(void* data, gint page);
 * 返り値                                                   *
 *	描画領域のID (不正な描画領域ならば-1)                  *
 ***********************************************************/
-int GetWindowID(DRAW_WINDOW* window, struct _APPLICATION* app);
+EXTERN int GetWindowID(DRAW_WINDOW* window, struct _APPLICATION* app);
 
 /*********************************
 * DrawWindowChangeZoom関数       *
@@ -317,7 +328,7 @@ int GetWindowID(DRAW_WINDOW* window, struct _APPLICATION* app);
 * window	: 描画領域の情報     *
 * zoom		: 新しい拡大縮小率   *
 *********************************/
-extern void DrawWindowChangeZoom(
+EXTERN void DrawWindowChangeZoom(
 	DRAW_WINDOW* window,
 	int16 zoom
 );
@@ -328,7 +339,7 @@ extern void DrawWindowChangeZoom(
 * 引数                                   *
 * window	: 水平反転する描画領域の情報 *
 *****************************************/
-extern void FlipDrawWindowHorizontally(DRAW_WINDOW* window);
+EXTERN void FlipDrawWindowHorizontally(DRAW_WINDOW* window);
 
 /*****************************************
 * FlipDrawWindowVertically関数           *
@@ -336,7 +347,7 @@ extern void FlipDrawWindowHorizontally(DRAW_WINDOW* window);
 * 引数                                   *
 * window	: 垂直反転する描画領域の情報 *
 *****************************************/
-extern void FlipDrawWindowVertically(DRAW_WINDOW* window);
+EXTERN void FlipDrawWindowVertically(DRAW_WINDOW* window);
 
 /***************************************
 * LayerAlpha2SelectionArea関数         *
@@ -344,7 +355,7 @@ extern void FlipDrawWindowVertically(DRAW_WINDOW* window);
 * 引数                                 *
 * window	: 描画領域の情報           *
 ***************************************/
-extern void LayerAlpha2SelectionArea(DRAW_WINDOW* window);
+EXTERN void LayerAlpha2SelectionArea(DRAW_WINDOW* window);
 
 /*****************************************
 * LayerAlphaAddSelectionArea関数         *
@@ -352,7 +363,7 @@ extern void LayerAlpha2SelectionArea(DRAW_WINDOW* window);
 * 引数                                   *
 * window	: 描画領域の情報             *
 *****************************************/
-extern void LayerAlphaAddSelectionArea(DRAW_WINDOW* window);
+EXTERN void LayerAlphaAddSelectionArea(DRAW_WINDOW* window);
 
 /*****************************
 * MergeAllLayer関数          *
@@ -360,7 +371,7 @@ extern void LayerAlphaAddSelectionArea(DRAW_WINDOW* window);
 * 引数                       *
 * window	: 描画領域の情報 *
 *****************************/
-extern void MergeAllLayer(DRAW_WINDOW* window);
+EXTERN void MergeAllLayer(DRAW_WINDOW* window);
 
 /*******************************************
 * ChangeDrawWindowResolution関数           *
@@ -370,7 +381,7 @@ extern void MergeAllLayer(DRAW_WINDOW* window);
 * new_width		: 新しい幅                 *
 * new_height	: 新しい高さ               *
 *******************************************/
-extern void ChangeDrawWindowResolution(DRAW_WINDOW* window, int32 new_width, int32 new_height);
+EXTERN void ChangeDrawWindowResolution(DRAW_WINDOW* window, int32 new_width, int32 new_height);
 
 /*************************************************
 * AddChangeDrawWindowResolutionHistory関数       *
@@ -380,7 +391,7 @@ extern void ChangeDrawWindowResolution(DRAW_WINDOW* window, int32 new_width, int
 * new_width		: 新しい幅                       *
 * new_height	: 新しい高さ                     *
 *************************************************/
-extern void AddChangeDrawWindowResolutionHistory(
+EXTERN void AddChangeDrawWindowResolutionHistory(
 	DRAW_WINDOW* window,
 	int32 new_width,
 	int32 new_height
@@ -394,7 +405,7 @@ extern void AddChangeDrawWindowResolutionHistory(
 * new_width		: 新しい幅                 *
 * new_height	: 新しい高さ               *
 *******************************************/
-extern void ChangeDrawWindowSize(DRAW_WINDOW* window, int32 new_width, int32 new_height);
+EXTERN void ChangeDrawWindowSize(DRAW_WINDOW* window, int32 new_width, int32 new_height);
 
 /*****************************************
 * UpdateDrawWindowClippingArea           *
@@ -402,7 +413,7 @@ extern void ChangeDrawWindowSize(DRAW_WINDOW* window, int32 new_width, int32 new
 * 引数                                   *
 * window	: 描画領域の情報             *
 *****************************************/
-extern void UpdateDrawWindowClippingArea(DRAW_WINDOW* window);
+EXTERN void UpdateDrawWindowClippingArea(DRAW_WINDOW* window);
 
 /*************************************************
 * ClipUpdateArea関数                             *
@@ -411,7 +422,7 @@ extern void UpdateDrawWindowClippingArea(DRAW_WINDOW* window);
 * window	: 描画領域の情報                     *
 * cairo_p	: Cairo情報                          *
 *************************************************/
-extern void ClipUpdateArea(DRAW_WINDOW* window, cairo_t* cairo_p);
+EXTERN void ClipUpdateArea(DRAW_WINDOW* window, cairo_t* cairo_p);
 
 /*******************************************************************
 * DrawWindowSetIccProfile関数                                      *
@@ -421,7 +432,7 @@ extern void ClipUpdateArea(DRAW_WINDOW* window, cairo_t* cairo_p);
 * data_size	: ICCプロファイルのデータのバイト数                    *
 * ask_set	: ソフトプルーフ表示を適用するかを尋ねるか否か         *
 *******************************************************************/
-extern void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_set);
+EXTERN void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_set);
 
 /*************************************************
 * AddChangeDrawWindowSizeHistory関数             *
@@ -431,23 +442,72 @@ extern void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboole
 * new_width		: 新しい幅                       *
 * new_height	: 新しい高さ                     *
 *************************************************/
-extern void AddChangeDrawWindowSizeHistory(
+EXTERN void AddChangeDrawWindowSizeHistory(
 	DRAW_WINDOW* window,
 	int32 new_width,
 	int32 new_height
 );
 
-extern void RasterizeVectorLine(
+/*************************************************************
+* AddLayer関数                                               *
+* 描画領域にレイヤーを追加する                               *
+* 引数                                                       *
+* canvas		: レイヤーを追加する描画領域                 *
+* layer_type	: 追加するレイヤーのタイプ(通常、ベクトル等) *
+* layer_name	: 追加するレイヤーの名前                     *
+* prev_layer	: 追加したレイヤーの下にくるレイヤー         *
+* 返り値                                                     *
+*	成功:レイヤー構造体のアドレス	失敗:NULL                *
+*************************************************************/
+EXTERN LAYER* AddLayer(
+	DRAW_WINDOW* window,
+	eLAYER_TYPE layer_type,
+	const char* layer_name,
+	LAYER* prev_layer
+);
+
+EXTERN void RasterizeVectorLine(
 	DRAW_WINDOW* window,
 	VECTOR_LAYER* layer,
 	VECTOR_LINE* line,
 	VECTOR_LAYER_RECTANGLE* rect
 );
 
-extern void RasterizeVectorLayer(
+EXTERN void RasterizeVectorLayer(
 	DRAW_WINDOW* window,
 	LAYER* target,
 	VECTOR_LAYER* layer
+);
+
+/***********************************************
+* ReadVectorLineData関数                       *
+* ベクトルレイヤーのデータを読み込む           *
+* 引数                                         *
+* data		: ベクトルレイヤーのデータ(圧縮済) *
+* target	: データを読み込むレイヤー         *
+* 返り値                                       *
+*	読み込んだバイト数                         *
+***********************************************/
+EXTERN uint32 ReadVectorLineData(uint8* data, LAYER* target);
+
+/*********************************************************
+* WriteVectorLineData関数                                *
+* ベクトルレイヤーのデータを書き出す                     *
+* 引数                                                   *
+* target			: データを書き出すレイヤー           *
+* dst				: 書き出し先のポインタ               *
+* write_func		: 書き出しに使う関数ポインタ         *
+* data_stream		: 圧縮前のデータを作成するストリーム *
+* write_stream		: 書き出しデータを作成するストリーム *
+* compress_level	: ZIP圧縮のレベル                    *
+*********************************************************/
+EXTERN void WriteVectorLineData(
+	LAYER* target,
+	void* dst,
+	stream_func_t write_func,
+	MEMORY_STREAM* data_stream,
+	MEMORY_STREAM* write_stream,
+	int compress_level
 );
 
 /***********************************************
@@ -460,7 +520,7 @@ extern void RasterizeVectorLayer(
 * 返り値                                       *
 *	選択範囲内:1	選択範囲外:0               *
 ***********************************************/
-extern int IsVectorLineInSelectionArea(
+EXTERN int IsVectorLineInSelectionArea(
 	DRAW_WINDOW* window,
 	uint8* selection_pixels,
 	VECTOR_LINE* line
@@ -476,7 +536,7 @@ extern int IsVectorLineInSelectionArea(
 * point		: 追加した制御点のアドレス     *
 * tool_name	: 制御点を追加したツールの名前 *
 *******************************************/
-extern void AddControlPointHistory(
+EXTERN void AddControlPointHistory(
 	DRAW_WINDOW* window,
 	LAYER* layer,
 	VECTOR_LINE* line,
@@ -495,7 +555,7 @@ extern void AddControlPointHistory(
 * tool_name		: 制御点を追加したツールの名前     *
 * add_line_flag	: ライン追加をしたといのフラグ     *
 ***************************************************/
-extern void AddTopLineControlPointHistory(
+EXTERN void AddTopLineControlPointHistory(
 	DRAW_WINDOW* window,
 	LAYER* layer,
 	VECTOR_LINE* line,
@@ -515,7 +575,7 @@ extern void AddTopLineControlPointHistory(
 * num_lines		: 削除する線の数                           *
 * tool_name		: 削除に使用したツールの名前               *
 ***********************************************************/
-extern void AddDeleteLinesHistory(
+EXTERN void AddDeleteLinesHistory(
 	DRAW_WINDOW* window,
 	LAYER* active_layer,
 	VECTOR_LINE* line_data,
@@ -531,7 +591,7 @@ extern void AddDeleteLinesHistory(
 * layer_set	: 削除するレイヤーセット       *
 * window	: レイヤーセットを持つ描画領域 *
 *******************************************/
-extern void DeleteLayerSet(LAYER* layer_set, DRAW_WINDOW* window);
+EXTERN void DeleteLayerSet(LAYER* layer_set, DRAW_WINDOW* window);
 
 /*************************************************
 * MixLayerSet関数                                *
@@ -541,7 +601,7 @@ extern void DeleteLayerSet(LAYER* layer_set, DRAW_WINDOW* window);
 * next		: 合成後に次に合成するレイヤー       *
 * window	: 描画領域を管理する構造体のアドレス *
 *************************************************/
-extern void MixLayerSet(LAYER* bottom, LAYER** next, DRAW_WINDOW* window);
+EXTERN void MixLayerSet(LAYER* bottom, LAYER** next, DRAW_WINDOW* window);
 
 /***************************************************************
 * MixLayerSetActiveOver関数                                    *
@@ -551,22 +611,29 @@ extern void MixLayerSet(LAYER* bottom, LAYER** next, DRAW_WINDOW* window);
 * next		: 合成後の次に合成するレイヤー                     *
 * window	: 描画領域を管理する構造体のアドレス               *
 ***************************************************************/
-extern void MixLayerSetActiveOver(LAYER* start, LAYER** next, DRAW_WINDOW* window);
+EXTERN void MixLayerSetActiveOver(LAYER* start, LAYER** next, DRAW_WINDOW* window);
 
-extern void RenderTextLayer(DRAW_WINDOW* window, struct _LAYER* target, TEXT_LAYER* layer);
+EXTERN void RenderTextLayer(DRAW_WINDOW* window, struct _LAYER* target, TEXT_LAYER* layer);
 
-extern void DisplayTextLayerRange(DRAW_WINDOW* window, TEXT_LAYER* layer);
+EXTERN void DisplayTextLayerRange(DRAW_WINDOW* window, TEXT_LAYER* layer);
 
-extern void DisplayEditSelection(DRAW_WINDOW* window);
+EXTERN void DisplayEditSelection(DRAW_WINDOW* window);
 
-/***************************************
-* g_part_layer_blend_funcs配列         *
-* レイヤー部分合成関数へのポインタ配列 *
-* 引数                                 *
-* src		: 合成するレイヤー         *
-* update	: 更新範囲の情報           *
-***************************************/
-extern void (*g_part_layer_blend_funcs[])(LAYER* src, UPDATE_RECTANGLE* update);
+/*********************************************************
+* SetLayerBlendFunctions関数                             *
+* レイヤー合成に使用する関数ポインタ配列の中身を設定する *
+* 引数                                                   *
+* layer_blend_functions	: 中身を設定する関数ポインタ配列 *
+*********************************************************/
+extern void SetLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, LAYER* dst));
+
+/*************************************************************
+* SetPartLayerBlendFunctions関数                             *
+* ブラシ使用時のレイヤー合成関数ポインタ配列の中身を設定する *
+* 引数                                                       *
+* layer_blend_functions	: 中身を設定する関数ポインタ配列     *
+*************************************************************/
+extern void SetPartLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, UPDATE_RECTANGLE* update));
 
 /*****************************************
 * AutoSave関数                           *
@@ -574,7 +641,7 @@ extern void (*g_part_layer_blend_funcs[])(LAYER* src, UPDATE_RECTANGLE* update);
 * 引数                                   *
 * window	: バックアップを取る描画領域 *
 *****************************************/
-extern void AutoSave(DRAW_WINDOW* window);
+EXTERN void AutoSave(DRAW_WINDOW* window);
 
 /***************************************************
 * GetBlendedUnderLayer関数                         *
@@ -586,14 +653,16 @@ extern void AutoSave(DRAW_WINDOW* window);
 * 返り値                                           *
 *	合成したレイヤー                               *
 ***************************************************/
-extern LAYER* GetBlendedUnderLayer(LAYER* target, DRAW_WINDOW* window, int use_back_ground);
+EXTERN LAYER* GetBlendedUnderLayer(LAYER* target, DRAW_WINDOW* window, int use_back_ground);
 
-extern void DivideLinesUndo(DRAW_WINDOW* window, void* p);
-extern void DivideLinesRedo(DRAW_WINDOW* window, void* p);
+EXTERN void DivideLinesUndo(DRAW_WINDOW* window, void* p);
+EXTERN void DivideLinesRedo(DRAW_WINDOW* window, void* p);
 
-extern void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* window);
+EXTERN void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* window);
 
-extern gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_info, DRAW_WINDOW* window);
+EXTERN gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_info, DRAW_WINDOW* window);
+
+EXTERN void UpdateDrawWindow(DRAW_WINDOW* window);
 
 /*********************************
 * Change2FocalMode関数           *
@@ -601,7 +670,7 @@ extern gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* ev
 * 引数                           *
 * parent_window	: 親キャンバス   *
 *********************************/
-extern void Change2FocalMode(DRAW_WINDOW* parent_window);
+EXTERN void Change2FocalMode(DRAW_WINDOW* parent_window);
 
 /*********************************
 * ReturnFromFocalMode関数        *
@@ -609,7 +678,7 @@ extern void Change2FocalMode(DRAW_WINDOW* parent_window);
 * 引数                           *
 * parent_window	: 親キャンバス   *
 *********************************/
-extern void ReturnFromFocalMode(DRAW_WINDOW* parent_window);
+EXTERN void ReturnFromFocalMode(DRAW_WINDOW* parent_window);
 
 #ifdef __cplusplus
 }

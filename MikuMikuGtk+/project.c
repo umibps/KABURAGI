@@ -104,8 +104,14 @@ void LoadProject(
 			(void)read_func(&data16, sizeof(data16), 1, src);
 			model = MakeModelContext((eMODEL_TYPE)data16,
 				(void*)project->scene, project->application_context);
-			ReadModelData(model, project->scene, src, read_func, seek_func);
-			PointerArrayAppend(project->scene->models, model);
+			if(ReadModelData(model, project->scene, src, read_func, seek_func) != FALSE)
+			{
+				PointerArrayAppend(project->scene->models, model);
+			}
+			else
+			{
+				DeleteModel(model);
+			}
 		}
 	}
 
@@ -129,7 +135,8 @@ void LoadProject(
 				{
 					if(i != j)
 					{
-						if(strcmp(parent_model_name, models[j]->parent_model->name) == 0)
+						if(models[j]->parent_model != NULL
+							&& strcmp(parent_model_name, models[j]->parent_model->name) == 0)
 						{
 							models[i]->parent_model = models[j];
 							break;

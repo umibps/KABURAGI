@@ -103,6 +103,11 @@ uint8* DecodeImageData(
 		result = ReadBmpStream((void*)&stream, (stream_func_t)MemRead, (seek_func_t)MemSeek,
 			data_size, &local_width, &local_height, &local_channel, &local_resolution);
 	}
+	else if(strcmp(type, ".dds") == 0)
+	{
+		result = ReadDdsStream((void*)&stream, (stream_func_t)MemRead, (seek_func_t)MemSeek,
+			data_size, &local_width, &local_height, &local_channel);
+	}
 
 	MEM_FREE_FUNC(type);
 
@@ -986,8 +991,11 @@ uint8* ReadJpegStream(
 	// ヘッダの読み込み
 	jpeg_read_header(&decode, FALSE);
 
-	// ICCプロファイルの読み込み
-	(void)JpegReadICCProfile(&decode, icc_profile_data, icc_profile_size);
+	if(icc_profile_data != NULL)
+	{
+		// ICCプロファイルの読み込み
+		(void)JpegReadICCProfile(&decode, icc_profile_data, icc_profile_size);
+	}
 
 	// 画像の幅、高さ、チャンネル数、解像度を取得
 	local_width = decode.image_width;
@@ -1031,7 +1039,6 @@ uint8* ReadJpegStream(
 	// メモリ開放
 	jpeg_finish_decompress(&decode);
 	MEM_FREE_FUNC(pixel_datas);
-	MEM_FREE_FUNC(pixels);
 	jpeg_destroy_decompress(&decode);
 	MEM_FREE_FUNC(jpeg_data);
 
@@ -1209,8 +1216,6 @@ LAYER* ReadOriginalFormatLayers(
 {
 	// レイヤーの基本情報読み込み用
 	LAYER_BASE_DATA base;
-	// ベクトルレイヤーの基本情報読み込み用
-	VECTOR_LINE_BASE_DATA line_base;
 	// テキストレイヤーの基本情報読み込み用
 	TEXT_LAYER_BASE_DATA text_base;
 	// 画像データ
@@ -1332,11 +1337,6 @@ LAYER* ReadOriginalFormatLayers(
 		case TYPE_VECTOR_LAYER:	// ベクトルレイヤー
 			{	// 線をピクセルデータへ変更するための準備
 				VECTOR_LAYER_RECTANGLE rect = {0, 0, base.width, base.height};
-				VECTOR_LINE* line;
-				// ZIP圧縮展開用
-				z_stream decompress_stream;
-				// 展開後のデータバイト数
-				guint32 vector_data_size;
 
 				layer->layer_data.vector_layer_p =
 					(VECTOR_LAYER*)MEM_ALLOC_FUNC(sizeof(*layer->layer_data.vector_layer_p));
@@ -1358,82 +1358,13 @@ LAYER* ReadOriginalFormatLayers(
 					layer->layer_data.vector_layer_p->base;
 
 				// データのバイト数を読み込む
-				(void)MemRead(&data_size, sizeof(data_size), 1, stream);
-				next_data_point = (uint32)(stream->data_point + data_size);
-				// 展開後のバイト数を読み込む
-				(void)MemRead(&vector_data_size, sizeof(vector_data_size), 1, stream);
-
-				// 展開後のデータを扱うためのストリーム作成
-				image = CreateMemoryStream(vector_data_size);
-
-				// データを展開
-					// ZIPデータ展開前の準備
-				decompress_stream.zalloc = Z_NULL;
-				decompress_stream.zfree = Z_NULL;
-				decompress_stream.opaque = Z_NULL;
-				decompress_stream.avail_in = 0;
-				decompress_stream.next_in = Z_NULL;
-				(void)inflateInit(&decompress_stream);
-				// ZIPデータ展開
-				decompress_stream.avail_in = (uInt)data_size;
-				decompress_stream.next_in = &stream->buff_ptr[stream->data_point];
-				decompress_stream.avail_out = (uInt)vector_data_size;
-				decompress_stream.next_out = image->buff_ptr;
-				(void)inflate(&decompress_stream, Z_NO_FLUSH);
-				(void)inflateEnd(&decompress_stream);
-
-				// 線情報の読み込み
-				(void)MemRead(&size_t_temp, sizeof(size_t_temp), 1, image);
-				layer->layer_data.vector_layer_p->num_lines = size_t_temp;
-				(void)MemRead(&size_t_temp, sizeof(size_t_temp), 1, image);
-				layer->layer_data.vector_layer_p->flags = size_t_temp;
-
-				for(j=0; j<layer->layer_data.vector_layer_p->num_lines; j++)
-				{
-					(void)MemRead(&line_base.vector_type, sizeof(line_base.vector_type), 1, image);
-					(void)MemRead(&line_base.flags, sizeof(line_base.flags), 1, image);
-					(void)MemRead(&line_base.num_points, sizeof(line_base.num_points), 1, image);
-					(void)MemRead(&line_base.blur, sizeof(line_base.blur), 1, image);
-					(void)MemRead(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, image);
-					line = CreateVectorLine(layer->layer_data.vector_layer_p->top_line, NULL);
-					line->vector_type = line_base.vector_type;
-					line->flags = line_base.flags;
-					line->num_points = line_base.num_points;
-					line->blur = line_base.blur;
-					line->outline_hardness = line_base.outline_hardness;
-					// 制御点情報の読み込み
-					line->buff_size =
-						((line_base.num_points / VECTOR_LINE_BUFFER_SIZE) + 1) * VECTOR_LINE_BUFFER_SIZE;
-					line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(*line->points)*line->buff_size);
-					(void)memset(line->points, 0, sizeof(*line->points)*line->buff_size);
-					for(k=0; k<line->num_points; k++)
-					{
-						(void)MemRead(&line->points[k].vector_type, sizeof(line->points->vector_type), 1, image);
-						(void)MemRead(&line->points[k].flags, sizeof(line->points->flags), 1, image);
-						(void)MemRead(&line->points[k].color, sizeof(line->points->color), 1, image);
-						(void)MemRead(&line->points[k].pressure, sizeof(line->points->pressure), 1, image);
-						(void)MemRead(&line->points[k].size, sizeof(line->points->size), 1, image);
-						(void)MemRead(&line->points[k].x, sizeof(line->points->x), 1, image);
-						(void)MemRead(&line->points[k].y, sizeof(line->points->y), 1, image);
-					}
-
-					if(line->points->size == 0.0)
-					{
-						DeleteVectorLine(&line);
-						layer->layer_data.vector_layer_p->num_lines--;
-					}
-					else
-					{
-						layer->layer_data.vector_layer_p->top_line = line;
-					}
-				}
+				next_data_point = (uint32)(stream->data_point +
+					ReadVectorLineData(&stream->buff_ptr[stream->data_point], layer));
 
 				// ベクトルデータをラスタライズ
 				layer->layer_data.vector_layer_p->flags =
 					(VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ALL);
 				RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
-
-				(void)DeleteMemoryStream(image);
 			}
 			break;
 		case TYPE_TEXT_LAYER:	// テキストレイヤー
@@ -1510,31 +1441,32 @@ LAYER* ReadOriginalFormatLayers(
 			}
 
 			break;
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 		case TYPE_3D_LAYER:	// 3Dモデリングレイヤー
-			// PNG圧縮されたピクセルデータを展開して読み込む
-			(void)MemRead(&data_size, sizeof(data_size), 1, stream);
-			next_data_point = (uint32)(stream->data_point + data_size);
-			(void)MemRead(&data_size, sizeof(data_size), 1, stream);
-			image = CreateMemoryStream(data_size);
-			(void)MemRead(image->buff_ptr, 1, data_size, stream);
-			pixels = ReadPNGStream(image, (stream_func_t)MemRead,
-				&width, &height, &stride);
-			if(pixels != NULL)
+			if(GetHas3DLayer(app) != FALSE)
 			{
-				(void)memcpy(layer->pixels, pixels, height*stride);
+				// PNG圧縮されたピクセルデータを展開して読み込む
+				(void)MemRead(&data_size, sizeof(data_size), 1, stream);
+				next_data_point = (uint32)(stream->data_point + data_size);
+				(void)MemRead(&data_size, sizeof(data_size), 1, stream);
+				image = CreateMemoryStream(data_size);
+				(void)MemRead(image->buff_ptr, 1, data_size, stream);
+				pixels = ReadPNGStream(image, (stream_func_t)MemRead,
+					&width, &height, &stride);
+				if(pixels != NULL)
+				{
+					(void)memcpy(layer->pixels, pixels, height*stride);
+				}
+				DeleteMemoryStream(image);
+				MEM_FREE_FUNC(pixels);
+
+				// 3Dモデルのデータを読み込む
+				(void)MemRead(&data_size, sizeof(data_size), 1, stream);
+				layer->modeling_data = MEM_ALLOC_FUNC(data_size);
+				(void)MemRead(layer->modeling_data, 1, data_size, stream);
+				layer->modeling_data_size = data_size;
+
+				break;
 			}
-			DeleteMemoryStream(image);
-			MEM_FREE_FUNC(pixels);
-
-			// 3Dモデルのデータを読み込む
-			(void)MemRead(&data_size, sizeof(data_size), 1, stream);
-			layer->modeling_data = MEM_ALLOC_FUNC(data_size);
-			(void)MemRead(layer->modeling_data, 1, data_size, stream);
-			layer->modeling_data_size = data_size;
-
-			break;
-#endif
 		default:
 			// PNG圧縮されたピクセルデータを展開して読み込む
 			(void)MemRead(&data_size, sizeof(data_size), 1, stream);
@@ -1648,8 +1580,6 @@ LAYER* ReadOriginalFormatLayersOldVersion3(
 {
 	// レイヤーの基本情報読み込み用
 	LAYER_BASE_DATA base;
-	// ベクトルレイヤーの基本情報読み込み用
-	VECTOR_LINE_BASE_DATA line_base;
 	// テキストレイヤーの基本情報読み込み用
 	TEXT_LAYER_BASE_DATA text_base;
 	// 画像データ
@@ -1664,8 +1594,6 @@ LAYER* ReadOriginalFormatLayersOldVersion3(
 	MEMORY_STREAM_PTR image;
 	// ピクセルデータの幅、高さ、一行分のバイト数
 	gint32 width, height, stride;
-	// 32bit読み込み用
-	guint32 size_t_temp;
 	// レイヤー・フォントの名前とその長さ
 	char* name;
 	uint16 name_length;
@@ -1676,7 +1604,7 @@ LAYER* ReadOriginalFormatLayersOldVersion3(
 	uint8 r;
 	// for文用のカウンタ
 	int x;
-	unsigned int i, j, k;
+	unsigned int i, j;
 
 	for(i=0; i<num_layer; i++)
 	{
@@ -1730,11 +1658,6 @@ LAYER* ReadOriginalFormatLayersOldVersion3(
 		case TYPE_VECTOR_LAYER:	// ベクトルレイヤー
 			{	// 線をピクセルデータへ変更するための準備
 				VECTOR_LAYER_RECTANGLE rect = {0, 0, base.width, base.height};
-				VECTOR_LINE* line;
-				// ZIP圧縮展開用
-				z_stream decompress_stream;
-				// 展開後のデータバイト数
-				guint32 vector_data_size;
 
 				layer->layer_data.vector_layer_p =
 					(VECTOR_LAYER*)MEM_ALLOC_FUNC(sizeof(*layer->layer_data.vector_layer_p));
@@ -1756,85 +1679,13 @@ LAYER* ReadOriginalFormatLayersOldVersion3(
 					layer->layer_data.vector_layer_p->base;
 
 				// データのバイト数を読み込む
-				(void)MemRead(&data_size, sizeof(data_size), 1, stream);
-				next_data_point = (uint32)(stream->data_point + data_size);
-				// 展開後のバイト数を読み込む
-				(void)MemRead(&vector_data_size, sizeof(vector_data_size), 1, stream);
-
-				// 展開後のデータを扱うためのストリーム作成
-				image = CreateMemoryStream(vector_data_size);
-
-				// データを展開
-					// ZIPデータ展開前の準備
-				decompress_stream.zalloc = Z_NULL;
-				decompress_stream.zfree = Z_NULL;
-				decompress_stream.opaque = Z_NULL;
-				decompress_stream.avail_in = 0;
-				decompress_stream.next_in = Z_NULL;
-				(void)inflateInit(&decompress_stream);
-				// ZIPデータ展開
-				decompress_stream.avail_in = (uInt)data_size;
-				decompress_stream.next_in = &stream->buff_ptr[stream->data_point];
-				decompress_stream.avail_out = (uInt)vector_data_size;
-				decompress_stream.next_out = image->buff_ptr;
-				(void)inflate(&decompress_stream, Z_NO_FLUSH);
-				(void)inflateEnd(&decompress_stream);
-
-				// 線情報の読み込み
-				(void)MemRead(&size_t_temp, sizeof(size_t_temp), 1, image);
-				layer->layer_data.vector_layer_p->num_lines = size_t_temp;
-				(void)MemRead(&size_t_temp, sizeof(size_t_temp), 1, image);
-				layer->layer_data.vector_layer_p->flags = size_t_temp;
-
-				for(j=0; j<layer->layer_data.vector_layer_p->num_lines; j++)
-				{
-					(void)MemRead(&line_base.vector_type, sizeof(line_base.vector_type), 1, image);
-					(void)MemRead(&line_base.flags, sizeof(line_base.flags), 1, image);
-					(void)MemRead(&line_base.num_points, sizeof(line_base.num_points), 1, image);
-					(void)MemRead(&line_base.blur, sizeof(line_base.blur), 1, image);
-					(void)MemRead(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, image);
-					line = CreateVectorLine(layer->layer_data.vector_layer_p->top_line, NULL);
-					line->vector_type = line_base.vector_type;
-					line->flags = line_base.flags;
-					line->num_points = line_base.num_points;
-					line->blur = line_base.blur;
-					line->outline_hardness = line_base.outline_hardness;
-					// 制御点情報の読み込み
-					line->buff_size =
-						((line_base.num_points / VECTOR_LINE_BUFFER_SIZE) + 1) * VECTOR_LINE_BUFFER_SIZE;
-					line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(*line->points)*line->buff_size);
-					(void)memset(line->points, 0, sizeof(*line->points)*line->buff_size);
-					for(k=0; k<line->num_points; k++)
-					{
-						(void)MemRead(&line->points[k].vector_type, sizeof(line->points->vector_type), 1, image);
-						(void)MemRead(&line->points[k].flags, sizeof(line->points->flags), 1, image);
-						(void)MemRead(&line->points[k].color, sizeof(line->points->color), 1, image);
-						r = line->points[k].color[0];
-						line->points[k].color[0] = line->points[k].color[2];
-						line->points[k].color[2] = r;
-						(void)MemRead(&line->points[k].pressure, sizeof(line->points->pressure), 1, image);
-						(void)MemRead(&line->points[k].size, sizeof(line->points->size), 1, image);
-						(void)MemRead(&line->points[k].x, sizeof(line->points->x), 1, image);
-						(void)MemRead(&line->points[k].y, sizeof(line->points->y), 1, image);
-					}
-
-					if(line->points->size == 0.0)
-					{
-						DeleteVectorLine(&line);
-						layer->layer_data.vector_layer_p->num_lines--;
-					}
-					else
-					{
-						layer->layer_data.vector_layer_p->top_line = line;
-					}
-				}
+				next_data_point = (uint32)(stream->data_point + ReadVectorLineData(
+					&stream->buff_ptr[stream->data_point], layer));
 
 				// ベクトルデータをラスタライズ
 				layer->layer_data.vector_layer_p->flags =
 					(VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ALL);
 				RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
-
-				(void)DeleteMemoryStream(image);
 			}
 			break;
 		case TYPE_TEXT_LAYER:	// テキストレイヤー
@@ -1939,8 +1790,6 @@ LAYER* ReadOriginalFormatLayersOldVersion2(
 {
 	// レイヤーの基本情報読み込み用
 	LAYER_BASE_DATA base;
-	// ベクトルレイヤーの基本情報読み込み用
-	VECTOR_LINE_BASE_DATA line_base;
 	// テキストレイヤーの基本情報読み込み用
 	TEXT_LAYER_BASE_DATA text_base;
 	// 画像データ
@@ -2020,11 +1869,6 @@ LAYER* ReadOriginalFormatLayersOldVersion2(
 		case TYPE_VECTOR_LAYER:	// ベクトルレイヤー
 			{	// 線をピクセルデータへ変更するための準備
 				VECTOR_LAYER_RECTANGLE rect = {0, 0, base.width, base.height};
-				VECTOR_LINE* line;
-				// ZIP圧縮展開用
-				z_stream decompress_stream;
-				// 展開後のデータバイト数
-				uint32 vector_data_size;
 
 				layer->layer_data.vector_layer_p =
 					(VECTOR_LAYER*)MEM_ALLOC_FUNC(sizeof(*layer->layer_data.vector_layer_p));
@@ -2047,78 +1891,13 @@ LAYER* ReadOriginalFormatLayersOldVersion2(
 
 				// データのバイト数を読み込む
 				(void)MemRead(&data_size, sizeof(data_size), 1, stream);
-				next_data_point = (uint32)(stream->data_point + data_size);
-				// 展開後のバイト数を読み込む
-				(void)MemRead(&vector_data_size, sizeof(vector_data_size), 1, stream);
-
-				// 展開後のデータを扱うためのストリーム作成
-				image = CreateMemoryStream(vector_data_size);
-
-				// データを展開
-					// ZIPデータ展開前の準備
-				decompress_stream.zalloc = Z_NULL;
-				decompress_stream.zfree = Z_NULL;
-				decompress_stream.opaque = Z_NULL;
-				decompress_stream.avail_in = 0;
-				decompress_stream.next_in = Z_NULL;
-				(void)inflateInit(&decompress_stream);
-				// ZIPデータ展開
-				decompress_stream.avail_in = (uInt)data_size;
-				decompress_stream.next_in = &stream->buff_ptr[stream->data_point];
-				decompress_stream.avail_out = (uInt)vector_data_size;
-				decompress_stream.next_out = image->buff_ptr;
-				(void)inflate(&decompress_stream, Z_NO_FLUSH);
-				(void)inflateEnd(&decompress_stream);
-
-				// 線情報の読み込み
-				(void)MemRead(&layer->layer_data.vector_layer_p->num_lines,
-					sizeof(layer->layer_data.vector_layer_p->num_lines), 1, image);
-				(void)MemRead(&layer->layer_data.vector_layer_p->flags,
-					sizeof(layer->layer_data.vector_layer_p->flags), 1, image);
-				for(j=0; j<layer->layer_data.vector_layer_p->num_lines; j++)
-				{
-					//(void)MemRead(&line_base, sizeof(line_base), 1, image);
-					(void)MemRead(&line_base.vector_type, sizeof(line_base.vector_type), 1, image);
-					(void)MemRead(&line_base.flags, sizeof(line_base.flags), 1, image);
-					(void)MemRead(&line_base.num_points, sizeof(line_base.num_points), 1, image);
-					(void)MemRead(&line_base.blur, sizeof(line_base.blur), 1, image);
-					(void)MemRead(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, image);
-					line = CreateVectorLine(layer->layer_data.vector_layer_p->top_line, NULL);
-					line->vector_type = line_base.vector_type;
-					line->flags = line_base.flags;
-					line->num_points = line_base.num_points;
-					line->blur = line_base.blur;
-					line->outline_hardness = line_base.outline_hardness;
-					// 制御点情報の読み込み
-					line->buff_size =
-						((line_base.num_points / VECTOR_LINE_BUFFER_SIZE) + 1) * VECTOR_LINE_BUFFER_SIZE;
-					line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(*line->points)*line->buff_size);
-					(void)memset(line->points, 0, sizeof(*line->points)*line->buff_size);
-					(void)MemRead(line->points, sizeof(*line->points), line->num_points, image);
-					for(x=0; x<line->num_points; x++)
-					{
-						r = line->points[x].color[0];
-						line->points[x].color[0] = line->points[x].color[2];
-						line->points[x].color[2] = r;
-					}
-
-					if(line->points->size == 0.0)
-					{
-						DeleteVectorLine(&line);
-						layer->layer_data.vector_layer_p->num_lines--;
-					}
-					else
-					{
-						layer->layer_data.vector_layer_p->top_line = line;
-					}
-				}
+				next_data_point = (uint32)(stream->data_point
+					+ ReadVectorLineData(&stream->buff_ptr[stream->data_point], layer));
 
 				// ベクトルデータをラスタライズ
 				layer->layer_data.vector_layer_p->flags =
 					(VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ALL);
 				RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
-
-				(void)DeleteMemoryStream(image);
 			}
 			break;
 		case TYPE_TEXT_LAYER:	// テキストレイヤー
@@ -2701,7 +2480,10 @@ DRAW_WINDOW* ReadOriginalFormat(
 		original_width, original_height, channel, data_name,
 		app->note_book, app->window_num, app
 	);
-	DisconnectDrawWindowCallbacks(window->window, window);
+	if(GetHas3DLayer(app) != FALSE)
+	{
+		DisconnectDrawWindowCallbacks(window->gl_area, window);
+	}
 	gtk_widget_hide(window->window);
 
 	// 背景画像データを読み込む
@@ -2808,11 +2590,16 @@ DRAW_WINDOW* ReadOriginalFormat(
 
 	(void)DeleteMemoryStream(mem_stream);
 
+	if(GetHas3DLayer(app) != FALSE)
+	{
+		SetDrawWindowCallbacks(window->gl_area, window);
+	}
+
 	// プログレスバーをリセット
 	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), 0);
 	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->progress), "");
 
-	SetDrawWindowCallbacks(window->window, window);
+	//SetDrawWindowCallbacks(window->window, window);
 	gtk_widget_show(window->window);
 
 	return window;
@@ -2938,7 +2725,7 @@ LAYER* ReadOriginalFormatMixedData(
 		progress_step = 1.0 / (num_layer + 1);
 		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), progress_step);
 		(void)sprintf(show_text, "%.0f%%", progress_step * 100);
-#if MAJOR_VERSION == 1
+#if GDK_MAJOR_VERSION <= 2
 		gdk_window_process_updates(app->progress->window, FALSE);
 #else
 		gdk_window_process_updates(gtk_widget_get_window(app->progress), FALSE);
@@ -2949,7 +2736,7 @@ LAYER* ReadOriginalFormatMixedData(
 			gtk_main_iteration();
 			if(queued_event != NULL)
 			{
-#if MAJOR_VERSION == 1
+#if GDK_MAJOR_VERSION <= 2
 				if(queued_event->any.window == app->progress->window
 #else
 				if(queued_event->any.window == gtk_widget_get_window(app->progress)
@@ -2999,7 +2786,7 @@ LAYER* ReadOriginalFormatMixedData(
 	{
 		if((layer->flags & LAYER_FLAG_INVISIBLE) == 0)
 		{
-			g_layer_blend_funcs[layer->layer_mode](layer, mixed);
+			window->layer_blend_functions[layer->layer_mode](layer, mixed);
 		}
 
 		layer = layer->next;
@@ -3239,8 +3026,6 @@ void WriteOriginalFormat(
 	LAYER* layer = window->layer;
 	// 書きだすレイヤーの基本情報
 	LAYER_BASE_DATA base;
-	// ベクトルレイヤーデータ書き出し時の基本情報
-	VECTOR_LINE_BASE_DATA line_base;
 	// テキストレイヤーデータ書き出し時の基本情報
 	TEXT_LAYER_BASE_DATA text_base;
 	// 適正データ判定用の文字列
@@ -3478,91 +3263,7 @@ void WriteOriginalFormat(
 			(void)write_func(image->buff_ptr, 1, image->data_point, stream);
 			break;
 		case TYPE_VECTOR_LAYER:	// ベクトルレイヤー
-			// ベクトルの座標、サイズ、筆圧、色を一度メモリに溜める
-				// ラインの数を書き込む領域を開けておく
-			(void)MemSeek(image, sizeof(guint32), SEEK_SET);
-			// ベクトルレイヤーのフラグを書き出す
-			size_t_temp = layer->layer_data.vector_layer_p->flags;
-			(void)MemWrite(&size_t_temp, sizeof(size_t_temp), 1, image);
-			{
-				// ZIP圧縮用
-				z_stream compress_stream;
-				// ベクトルレイヤーのデータバイト数
-				guint32 vector_data_size;
-				guint32 data_size;
-				// ラインの数
-				guint32 num_line = 0;
-				// ラインデータ書き出し用
-				VECTOR_LINE *line = layer->layer_data.vector_layer_p->base->next;
-
-				while(line != NULL)
-				{
-					line_base.vector_type = line->vector_type;
-					line_base.flags = line->flags;
-					line_base.num_points = line->num_points;
-					line_base.blur = line->blur;
-					line_base.outline_hardness = line->outline_hardness;
-
-					(void)MemWrite(&line_base.vector_type, sizeof(line_base.vector_type), 1, image);
-					(void)MemWrite(&line_base.flags, sizeof(line_base.flags), 1, image);
-					(void)MemWrite(&line_base.num_points, sizeof(line_base.num_points), 1, image);
-					(void)MemWrite(&line_base.blur, sizeof(line_base.blur), 1, image);
-					(void)MemWrite(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, image);
-					for(i=0; i<line->num_points; i++)
-					{
-						(void)MemWrite(&line->points[i].vector_type, sizeof(line->points->vector_type), 1, image);
-						(void)MemWrite(&line->points[i].flags, sizeof(line->points->flags), 1, image);
-						(void)MemWrite(&line->points[i].color, sizeof(line->points->color), 1, image);
-						(void)MemWrite(&line->points[i].pressure, sizeof(line->points->pressure), 1, image);
-						(void)MemWrite(&line->points[i].size, sizeof(line->points->size), 1, image);
-						(void)MemWrite(&line->points[i].x, sizeof(line->points->x), 1, image);
-						(void)MemWrite(&line->points[i].y, sizeof(line->points->y), 1, image);
-					}
-
-					line = line->next;
-					num_line++;
-				}
-
-				// データサイズ記憶
-				vector_data_size = (guint32)image->data_point;
-				// ラインの数書き出し
-				MemSeek(image, 0, SEEK_SET);
-				(void)MemWrite(&num_line, sizeof(num_line), 1, image);
-
-				// ストリームのサイズが足りなければ再確保
-				if(vector_stream->data_size < image->data_size)
-				{
-					vector_stream->data_size = image->data_size;
-					vector_stream->buff_ptr =
-						(uint8*)MEM_REALLOC_FUNC(vector_stream->buff_ptr, vector_stream->data_size);
-				}
-
-				// ベクトルデータをZIP圧縮する
-					// 圧縮用ストリームのデータをセット
-				compress_stream.zalloc = Z_NULL;
-				compress_stream.zfree = Z_NULL;
-				compress_stream.opaque = Z_NULL;
-				(void)deflateInit(&compress_stream, compress);
-				compress_stream.avail_in = (uInt)vector_data_size;
-				compress_stream.next_in = image->buff_ptr;
-				compress_stream.avail_out = (uInt)vector_stream->data_size;
-				compress_stream.next_out = vector_stream->buff_ptr;
-				// 圧縮実行
-				(void)deflate(&compress_stream, Z_FINISH);
-
-				// 圧縮後のデータサイズを書き込む
-				data_size = (guint32)(vector_stream->data_size - compress_stream.avail_out
-					+ sizeof(vector_data_size));
-				(void)write_func(&data_size, sizeof(data_size), 1, stream);
-				// 圧縮前のデータサイズを書き込む
-				(void)write_func(&vector_data_size, sizeof(vector_data_size), 1, stream);
-				// 圧縮したデータを書き込む
-				(void)write_func(vector_stream->buff_ptr, 1,
-					data_size - sizeof(data_size), stream);
-
-				// 圧縮用ストリームを開放
-				(void)deflateEnd(&compress_stream);
-			}
+			WriteVectorLineData(layer, stream, write_func, image, vector_stream, compress);
 			break;
 		case TYPE_TEXT_LAYER:	// テキストレイヤー
 			// 文字描画領域の座標、幅、高さ、文字サイズ
@@ -3577,6 +3278,7 @@ void WriteOriginalFormat(
 			text_base.height = layer->layer_data.text_layer_p->height;
 			text_base.font_size = layer->layer_data.text_layer_p->font_size;
 			(void)memcpy(text_base.color, layer->layer_data.text_layer_p->color, 3);
+			text_base.base_size = layer->layer_data.text_layer_p->base_size;
 			text_base.flags = layer->layer_data.text_layer_p->flags;
 
 			(void)MemWrite(&text_base.x, sizeof(text_base.x), 1, image);
@@ -3585,6 +3287,7 @@ void WriteOriginalFormat(
 			(void)MemWrite(&text_base.height, sizeof(text_base.height), 1, image);
 			(void)MemWrite(&text_base.font_size, sizeof(text_base.font_size), 1, image);
 			(void)MemWrite(&text_base.color, sizeof(text_base.color), 1, image);
+			(void)MemWrite(&text_base.base_size, sizeof(text_base.base_size), 1, image);
 			(void)MemWrite(&text_base.flags, sizeof(text_base.flags), 1, image);
 			// フォントの名前を書き込む
 			name = pango_font_family_get_name(
@@ -3606,7 +3309,6 @@ void WriteOriginalFormat(
 			(void)write_func(image->buff_ptr, 1, image->data_point, stream);
 
 			break;
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 		case TYPE_3D_LAYER:
 			{
 				MEMORY_STREAM *modeling_stream = CreateMemoryStream(1024 * 1024 * 1024);
@@ -3629,7 +3331,6 @@ void WriteOriginalFormat(
 				(void)DeleteMemoryStream(modeling_stream);
 			}
 			break;
-#endif
 		case TYPE_LAYER_SET:	// レイヤーセット
 			break;
 		}
@@ -5258,7 +4959,12 @@ void WriteTiff(
 	TIFFSetField(out, TIFFTAG_IMAGEWIDTH, window->width);
 	TIFFSetField(out, TIFFTAG_IMAGELENGTH, window->height);
 	TIFFSetField(out, TIFFTAG_COMPRESSION, compress ? COMPRESSION_LZW : COMPRESSION_NONE);
-	TIFFSetField(out, TIFFTAG_SOFTWARE, "PaintSoft" APPLICATION_NAME);
+	{
+		char application_name[256];
+		(void)sprintf(application_name, "Paint Soft %s",
+			(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIKADO");
+		TIFFSetField(out, TIFFTAG_SOFTWARE, application_name);
+	}
 
 	resolution = window->resolution;
 	TIFFSetField(out, TIFFTAG_XRESOLUTION, &resolution);
@@ -6060,6 +5766,539 @@ uint8* ReadBmpStream(
 			pixels[i*local_channel+2] = r;
 		}
 	}
+
+	return pixels;
+}
+
+typedef struct _DDS_PIXEL_FORMAT
+{
+	uint32 size;
+	uint32 flags;
+	uint32 four_cc;
+	uint32 bpp;
+	uint32 red_mask;
+	uint32 green_mask;
+	uint32 blue_mask;
+	uint32 alpha_mask;
+} DDS_PIXEL_FORMAT;
+
+typedef struct _DDS_CAPS
+{
+	uint32 caps1;
+	uint32 caps2;
+	uint32 caps3;
+	uint32 caps4;
+} DDS_CAPS;
+
+typedef struct _DDS_COLOR_KEY
+{
+	uint32 low_value;
+	uint32 high_value;
+} DDS_COLOR_KEY;
+
+typedef struct _DDS_SURFACE_DESCRIPTION
+{
+	uint32 size;
+	uint32 flags;
+	uint32 height;
+	uint32 width;
+	uint32 pitch;
+	uint32 depth;
+	uint32 mip_map_levels;
+	uint32 alpha_bit_depth;
+	uint32 reserved;
+	uint32 surface;
+
+	DDS_COLOR_KEY color_key_dest_overlay;
+	DDS_COLOR_KEY color_key_dest_bitblt;
+	DDS_COLOR_KEY color_key_source_overlay;
+	DDS_COLOR_KEY color_key_source_bitblt;
+
+	DDS_PIXEL_FORMAT format;
+	DDS_CAPS caps;
+
+	uint32 texture_stage;
+} DDS_SURFACE_DESCRIPTION;
+
+static size_t ReadDdsPixelFormat(
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	DDS_PIXEL_FORMAT* format
+)
+{
+	size_t read_size = 0;
+	read_size += read_func(&format->size, 1, sizeof(format->size), src);
+	read_size += read_func(&format->flags, 1, sizeof(format->flags), src);
+	read_size += read_func(&format->four_cc, 1, sizeof(format->four_cc), src);
+	read_size += read_func(&format->bpp, 1, sizeof(format->bpp), src);
+	read_size += read_func(&format->red_mask, 1, sizeof(format->red_mask), src);
+	read_size += read_func(&format->green_mask, 1, sizeof(format->green_mask), src);
+	read_size += read_func(&format->blue_mask, 1, sizeof(format->blue_mask), src);
+	read_size += read_func(&format->alpha_mask, 1, sizeof(format->alpha_mask), src);
+
+	return read_size;
+}
+
+static size_t ReadDdsCaps(
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	DDS_CAPS* caps
+)
+{
+	size_t read_size = 0;
+	read_size += read_func(&caps->caps1, 1, sizeof(caps->caps1), src);
+	read_size += read_func(&caps->caps2, 1, sizeof(caps->caps2), src);
+	read_size += read_func(&caps->caps3, 1, sizeof(caps->caps3), src);
+	read_size += read_func(&caps->caps4, 1, sizeof(caps->caps4), src);
+
+	return read_size;
+}
+
+static size_t ReadDdsColorKey(
+	void* src,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	DDS_COLOR_KEY* color_key
+)
+{
+	size_t read_size = 0;
+	read_size += read_func(&color_key->low_value, 1, sizeof(color_key->low_value), src);
+	read_size += read_func(&color_key->high_value, 1, sizeof(color_key->high_value), src);
+
+	return read_size;
+}
+
+static size_t ReadDdsSurfaceDescription(
+	void* stream,
+	size_t (*read_func)(void*, size_t, size_t, void*),
+	DDS_SURFACE_DESCRIPTION* description
+)
+{
+	size_t read_size = 0;
+	read_size += read_func(&description->size, 1, sizeof(description->size), stream);
+	read_size += read_func(&description->flags, 1, sizeof(description->flags), stream);
+	read_size += read_func(&description->height, 1, sizeof(description->height), stream);
+	read_size += read_func(&description->width, 1, sizeof(description->width), stream);
+	read_size += read_func(&description->pitch, 1, sizeof(description->pitch), stream);
+	read_size += read_func(&description->depth, 1, sizeof(description->depth), stream);
+	read_size += read_func(&description->mip_map_levels, 1, sizeof(description->mip_map_levels), stream);
+	read_size += read_func(&description->alpha_bit_depth, 1, sizeof(description->alpha_bit_depth), stream);
+	read_size += read_func(&description->reserved, 1, sizeof(description->reserved), stream);
+	read_size += read_func(&description->surface, 1, sizeof(description->surface), stream);
+
+	read_size += ReadDdsColorKey(stream, read_func, &description->color_key_dest_overlay);
+	read_size += ReadDdsColorKey(stream, read_func, &description->color_key_dest_bitblt);
+	read_size += ReadDdsColorKey(stream, read_func, &description->color_key_source_overlay);
+	read_size += ReadDdsColorKey(stream, read_func, &description->color_key_source_bitblt);
+
+	read_size += ReadDdsPixelFormat(stream, read_func, &description->format);
+	read_size += ReadDdsCaps(stream, read_func, &description->caps);
+
+	read_size += read_func(&description->texture_stage, 1, sizeof(description->texture_stage), stream);
+
+	return read_size;
+}
+
+static void DecompressBlockDXT_Internal(
+	const uint8* block,
+	uint8* output,
+	unsigned int stride,
+	const uint8* alpha_values
+)
+{
+	uint32 code;
+	uint32 temp;
+	uint16 color0, color1;
+	uint8 r0, g0, b0, r1, g1, b1;
+	uint32 position_code;
+	uint8 alpha;
+	uint8 *pixel;
+
+	unsigned int i, j;
+
+	color0 = *(const uint16*)(block);
+	color1 = *(const uint16*)(block + 2);
+
+	temp = (color0 >> 11) * 255 + 16;
+	r0 = (uint8)((temp/32 + temp)/32);
+	temp = ((color0 & 0x7E0) >> 5) * 255 + 32;
+	g0 = (uint8)((temp/64 + temp)/64);
+	temp = (color0 & 0x001F) * 255 + 16;
+	b0 = (uint8)((temp/32 + temp)/32);
+
+	temp = (color1 >> 11) * 255 + 16;
+	r1 = (uint8)((temp/32 + temp)/32);
+	temp = ((color1 & 0x7E0) >> 5) * 255 + 32;
+	g1 = (uint8)((temp/64 + temp)/64);
+	temp = (color1 & 0x001F) * 255 + 16;
+	b1 = (uint8)((temp/32 + temp)/32);
+
+	code = *(const uint32*)(block + 4);
+
+	if(color0 > color1)
+	{
+		for(j=0; j<4; ++j)
+		{
+			for(i=0; i<4; ++i)
+			{
+				pixel = &output[j*stride + i*4];
+				alpha = alpha_values[j*4+i];
+
+				position_code = (code >> 2*(4*j+i)) & 0x03;
+
+				switch(position_code)
+				{
+				case 0:
+					pixel[0] = r0;
+					pixel[1] = g0;
+					pixel[2] = b0;
+					pixel[3] = alpha;
+					break;
+				case 1:
+					pixel[0] = r1;
+					pixel[1] = g1;
+					pixel[2] = b1;
+					pixel[3] = alpha;
+					break;
+				case 2:
+					pixel[0] = (2*r0+r1)/3;
+					pixel[1] = (2*g0+g1)/3;
+					pixel[2] = (2*b0+b1)/3;
+					pixel[3] = alpha;
+				case 3:
+					pixel[0] = (r0+2*r1)/3;
+					pixel[1] = (g0+2*g1)/3;
+					pixel[2] = (b0+2*b1)/3;
+					pixel[3] = alpha;
+					break;
+				}
+			}
+		}
+	}
+	else
+	{
+		for(j=0; j<4; ++j)
+		{
+			for(i=0; i<4; ++i)
+			{
+				pixel = &output[j*stride + i*4];
+				alpha = alpha_values[j*4+i];
+
+				position_code = (code >> 2*(4*j+i)) & 0x03;
+
+				switch(position_code)
+				{
+				case 0:
+					pixel[0] = r0;
+					pixel[1] = g0;
+					pixel[2] = b0;
+					pixel[3] = alpha;
+					break;
+				case 1:
+					pixel[0] = r1;
+					pixel[1] = g1;
+					pixel[2] = b1;
+					pixel[3] = alpha;
+					break;
+				case 2:
+					pixel[0] = (r0+r1)/3;
+					pixel[1] = (g0+g1)/3;
+					pixel[2] = (b0+b1)/3;
+					pixel[3] = alpha;
+				case 3:
+					pixel[0] = 0;
+					pixel[1] = 0;
+					pixel[2] = 0;
+					pixel[3] = alpha;
+					break;
+				}
+			}
+		}
+	}
+}
+
+void DecompressBlockDXT1(
+	uint32 x,
+	uint32 y,
+	uint32 width,
+	const uint8* block_storage,
+	uint8* image
+)
+{
+	const uint8 const_alpha[] =
+	{
+		0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff
+	};
+	DecompressBlockDXT_Internal(block_storage,
+		image + x*4 + (y*width*4), width*4, const_alpha);
+}
+
+void DecompressBlockDXT3(
+	uint32 x,
+	uint32 y,
+	uint32 width,
+	const uint8* block_storage,
+	uint8* image
+)
+{
+	uint8 alpha_values[16] = {0};
+	int i;
+
+	for(i=0; i<4; ++i)
+	{
+		const uint16* alpha_data = (const uint16*)(block_storage);
+		alpha_values[i*4 + 0] = (((*alpha_data) >> 0) & 0xF) * 17;
+		alpha_values[i*4 + 1] = (((*alpha_data) >> 4) & 0xF) * 17;
+		alpha_values[i*4 + 2] = (((*alpha_data) >> 8) & 0xF) * 17;
+		alpha_values[i*4 + 3] = (((*alpha_data) >> 12) & 0xF) * 17;
+
+		block_storage += 2;
+	}
+
+	DecompressBlockDXT_Internal(block_storage,
+		image + x*4 + (y*width*4), width*4, alpha_values);
+}
+
+void DecompressBlockDXT5(
+	uint32 x,
+	uint32 y,
+	uint32 width,
+	const uint8* block_storage,
+	uint8* image
+)
+{
+	uint32 temp, code;
+	uint8 alpha0, alpha1;
+	const uint8* bits;
+	uint32 alpha_code1;
+	uint16 alpha_code2;
+
+	uint16 color0, color1;
+	uint8 r0, g0, b0, r1, g1, b1;
+
+	int i, j;
+
+
+	alpha0 = *(block_storage);
+	alpha1 = *(block_storage + 1);
+
+	bits = block_storage + 2;
+	alpha_code1 = bits[2] | (bits[3] << 8) | (bits[4] << 16) | (bits[5] << 24);
+	alpha_code2 = bits[0] | (bits[1] << 8);
+
+	color0 = *(const uint16*)(block_storage + 8);
+	color1 = *(const uint16*)(block_storage + 10);	
+
+	temp = (color0 >> 11) * 255 + 16;
+	r0 = (uint8)((temp/32 + temp)/32);
+	temp = ((color0 & 0x07E0) >> 5) * 255 + 32;
+	g0 = (uint8)((temp/64 + temp)/64);
+	temp = (color0 & 0x001F) * 255 + 16;
+	b0 = (uint8)((temp/32 + temp)/32);
+
+	temp = (color1 >> 11) * 255 + 16;
+	r1 = (uint8)((temp/32 + temp)/32);
+	temp = ((color1 & 0x07E0) >> 5) * 255 + 32;
+	g1 = (uint8)((temp/64 + temp)/64);
+	temp = (color1 & 0x001F) * 255 + 16;
+	b1 = (uint8)((temp/32 + temp)/32);
+
+	code = *(const uint32*)(block_storage + 12);
+
+	for(j=0; j<4; j++)
+	{
+		for(i=0; i<4; i++)
+		{
+			uint8 final_alpha;
+			int alpha_code, alpha_code_index;
+			uint8 color_code;
+			uint8 *pixel;
+
+			pixel = &image[(i+x)*4 + (width*4 * (y+j))];
+			alpha_code_index = 3*(4*j+i);
+			if(alpha_code_index <= 12)
+			{
+				alpha_code = (alpha_code2 >> alpha_code_index) & 0x07;
+			}
+			else if(alpha_code_index == 15)
+			{
+				alpha_code = (alpha_code2 >> 15) | ((alpha_code1 << 1) & 0x06);
+			} else // alphaCodeIndex >= 18 && alphaCodeIndex <= 45
+			{
+				alpha_code = (alpha_code1 >> (alpha_code_index - 16)) & 0x07;
+			}
+
+			if (alpha_code == 0)
+			{
+				final_alpha = alpha0;
+			}
+			else if(alpha_code == 1)
+			{
+				final_alpha = alpha1;
+			}
+			else
+			{
+				if(alpha0 > alpha1)
+				{
+					final_alpha = (uint8)(((8-alpha_code)*alpha0 + (alpha_code-1)*alpha1)/7);
+				}
+				else
+				{
+					if (alpha_code == 6)
+					{
+						final_alpha = 0;
+					}
+					else if(alpha_code == 7)
+					{
+						final_alpha = 255;
+					}
+					else
+					{
+						final_alpha = (uint8)(((6-alpha_code)*alpha0 + (alpha_code-1)*alpha1)/5);
+					}
+				}
+			}
+
+			color_code = (code >> 2*(4*j+i)) & 0x03; 
+
+			switch (color_code)
+			{
+			case 0:
+				pixel[0] = r0;
+				pixel[1] = g0;
+				pixel[2] = b0;
+				pixel[3] = final_alpha;
+				break;
+			case 1:
+				pixel[0] = r1;
+				pixel[1] = g1;
+				pixel[2] = b1;
+				pixel[3] = final_alpha;
+				break;
+			case 2:
+				pixel[0] = (2*r0+r1)/3;
+				pixel[1] = (2*g0+g1)/3;
+				pixel[2] = (2*b0+b1)/3;
+				pixel[3] = final_alpha;
+				break;
+			case 3:
+				pixel[0] = (r0+2*r1)/3;
+				pixel[1] = (g0+2*g1)/3;
+				pixel[2] = (b0+2*b1)/3;
+				pixel[3] = final_alpha;
+				break;
+			}
+		}
+	}
+}
+
+/*****************************************
+* ReadDdsStream関数                      *
+* DDSファイルの読み込み                  *
+* 引数                                   *
+* stream	: 読み込み元                 *
+* read_func	: 読み込みに使う関数ポインタ *
+* data_size	: 画像データのバイト数       *
+* width		: 画像の幅                   *
+* height	: 画像の高さ                 *
+* channel	: 画像のチャンネル数         *
+* 返り値                                 *
+*	ピクセルデータ(失敗時はNULL)         *
+*****************************************/
+uint8* ReadDdsStream(
+	void* stream,
+	stream_func_t read_func,
+	seek_func_t seek_func,
+	size_t data_size,
+	int* width,
+	int* height,
+	int* channel
+)
+{
+	DDS_SURFACE_DESCRIPTION description;
+	size_t read_size = 0;
+	char magic[5] = {0};
+	uint8 *pixels;
+	uint8 *data;
+	uint8 *block_storage;
+	size_t compressed_data_size;
+	uint32 four_cc;
+	unsigned int block_count_x, block_count_y;
+	unsigned int i, j;
+
+	read_size += read_func(magic, 1, 4, stream);
+	if(strcmp(magic, "DDS ") != 0)
+	{
+		return NULL;
+	}
+
+	read_size += ReadDdsSurfaceDescription(stream, read_func, &description);
+
+	compressed_data_size = data_size - read_size;
+	data = (uint8*)MEM_ALLOC_FUNC(compressed_data_size);
+	(void)read_func(data, 1, compressed_data_size, stream);
+	pixels = (uint8*)MEM_ALLOC_FUNC(description.width * description.height * 4);
+
+	four_cc = UINT32_FROM_BE(description.format.four_cc);
+
+	block_count_x = (description.width + 3) / 4;
+	block_count_y = (description.height + 3) / 4;
+	block_storage = data;
+	switch(four_cc)
+	{
+	case 'DXT1':
+		for(i=0; i<block_count_y; i++)
+		{
+			for(j=0; j<block_count_x; j++)
+			{
+				DecompressBlockDXT1(j*4, i*4, description.width,
+					block_storage + j * 8, pixels);
+			}
+			block_storage += block_count_x * 8;
+		}
+		break;
+	case 'DXT3':
+		for(i=0; i<block_count_y; i++)
+		{
+			for(j=0; j<block_count_x; j++)
+			{
+				DecompressBlockDXT3(j*4, i*4, description.width,
+					block_storage + j * 16, pixels);
+			}
+			block_storage += block_count_x * 16;
+		}
+		break;
+	case 'DXT5':
+		for(i=0; i<block_count_y; i++)
+		{
+			for(j=0; j<block_count_x; j++)
+			{
+				DecompressBlockDXT5(j*4, i*4, description.width,
+					block_storage + j * 8, pixels);
+			}
+			block_storage += block_count_x * 8;
+		}
+		break;
+	default:
+		return NULL;
+	}
+
+	if(width != NULL)
+	{
+		*width = description.width;
+	}
+	if(height != NULL)
+	{
+		*height = description.height;
+	}
+	if(channel != NULL)
+	{
+		*channel = 4;
+	}
+
+	MEM_FREE_FUNC(data);
 
 	return pixels;
 }

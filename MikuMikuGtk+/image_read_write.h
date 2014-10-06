@@ -316,6 +316,29 @@ extern uint8* ReadBmpStream(
 	int* resolution
 );
 
+/*****************************************
+* ReadDdsStream関数                      *
+* DDSファイルの読み込み                  *
+* 引数                                   *
+* stream	: 読み込み元                 *
+* read_func	: 読み込みに使う関数ポインタ *
+* data_size	: 画像データのバイト数       *
+* width		: 画像の幅                   *
+* height	: 画像の高さ                 *
+* channel	: 画像のチャンネル数         *
+* 返り値                                 *
+*	ピクセルデータ(失敗時はNULL)         *
+*****************************************/
+EXTERN uint8* ReadDdsStream(
+	void* stream,
+	stream_func_t read_func,
+	seek_func_t seek_func,
+	size_t data_size,
+	int* width,
+	int* height,
+	int* channel
+);
+
 #ifdef __cplusplus
 }
 #endif

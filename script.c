@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <math.h>
+#include <zlib.h>
 #include <gtk/gtk.h>
 #include "lua/lua.h"
 #include "lua/lualib.h"
@@ -21,6 +22,13 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef enum _eSCRIPT_HISTORY_TYPE
+{
+	SCRIPT_HISTORY_NEW_LAYER,
+	SCRIPT_HISTORY_PIXEL_CHANGE,
+	SCRIPT_HISTORY_VECTOR_CHANGE
+} eSCRIPT_HISTORY_TYPE;
 
 typedef struct _CALLBACK_INFO
 {
@@ -38,6 +46,222 @@ typedef struct _MOUSE_EVENT
 	gint x, y;
 	GdkModifierType state;
 } MOUSE_EVENT;
+
+static void ScriptAddHistoryData(SCRIPT* script, uint8* data, size_t data_size, eSCRIPT_HISTORY_TYPE type)
+{
+	if(data_size > 0)
+	{
+		guint32 data32 = (guint32)type;
+		(void)MemWrite(&data32, sizeof(data32), 1, script->history.data_stream);
+		data32 = (guint32)data_size;
+		(void)MemWrite(&data32, sizeof(data32), 1, script->history.data_stream);
+		(void)MemWrite(data, 1, data_size, script->history.data_stream);
+		script->history.num_history++;
+	}
+}
+
+static void ScriptAddNewLayerUndo(DRAW_WINDOW* window, uint8* data, size_t data_size)
+{
+	MEMORY_STREAM stream = {data, 0, data_size, 1};
+	LAYER *prev_layer = NULL;
+	LAYER *target_layer = NULL;
+	LAYER *next_bottom;
+	eLAYER_TYPE layer_type;
+	uint16 data16;
+
+	// レイヤーの種類を取得
+	(void)MemRead(&data16, sizeof(data16), 1, &stream);
+	layer_type = (eLAYER_TYPE)data16;
+
+	// 削除するレイヤーの名前の長さを取得
+	(void)MemRead(&data16, sizeof(data16), 1, &stream);
+	if(data16 > 0)
+	{
+		target_layer = SearchLayer(window->layer, (const char*)&stream.buff_ptr[stream.data_point]);
+		MemSeek(&stream, data16, SEEK_CUR);
+	}
+
+	// 下のレイヤーの名前の長さを取得
+	(void)MemRead(&data16, sizeof(data16), 1, &stream);
+	if(data16 > 0)
+	{
+		prev_layer = SearchLayer(window->layer, (const char*)&stream.buff_ptr[stream.data_point]);
+	}
+
+	// レイヤーを削除
+	if(prev_layer != NULL)
+	{
+		next_bottom = window->layer;
+	}
+	else
+	{
+		next_bottom = target_layer->next;
+	}
+	DeleteLayer(&target_layer);
+	window->layer = next_bottom;
+	window->num_layer--;
+}
+
+static void ScriptAddNewLayerRedo(DRAW_WINDOW* window, uint8* data, size_t data_size)
+{
+	MEMORY_STREAM stream = {data, 0, data_size, 1};
+	char layer_name[4096];
+	LAYER *prev_layer = NULL;
+	LAYER *next_layer = NULL;
+	LAYER *new_layer;
+	eLAYER_TYPE layer_type;
+	uint16 data16;
+
+	// レイヤーの種類を取得
+	(void)MemRead(&data16, sizeof(data16), 1, &stream);
+	layer_type = (eLAYER_TYPE)data16;
+
+	// 作成するレイヤーの名前の長さを取得
+	(void)MemRead(&data16, sizeof(data16), 1, &stream);
+	(void)MemRead(layer_name, 1, data16, &stream);
+
+	// 下のレイヤーの名前の長さを取得
+	(void)MemRead(&data16, sizeof(data16), 1, &stream);
+	if(data16 > 0)
+	{
+		(void)MemRead(layer_name, 1, data16, &stream);
+		prev_layer = SearchLayer(window->layer, layer_name);
+	}
+
+	// レイヤーを作成
+	new_layer = CreateLayer(0, 0, window->width, window->height, window->channel, layer_type,
+		prev_layer, (prev_layer != NULL) ? prev_layer->next : window->layer, layer_name, window);
+	window->num_layer++;
+}
+
+static void ScriptUpdatePixelsUndo(DRAW_WINDOW* window, uint8* data, size_t data_size)
+{
+	MEMORY_STREAM stream = {data, 0, data_size, 1};
+	MEMORY_STREAM image_stream = {0};
+	LAYER *layer;
+	gint32 width, height;
+	gint32 stride;
+	uint8 *pixels;
+	char layer_name[4096];
+	guint32 data32;
+	uint16 data16;
+
+	// ピクセルデータを元に戻すレイヤーを取得
+	(void)MemRead(&data16, sizeof(data16), 1, &stream);
+	(void)MemRead(layer_name, 1, data16, &stream);
+	layer = SearchLayer(window->layer, layer_name);
+
+	// PNGデータを展開
+	(void)MemRead(&data32, sizeof(data32), 1, &stream);
+	image_stream.block_size = 1;
+	image_stream.buff_ptr = &stream.buff_ptr[stream.data_point];
+	image_stream.data_size = (size_t)data32;
+	pixels = ReadPNGStream((void*)&image_stream, (stream_func_t)MemRead,
+		&width, &height, &stride);
+
+	(void)memcpy(layer->pixels, pixels, stride * height);
+
+	MEM_FREE_FUNC(pixels);
+}
+
+static void ScriptUpdatePixelsRedo(DRAW_WINDOW* window, uint8* data, size_t data_size)
+{
+	MEMORY_STREAM stream = {data, 0, data_size, 1};
+	MEMORY_STREAM image_stream = {0};
+	LAYER *layer;
+	gint32 width, height;
+	gint32 stride;
+	uint8 *pixels;
+	char layer_name[4096];
+	guint32 data32;
+	uint16 data16;
+
+	// ピクセルデータを元に戻すレイヤーを取得
+	(void)MemRead(&data16, sizeof(data16), 1, &stream);
+	(void)MemRead(layer_name, 1, data16, &stream);
+	layer = SearchLayer(window->layer, layer_name);
+
+	// PNGデータを展開
+	(void)MemRead(&data32, sizeof(data32), 1, &stream);
+	(void)MemSeek(&stream, (long)data32, SEEK_CUR);
+	(void)MemRead(&data32, sizeof(data32), 1, &stream);
+	image_stream.block_size = 1;
+	image_stream.buff_ptr = &stream.buff_ptr[stream.data_point];
+	image_stream.data_size = (size_t)data32;
+	pixels = ReadPNGStream((void*)&image_stream, (stream_func_t)MemRead,
+		&width, &height, &stride);
+
+	(void)memcpy(layer->pixels, pixels, stride * height);
+
+	MEM_FREE_FUNC(pixels);
+}
+
+static void ScriptUpdateVectorUndo(DRAW_WINDOW* window, uint8* data, size_t data_size)
+{
+	MEMORY_STREAM stream = {data, 0, data_size, 1};
+	VECTOR_LINE *line;
+	VECTOR_LINE *next_line;
+	LAYER *layer;
+	char layer_name[4096];
+	uint16 data16;
+
+	// ベクトルデータを元に戻すレイヤーを取得
+	(void)MemRead(&data16, sizeof(data16), 1, &stream);
+	(void)MemRead(layer_name, 1, data16, &stream);
+	layer = SearchLayer(window->layer, layer_name);
+
+	// 線情報をクリア
+	line = layer->layer_data.vector_layer_p->base->next;
+	while(line != NULL)
+	{
+		next_line = line->next;
+		DeleteVectorLine(&line);
+		line = next_line;
+	}
+
+	// ベクトルデータを展開
+	ReadVectorLineData(&stream.buff_ptr[stream.data_point], layer);
+
+	// ベクトルデータをラスタライズ
+	layer->layer_data.vector_layer_p->flags =
+		(VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ALL);
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+}
+
+static void ScriptUpdateVectorRedo(DRAW_WINDOW* window, uint8* data, size_t data_size)
+{
+	MEMORY_STREAM stream = {data, 0, data_size, 1};
+	VECTOR_LINE *line;
+	VECTOR_LINE *next_line;
+	LAYER *layer;
+	char layer_name[4096];
+	guint32 data32;
+	uint16 data16;
+
+	// ベクトルデータを元に戻すレイヤーを取得
+	(void)MemRead(&data16, sizeof(data16), 1, &stream);
+	(void)MemRead(layer_name, 1, data16, &stream);
+	layer = SearchLayer(window->layer, layer_name);
+
+	// 線情報をクリア
+	line = layer->layer_data.vector_layer_p->base->next;
+	while(line != NULL)
+	{
+		next_line = line->next;
+		DeleteVectorLine(&line);
+		line = next_line;
+	}
+
+	// ベクトルデータを展開
+	(void)MemRead(&data32, sizeof(data32), 1, &stream);
+	(void)MemSeek(&stream, data32, SEEK_CUR);
+	ReadVectorLineData(&stream.buff_ptr[stream.data_point], layer);
+
+	// ベクトルデータをラスタライズ
+	layer->layer_data.vector_layer_p->flags =
+		(VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ALL);
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+}
 
 static int ScriptPrint(lua_State* lua)
 {
@@ -103,6 +327,8 @@ static int ScriptPrint(lua_State* lua)
 			GTK_SCROLLED_WINDOW(script->debug_view));
 		gtk_adjustment_set_value(adjust, gtk_adjustment_get_upper(adjust));
 	}
+
+	(void)printf(buffer);
 
 	return 0;
 }
@@ -531,8 +757,12 @@ static int ScriptUpdateLayerPixels(lua_State* lua)
 	SCRIPT *script;
 	LAYER *layer;
 	const char *layer_name;
+	uint16 data16;
+	guint32 data32;
 	guint32 *pixels;
 	guint32 pixel_value;
+	MEMORY_STREAM *history_data;
+	MEMORY_STREAM *image_data;
 	int i, j;
 
 	lua_getglobal(lua, "SCRIPT_DATA");
@@ -558,6 +788,23 @@ static int ScriptUpdateLayerPixels(lua_State* lua)
 		return 0;
 	}
 
+	history_data = CreateMemoryStream(layer->stride * layer->height * 2);
+	image_data = CreateMemoryStream(layer->stride * layer->height);
+
+	// ピクセルデータを更新するレイヤーの名前を記憶
+	data16 = (uint16)strlen(layer_name) + 1;
+	(void)MemWrite(&data16, sizeof(data16), 1, history_data);
+	(void)MemWrite(layer_name, 1, data16, history_data);
+
+	// 更新前のピクセルデータを記憶
+		// PNG圧縮しておく
+	(void)WritePNGStream((void*)image_data, (stream_func_t)MemWrite, NULL,
+		layer->pixels, layer->width, layer->height, layer->stride,
+			layer->stride / layer->width, 0, Z_DEFAULT_COMPRESSION);
+	data32 = (guint32)image_data->data_point;
+	(void)MemWrite(&data32, sizeof(data32), 1, history_data);
+	(void)MemWrite(image_data->buff_ptr, 1, image_data->data_point, history_data);
+
 	lua_getfield(lua, -1, "pixels");
 	for(i=0; i<layer->height; i++)
 	{
@@ -579,6 +826,22 @@ static int ScriptUpdateLayerPixels(lua_State* lua)
 	layer->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 	gtk_widget_queue_draw(layer->window->window);
 
+	// 更新後のピクセルデータを記憶
+		// PNG圧縮しておく
+	(void)MemSeek(image_data, 0, SEEK_SET);
+	(void)WritePNGStream((void*)image_data, (stream_func_t)MemWrite, NULL,
+		layer->pixels, layer->width, layer->height, layer->stride,
+			layer->stride / layer->width, 0, Z_DEFAULT_COMPRESSION);
+	data32 = (guint32)image_data->data_point;
+	(void)MemWrite(&data32, sizeof(data32), 1, history_data);
+	(void)MemWrite(image_data->buff_ptr, 1, image_data->data_point, history_data);
+
+	ScriptAddHistoryData(script, history_data->buff_ptr, history_data->data_point,
+		SCRIPT_HISTORY_PIXEL_CHANGE);
+
+	(void)DeleteMemoryStream(image_data);
+	(void)DeleteMemoryStream(history_data);
+
 	return 0;
 }
 
@@ -588,8 +851,12 @@ static int ScriptUpdateVectorLayer(lua_State* lua)
 	LAYER *layer;
 	const char *layer_name;
 	guint32 color_value;
+	uint16 data16;
 	uint8* color = (uint8*)&color_value;
 	VECTOR_LINE *line;
+	MEMORY_STREAM *history_data;
+	MEMORY_STREAM *vector_data;
+	MEMORY_STREAM *compress_data;
 	unsigned int num_lines;
 	unsigned int i, j;
 
@@ -615,6 +882,19 @@ static int ScriptUpdateVectorLayer(lua_State* lua)
 	{
 		return 0;
 	}
+
+	history_data = CreateMemoryStream(layer->stride * layer->height * 2);
+	vector_data = CreateMemoryStream(layer->stride * layer->height);
+	compress_data = CreateMemoryStream(layer->stride * layer->height);
+
+	// ベクトルデータを更新するレイヤーの名前を記憶
+	data16 = (uint16)strlen(layer_name) + 1;
+	(void)MemWrite(&data16, sizeof(data16), 1, history_data);
+	(void)MemWrite(layer_name, 1, data16, history_data);
+
+	// 更新前のベクトルデータを記憶
+	WriteVectorLineData(layer, (void*)history_data, (stream_func_t)MemWrite,
+		vector_data, compress_data, Z_DEFAULT_COMPRESSION);
 
 	lua_getfield(lua, -1, "num_lines");
 	num_lines = luaL_checkunsigned(lua, -1);
@@ -709,6 +989,18 @@ static int ScriptUpdateVectorLayer(lua_State* lua)
 	
 	layer->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 	gtk_widget_queue_draw(layer->window->window);
+
+	// 更新後のベクトルデータを記憶
+	WriteVectorLineData(layer, (void*)history_data, (stream_func_t)MemWrite,
+		vector_data, compress_data, Z_DEFAULT_COMPRESSION);
+
+	// 履歴データを追加
+	ScriptAddHistoryData(script, history_data->buff_ptr, history_data->data_point,
+		SCRIPT_HISTORY_VECTOR_CHANGE);
+
+	(void)DeleteMemoryStream(compress_data);
+	(void)DeleteMemoryStream(vector_data);
+	(void)DeleteMemoryStream(history_data);
 
 	return 0;
 }
@@ -854,8 +1146,7 @@ static int ScriptGetBottomLayer(lua_State* lua)
 		return 0;
 	}
 
-	window = script->app->draw_window[
-		script->app->active_window];
+	window = script->window;
 
 	ScriptReturnLayer(lua, window->layer);
 
@@ -875,8 +1166,7 @@ static int ScriptGetBottomLayerInfo(lua_State* lua)
 		return 0;
 	}
 
-	window = script->app->draw_window[
-		script->app->active_window];
+	window = script->window;
 
 	ScriptReturnLayerInfo(lua, window->layer);
 
@@ -901,7 +1191,7 @@ static int ScriptGetPreviousLayer(lua_State* lua)
 		return 0;
 	}
 
-	window = script->app->draw_window[script->app->active_window];
+	window = script->window;
 	layer = window->layer;
 
 	while(strcmp(name, layer->name) != 0 && layer != NULL)
@@ -937,7 +1227,7 @@ static int ScriptGetPreviousLayerInfo(lua_State* lua)
 		return 0;
 	}
 
-	window = script->app->draw_window[script->app->active_window];
+	window = script->window;
 	layer = window->layer;
 
 	while(strcmp(name, layer->name) != 0 && layer != NULL)
@@ -973,7 +1263,7 @@ static int ScriptGetNextLayer(lua_State* lua)
 		return 0;
 	}
 
-	window = script->app->draw_window[script->app->active_window];
+	window = script->window;
 	layer = window->layer;
 
 	while(strcmp(name, layer->name) != 0 && layer != NULL)
@@ -1009,7 +1299,7 @@ static int ScriptGetNextLayerInfo(lua_State* lua)
 		return 0;
 	}
 
-	window = script->app->draw_window[script->app->active_window];
+	window = script->window;
 	layer = window->layer;
 
 	while(strcmp(name, layer->name) != 0 && layer != NULL)
@@ -1040,10 +1330,29 @@ static int ScriptGetActiveLayer(lua_State* lua)
 		return 0;
 	}
 
-	window = script->app->draw_window[
-		script->app->active_window];
+	window = script->window;
 
 	ScriptReturnLayer(lua, window->active_layer);
+
+	return 1;
+}
+
+static int ScriptGetActiveLayerInfo(lua_State* lua)
+{
+	SCRIPT *script;
+	DRAW_WINDOW *window;
+
+	lua_getglobal(lua, "SCRIPT_DATA");
+	script = (SCRIPT*)lua_topointer(lua, -1);
+
+	if(script->app->window_num == 0)
+	{
+		return 0;
+	}
+
+	window = script->window;
+
+	ScriptReturnLayerInfo(lua, window->active_layer);
 
 	return 1;
 }
@@ -1061,7 +1370,7 @@ static int ScriptGetCanvasLayer(lua_State* lua)
 		return 0;
 	}
 
-	window = script->app->draw_window[script->app->active_window];
+	window = script->window;
 
 	ScriptReturnLayer(lua, window->mixed_layer);
 
@@ -1072,10 +1381,12 @@ static int ScriptNewLayer(lua_State* lua)
 {
 	SCRIPT *script;
 	DRAW_WINDOW *window;
+	MEMORY_STREAM *history_data;
 	LAYER *new_layer, *prev_layer = NULL, *next_layer = NULL;
 	char set_name[MAX_LAYER_NAME_LENGTH];
 	const char *layer_name = NULL;
 	const char *prev_name = NULL;
+	uint16 data16 = 0;
 	int layer_type = TYPE_NORMAL_LAYER;
 	int type;
 	int num_stack = lua_gettop(lua);
@@ -1137,7 +1448,11 @@ static int ScriptNewLayer(lua_State* lua)
 
 	lua_getglobal(lua, "SCRIPT_DATA");
 	script = (SCRIPT*)lua_topointer(lua, -1);
-	window = script->app->draw_window[script->app->active_window];
+	window = script->window;
+
+	history_data = CreateMemoryStream(4096);
+	data16 = (uint16)layer_type;
+	(void)MemWrite(&data16, sizeof(data16), 1, history_data);
 
 	i = 1;
 	(void)strcpy(set_name, layer_name);
@@ -1147,9 +1462,21 @@ static int ScriptNewLayer(lua_State* lua)
 		i++;
 	}
 
+	data16 = (uint16)strlen(set_name) + 1;
+	(void)MemWrite(&data16, sizeof(data16), 1, history_data);
+	(void)MemWrite(set_name, 1, data16, history_data);
+
 	if(prev_name != NULL)
 	{
 		prev_layer = SearchLayer(window->layer, prev_name);
+		data16 = (uint16)strlen(prev_name)+1;
+		(void)MemWrite(&data16, sizeof(data16), 1, history_data);
+		(void)MemWrite(prev_name, 1, data16, history_data);
+	}
+	else
+	{
+		data16 = 0;
+		(void)MemWrite(&data16, sizeof(data16), 1, history_data);
 	}
 
 	if(prev_layer == NULL)
@@ -1173,6 +1500,10 @@ static int ScriptNewLayer(lua_State* lua)
 		window->num_layer);
 
 	ScriptReturnLayer(lua, new_layer);
+
+	ScriptAddHistoryData(script, history_data->buff_ptr, history_data->data_point,
+		SCRIPT_HISTORY_NEW_LAYER);
+	(void)DeleteMemoryStream(history_data);
 
 	return 1;
 }
@@ -1268,7 +1599,7 @@ static int ScriptGetBlendedUnderLayer(lua_State* lua)
 	{
 		if((src->flags & LAYER_FLAG_INVISIBLE) == 0)
 		{
-			g_layer_blend_funcs[src->layer_mode](src, blended);
+			window->layer_blend_functions[src->layer_mode](src, blended);
 		}
 		src = src->next;
 	}
@@ -1410,7 +1741,7 @@ static int CallBack(CALLBACK_INFO* info)
 		|| strcmp(info->query.signal_name, "button-release-event") == 0)
 	{
 		MOUSE_EVENT mouse;
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gdk_window_get_pointer(info->object->window, &mouse.x, &mouse.y, &mouse.state);
 #else
 		gdk_window_get_pointer(gtk_widget_get_window(info->object), &mouse.x, &mouse.y, &mouse.state);
@@ -1425,7 +1756,7 @@ static int CallBack(CALLBACK_INFO* info)
 		lua_pushunsigned(info->lua, mouse.state);
 		lua_setfield(info->lua, -2, "state");
 	}
-#if MAJOR_VERSION ==1
+#if GTK_MAJOR_VERSION <= 2
 	else if(strcmp(info->query.signal_name, "expose-event") == 0)
 	{
 		cairo_p = gdk_cairo_create(info->object->window);
@@ -1482,7 +1813,7 @@ static int ScriptSignalConnect(lua_State* lua)
 	info->lua = lua;
 	info->object = widget;
 
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 	if(strcmp(signal, "expose_event") == 0
 		|| strcmp(signal, "expose-event") == 0)
 	{
@@ -1595,6 +1926,14 @@ static int ScriptGetWidgetSize(lua_State* lua)
 	lua_pushinteger(lua, allocation.height);
 
 	return 2;
+}
+
+static int ScriptShowWidget(lua_State* lua)
+{
+	GtkWidget *widget = GTK_WIDGET(lua_topointer(lua, -1));
+	gtk_widget_show_all(widget);
+
+	return 0;
 }
 
 static int ScriptSetEvents(lua_State* lua)
@@ -1906,7 +2245,7 @@ static int ScriptSpinButtonNew(lua_State* lua)
 
 static int ScriptComboBoxNew(lua_State* lua)
 {
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	lua_pushlightuserdata(lua,
 		gtk_combo_box_new_text());
 #else
@@ -1927,7 +2266,7 @@ static int ScriptComboBoxAppendText(lua_State* lua)
 		return 0;
 	}
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gtk_combo_box_append_text(combo, text);
 #else
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), text);
@@ -1946,7 +2285,7 @@ static int ScriptComboBoxPrependText(lua_State* lua)
 		return 0;
 	}
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	gtk_combo_box_prepend_text(combo, text);
 #else
 	gtk_combo_box_text_prepend_text(GTK_COMBO_BOX_TEXT(combo), text);
@@ -1984,7 +2323,7 @@ static int ScriptComboBoxGetValue(lua_State* lua)
 		return 0;
 	}
 
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	value = gtk_combo_box_get_active_text(combo);
 #else
 	value = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
@@ -1997,7 +2336,7 @@ static int ScriptComboBoxGetValue(lua_State* lua)
 
 static int ScriptComboSelectBlendModeBoxNew(lua_State* lua)
 {
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	GtkWidget *combo = gtk_combo_box_new_text();
 #else
 	GtkWidget *combo = gtk_combo_box_text_new();
@@ -2009,7 +2348,7 @@ static int ScriptComboSelectBlendModeBoxNew(lua_State* lua)
 	script = (SCRIPT*)lua_topointer(lua, -1);
 	for(i=0; i<LAYER_BLEND_SLELECTABLE_NUM; i++)
 	{
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 		gtk_combo_box_append_text(GTK_COMBO_BOX(combo),
 			script->app->labels->layer_window.blend_modes[i]);
 #else
@@ -2119,6 +2458,33 @@ static int ScriptCreateDrawingArea(lua_State* lua)
 	return 1;
 }
 
+static int ScriptProgressBarNew(lua_State* lua)
+{
+	lua_pushlightuserdata(lua, gtk_progress_bar_new());
+
+	return 1;
+}
+
+static int ScriptProgressBarSetFraction(lua_State* lua)
+{
+	GtkWidget *widget = GTK_WIDGET(lua_topointer(lua, 1));
+	double value = lua_tonumber(lua, 2);
+
+	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(widget), value);
+
+	return 0;
+}
+
+static int ScriptProgressBarSetText(lua_State* lua)
+{
+	GtkWidget *widget = GTK_WIDGET(lua_topointer(lua, 1));
+	const char *text = lua_tostring(lua, 2);
+
+	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(widget), text);
+
+	return 0;
+}
+
 static void OnCairoWidgetDestroy(GtkWidget* widget)
 {
 	cairo_t *cairo_p = (cairo_t*)g_object_get_data(G_OBJECT(widget), "cairo_pointer");
@@ -2139,7 +2505,7 @@ static void OnCairoDestroy(void *data)
 static int ScriptGetWidgetCairo(lua_State* lua)
 {
 	GtkWidget *widget = GTK_WIDGET(lua_topointer(lua, -1));
-#if MAJOR_VERSION == 1
+#if GTK_MAJOR_VERSION <= 2
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 #else
 	cairo_t * cairo_p = gdk_cairo_create(gtk_widget_get_window(widget));
@@ -2153,7 +2519,7 @@ static int ScriptGetWidgetCairo(lua_State* lua)
 
 	cairo_set_user_data(cairo_p, &widget_key, (void*)widget,
 		(cairo_destroy_func_t)OnCairoDestroy);
-	g_signal_connect(G_OBJECT(widget), "destroy",
+	(void)g_signal_connect(G_OBJECT(widget), "destroy",
 		G_CALLBACK(OnCairoWidgetDestroy), NULL);
 
 	lua_pushlightuserdata(lua, cairo_p);
@@ -2172,6 +2538,32 @@ static int ScriptCairoCreate(lua_State* lua)
 	return 1;
 }
 
+static int ScriptCairoSurfaceCreate(lua_State* lua)
+{
+	SCRIPT *script;
+	cairo_surface_t *surface_p;
+	int width, height;
+	int i;
+
+	width = (int)lua_tointeger(lua, 1);
+	height = (int)lua_tointeger(lua, 2);
+	surface_p = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+	lua_getglobal(lua, "SCRIPT_DATA");
+	script = (SCRIPT*)lua_topointer(lua, -1);
+
+	for(i=0; i<sizeof(script->surfaces)/sizeof(script->surfaces[0]); i++)
+	{
+		if(script->surfaces[i] == NULL)
+		{
+			script->surfaces[i] = surface_p;
+		}
+	}
+	
+	lua_pushlightuserdata(lua, surface_p);
+
+	return 1;
+}
+
 static int ScriptCairoDestroy(lua_State* lua)
 {
 	if(lua_gettop(lua) > 0)
@@ -2186,19 +2578,59 @@ static int ScriptSurfaceDestroy(lua_State* lua)
 {
 	if(lua_gettop(lua) > 0)
 	{
-		cairo_surface_destroy((cairo_surface_t*)lua_topointer(lua, -1));
+		SCRIPT *script;
+		int i;
+
+		cairo_surface_t *surface_p = (cairo_surface_t*)lua_topointer(lua, -1);
+		cairo_surface_destroy(surface_p);
+
+		lua_getglobal(lua, "SCRIPT_DATA");
+		script = (SCRIPT*)lua_topointer(lua, -1);
+
+		for(i=0; i<sizeof(script->surfaces)/sizeof(script->surfaces[0]); i++)
+		{
+			if(script->surfaces[i] == surface_p)
+			{
+				script->surfaces[i] = NULL;
+			}
+		}
 	}
 
 	return 0;
 }
 
-
 static int ScriptGetSurfacePixels(lua_State* lua)
 {
 	cairo_surface_t *surface_p =
 		(cairo_surface_t*)lua_topointer(lua, -1);
+	guint32 pixel_value;
+	uint8 *pixels;
+	uint8 *pixel;
+	int width, height;
+	int stride;
+	int i, j;
 
-	lua_pushlightuserdata(lua, cairo_image_surface_get_data(surface_p));
+	pixels = cairo_image_surface_get_data(surface_p);
+	width = cairo_image_surface_get_width(surface_p);
+	height = cairo_image_surface_get_height(surface_p);
+	stride = cairo_image_surface_get_stride(surface_p);
+
+	lua_createtable(lua, 0, height);
+	for(i=0; i<height; i++)
+	{
+		lua_pushinteger(lua, i+1);
+		lua_createtable(lua, 0, width);
+		pixel = &pixels[i*stride];
+		for(j=0; j<width; j++, pixel+=4)
+		{
+			lua_pushinteger(lua, j+1);
+			pixel_value = pixel[0] << 24 | pixel[1] << 16 | pixel[2] << 8 | pixel[3];
+			lua_pushunsigned(lua, pixel_value);
+			lua_settable(lua, -3);
+		}
+
+		lua_settable(lua, -3);
+	}
 
 	return 1;
 }
@@ -2371,6 +2803,53 @@ static int ScriptCairoTranslate(lua_State* lua)
 		cairo_translate((cairo_t*)lua_topointer(lua, 1),
 			lua_tonumber(lua, 2), lua_tonumber(lua, 3));
 	}
+
+	return 0;
+}
+
+static int ScriptCairoPaintPixels(lua_State* lua)
+{
+	guint32 *pixels;
+	uint8 *image;
+	guint32 pixel_value;
+	cairo_t *cairo_p;
+	cairo_surface_t *surface_p;
+	double x1, x2, y1, y2;
+	int width, height;
+	int stride;
+	int i, j;
+
+	cairo_p = (cairo_t*)lua_topointer(lua, 1);
+	cairo_clip_extents(cairo_p, &x1, &y1, &x2, &y2);
+	width = (int)(x2 - x1),	height = (int)(y2 - y1);
+	stride = width * 4;
+
+	image = (uint8*)MEM_ALLOC_FUNC(stride * height);
+	surface_p = cairo_image_surface_create_for_data(image,
+		CAIRO_FORMAT_ARGB32, width, height, stride);
+
+	for(i=0; i<height; i++)
+	{
+		lua_pushinteger(lua, i+1);
+		lua_gettable(lua, -2);
+		pixels = (uint32*)&image[i*stride];
+		for(j=0; j<width; j++, pixels++)
+		{
+			lua_pushinteger(lua, j+1);
+			lua_gettable(lua, -2);
+			pixel_value = lua_tounsigned(lua, -1);
+			*pixels = pixel_value;
+			lua_pop(lua, 1);
+		}
+
+		lua_pop(lua, 1);
+	}
+
+	cairo_set_source_surface(cairo_p, surface_p, 0, 0);
+	cairo_paint(cairo_p);
+
+	cairo_surface_destroy(surface_p);
+	MEM_FREE_FUNC(image);
 
 	return 0;
 }
@@ -3150,6 +3629,7 @@ static const struct luaL_Reg g_script_functions[] =
 	{"ObjectGetData", ScriptObjectGetData},
 	{"SetSizeRequest", ScriptSetSizeRequest},
 	{"GetWidgetSize", ScriptGetWidgetSize},
+	{"ShowWidget", ScriptShowWidget},
 	{"SetEvents", ScriptSetEvents},
 	{"AddEvents", ScriptAddEvents},
 	{"QueueDraw", ScriptQueueDraw},
@@ -3186,8 +3666,12 @@ static const struct luaL_Reg g_script_functions[] =
 	{"ColorSelectionDialogGetColorSelection", ScriptColorSelectionDialogGetColorSelection},
 	{"ContainerAdd", ScriptContainerAdd},
 	{"DrawingAreaNew", ScriptCreateDrawingArea},
+	{"ProgressBarNew", ScriptProgressBarNew},
+	{"ProgressBarSetFraction", ScriptProgressBarSetFraction},
+	{"ProgressBarSetText", ScriptProgressBarSetText},
 	{"GetWidgetCairo", ScriptGetWidgetCairo},
 	{"CairoCreate", ScriptCairoCreate},
+	{"CairoSurfaceCreate", ScriptCairoSurfaceCreate},
 	{"GetSurfacePixels", ScriptGetSurfacePixels},
 	{"CairoDestroy", ScriptCairoDestroy},
 	{"SurfaceDestroy", ScriptSurfaceDestroy},
@@ -3196,6 +3680,7 @@ static const struct luaL_Reg g_script_functions[] =
 	{"CairoStroke", ScriptCairoStroke},
 	{"CairoFill", ScriptCairoFill},
 	{"CairoPaint", ScriptCairoPaint},
+	{"CairoPaintPixels", ScriptCairoPaintPixels},
 	{"CairoSetOperator", ScriptCairoSetOperator},
 	{"CairoMoveTo", ScriptCairoMoveTo},
 	{"CairoLineTo", ScriptCairoLineTo},
@@ -3217,6 +3702,7 @@ static const struct luaL_Reg g_script_functions[] =
 	{"GetNextLayer", ScriptGetNextLayer},
 	{"GetNextLayerInfo", ScriptGetNextLayerInfo},
 	{"GetActiveLayer", ScriptGetActiveLayer},
+	{"GetActiveLayerInfo", ScriptGetActiveLayerInfo},
 	{"GetCanvasLayer", ScriptGetCanvasLayer},
 	{"GetBlendedUnderLayer", ScriptGetBlendedUnderLayer},
 	{"CirclePatternNew", ScriptBrushCirclePatternNew},
@@ -3264,6 +3750,14 @@ SCRIPT* CreateScript(APPLICATION* app, const char* file_path)
 	g_object_unref(fp);
 
 	ret->app = app;
+	if(app->window_num > 0)
+	{
+		guint32 dummy = 0;
+		ret->window = GetActiveDrawWindow(app);
+		ret->history.data_stream = CreateMemoryStream(1024 * 1024 * 8);
+		(void)MemWrite(&dummy, sizeof(dummy), 1, ret->history.data_stream);
+		(void)MemWrite(&dummy, sizeof(dummy), 1, ret->history.data_stream);
+	}
 	ret->state = luaL_newstate();
 	luaL_openlibs(ret->state);
 
@@ -3276,7 +3770,7 @@ SCRIPT* CreateScript(APPLICATION* app, const char* file_path)
 	{
 		GtkWidget *dialog;
 		char message[8192];
-		(void)sprintf(message, "Failed to open %s.", file_path);
+		(void)sprintf(message, "Failed to open %s.\n%s", file_path, lua_tostring(ret->state, -1));
 		dialog = gtk_message_dialog_new(
 			GTK_WINDOW(app->window), GTK_DIALOG_MODAL,
 				GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, message);
@@ -3286,14 +3780,6 @@ SCRIPT* CreateScript(APPLICATION* app, const char* file_path)
 
 		MEM_FREE_FUNC(ret);
 		return NULL;
-	}
-
-	if(app->window_num > 0)
-	{
-		ret->before_data = CreateMemoryStream(
-			app->draw_window[app->active_window]->pixel_buf_size);
-		WriteOriginalFormat((void*)ret->before_data,
-			(stream_func_t)MemWrite, app->draw_window[app->active_window], 0, app->preference.compress);
 	}
 
 	// アプリケーションの情報を登録しておく
@@ -3422,7 +3908,7 @@ SCRIPT* CreateScript(APPLICATION* app, const char* file_path)
 ***********************************************/
 void DeleteScript(SCRIPT** script)
 {
-	int i;
+	int i, j;
 
 	if(*script == NULL)
 	{
@@ -3441,12 +3927,28 @@ void DeleteScript(SCRIPT** script)
 		}
 	}
 
+	for(i=0; i<sizeof((*script)->surfaces)/sizeof((*script)->surfaces[0]); i++)
+	{
+		if((*script)->surfaces[i] != NULL)
+		{
+			cairo_surface_t *surface_p = (*script)->surfaces[i];
+			cairo_surface_destroy(surface_p);
+			for(j=i+1; j<sizeof((*script)->surfaces)/sizeof((*script)->surfaces[0]); j++)
+			{
+				if((*script)->surfaces[j] == surface_p)
+				{
+					(*script)->surfaces[j] = NULL;
+				}
+			}
+		}
+	}
+
 	if((*script)->main_window != NULL)
 	{
 		gtk_widget_destroy((*script)->main_window);
 	}
 
-	(void)DeleteMemoryStream((*script)->before_data);
+	(void)DeleteMemoryStream((*script)->history.data_stream);
 	lua_close((*script)->state);
 	MEM_FREE_FUNC((*script)->file_name);
 	MEM_FREE_FUNC(*script);
@@ -3577,22 +4079,64 @@ void InitializeScripts(SCRIPTS* scripts, const char* scripts_path)
 void ScriptUndo(DRAW_WINDOW* window, void* p)
 {
 	// 履歴データのストリーム
-	MEMORY_STREAM stream;
-	// 1バイト毎のデータへキャスト
-	uint8 *byte_data = (uint8*)p;
+	MEMORY_STREAM stream = {(uint8*)p, 0, sizeof(guint32)*2, 1};
 	// データのバイト数
-	size_t data_size;
+	guint32 history_data_size;
+	// 履歴データの数
+	guint32 num_history;
+	// 個々の履歴データのデータ位置、サイズ、タイプ
+	uint8 **data_pointers;
+	guint32 *data_size;
+	guint32 *data_types;
+	// for文用のカウンタ
+	int i;
 
-	// データのサイズを読み込む
-	(void)memcpy(&data_size, p, sizeof(data_size));
-	// ストリームの設定
-	stream.buff_ptr = &byte_data[sizeof(data_size)];
-	stream.data_point = 0;
-	stream.block_size = 1;
-	stream.data_size = data_size;
+	// 履歴データの総バイト数を読み込む
+	(void)MemRead(&history_data_size, sizeof(history_data_size), 1, &stream);
+	stream.data_size = history_data_size;
+	// 履歴データの個数を読み込む
+	(void)MemRead(&num_history, sizeof(num_history), 1, &stream);
 
-	// 描画領域を入れ替え
-	SwapDrawWindowFromMemoryStream(window, &stream);
+	// 個々の履歴データの位置を設定
+	data_pointers = (uint8**)MEM_ALLOC_FUNC(sizeof(*data_pointers)*num_history);
+	data_size = (guint32*)MEM_ALLOC_FUNC(sizeof(*data_size)*num_history);
+	data_types = (guint32*)MEM_ALLOC_FUNC(sizeof(*data_types)*num_history);
+	for(i=0; i<(int)num_history; i++)
+	{
+		// 履歴データのタイプ
+		(void)MemRead(&data_types[i], sizeof(*data_types), 1, &stream);
+		// 履歴データのサイズ
+		(void)MemRead(&data_size[i], sizeof(*data_size), 1, &stream);
+		// 履歴データの位置
+		data_pointers[i] = &stream.buff_ptr[stream.data_point];
+		(void)MemSeek(&stream, data_size[i], SEEK_CUR);
+	}
+
+	for(i=(int)num_history-1; i>=0; i--)
+	{
+		switch(data_types[i])
+		{
+		case SCRIPT_HISTORY_NEW_LAYER:
+			ScriptAddNewLayerUndo(window, data_pointers[i], data_size[i]);
+			break;
+		case SCRIPT_HISTORY_PIXEL_CHANGE:
+			ScriptUpdatePixelsUndo(window, data_pointers[i], data_size[i]);
+			break;
+		case SCRIPT_HISTORY_VECTOR_CHANGE:
+			ScriptUpdateVectorUndo(window, data_pointers[i], data_size[i]);
+			break;
+		}
+	}
+
+	ClearLayerView(&window->app->layer_window);
+	LayerViewSetDrawWindow(&window->app->layer_window, window);
+
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	gtk_widget_queue_draw(window->window);
+
+	MEM_FREE_FUNC(data_types);
+	MEM_FREE_FUNC(data_size);
+	MEM_FREE_FUNC(data_pointers);
 }
 
 /*************************************
@@ -3605,26 +4149,64 @@ void ScriptUndo(DRAW_WINDOW* window, void* p)
 void ScriptRedo(DRAW_WINDOW* window, void* p)
 {
 	// 履歴データのストリーム
-	MEMORY_STREAM stream;
-	// 1バイト毎のデータへキャスト
-	uint8 *byte_data = (uint8*)p;
+	MEMORY_STREAM stream = {(uint8*)p, 0, sizeof(guint32)*2, 1};
 	// データのバイト数
-	size_t data_size;
+	guint32 history_data_size;
+	// 履歴データの数
+	guint32 num_history;
+	// 個々の履歴データのデータ位置、サイズ、タイプ
+	uint8 **data_pointers;
+	guint32 *data_size;
+	guint32 *data_types;
+	// for文用のカウンタ
+	int i;
 
-	// 元に戻すデータのサイズを読み込む
-	(void)memcpy(&data_size, p, sizeof(data_size));
-	// やり直しデータの先頭へ移動
-	byte_data = &byte_data[sizeof(data_size)+data_size];
-	// やり直しデータのサイズを読み込む
-	(void)memcpy(&data_size, byte_data, sizeof(data_size));
-	// ストリームの設定
-	stream.buff_ptr = &byte_data[sizeof(data_size)];
-	stream.data_point = 0;
-	stream.block_size = 1;
-	stream.data_size = data_size;
+	// 履歴データの総バイト数を読み込む
+	(void)MemRead(&history_data_size, sizeof(history_data_size), 1, &stream);
+	stream.data_size = history_data_size;
+	// 履歴データの個数を読み込む
+	(void)MemRead(&num_history, sizeof(num_history), 1, &stream);
 
-	// 描画領域を入れ替え
-	SwapDrawWindowFromMemoryStream(window, &stream);
+	// 個々の履歴データの位置を設定
+	data_pointers = (uint8**)MEM_ALLOC_FUNC(sizeof(*data_pointers)*num_history);
+	data_size = (guint32*)MEM_ALLOC_FUNC(sizeof(*data_size)*num_history);
+	data_types = (guint32*)MEM_ALLOC_FUNC(sizeof(*data_types)*num_history);
+	for(i=0; i<(int)num_history; i++)
+	{
+		// 履歴データのタイプ
+		(void)MemRead(&data_types[i], sizeof(*data_types), 1, &stream);
+		// 履歴データのサイズ
+		(void)MemRead(&data_size[i], sizeof(*data_size), 1, &stream);
+		// 履歴データの位置
+		data_pointers[i] = &stream.buff_ptr[stream.data_point];
+		(void)MemSeek(&stream, data_size[i], SEEK_CUR);
+	}
+
+	for(i=0; i<(int)num_history; i++)
+	{
+		switch(data_types[i])
+		{
+		case SCRIPT_HISTORY_NEW_LAYER:
+			ScriptAddNewLayerRedo(window, data_pointers[i], data_size[i]);
+			break;
+		case SCRIPT_HISTORY_PIXEL_CHANGE:
+			ScriptUpdatePixelsRedo(window, data_pointers[i], data_size[i]);
+			break;
+		case SCRIPT_HISTORY_VECTOR_CHANGE:
+			ScriptUpdateVectorRedo(window, data_pointers[i], data_size[i]);
+			break;
+		}
+	}
+
+	ClearLayerView(&window->app->layer_window);
+	LayerViewSetDrawWindow(&window->app->layer_window, window);
+
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	gtk_widget_queue_draw(window->window);
+
+	MEM_FREE_FUNC(data_types);
+	MEM_FREE_FUNC(data_size);
+	MEM_FREE_FUNC(data_pointers);
 }
 
 /*****************************************
@@ -3636,10 +4218,10 @@ void AddScriptHistory(SCRIPT* script)
 {
 	// 操作された描画領域
 	DRAW_WINDOW *window = script->app->draw_window[script->app->active_window];
-	// スクリプト実行後のデータ
-	MEMORY_STREAM_PTR after_data;
-	// 履歴データ
-	MEMORY_STREAM_PTR history_data;
+	// 履歴データのサイズ
+	guint32 data_size;
+	// 4バイト書き出し用
+	guint32 data32;
 
 	// 有効な描画領域が無ければ終了
 	if(script->app->window_num == 0)
@@ -3647,28 +4229,16 @@ void AddScriptHistory(SCRIPT* script)
 		return;
 	}
 
-	// スクリプト実行後のデータ作成用のバッファを用意
-	after_data = CreateMemoryStream(window->pixel_buf_size);
-	// データ作成
-	WriteOriginalFormat(after_data, (stream_func_t)MemWrite, window,
-		0, script->app->preference.compress);
-
 	// 履歴データを作成
-	history_data = CreateMemoryStream(window->pixel_buf_size);
-	// データを書き出す
-	(void)MemWrite(&script->before_data->data_point, sizeof(script->before_data->data_point),
-		1, history_data);
-	(void)MemWrite(script->before_data->buff_ptr, 1, script->before_data->data_point,
-		history_data);
-	(void)MemWrite(&after_data->data_point, sizeof(after_data->data_point), 1, history_data);
-	(void)MemWrite(after_data->buff_ptr, 1, after_data->data_point, history_data);
+	data_size = (guint32)script->history.data_stream->data_size;
+	(void)MemSeek(script->history.data_stream, 0, SEEK_SET);
+	(void)MemWrite(&data_size, sizeof(data_size), 1, script->history.data_stream);
+	data32 = script->history.num_history;
+	(void)MemWrite(&data32, sizeof(data32), 1, script->history.data_stream);
 
 	// 履歴データを追加
-	AddHistory(&window->history, script->app->labels->menu.script, history_data->buff_ptr,
-		(uint32)history_data->data_point, ScriptUndo, ScriptRedo);
-
-	(void)DeleteMemoryStream(after_data);
-	(void)DeleteMemoryStream(history_data);
+	AddHistory(&window->history, script->app->labels->menu.script, script->history.data_stream->buff_ptr,
+		(uint32)data_size, ScriptUndo, ScriptRedo);
 }
 
 /*********************************************************
@@ -3697,7 +4267,7 @@ void ExecuteScript(GtkWidget* menu_item, APPLICATION* app)
 		// スクリプト用のデータを削除
 		DeleteScript(&script);
 
-		app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+		GetActiveDrawWindow(app)->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 	}
 }
 

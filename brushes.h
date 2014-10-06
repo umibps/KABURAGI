@@ -27,6 +27,7 @@ typedef struct _PENCIL
 	gdouble r;
 	gdouble alpha;
 	gdouble outline_hardness;
+	gdouble minimum_pressure;
 	gdouble before_x, before_y;
 
 	int8 channel;
@@ -45,6 +46,7 @@ typedef struct _HARD_PEN
 	int base_scale;
 	gdouble r;
 	gdouble alpha;
+	gdouble minimum_pressure;
 	gdouble before_x, before_y;
 	gdouble before_alpha;
 	gdouble before_r;
@@ -497,6 +499,14 @@ typedef struct _TEXT_TOOL
 	int32 font_id;
 } TEXT_TOOL;
 
+typedef struct _PLUG_IN_BRUSH
+{
+	char *plug_in_name;
+	struct _APPLICATION *app;
+	void *detail_data;
+	GtkWidget* (*setting_widget_new)(struct _APPLICATION* app, struct _BRUSH_CORE* core);
+} PLUG_IN_BRUSH;
+
 extern void LoadBrushDetailData(
 	BRUSH_CORE* core,
 	INI_FILE_PTR file,
@@ -542,6 +552,8 @@ extern void SetBrushCallBack(BRUSH_CORE* core);
 * core	: コールバック関数を設定するブラシの基本情報         *
 *************************************************************/
 extern void SetEditSelectionCallBack(BRUSH_CORE* core);
+
+extern gboolean LoadPlugInBrushCallbacks(GModule* module, BRUSH_CORE* core, PLUG_IN_BRUSH* brush);
 
 #ifdef __cplusplus
 }

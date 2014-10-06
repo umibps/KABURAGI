@@ -148,6 +148,8 @@ extern void MakeShaderProgram(SHADER_PROGRAM* program);
 
 extern void ReleaseShaderProgram(SHADER_PROGRAM* program);
 
+extern void FreeShaderProgram(SHADER_PROGRAM* program);
+
 extern void ShaderProgramBind(SHADER_PROGRAM* program);
 
 extern void ShaderProgramUnbind(SHADER_PROGRAM* program);

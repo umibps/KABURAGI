@@ -44,7 +44,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib"
+				AdditionalIncludeDirectories="&quot;./Include&quot;;&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib;&quot;./MikuMikuGTK+/gtkglext&quot;;&quot;./Include/Bullet&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -197,7 +197,7 @@
 				EnableIntrinsicFunctions="true"
 				FavorSizeOrSpeed="1"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib"
+				AdditionalIncludeDirectories="&quot;./Include&quot;;&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib;&quot;./MikuMikuGTK+/gtkglext&quot;;&quot;./Include/Bullet&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				StringPooling="true"
 				ExceptionHandling="0"
@@ -358,7 +358,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib"
+				AdditionalIncludeDirectories="&quot;./Include&quot;;&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib;&quot;./MikuMikuGTK+/gtkglext&quot;;&quot;./Include/Bullet&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;_PROFILING"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -504,7 +504,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib"
+				AdditionalIncludeDirectories="&quot;./Include&quot;;&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib;&quot;./MikuMikuGTK+/gtkglext&quot;;&quot;./Include/Bullet&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -647,6 +647,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\bit_stream.c"
+				>
+			</File>
+			<File
 				RelativePath=".\brush_core.c"
 				>
 			</File>
@@ -684,6 +688,22 @@
 			</File>
 			<File
 				RelativePath=".\filter.c"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal.c"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_color_map.c"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_editor.c"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_point.c"
 				>
 			</File>
 			<File
@@ -752,6 +772,10 @@
 			</File>
 			<File
 				RelativePath=".\pattern.c"
+				>
+			</File>
+			<File
+				RelativePath=".\plug_in.c"
 				>
 			</File>
 			<File
@@ -1445,7 +1469,23 @@
 					RelativePath=".\MikuMikuGtk+\application.c"
 					>
 					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_application.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
 						Name="Debug|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_application.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1461,7 +1501,23 @@
 						/>
 					</FileConfiguration>
 					<FileConfiguration
+						Name="Profile|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_application.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
 						Name="Profile|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_application.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug x64|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1525,7 +1581,23 @@
 					RelativePath=".\MikuMikuGtk+\history.c"
 					>
 					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_history.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
 						Name="Debug|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_history.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1541,7 +1613,23 @@
 						/>
 					</FileConfiguration>
 					<FileConfiguration
+						Name="Profile|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_history.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
 						Name="Profile|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_history.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug x64|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1681,7 +1769,23 @@
 					RelativePath=".\MikuMikuGtk+\texture.c"
 					>
 					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_texture.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
 						Name="Debug|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_texture.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1697,7 +1801,23 @@
 						/>
 					</FileConfiguration>
 					<FileConfiguration
+						Name="Profile|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_texture.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
 						Name="Profile|x64"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_texture.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug x64|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1729,11 +1849,27 @@
 					RelativePath=".\MikuMikuGtk+\utils.c"
 					>
 					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_utils.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
 						Name="Debug|x64"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
 							ObjectFile="$(IntDir)\mikumku_utils.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_utils.obj"
 						/>
 					</FileConfiguration>
 					<FileConfiguration
@@ -1745,11 +1881,27 @@
 						/>
 					</FileConfiguration>
 					<FileConfiguration
+						Name="Profile|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_utils.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
 						Name="Profile|x64"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
 							ObjectFile="$(IntDir)\mikumku_utils.obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug x64|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\mikumiku_utils.obj"
 						/>
 					</FileConfiguration>
 					<FileConfiguration
@@ -2441,6 +2593,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\bit_stream.h"
+				>
+			</File>
+			<File
 				RelativePath=".\brush_core.h"
 				>
 			</File>
@@ -2482,6 +2638,26 @@
 			</File>
 			<File
 				RelativePath=".\filter.h"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal.h"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_color_map.h"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_editor.h"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_label.h"
+				>
+			</File>
+			<File
+				RelativePath=".\fractal_point.h"
 				>
 			</File>
 			<File
@@ -2542,6 +2718,10 @@
 			</File>
 			<File
 				RelativePath=".\pattern.h"
+				>
+			</File>
+			<File
+				RelativePath=".\plug_in.h"
 				>
 			</File>
 			<File
@@ -2907,7 +3087,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\resource.rc"
+				RelativePath=".\MIKADO.rc"
 				>
 			</File>
 			<File

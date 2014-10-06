@@ -503,6 +503,45 @@ char* LoadShaderSource(
 	return ret;
 }
 
+int ExecuteRemoveModel(APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	SCENE *scene = project->scene;
+	int model_id;
+
+	if(scene->models->num_data == 0)
+	{
+		return -1;
+	}
+
+	for(model_id = 0; model_id < (int)scene->models->num_data; model_id++)
+	{
+		if((void*)scene->selected_model == scene->models->buffer[model_id])
+		{
+			break;
+		}
+	}
+
+	SceneRemoveModel(scene, scene->selected_model);
+
+	if(scene->models->num_data > 0)
+	{
+		model_id--;
+		if(model_id < 0)
+		{
+			model_id = 0;
+		}
+		scene->selected_model = (MODEL_INTERFACE*)scene->models->buffer[model_id];
+	}
+	else
+	{
+		scene->selected_model = NULL;
+		return -1;
+	}
+
+	return model_id;
+}
+
 #ifdef __cplusplus
 }
 #endif

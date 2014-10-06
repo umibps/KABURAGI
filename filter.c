@@ -7,6 +7,7 @@
 #include <math.h>
 #include <string.h>
 #include <limits.h>
+#include <time.h>
 #include <zlib.h>
 #include "configure.h"
 #include "application.h"
@@ -17,6 +18,7 @@
 #include "utils.h"
 #include "color.h"
 #include "bezier.h"
+#include "fractal_editor.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -533,6 +535,20 @@ void BlurFilterOneStep(LAYER* layer, LAYER* buff, int size)
 			buff->pixels[y*layer->stride+x*4+3] = sum[3] / num_pixels;
 		}
 	}
+}
+
+/*********************************************************
+* ApplyBlurFilter関数                                    *
+* ぼかしフィルターを適用する                             *
+* 引数                                                   *
+* target	: ぼかしフィルターを適用するレイヤー         *
+* size		: ぼかしフィルターで平均色を計算する矩形範囲 *
+*********************************************************/
+void ApplyBlurFilter(LAYER* target, int size)
+{
+	(void)memcpy(target->window->mask_temp->pixels, target->pixels,
+		target->stride * target->height);
+	BlurFilterOneStep(target->window->mask_temp, target, size);
 }
 
 typedef struct _BLUR_FILTER_DATA
@@ -3900,7 +3916,7 @@ void GradationMapFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, v
 *****************************************************/
 void ExecuteGradationMapFilter(APPLICATION* app)
 {
-	// 拡大するピクセル数を指定するダイアログ
+	// グラデーションの設定を指定するダイアログ
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.gradation_map,
 		GTK_WINDOW(app->window),
@@ -3909,7 +3925,7 @@ void ExecuteGradationMapFilter(APPLICATION* app)
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
 	);
 	// 処理する描画領域
-	DRAW_WINDOW* window = app->draw_window[app->active_window];
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
 	// 処理方法の設定
 	GRADATION_MAP filter_data = {0};
 	// 設定変更用ウィジェット
@@ -4473,6 +4489,1025 @@ void ExecuteFillWithVectorLineFilter(APPLICATION* app)
 	FillWithVectorLineFilter(window, layers, num_layer, (void*)&fill_data);
 }
 
+typedef enum _ePERLIN_NOISE_INTERPOLATION_TYPE
+{
+	PERLIN_NOISE_LINEAR_INTERPOLATION,
+	PERLIN_NOISE_COSINE_INTERPOLATION,
+	PERLIN_NOISE_CUBIC_INTERPOLATION,
+	NUM_PERLIN_NOISE_INTERPOLATION_TYPE
+} ePERLIN_NOISE_INTERPOLATION_TYPE;
+
+typedef struct _PERLIN_NOISE_DATA
+{
+	uint16 num_octaves;
+	uint16 frequency;
+	uint16 interpolation_type;
+	uint8 color[3];
+	uint8 multi_color;
+	uint8 opacity;
+	FLOAT_T persistence;
+	int width, height;
+	int seed;
+} PERLIN_NOISE_DATA;
+
+typedef struct _PERLIN_NOISE_WIDGET
+{
+	GtkWidget *canvas;
+	PERLIN_NOISE_DATA *filter_data;
+	GtkWidget *use_random;
+	GtkWidget *immediate_update;
+	uint8 *pixels;
+	uint8 back_ground[3];
+	cairo_surface_t *surface_p;
+	int canvas_width, canvas_height;
+} PERLIN_NOISE_WIDGET;
+
+typedef struct _PERLIN_NOISE_RANDOM
+{
+	int value1, value2, value3;
+} PERLIN_NOISE_RANDOM;
+
+static void MakePerlinNoiseRandom(PERLIN_NOISE_RANDOM* random)
+{
+	do
+	{
+		random->value1 = rand() & 0xFFFF;
+	} while(random->value1 < 8000);
+
+	random->value2 = 650000 + rand() % 450000;
+
+	random->value3 = 1000000000 + rand() % 600000000;
+}
+
+static FLOAT_T LinearInterpolation(FLOAT_T a, FLOAT_T b, FLOAT_T x)
+{
+	return a * (1 - x) + b * x;
+}
+
+static FLOAT_T CosineInterpolation(FLOAT_T a, FLOAT_T b, FLOAT_T x)
+{
+	FLOAT_T ft = x * 3.1415927;
+	FLOAT_T f = (1 - cos(ft)) * 0.5;
+
+	return a * (1 - f) + b * f;
+}
+
+static FLOAT_T CubicInterpolation(
+	FLOAT_T v0,
+	FLOAT_T v1,
+	FLOAT_T v2,
+	FLOAT_T v3,
+	FLOAT_T x
+)
+{
+	FLOAT_T p = (v3 - v2) - (v0 - v1);
+	FLOAT_T q = (v0 - v1) - p;
+	FLOAT_T r = v2 - v0;
+	FLOAT_T s = v1;
+
+	return p * (x * x * x) + q * x * x + r * x + s;
+}
+
+static FLOAT_T Noise2(int x, int y, PERLIN_NOISE_RANDOM* random)
+{
+	int n = x + y * 57;
+	n = (n << 13) ^ n;
+	return (1.0 - ((n * (n * n * random->value1 + random->value2) + random->value3) & 0x7FFFFFFF) / 1073741824.0);
+}
+
+static FLOAT_T SmoothNoise2(FLOAT_T x, FLOAT_T y, PERLIN_NOISE_RANDOM* random)
+{
+	FLOAT_T corners, sides, center;
+	int int_x = (int)x,	int_y = (int)y;
+	corners = (Noise2(int_x-1, int_y-1, random) + Noise2(int_x+1, int_y-1, random)
+		+ Noise2(int_x-1, int_y+1, random), Noise2(int_x+1, int_y+1, random)) / 16;
+	sides = (Noise2(int_x-1, int_y, random) + Noise2(int_x+1, int_y, random) + Noise2(int_x, int_y-1, random)
+		+ Noise2(int_x, int_y+1, random)) / 8;
+	center = Noise2(int_x, int_y, random) / 4;
+	return corners + sides + center;
+}
+
+static int PerlinNoisePoint(FLOAT_T data, int points)
+{
+	int floor_value = (int)data;
+	if(floor_value > data)
+	{
+		floor_value--;
+	}
+
+	return ((floor_value % points) + points) % points;
+}
+
+static FLOAT_T InterpolatedNoise2(
+	PERLIN_NOISE_DATA* data,
+	FLOAT_T x,
+	FLOAT_T y,
+	int points,
+	PERLIN_NOISE_RANDOM* random
+)
+{
+	int nx0 = PerlinNoisePoint(x, points);
+	int nx1 = (nx0 + 1) % points;
+	FLOAT_T fractional_x = x - (int)x;
+	int ny0 = PerlinNoisePoint(y, points);
+	int ny1 = (ny0 + 1) % points;
+	FLOAT_T fractional_y = y - (int)y;
+	FLOAT_T v1, v2, v3, v4;
+	FLOAT_T i1, i2;
+	FLOAT_T ret;
+
+	v1 = SmoothNoise2(nx0, ny0, random);
+	v2 = SmoothNoise2(nx1, ny0, random);
+	v3 = SmoothNoise2(nx0, ny1, random);
+	v4 = SmoothNoise2(nx1, ny1, random);
+
+	switch(data->interpolation_type)
+	{
+	case PERLIN_NOISE_LINEAR_INTERPOLATION:
+		i1 = LinearInterpolation(v1, v2, fractional_x);
+		i2 = LinearInterpolation(v3, v4, fractional_x);
+		ret = LinearInterpolation(i1, i2, fractional_y);
+		break;
+	case PERLIN_NOISE_COSINE_INTERPOLATION:
+		i1 = CosineInterpolation(v1, v2, fractional_x);
+		i2 = CosineInterpolation(v3, v4, fractional_x);
+		ret = CosineInterpolation(i1, i2, fractional_y);
+		break;
+	case PERLIN_NOISE_CUBIC_INTERPOLATION:
+		ret = CubicInterpolation(v1, v2, v3, v4, fractional_x);
+		break;
+	default:
+		ret = 0;
+	}
+
+	return ret;
+}
+
+static FLOAT_T PerlinNoise2D(
+	PERLIN_NOISE_DATA* data,
+	FLOAT_T x,
+	FLOAT_T y,
+	PERLIN_NOISE_RANDOM* random
+)
+{
+	FLOAT_T total = 0;
+	FLOAT_T persistence = data->persistence;
+	FLOAT_T amplitude = persistence;
+	FLOAT_T maximum = 0;
+	int frequency;
+	const int n = data->num_octaves;
+	int i;
+
+	for(i=0; i<n; i++)
+	{
+		frequency = data->frequency * (1 << i) + 1;
+		total += InterpolatedNoise2(data, (x * frequency) / data->width,
+			(y * frequency) / data->height, frequency, random) * amplitude;
+		maximum += amplitude;
+		amplitude *= persistence;
+	}
+
+	return total / maximum;
+}
+
+static void FillMonoColorPelinNoise2D(
+	PERLIN_NOISE_DATA* data,
+	uint8* pixels
+)
+{
+	PERLIN_NOISE_RANDOM random;
+	const int width = data->width;
+	const int height = data->height;
+	const int stride = data->width * 4;
+	int x, y;
+	int pixel_value;
+	FLOAT_T boost = (1 - data->persistence) * 2.5;
+	if(boost < - 0.5)
+	{
+		boost = 256;
+	}
+	else
+	{
+		boost = 256 + boost * 256;
+	}
+
+	srand(data->seed);
+	MakePerlinNoiseRandom(&random);
+
+	for(y=0; y<height; y++)
+	{
+		for(x=0; x<width; x++)
+		{
+			pixel_value =
+				(int)(PerlinNoise2D(data, x, y, &random) * boost);
+			if(pixel_value > 255)
+			{
+				pixel_value = 255;
+			}
+			else if(pixel_value < 0)
+			{
+				pixel_value = 0;
+			}
+			if(data->color[0] > pixel_value)
+			{
+				pixels[y*stride+x*4+0] = (uint8)pixel_value;
+			}
+			else
+			{
+				pixels[y*stride+x*4+0] = data->color[0];
+			}
+			if(data->color[1] > pixel_value)
+			{
+				pixels[y*stride+x*4+1] = (uint8)pixel_value;
+			}
+			else
+			{
+				pixels[y*stride+x*4+1] = data->color[1];
+			}
+			if(data->color[2] > pixel_value)
+			{
+				pixels[y*stride+x*4+2] = (uint8)pixel_value;
+			}
+			else
+			{
+				pixels[y*stride+x*4+2] = data->color[2];
+			}
+			pixels[y*stride+x*4+3] = (uint8)pixel_value;
+		}
+	}
+}
+
+static void FillMultiColorPelinNoise2D(
+	PERLIN_NOISE_DATA* data,
+	uint8* pixels
+)
+{
+	PERLIN_NOISE_RANDOM random1, random2, random3, random4;
+	const int width = data->width;
+	const int height = data->height;
+	const int stride = data->width * 4;
+	int x, y;
+	int pixel_value;
+	FLOAT_T boost = (1 - data->persistence) * 2.5;
+	if(boost < - 0.5)
+	{
+		boost = 256;
+	}
+	else
+	{
+		boost = 256 + boost * 256;
+	}
+
+	srand(data->seed);
+	MakePerlinNoiseRandom(&random1);
+	MakePerlinNoiseRandom(&random2);
+	MakePerlinNoiseRandom(&random3);
+	MakePerlinNoiseRandom(&random4);
+
+	for(y=0; y<height; y++)
+	{
+		for(x=0; x<width; x++)
+		{
+			pixel_value = (int)(PerlinNoise2D(data, x, y, &random1) * boost);
+			if(pixel_value > 255)
+			{
+				pixel_value = 255;
+			}
+			else if(pixel_value < 0)
+			{
+				pixel_value = 0;
+			}
+			pixels[y*stride+x*4+0] = (uint8)pixel_value;
+
+			pixel_value = (int)(PerlinNoise2D(data, width + x, height + y, &random2) * boost);
+			if(pixel_value > 255)
+			{
+				pixel_value = 255;
+			}
+			else if(pixel_value < 0)
+			{
+				pixel_value = 0;
+			}
+			pixels[y*stride+x*4+1] = (uint8)pixel_value;
+
+			pixel_value = (int)(PerlinNoise2D(data, width * 2 + x, height * 2 + y, &random3) * boost);
+			if(pixel_value > 255)
+			{
+				pixel_value = 255;
+			}
+			else if(pixel_value < 0)
+			{
+				pixel_value = 0;
+			}
+			pixels[y*stride+x*4+2] = (uint8)pixel_value;
+
+			pixel_value = (int)(PerlinNoise2D(data, width * 3 + x, height * 3 + y, &random4) * boost)
+				+ data->opacity;
+			if(pixel_value > 255)
+			{
+				pixel_value = 255;
+			}
+			else if(pixel_value < 0)
+			{
+				pixel_value = 0;
+			}
+			pixels[y*stride+x*4+3] = pixel_value;
+
+			if(pixels[y*stride+x*4+0] > pixel_value)
+			{
+				pixels[y*stride+x*4+0] = pixel_value;
+			}
+			if(pixels[y*stride+x*4+1] > pixel_value)
+			{
+				pixels[y*stride+x*4+1] = pixel_value;
+			}
+			if(pixels[y*stride+x*4+2] > pixel_value)
+			{
+				pixels[y*stride+x*4+2] = pixel_value;
+			}
+		}
+	}
+}
+
+/*************************************
+* PerlinNoiseFilter関数              *
+* パーリンノイズで下塗り             *
+* 引数                               *
+* window	: 描画領域の情報         *
+* layers	: 処理を行うレイヤー配列 *
+* num_layer	: 処理を行うレイヤーの数 *
+* data		: 色調整・取得範囲データ *
+*************************************/
+void PerlinNoiseFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* data)
+{
+	PERLIN_NOISE_DATA *filter_data = (PERLIN_NOISE_DATA*)data;
+	cairo_surface_t *surface_p;
+	uint8 *pixels;
+	int i;
+
+	pixels = (uint8*)MEM_ALLOC_FUNC(filter_data->width * filter_data->height * 4);
+	surface_p = cairo_image_surface_create_for_data(pixels, CAIRO_FORMAT_ARGB32,
+		filter_data->width, filter_data->height, filter_data->width * 4);
+
+	if(filter_data->multi_color == FALSE)
+	{
+		FillMonoColorPelinNoise2D(filter_data, pixels);
+	}
+	else
+	{
+		FillMultiColorPelinNoise2D(filter_data, pixels);
+	}
+
+	for(i=0; i<num_layer; i++)
+	{
+		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
+		{
+			if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+			{
+				cairo_set_source_surface(layers[i]->cairo_p, surface_p, 0, 0);
+				cairo_paint(layers[i]->cairo_p);
+			}
+			else
+			{
+				cairo_set_source_surface(layers[i]->cairo_p, surface_p, 0, 0);
+				cairo_mask_surface(layers[i]->cairo_p, window->selection->surface_p, 0, 0);
+			}
+		}
+	}
+
+	cairo_surface_destroy(surface_p);
+	MEM_FREE_FUNC(pixels);
+}
+
+static gboolean DisplayPerlinNoisePreview(
+	GtkWidget* widget,
+#if GTK_MAJOR_VERSION <= 2
+	GdkEventExpose* event_info,
+#else
+	cairo_t* cairo_p,
+#endif
+	PERLIN_NOISE_WIDGET* widgets
+)
+{
+#if GTK_MAJOR_VERSION <= 2
+	cairo_t *cairo_p = gdk_cairo_create(widget->window);
+#endif
+
+	if(widgets->filter_data->multi_color == FALSE)
+	{
+		FillMonoColorPelinNoise2D(widgets->filter_data, widgets->pixels);
+	}
+	else
+	{
+		FillMultiColorPelinNoise2D(widgets->filter_data, widgets->pixels);
+	}
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+	cairo_set_source_rgb(cairo_p, widgets->back_ground[2] * DIV_PIXEL,
+		widgets->back_ground[1] * DIV_PIXEL, widgets->back_ground[0] * DIV_PIXEL);
+#else
+	cairo_set_source_rgb(cairo_p, widgets->back_ground[0] * DIV_PIXEL,
+		widgets->back_ground[1] * DIV_PIXEL, widgets->back_ground[2] * DIV_PIXEL);
+#endif
+	cairo_rectangle(cairo_p, 0, 0, widgets->canvas_width, widgets->canvas_height);
+	cairo_paint(cairo_p);
+	cairo_set_source_surface(cairo_p, widgets->surface_p, 0, 0);
+	cairo_rectangle(cairo_p, 0, 0, widgets->canvas_width, widgets->canvas_height);
+	cairo_paint(cairo_p);
+
+#if GTK_MAJOR_VERSION <= 2
+	cairo_destroy(cairo_p);
+#endif
+
+	return TRUE;
+}
+
+static void OnChangePerlinNoiseSetting(
+	GtkWidget* widget,
+	PERLIN_NOISE_DATA* filter_data
+)
+{
+	PERLIN_NOISE_WIDGET *widgets = (PERLIN_NOISE_WIDGET*)g_object_get_data(
+		G_OBJECT(widget), "setting-widgets");
+
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widgets->immediate_update)) == FALSE)
+	{
+		return;
+	}
+
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widgets->use_random)) != FALSE)
+	{
+		filter_data->seed = (int)time(NULL);
+	}
+
+	gtk_widget_queue_draw(widgets->canvas);
+}
+
+static void OnChangePerlinNoiseSeed(GtkWidget* spin, PERLIN_NOISE_DATA* filter_data)
+{
+	filter_data->seed = gtk_spin_button_get_value_as_int(
+		GTK_SPIN_BUTTON(spin));
+	OnChangePerlinNoiseSetting(spin, filter_data);
+}
+
+static void OnChangePerlinNoiseUseRandom(GtkWidget* button, GtkWidget* control)
+{
+	PERLIN_NOISE_DATA *filter_data = (PERLIN_NOISE_DATA*)g_object_get_data(
+		G_OBJECT(button), "filter_data");
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
+	{
+		filter_data->seed = gtk_spin_button_get_value_as_int(
+			GTK_SPIN_BUTTON(control));
+	}
+	else
+	{
+		filter_data->seed = (int)time(NULL);
+	}
+
+	gtk_widget_set_sensitive(control, !gtk_toggle_button_get_active(
+		GTK_TOGGLE_BUTTON(button)));
+	OnChangePerlinNoiseSetting(button, filter_data);
+}
+
+static void OnChangePerlinNoiseOctaves(GtkWidget* spin, PERLIN_NOISE_DATA* filter_data)
+{
+	filter_data->num_octaves = gtk_spin_button_get_value_as_int(
+		GTK_SPIN_BUTTON(spin));
+	OnChangePerlinNoiseSetting(spin, filter_data);
+}
+
+static void OnChangePerlinNoiseFrequency(GtkWidget* spin, PERLIN_NOISE_DATA* filter_data)
+{
+	filter_data->frequency = (uint16)gtk_spin_button_get_value_as_int(
+		GTK_SPIN_BUTTON(spin));
+	OnChangePerlinNoiseSetting(spin, filter_data);
+}
+
+static void OnChangePerlinNoisePersistence(GtkWidget* spin, PERLIN_NOISE_DATA* filter_data)
+{
+	filter_data->persistence = gtk_spin_button_get_value(
+		GTK_SPIN_BUTTON(spin));
+	OnChangePerlinNoiseSetting(spin, filter_data);
+}
+
+static void OnChangePerlinNoiseInterpolation(GtkWidget* button, PERLIN_NOISE_DATA* filter_data)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
+	{
+		filter_data->interpolation_type =
+			(uint16)GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "interpolation"));
+		OnChangePerlinNoiseSetting(button, filter_data);
+	}
+}
+
+static void OnChangePerlinNoiseCloudColor(GtkWidget* button, PERLIN_NOISE_DATA* filter_data)
+{
+	GdkColor color;
+	gtk_color_button_get_color(GTK_COLOR_BUTTON(button), &color);
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+	filter_data->color[0] = color.blue / 256;
+	filter_data->color[1] = color.green / 256;
+	filter_data->color[2] = color.red / 256;
+#else
+	filter_data->color[0] = color.red / 256;
+	filter_data->color[1] = color.green / 256;
+	filter_data->color[2] = color.blue / 256;
+#endif
+	OnChangePerlinNoiseSetting(button, filter_data);
+}
+
+static void OnChangePerlinNoiseColorMode(GtkWidget* button, PERLIN_NOISE_DATA* filter_data)
+{
+	filter_data->multi_color = (uint8)gtk_toggle_button_get_active(
+		GTK_TOGGLE_BUTTON(button));
+	OnChangePerlinNoiseSetting(button, filter_data);
+}
+
+static void OnChangePerlinNoiseOpacity(GtkAdjustment* slider, PERLIN_NOISE_DATA* filter_data)
+{
+	filter_data->opacity = (uint8)(gtk_adjustment_get_value(slider) * 2.555);
+	OnChangePerlinNoiseSetting(GTK_WIDGET(slider), filter_data);
+}
+
+static void OnClickedPerlinNoiseUpdateButton(GtkWidget* button, PERLIN_NOISE_DATA* filter_data)
+{
+	PERLIN_NOISE_WIDGET *widgets = (PERLIN_NOISE_WIDGET*)g_object_get_data(
+		G_OBJECT(button), "setting-widgets");
+
+	if(widgets->use_random != NULL)
+	{
+		if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widgets->use_random)) != FALSE)
+		{
+			filter_data->seed = (int)time(NULL);
+		}
+	}
+
+	gtk_widget_queue_draw(widgets->canvas);
+}
+
+static int CheckPerlinoiseReverseColor(DRAW_WINDOW* window, uint8* color)
+{
+	FLOAT_T float_color[4] = {0};
+	FLOAT_T alpha;
+	int i;
+
+	for(i=0; i<window->width*window->height; i++)
+	{
+		alpha = window->mixed_layer->pixels[i*4+3] * DIV_PIXEL;
+		float_color[0] += window->mixed_layer->pixels[i*4+0] * DIV_PIXEL
+			* alpha;
+		float_color[1] += window->mixed_layer->pixels[i*4+1] * DIV_PIXEL
+			* alpha;
+		float_color[2] += window->mixed_layer->pixels[i*4+2] * DIV_PIXEL
+			* alpha;
+		float_color[3] += alpha;
+	}
+	alpha = 1 / (alpha * window->width * window->height);
+	float_color[0] *= alpha,	float_color[1] *= alpha,	float_color[2] *= alpha;
+	color[0] = (uint8)(255 * float_color[0]);
+	color[1] = (uint8)(255 * float_color[1]);
+	color[2] = (uint8)(255 * float_color[2]);
+	return float_color[0] + float_color[1] + float_color[2] > 0.5 * 3;
+}
+
+/*****************************************************
+* ExecutePerlinNoiseFilter関数                       *
+* パーリンノイズで下塗りを実行                       *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+void ExecutePerlinNoiseFilter(APPLICATION* app)
+{
+#define PERLIN_NOISE_DEFAULT_OCTAVES 6
+#define PERLIN_NOISE_DEFAULT_PERSISTENCE 0.6
+#define PERLIN_NOISE_DEFAULT_FREQUENCY 10
+#define PERLIN_NOISE_PREVIEW_SIZE 500
+	// パーリンノイズを指定するダイアログ
+	GtkWidget* dialog = gtk_dialog_new_with_buttons(
+		app->labels->menu.cloud,
+		GTK_WINDOW(app->window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
+	);
+	// 処理する描画領域
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
+	// 処理方法の設定
+	PERLIN_NOISE_DATA filter_data = {0};
+	// 設定変更用ウィジェット
+	PERLIN_NOISE_WIDGET widgets = {0};
+	GdkColor color;
+	GtkWidget *vbox;
+	GtkWidget *hbox;
+	GtkWidget *label;
+	GtkWidget *layout;
+	GtkWidget *control;
+	GtkWidget *spin;
+	GtkWidget *buttons[3];
+	GtkWidget *scroll;
+	GtkAdjustment *adjustment;
+	// ラベルに設定する文字列
+	char str[4096];
+	// フィルターを適用するレイヤーの数
+	uint16 num_layer;
+	// フィルターを適用するレイヤー
+	LAYER **layers = GetLayerChain(window, &num_layer);
+	// ダイアログの結果
+	gint result;
+	// int型でレイヤーの数を記憶しておく(キャスト用)
+	int int_num_layer = num_layer;
+
+	filter_data.num_octaves = PERLIN_NOISE_DEFAULT_OCTAVES;
+	filter_data.persistence = PERLIN_NOISE_DEFAULT_PERSISTENCE;
+	filter_data.frequency = PERLIN_NOISE_DEFAULT_FREQUENCY;
+	filter_data.interpolation_type = (uint16)PERLIN_NOISE_COSINE_INTERPOLATION;
+
+	widgets.filter_data = &filter_data;
+	if(window->width >= window->height)
+	{
+		widgets.canvas_width = PERLIN_NOISE_PREVIEW_SIZE;
+		widgets.canvas_height = (window->height * PERLIN_NOISE_PREVIEW_SIZE) / window->width;
+	}
+	else
+	{
+		widgets.canvas_height = PERLIN_NOISE_PREVIEW_SIZE;
+		widgets.canvas_width = (window->width * PERLIN_NOISE_PREVIEW_SIZE) / window->height;
+	}
+	widgets.pixels = (uint8*)MEM_ALLOC_FUNC(widgets.canvas_width * widgets.canvas_height * 4);
+
+	if(CheckPerlinoiseReverseColor(window, widgets.back_ground) != FALSE)
+	{
+		color.red = color.green = color.blue = 0;
+	}
+	else
+	{
+		color.red = color.green = color.blue = 0xffff;
+		filter_data.color[0] = filter_data.color[1] = filter_data.color[2] = 0xff;
+	}
+
+	widgets.surface_p = cairo_image_surface_create_for_data(widgets.pixels,
+		CAIRO_FORMAT_ARGB32, widgets.canvas_width, widgets.canvas_height, widgets.canvas_width * 4);
+	widgets.canvas = gtk_drawing_area_new();
+	gtk_widget_set_events(widgets.canvas, GDK_EXPOSURE_MASK);
+#if GTK_MAJOR_VERSION <= 2
+	(void)g_signal_connect(G_OBJECT(widgets.canvas), "expose_event",
+		G_CALLBACK(DisplayPerlinNoisePreview), &widgets);
+#else
+	(void)g_signal_connect(G_OBJECT(widgets.canvas), "draw",
+		G_CALLBACK(DisplayPerlinNoisePreview), &widgets);
+#endif
+	gtk_widget_set_size_request(widgets.canvas, widgets.canvas_width, widgets.canvas_height);
+
+	filter_data.width = widgets.canvas_width;
+	filter_data.height = widgets.canvas_height;
+
+	scroll = gtk_scrolled_window_new(NULL, NULL);
+	layout = gtk_vbox_new(FALSE, 0);
+	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(scroll), layout);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(
+		GTK_DIALOG(dialog))), scroll, TRUE, TRUE, 0);
+	gtk_widget_set_size_request(scroll, 720, 480);
+	hbox = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout), hbox, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), widgets.canvas, FALSE, FALSE, 2);
+
+	vbox = gtk_vbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout), vbox, TRUE, TRUE, 2);
+
+	(void)sprintf(str, "%s : ", app->labels->tool_box.rand_seed);
+	label = gtk_label_new(str);
+	spin = gtk_spin_button_new_with_range(0, INT_MAX, 1);
+	g_object_set_data(G_OBJECT(spin), "setting-widgets", &widgets);
+	(void)g_signal_connect(G_OBJECT(spin), "value_changed",
+		G_CALLBACK(OnChangePerlinNoiseSeed), &filter_data);
+	hbox = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	widgets.use_random = gtk_check_button_new_with_label(app->labels->tool_box.use_random);
+	(void)g_signal_connect(G_OBJECT(widgets.use_random), "toggled",
+		G_CALLBACK(OnChangePerlinNoiseUseRandom), spin);
+	g_object_set_data(G_OBJECT(widgets.use_random), "filter_data", &filter_data);
+	g_object_set_data(G_OBJECT(widgets.use_random), "setting-widgets", &widgets);
+	gtk_box_pack_start(GTK_BOX(vbox), widgets.use_random, FALSE, FALSE, 0);
+
+	g_object_set_data(G_OBJECT(spin), "use_random", widgets.use_random);
+
+	(void)sprintf(str, "%s : ", app->labels->tool_box.num_octaves);
+	label = gtk_label_new(str);
+	spin = gtk_spin_button_new_with_range(1, 30, 1);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), PERLIN_NOISE_DEFAULT_OCTAVES);
+	g_object_set_data(G_OBJECT(spin), "setting-widgets", &widgets);
+	(void)g_signal_connect(G_OBJECT(spin), "value_changed",
+		G_CALLBACK(OnChangePerlinNoiseOctaves), &filter_data);
+	hbox = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	(void)sprintf(str, "%s : ", app->labels->tool_box.frequency);
+	label = gtk_label_new(str);
+	spin = gtk_spin_button_new_with_range(1, 30, 1);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), PERLIN_NOISE_DEFAULT_FREQUENCY);
+	g_object_set_data(G_OBJECT(spin), "setting-widgets", &widgets);
+	(void)g_signal_connect(G_OBJECT(spin), "value_changed",
+		G_CALLBACK(OnChangePerlinNoiseFrequency), &filter_data);
+	hbox = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	(void)sprintf(str, "%s : ", app->labels->tool_box.persistence);
+	label = gtk_label_new(str);
+	spin = gtk_spin_button_new_with_range(0.01, 3, 0.1);
+	gtk_spin_button_set_digits(GTK_SPIN_BUTTON(spin), 2);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), PERLIN_NOISE_DEFAULT_PERSISTENCE);
+	g_object_set_data(G_OBJECT(spin), "setting-widgets", &widgets);
+	(void)g_signal_connect(G_OBJECT(spin), "value_changed",
+		G_CALLBACK(OnChangePerlinNoisePersistence), &filter_data);
+	hbox = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	(void)sprintf(str, "%s : ", app->labels->tool_box.cloud_color);
+	label = gtk_label_new(str);
+	control = gtk_color_button_new_with_color(&color);
+	g_object_set_data(G_OBJECT(control), "setting-widgets", &widgets);
+	(void)g_signal_connect(G_OBJECT(control), "color-set",
+		G_CALLBACK(OnChangePerlinNoiseCloudColor), &filter_data);
+	hbox = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), control, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.linear);
+	g_object_set_data(G_OBJECT(buttons[0]), "interpolation",
+		GINT_TO_POINTER(PERLIN_NOISE_LINEAR_INTERPOLATION));
+	g_object_set_data(G_OBJECT(buttons[0]), "setting-widgets", &widgets);
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled",
+		G_CALLBACK(OnChangePerlinNoiseInterpolation), &filter_data);
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, FALSE, 0);
+	buttons[1] = gtk_radio_button_new_with_label_from_widget(
+		GTK_RADIO_BUTTON(buttons[0]), app->labels->tool_box.cosine);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[1]), TRUE);
+	g_object_set_data(G_OBJECT(buttons[1]), "interpolation",
+		GINT_TO_POINTER(PERLIN_NOISE_COSINE_INTERPOLATION));
+	g_object_set_data(G_OBJECT(buttons[1]), "setting-widgets", &widgets);
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled",
+		G_CALLBACK(OnChangePerlinNoiseInterpolation), &filter_data);
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[1], FALSE, FALSE, 0);
+	buttons[2] = gtk_radio_button_new_with_label_from_widget(
+		GTK_RADIO_BUTTON(buttons[0]), app->labels->tool_box.cubic);
+	g_object_set_data(G_OBJECT(buttons[2]), "setting-widgets", &widgets);
+	g_object_set_data(G_OBJECT(buttons[2]), "interpolation",
+		GINT_TO_POINTER(PERLIN_NOISE_CUBIC_INTERPOLATION));
+	(void)g_signal_connect(G_OBJECT(buttons[2]), "toggled",
+		G_CALLBACK(OnChangePerlinNoiseInterpolation), &filter_data);
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[2], FALSE, FALSE, 0);
+
+	control = gtk_check_button_new_with_label(app->labels->tool_box.colorize);
+	g_object_set_data(G_OBJECT(control), "setting-widgets", &widgets);
+	(void)g_signal_connect(G_OBJECT(control), "toggled",
+		G_CALLBACK(OnChangePerlinNoiseColorMode), &filter_data);
+	gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(0, 0, 100, 1, 1, 0));
+	g_object_set_data(G_OBJECT(adjustment), "filter_data", &filter_data);
+	g_object_set_data(G_OBJECT(adjustment), "setting-widgets", &widgets);
+	control = SpinScaleNew(adjustment, app->labels->layer_window.opacity, 0);
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(OnChangePerlinNoiseOpacity), &filter_data);
+	gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+
+	widgets.immediate_update =
+		gtk_check_button_new_with_label(app->labels->tool_box.update_immediately);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widgets.immediate_update), TRUE);
+	gtk_box_pack_start(GTK_BOX(vbox), widgets.immediate_update, FALSE, FALSE, 0);
+
+	control = gtk_button_new_with_label(app->labels->tool_box.update);
+	g_object_set_data(G_OBJECT(control), "setting-widgets", &widgets);
+	(void)g_signal_connect(G_OBJECT(control), "clicked",
+		G_CALLBACK(OnClickedPerlinNoiseUpdateButton), &filter_data);
+	gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+
+	gtk_widget_show_all(dialog);
+
+	result = gtk_dialog_run(GTK_DIALOG(dialog));
+	if(result == GTK_RESPONSE_OK)
+	{// O.K.ボタンが押された
+		filter_data.width = window->width;
+		filter_data.height = window->height;
+
+		// 先に履歴データを残す
+		AddFilterHistory(app->labels->menu.cloud, &filter_data, sizeof(filter_data),
+			FILTER_FUNC_PERLIN_NOISE, layers, num_layer, window);
+
+		PerlinNoiseFilter(window, layers, num_layer, &filter_data);
+	}
+
+	// キャンバスを更新
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	gtk_widget_queue_draw(window->window);
+
+	cairo_surface_destroy(widgets.surface_p);
+	MEM_FREE_FUNC(widgets.pixels);
+
+	MEM_FREE_FUNC(layers);
+
+	// ダイアログを消す
+	gtk_widget_destroy(dialog);
+}
+
+/*************************************
+* FractalFilter関数                  *
+* フラクタル図形の描画実行           *
+* 引数                               *
+* window	: 描画領域の情報         *
+* layers	: 処理を行うレイヤー配列 *
+* num_layer	: 処理を行うレイヤーの数 *
+* data		: 色調整・取得範囲データ *
+*************************************/
+void FractalFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* data)
+{
+	MEMORY_STREAM stream = {(uint8*)data, 0, 8, 1};
+	guint32 data_size;
+	cairo_surface_t *surface_p;
+	uint8 *pixels;
+	gint32 width, height, stride;
+	// フィルターを適用するレイヤー
+	int i;
+
+	(void)MemRead(&data_size, sizeof(data_size), 1, &stream);
+	stream.data_size = data_size;
+
+	pixels = ReadPNGStream((void*)&stream, (stream_func_t)MemRead,
+		&width, &height, &stride);
+	surface_p = cairo_image_surface_create_for_data(pixels,
+		CAIRO_FORMAT_ARGB32, width, height, stride);
+
+	for(i=0; i<num_layer; i++)
+	{
+		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
+		{
+			cairo_set_source_surface(layers[i]->cairo_p, surface_p, 0, 0);
+			cairo_set_operator(layers[i]->cairo_p, CAIRO_OPERATOR_OVER);
+
+			if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+			{
+				cairo_paint(layers[i]->cairo_p);
+			}
+			else
+			{
+				cairo_mask_surface(layers[i]->cairo_p, window->selection->surface_p, 0, 0);
+			}
+		}
+	}
+
+	cairo_surface_destroy(surface_p);
+	MEM_FREE_FUNC(pixels);
+}
+
+/*****************************************************
+* ExecuteFractal関数                                 *
+* フラクタル図形で下塗り実行                         *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+void ExecuteFractal(APPLICATION* app)
+{
+#define FRACTAL_PREVIEW_SIZE 400
+	// 拡大するピクセル数を指定するダイアログ
+	GtkWidget* dialog = gtk_dialog_new_with_buttons(
+		app->labels->menu.fractal,
+		GTK_WINDOW(app->window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
+	);
+	// 処理する描画領域
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
+	// 処理方法の設定
+	FRACTAL fractal;
+	FRACTAL_EDITOR_WIDGET *editor;
+	// 履歴データ
+	MEMORY_STREAM *stream = CreateMemoryStream(window->pixel_buf_size);
+	// 設定変更用ウィジェット
+	GtkWidget *vbox;
+	// ダイアログの位置、サイズ設定用
+	gint x, y;
+	GtkAllocation allocation;
+	// 履歴データのサイズ
+	size_t history_size;
+	// フィルターを適用するレイヤーの数
+	uint16 num_layer;
+	// フィルターを適用するレイヤー
+	LAYER **layers = GetLayerChain(window, &num_layer);
+	// キャンバスへの描画用サーフェス
+	cairo_surface_t *surface_p;
+	// ピクセルデータ
+	uint8 *pixels;
+	// プレビューのサイズ
+	int width, height;
+	// 設定画面がスクリーンに収まりきらないのでスクロールする
+	GtkWidget *scroll;
+	// for文用のカウンタ
+	int i;
+
+	if(window->width >= window->height)
+	{
+		width = FRACTAL_PREVIEW_SIZE;
+		height = FRACTAL_PREVIEW_SIZE * window->height / window->width;
+	}
+	else
+	{
+		height = FRACTAL_PREVIEW_SIZE;
+		width = FRACTAL_PREVIEW_SIZE * window->width / window->height;
+	}
+
+	// フラクタル図形描画の初期化
+	InitializeFractal(&fractal, width, height);
+	fractal.random_start = (int)time(NULL);
+	FractalRandomizeControlPoint(&fractal, &fractal.control_point,
+		2, 3, 0);
+	FractalRender(&fractal, fractal.random_start);
+
+	vbox = FractalEditorNew(&fractal, FRACTAL_PREVIEW_SIZE,
+		FRACTAL_PREVIEW_SIZE, app->fractal_labels, &editor);
+	scroll = gtk_scrolled_window_new(NULL, NULL);
+	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(scroll), vbox);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+#if GTK_MAJOR_VERSION <= 2
+	allocation = app->window->allocation;
+#else
+	gtk_widget_get_allocation(app->window, &allocation);
+#endif
+	gtk_widget_set_size_request(scroll, allocation.width, allocation.height - 80);
+	gtk_window_get_position(GTK_WINDOW(app->window), &x, &y);
+	gtk_window_move(GTK_WINDOW(dialog), x, y);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		scroll, TRUE, TRUE, 0);
+
+	gtk_widget_show_all(dialog);
+
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{
+		guint32 data_size = 0;
+
+		(void)MemWrite(&data_size, sizeof(data_size), 1, stream);
+
+		ResizeFractal(&fractal, window->width, window->height);
+		FractalRender(&fractal, fractal.random_start);
+
+		pixels = (uint8*)fractal.pixels;
+		WritePNGStream((void*)stream, (stream_func_t)MemWrite,
+			NULL, pixels, window->width, window->height, window->stride,
+			window->channel, 0, Z_DEFAULT_COMPRESSION);
+		history_size = stream->data_point;
+		data_size = (guint32)(history_size - sizeof(data_size));
+		(void)MemSeek(stream, 0, SEEK_SET);
+		(void)MemWrite(&data_size, sizeof(data_size), 1, stream);
+
+		AddFilterHistory(app->labels->menu.fractal, stream->buff_ptr, history_size,
+			FILTER_FUNC_FRACTAL, layers, num_layer, window);
+
+		surface_p = cairo_image_surface_create_for_data(pixels,
+			CAIRO_FORMAT_ARGB32, window->width, window->height, window->stride);
+
+		for(i=0; i<num_layer; i++)
+		{
+			if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
+			{
+				cairo_set_source_surface(layers[i]->cairo_p, surface_p, 0, 0);
+				cairo_set_operator(layers[i]->cairo_p, CAIRO_OPERATOR_OVER);
+				if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+				{
+					cairo_paint(layers[i]->cairo_p);
+				}
+				else
+				{
+					cairo_mask_surface(layers[i]->cairo_p, window->selection->surface_p, 0, 0);
+				}
+			}
+		}
+
+		cairo_surface_destroy(surface_p);
+	}
+
+	ReleaseFractal(&fractal);
+	(void)DeleteMemoryStream(stream);
+	MEM_FREE_FUNC(layers);
+
+	gtk_widget_destroy(dialog);
+
+	// キャンバスを更新
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	gtk_widget_queue_draw(window->window);
+}
+
 filter_func g_filter_funcs[] =
 {
 	BlurFilter,
@@ -4483,7 +5518,9 @@ filter_func g_filter_funcs[] =
 	Color2AlphaFilter,
 	ColorizeWithUnderFilter,
 	GradationMapFilter,
-	FillWithVectorLineFilter
+	FillWithVectorLineFilter,
+	PerlinNoiseFilter,
+	FractalFilter
 };
 
 selection_filter_func g_selection_filter_funcs[] =

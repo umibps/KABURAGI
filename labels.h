@@ -4,6 +4,8 @@
 #include <gtk/gtk.h>
 #include "brush_core.h"
 #include "layer.h"
+#include "fractal_label.h"
+#include "ini_file.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,7 +63,9 @@ typedef struct _APPLICATON_LABELS
 			*gray_scale_yiq;
 		gchar *filters, *blur, *motion_blur, *bright_contrast, *hue_saturtion,
 			*luminosity2opacity, *color2alpha, *colorize_with_under, *gradation_map,
-			*detect_max, *tranparancy_as_white, *fill_with_vector;
+			*detect_max, *tranparancy_as_white, *fill_with_vector, *render, *cloud,
+			*fractal;
+		gchar *plug_in;
 		gchar *script;
 		gchar *help, *version;
 	} menu;
@@ -84,14 +88,16 @@ typedef struct _APPLICATON_LABELS
 			*rotate_start, *rotate_speed, *random_rotate,
 			*rotate_to_brush_direction, *size_range, *rotate_range, *randoam_size,
 			*clockwise, *counter_clockwise, *both_direction, *min_degree, *min_distance,
-			*enter, *out, *mix, *gradation_reverse, *devide_stroke, *delete_stroke,
-			*target, *stroke, *prior_angle, *control_point, *transform_free,
-			*transform_scale, *transform_free_shape, *transform_rotate,
+			*min_pressure, *enter, *out, *mix, *gradation_reverse, *devide_stroke,
+			*delete_stroke, *target, *stroke, *prior_angle, *control_point,
+			*transform_free, *transform_scale, *transform_free_shape, *transform_rotate,
 			*preference, *name, *copy_brush, *change_brush, *delete_brush, *texture,
 			*texture_strength, *no_texture, *pallete_add, *pallete_delete,
 			*load_pallete, *load_pallete_after, *write_pallete, *clear_pallete,
 			*pick_mode, *single_pixels, *average_color, *open_path, *close_path,
-			*start_edit_3d, *end_edit_3d;
+			*update, *frequency, *cloud_color, *persistence, *rand_seed, *use_random,
+			*update_immediately, *num_octaves, *linear, *cosine, *cubic,
+			*colorize, *start_edit_3d, *end_edit_3d;
 		gchar *brush_default_names[NUM_BRUSH_TYPE];
 		SELECT_TARGET_LABELS select;
 		CONTROL_POINT_LABELS control;
@@ -137,7 +143,18 @@ typedef struct _APPLICATON_LABELS
 } APPLICATION_LABELS;
 
 // 関数のプロトタイプ宣言
-extern void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path);
+extern void LoadLabels(
+	APPLICATION_LABELS* labels,
+	FRACTAL_LABEL* fractal_labels,
+	const char* lang_file_path
+);
+
+extern void LoadFractalLabels(
+	FRACTAL_LABEL* labels,
+	APPLICATION_LABELS* app_label,
+	INI_FILE* file,
+	const char* code
+);
 
 #ifdef __cplusplus
 }

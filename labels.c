@@ -7,7 +7,11 @@
 extern "C" {
 #endif
 
-void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
+void LoadLabels(
+	APPLICATION_LABELS* labels,
+	FRACTAL_LABEL* fractal_labels,
+	const char* lang_file_path
+)
 {
 #define MAX_STR_SIZE 512
 	// 初期化ファイル解析用
@@ -285,6 +289,12 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	labels->menu.tranparancy_as_white = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "FILL_WITH_VECTOR", temp_str, MAX_STR_SIZE);
 	labels->menu.fill_with_vector = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FILTERS", "RENDER", temp_str, MAX_STR_SIZE);
+	labels->menu.render = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FILTERS", "CLOUD", temp_str, MAX_STR_SIZE);
+	labels->menu.cloud = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FILTERS", "FRACTAL", temp_str, MAX_STR_SIZE);
+	labels->menu.fractal = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// 新規作成ウィンドウ
 	length = IniFileGetString(file, "NEW", "TITLE", temp_str, MAX_STR_SIZE);
@@ -425,6 +435,8 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	labels->tool_box.min_degree = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "MINIMUM_DISTANCE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.min_distance = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "MINIMUM_PRESSURE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.min_pressure = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "ENTER", temp_str, MAX_STR_SIZE);
 	labels->tool_box.enter = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "OUT", temp_str, MAX_STR_SIZE);
@@ -499,6 +511,30 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	labels->tool_box.write_pallete = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "CLEAR_PALLETE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.clear_pallete = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "UPDATE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.update = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "FREQUENCY", temp_str, MAX_STR_SIZE);
+	labels->tool_box.frequency = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "CLOUD_COLOR", temp_str, MAX_STR_SIZE);
+	labels->tool_box.cloud_color = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "PERSISTENCE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.persistence = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "RANDOM_SEED", temp_str, MAX_STR_SIZE);
+	labels->tool_box.rand_seed = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "USE_RANDOM", temp_str, MAX_STR_SIZE);
+	labels->tool_box.use_random = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "UPDATE_IMMEDIATELY", temp_str, MAX_STR_SIZE);
+	labels->tool_box.update_immediately = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "NUMBER_OF_OCTAVES", temp_str, MAX_STR_SIZE);
+	labels->tool_box.num_octaves = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "LINEAR", temp_str, MAX_STR_SIZE);
+	labels->tool_box.linear = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "COSINE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.cosine = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "CUBIC", temp_str, MAX_STR_SIZE);
+	labels->tool_box.cubic = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "COLORIZE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.colorize = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "START_EDIT_3D_MODEL", temp_str, MAX_STR_SIZE);
 	labels->tool_box.start_edit_3d = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "END_EDIT_3D_MODEL", temp_str, MAX_STR_SIZE);
@@ -596,6 +632,10 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	length = IniFileGetString(file, "NAVIGATION", "TITLE", temp_str, MAX_STR_SIZE);
 	labels->navigation.title = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
+	// プラグイン
+	length = IniFileGetString(file, "PLUG_IN", "MENU_NAME", temp_str, MAX_STR_SIZE);
+	labels->menu.plug_in = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+
 	// スクリプト
 	length = IniFileGetString(file, "SCRIPT", "MENU_NAME", temp_str, MAX_STR_SIZE);
 	labels->menu.script = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
@@ -629,7 +669,7 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 	labels->preference.show_preview_on_taskbar = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "PREFERENCE", "BACKUP_DIRECTORY", temp_str, MAX_STR_SIZE);
 	labels->preference.backup_path = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
-#if MAJOR_VERSION > 1
+#if GTK_MAJOR_VERSION >= 3
 	length = IniFileGetString(file, "PREFERENCE", "SCALE_AND_MOVE_WITH_TOUCH", temp_str, MAX_STR_SIZE);
 	labels->preference.scale_and_move_with_touch = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "PREFERENCE", "DRAW_WITH_TOUCH", temp_str, MAX_STR_SIZE);
@@ -698,10 +738,15 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 		case BRUSH_TYPE_SCRIPT_BRUSH:
 			length = IniFileGetString(file, "BRUSH_DEFAULT_NAME", "SCRIPT_BRUSH", temp_str, MAX_STR_SIZE);
 			break;
+		case BRUSH_TYPE_PLUG_IN:
+			length = IniFileGetString(file, "BRUSH_DEFAULT_NAME", "PLUG_IN", temp_str, MAX_STR_SIZE);
+			break;
 		}
 		labels->tool_box.brush_default_names[i] =
 			g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	}
+
+	LoadFractalLabels(fractal_labels, labels, file, lang);
 
 	file->delete_func(file);
 
@@ -711,7 +756,78 @@ void LoadLabels(APPLICATION_LABELS* labels, const char* lang_file_path)
 #undef MAX_STR_SIZE
 }
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+void LoadFractalLabels(
+	FRACTAL_LABEL* labels,
+	APPLICATION_LABELS* app_label,
+	INI_FILE* file,
+	const char* code
+)
+{
+#define MAX_STR_SIZE 512
+	char temp_str[MAX_STR_SIZE];
+	size_t length;
+
+	length = IniFileGetString(file, "FRACTAL", "TRIANGLE", temp_str, MAX_STR_SIZE);
+	labels->triangle = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "TRANSFORM", temp_str, MAX_STR_SIZE);
+	labels->transform = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "VARIATIONS", temp_str, MAX_STR_SIZE);
+	labels->variations = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "COLORS", temp_str, MAX_STR_SIZE);
+	labels->colors = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "RANDOM", temp_str, MAX_STR_SIZE);
+	labels->random = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "WEIGHT", temp_str, MAX_STR_SIZE);
+	labels->weight = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "SYMMETRY", temp_str, MAX_STR_SIZE);
+	labels->symmetry = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "LINEAR", temp_str, MAX_STR_SIZE);
+	labels->linear = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "SINUSOIDAL", temp_str, MAX_STR_SIZE);
+	labels->sinusoidal = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "TRIANGLE", temp_str, MAX_STR_SIZE);
+	labels->triangle = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "SPHERICAL", temp_str, MAX_STR_SIZE);
+	labels->spherical = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "SWIRL", temp_str, MAX_STR_SIZE);
+	labels->swirl = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "HORSESHOE", temp_str, MAX_STR_SIZE);
+	labels->horseshoe = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "POLAR", temp_str, MAX_STR_SIZE);
+	labels->polar = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "HANDKERCHIEF", temp_str, MAX_STR_SIZE);
+	labels->handkerchief = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "HEART", temp_str, MAX_STR_SIZE);
+	labels->heart = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "DISC", temp_str, MAX_STR_SIZE);
+	labels->disc = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "SPIRAL", temp_str, MAX_STR_SIZE);
+	labels->spiral = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "HYPERBOLIC", temp_str, MAX_STR_SIZE);
+	labels->hyperbolic = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "DIAMOND", temp_str, MAX_STR_SIZE);
+	labels->diamond = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "EX", temp_str, MAX_STR_SIZE);
+	labels->ex = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "JULIA", temp_str, MAX_STR_SIZE);
+	labels->julia = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "BENT", temp_str, MAX_STR_SIZE);
+	labels->bent = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "WAVES", temp_str, MAX_STR_SIZE);
+	labels->waves = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "FISHEVE", temp_str, MAX_STR_SIZE);
+	labels->fisheye = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "POPCORN", temp_str, MAX_STR_SIZE);
+	labels->popcorn = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FRACTAL", "PRESERVE_WEIGHT", temp_str, MAX_STR_SIZE);
+	labels->preserve_weight = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+	labels->update = app_label->tool_box.update;
+	labels->update_immediately = app_label->tool_box.update_immediately;
+	length = IniFileGetString(file, "FRACTAL", "ADJUST", temp_str, MAX_STR_SIZE);
+	labels->adjust = g_convert(temp_str, length, "UTF-8", code, NULL, NULL, NULL);
+#undef MAX_STR_SIZE
+}
+
 void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 {
 #define MAX_STR_SIZE 512
@@ -809,6 +925,8 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	labels->control.enable_physics = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "3D_MODELING", "DISPLAY_GRID", temp_str, MAX_STR_SIZE);
 	labels->control.display_grid = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "REMOVE_CURRENT_MODEL", temp_str, MAX_STR_SIZE);
+	labels->control.delete_current_model = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "3D_MODELING", "RENDER_SHADOW", temp_str, MAX_STR_SIZE);
 	labels->control.render_shadow = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "3D_MODELING", "RENDER_EDGE_ONLY", temp_str, MAX_STR_SIZE);
@@ -829,7 +947,6 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	file->delete_func(file);
 #undef MAX_STR_SIZE
 }
-#endif
 
 #ifdef __cplusplus
 }

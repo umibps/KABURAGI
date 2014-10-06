@@ -123,6 +123,7 @@ extern void PmxRenderEngineUpdate(PMX_RENDER_ENGINE* engine);
 
 extern EFFECT_INTERFACE* PmxRenderEngineGetEffect(PMX_RENDER_ENGINE* engine, eEFFECT_SCRIPT_ORDER_TYPE type);
 
+extern void DeleteAssetRenderEngine(ASSET_RENDER_ENGINE* engine);
 extern int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory);
 extern void AssetRenderEngineRenderModel(ASSET_RENDER_ENGINE* engine);
 extern EFFECT_INTERFACE* AssetRenderEngineGetEffect(ASSET_RENDER_ENGINE* engine, eEFFECT_SCRIPT_ORDER_TYPE type);

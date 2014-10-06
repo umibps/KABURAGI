@@ -8,7 +8,7 @@
 #include "cell_renderer_widget.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern  "C" {
 #endif
 
 typedef struct _IMAGE_CHECK_BUTTON
@@ -22,15 +22,15 @@ typedef struct _IMAGE_CHECK_BUTTON
 } IMAGE_CHECK_BUTTON;
 
 // 関数のプロトタイプ宣言
-extern IMAGE_CHECK_BUTTON* CreateImageCheckButton(
+EXTERN IMAGE_CHECK_BUTTON* CreateImageCheckButton(
 	GdkPixbuf* pixbuf,
 	gint (*func)(IMAGE_CHECK_BUTTON* button, void* data),
 	void *data
 );
 
-extern void ImageCheckButtonSetState(IMAGE_CHECK_BUTTON* button, int8 state);
+EXTERN void ImageCheckButtonSetState(IMAGE_CHECK_BUTTON* button, int8 state);
 
-extern GtkWidget* CreateNotebookLabel(
+EXTERN GtkWidget* CreateNotebookLabel(
 	const gchar* text,
 	GtkWidget* note_book,
 	gint page,
@@ -38,7 +38,7 @@ extern GtkWidget* CreateNotebookLabel(
 	gpointer data
 );
 
-extern GtkWidget *CreateImageButton(
+EXTERN GtkWidget *CreateImageButton(
 	const char* image_file_path,
 	const gchar* label,
 	const char* font_file
@@ -69,7 +69,7 @@ typedef enum _ICC_PROFILE_USAGE
 * 返り値                                                                      *
 *	ダイアログ生成用のウィジェット                                            *
 ******************************************************************************/
-extern GtkWidget* IccProfileChooser(char** icc_path, ICC_PROFILE_USAGE usage);
+EXTERN GtkWidget* IccProfileChooser(char** icc_path, ICC_PROFILE_USAGE usage);
 
 /**************************************************************************
 * IccProfileChooserDialogNew関数                                          *
@@ -80,9 +80,27 @@ extern GtkWidget* IccProfileChooser(char** icc_path, ICC_PROFILE_USAGE usage);
 * 返り値                                                                  *
 *	ダイアログ生成用のウィジェット                                        *
 **************************************************************************/
-extern GtkWidget* IccProfileChooserDialogNew(int usage, char** profile_path);
+EXTERN GtkWidget* IccProfileChooserDialogNew(int usage, char** profile_path);
 
-extern void IccProfileChooserDialogRun(GtkWidget* dialog);
+EXTERN void IccProfileChooserDialogRun(GtkWidget* dialog);
+
+/***************************************************************
+* ToggleRadioButtonNew関数                                     *
+* ラジオアクションを設定したトグルボタンウィジェットを作成     *
+* 引数                                                         *
+* list			: ボタンリストの入ったGList                    *
+*				  先頭のボタンはNULLの入ったlistを渡す         *
+*				  g_list_freeしないこと                        *
+* callback_func	: ボタンが有効状態になった時のコールバック関数 *
+* callback_data	: コールバック関数に渡すデータ                 *
+* 返り値                                                       *
+*	ボタンウィジェット                                         *
+***************************************************************/
+EXTERN GtkWidget* ToggleRadioButtonNew(
+	GList** list,
+	void (*callback_func)(GtkWidget* button, void* data),
+	void* callback_data
+);
 
 #ifdef __cplusplus
 }
