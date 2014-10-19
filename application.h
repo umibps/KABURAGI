@@ -8,7 +8,7 @@
 #if MAJOR_VERSION == 1
 # define MINOR_VERSION 3
 # define RELEASE_VERSION 2
-# define BUILD_VERSION 2
+# define BUILD_VERSION 3
 #elif MAJOR_VERSION == 2
 # define MINOR_VERSION 0
 # define RELEASE_VERSION 1
@@ -44,8 +44,10 @@
 #include "display_filter.h"
 #include "fractal_label.h"
 
-#include "MikuMikuGtk+/mikumikugtk.h"
-#include "MikuMikuGtk+/ui_label.h"
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+# include "MikuMikuGtk+/mikumikugtk.h"
+# include "MikuMikuGtk+/ui_label.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -569,6 +571,7 @@ EXTERN void ExecuteMakeVectorLayer(APPLICATION *app);
 *****************************************************/
 EXTERN void ExecuteMakeLayerSet(APPLICATION *app);
 
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 /*****************************************************
 * ExecuteMake3DLayer関数                             *
 * 3Dモデリングレイヤー作成を実行                     *
@@ -576,6 +579,7 @@ EXTERN void ExecuteMakeLayerSet(APPLICATION *app);
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
 EXTERN void ExecuteMake3DLayer(APPLICATION* app);
+#endif
 
 /*********************************************************
 * DeleteActiveLayer関数                                  *
@@ -1102,6 +1106,7 @@ EXTERN void SetHas3DLayer(APPLICATION* app, int enable);
 *****************************************************/
 EXTERN int GetHas3DLayer(APPLICATION* app);
 
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 /*****************************************************************
 * Load3dModelingLabels関数                                       *
 * 3Dモデル操作時のラベルデータを読み込む                         *
@@ -1109,6 +1114,7 @@ EXTERN int GetHas3DLayer(APPLICATION* app);
 * lang_file_path	: ラベルのテキストデータファイルのパス       *
 *****************************************************************/
 EXTERN void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path);
+#endif
 
 #ifdef __cplusplus
 }

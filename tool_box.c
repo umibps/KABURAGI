@@ -2064,6 +2064,7 @@ void CreateVectorBrushTable(
 	}
 }
 
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 static gboolean Redraw3D(GtkWidget* widget)
 {
 	gtk_widget_queue_draw(widget);
@@ -2346,6 +2347,7 @@ void CreateChange3DLayerUI(
 		G_CALLBACK(Change3DLayerButtonPressed), app);
 	gtk_box_pack_start(GTK_BOX(window->brush_table), button, FALSE, FALSE, 0);
 }
+#endif
 
 static void ColorChangeCallBack(GtkWidget* widget, const uint8 color[3], void* data)
 {

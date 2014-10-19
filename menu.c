@@ -501,6 +501,7 @@ GtkWidget* GetMainMenu(
 	app->menus.num_disable_if_no_open++;
 
 	// 「3Dレイヤー」
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	if(GetHas3DLayer(app) != FALSE)
 	{
 		(void)sprintf(buff, "%s", app->labels->menu.new_3d_modeling);
@@ -511,6 +512,7 @@ GtkWidget* GetMainMenu(
 			G_CALLBACK(ExecuteMake3DLayer), app);
 		app->menus.num_disable_if_no_open++;
 	}
+#endif
 
 	// 「レイヤーを複製」
 	(void)sprintf(buff, "%s", app->labels->menu.copy_layer);
@@ -1571,6 +1573,7 @@ void ExecuteMakeLayerSet(APPLICATION *app)
 	AddNewLayerHistory(layer, layer->layer_type);
 }
 
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 /*****************************************************
 * ExecuteMake3DLayer関数                             *
 * 3Dモデリングレイヤー作成を実行                     *
@@ -1636,6 +1639,7 @@ void ExecuteMake3DLayer(APPLICATION* app)
 	// 「新規ベクトルレイヤー」の履歴を登録
 	AddNewLayerHistory(layer, layer->layer_type);
 }
+#endif
 
 /*****************************************************
 * ExecuteUpLayer関数                                 *
@@ -1977,6 +1981,7 @@ void ExecuteDisplayReverseHorizontally(GtkWidget* menu_item, APPLICATION* app)
 	GtkAdjustment *scroll_x_adjust;
 	GtkAllocation allocation;
 	double x, max_x;
+	double angle;
 
 	gboolean state = gtk_check_menu_item_get_active(
 		GTK_CHECK_MENU_ITEM(menu_item));
@@ -1997,6 +2002,16 @@ void ExecuteDisplayReverseHorizontally(GtkWidget* menu_item, APPLICATION* app)
 		window->flags |= DRAW_WINDOW_DISPLAY_HORIZON_REVERSE;
 	}
 
+	angle = G_PI * 2 + window->angle;
+	if(angle > G_PI)
+	{
+		angle -= G_PI * 2;
+	}
+	if(angle < - G_PI)
+	{
+		angle += G_PI * 2;
+	}
+
 #if GTK_MAJOR_VERSION >= 3
 	gtk_widget_get_allocation(window->scroll, &allocation);
 #else
@@ -2007,6 +2022,8 @@ void ExecuteDisplayReverseHorizontally(GtkWidget* menu_item, APPLICATION* app)
 	x = gtk_adjustment_get_value(scroll_x_adjust);
 	max_x = gtk_adjustment_get_upper(scroll_x_adjust);
 	gtk_adjustment_set_value(scroll_x_adjust, max_x - x - allocation.width);
+
+	gtk_adjustment_set_value(app->navigation_window.rotate_slider, angle * 180 / G_PI);
 
 	// 画面更新することでナビゲーションとプレビューの内容を更新
 	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;

@@ -786,6 +786,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 		G_CALLBACK(ExecuteMakeLayerSet), app);
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	if(GetHas3DLayer(app) != FALSE)
 	{
 		file_path = g_build_filename(app->current_path, "image/3d_icon.png", NULL);
@@ -797,6 +798,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 		gtk_container_add(GTK_CONTAINER(button), image);
 		gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
 	}
+#endif
 	file_path = g_build_filename(app->current_path, "image/arrow.png", NULL);
 	src = gdk_pixbuf_new_from_file(file_path, NULL);
 	image_buff = gdk_pixbuf_rotate_simple(src, GDK_PIXBUF_ROTATE_CLOCKWISE);
@@ -1570,6 +1572,14 @@ static gint LayerViewChangeChain(IMAGE_CHECK_BUTTON* button, void* data)
 	return FALSE;
 }
 
+static void OnRealizeLayerWidget(GtkWidget* widget, LAYER* layer)
+{
+	if(layer->layer_set != NULL && (layer->layer_set->flags & LAYER_SET_CLOSE) != 0)
+	{
+		gtk_widget_hide_all(widget);
+	}
+}
+
 static void OnDestroyLayerWidget(LAYER* layer)
 {
 	MEM_FREE_FUNC(layer->widget);
@@ -1664,6 +1674,9 @@ void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_
 	gtk_container_add(GTK_CONTAINER(vbox), layer->widget->eye->widget);
 	gtk_container_add(GTK_CONTAINER(vbox), layer->widget->pin->widget);
 
+	(void)g_signal_connect(G_OBJECT(layer->widget->box), "realize",
+		G_CALLBACK(OnRealizeLayerWidget), layer);
+
 	gtk_widget_show_all(layer->widget->box);
 
 	gtk_widget_add_events(layer->widget->name,
@@ -1740,9 +1753,6 @@ void LayerViewSetDrawWindow(LAYER_WINDOW* layer_window, DRAW_WINDOW* draw_window
 	APPLICATION *app = draw_window->app;
 	// レイヤービューにセットするレイヤー
 	LAYER *layer;
-	// ウィジェット表示処理用のリスト
-	GList *child_widgets;
-	GList *target;
 	// カウンタ
 	int counter;
 
@@ -1752,17 +1762,20 @@ void LayerViewSetDrawWindow(LAYER_WINDOW* layer_window, DRAW_WINDOW* draw_window
 			layer_window->view, counter+1);
 	}
 
-	child_widgets = gtk_container_get_children(GTK_CONTAINER(layer_window->view));
-	target = child_widgets;
 	for(layer=draw_window->layer; layer != NULL; layer = layer->next)
 	{
-		if(layer->layer_set == NULL || (layer->layer_set->flags & LAYER_SET_CLOSE) == 0)
+		if(layer->widget != NULL)
 		{
-			gtk_widget_show_all(GTK_WIDGET(target->data));
+			if(layer->layer_set == NULL || (layer->layer_set->flags & LAYER_SET_CLOSE) == 0)
+			{
+				gtk_widget_show_all(layer->widget->box);
+			}
+			else
+			{
+				gtk_widget_hide_all(layer->widget->box);
+			}
 		}
-		target = target->next;
 	}
-	g_list_free(child_widgets);
 
 	LayerViewSetActiveLayer(draw_window->active_layer, layer_window->view);
 }

@@ -828,6 +828,7 @@ void LoadFractalLabels(
 #undef MAX_STR_SIZE
 }
 
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 {
 #define MAX_STR_SIZE 512
@@ -947,6 +948,7 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	file->delete_func(file);
 #undef MAX_STR_SIZE
 }
+#endif
 
 #ifdef __cplusplus
 }

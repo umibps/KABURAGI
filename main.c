@@ -9,7 +9,9 @@
 
 #if defined(_MSC_VER)
 
-#pragma comment(lib, "KABURAGI.lib")
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+//# pragma comment(lib, "KABURAGI.lib")
+#endif
 
 #ifdef _UNICODE
 # if defined _M_IX86
@@ -30,8 +32,10 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 # endif
 
 #if 1
-# pragma comment(lib, "OpenGL32.lib")
-# pragma comment(lib, "GlU32.lib")
+# if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+#  pragma comment(lib, "OpenGL32.lib")
+#  pragma comment(lib, "GlU32.lib")
+# endif
 # ifdef TEST //_DEBUG
 #  pragma comment(lib, "tbb_debug.lib")
 #  pragma comment(lib, "tbb_preview_debug.lib")
@@ -403,6 +407,10 @@ int main(int argc, char** argv)
 
 	void *tbb = NULL;
 
+#ifdef _OPENMP
+	gdk_threads_init();
+#endif
+
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	application.flags |= APPLICATION_HAS_3D_LAYER;
 	tbb = TbbObjectNew();
@@ -443,10 +451,18 @@ int main(int argc, char** argv)
 #endif
 	}
 
+#ifdef _OPENMP
+	gdk_threads_enter();
+#endif
+
 	gtk_main();
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	DeleteTbbObject(tbb);
+#endif
+
+#ifdef _OPENMP
+	gdk_thread_leave();
 #endif
 
 	return 0;

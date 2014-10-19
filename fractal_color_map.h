@@ -7,6 +7,7 @@
 extern "C" {
 #endif
 
+//#define FRACTAL_NUM_COLOR_MAP 1
 #define FRACTAL_NUM_COLOR_MAP 84
 
 extern void FractalGetColorMap(int map_index, uint8 color[256][3]);

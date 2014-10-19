@@ -3309,6 +3309,7 @@ void WriteOriginalFormat(
 			(void)write_func(image->buff_ptr, 1, image->data_point, stream);
 
 			break;
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 		case TYPE_3D_LAYER:
 			{
 				MEMORY_STREAM *modeling_stream = CreateMemoryStream(1024 * 1024 * 1024);
@@ -3331,6 +3332,7 @@ void WriteOriginalFormat(
 				(void)DeleteMemoryStream(modeling_stream);
 			}
 			break;
+#endif
 		case TYPE_LAYER_SET:	// レイヤーセット
 			break;
 		}

@@ -3,6 +3,11 @@
 #include <string.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+
+#ifdef _OPENMP
+# include <omp.h>
+#endif
+
 #include "application.h"
 #include "input.h"
 #include "brush_core.h"
@@ -2575,6 +2580,10 @@ gboolean EnterNotifyEvent(GtkWidget*widget, GdkEventCrossing* event_info, DRAW_W
 		window->state &= ~(GDK_BUTTON1_MASK);
 	}
 
+#ifdef _OPENMP
+	omp_set_dynamic(TRUE);
+#endif
+
 	return TRUE;
 }
 
@@ -2625,6 +2634,10 @@ gboolean LeaveNotifyEvent(GtkWidget* widget, GdkEventCrossing* event_info, DRAW_
 		g_list_free(device_list);
 	}
 # endif
+#endif
+
+#ifdef _OPENMP
+	omp_set_dynamic(FALSE);
 #endif
 
 	// マウスカーソルが描画されないように外へ

@@ -2,7 +2,10 @@
 #define _INCLUDED_DRAW_WINDOW_H_
 
 #include "configure.h"
-#include <GL/glew.h>
+
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+# include <GL/glew.h>
+#endif
 #include <gtk/gtk.h>
 #include "lcms/lcms2.h"
 #include "layer.h"
@@ -161,10 +164,10 @@ typedef struct _DRAW_WINDOW
 	HISTORY history;
 
 	// 描画領域のウィジェット
-	GtkWidget* window;
+	GtkWidget *window;
 
 	// 描画領域のスクロール
-	GtkWidget* scroll;
+	GtkWidget *scroll;
 
 	// 表示更新等のフラグ
 	unsigned int flags;
