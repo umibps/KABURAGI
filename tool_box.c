@@ -2347,7 +2347,8 @@ void CreateChange3DLayerUI(
 		G_CALLBACK(Change3DLayerButtonPressed), app);
 	gtk_box_pack_start(GTK_BOX(window->brush_table), button, FALSE, FALSE, 0);
 }
-#endif
+
+#endif	// #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 
 static void ColorChangeCallBack(GtkWidget* widget, const uint8 color[3], void* data)
 {

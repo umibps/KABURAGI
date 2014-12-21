@@ -8,7 +8,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+/*
 void* CfTechniqueGetPass(CF_TECHNIQUE* tech, int* num_data)
 {
 	if(tech->pass_map != NULL)
@@ -36,7 +36,7 @@ void* CfTechniqueGetPass(CF_TECHNIQUE* tech, int* num_data)
 			count++;
 			iterator = STR_PTR_MAP_next(iterator);
 		}
-		*/
+		*//*
 	}
 
 	return NULL;
@@ -59,7 +59,7 @@ struct _ANNOTATION* CfTechniqueGetAnnotationRefference(
 	}
 
 	return NULL;
-	*/
+	*//*
 }
 
 /*

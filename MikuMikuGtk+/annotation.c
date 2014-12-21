@@ -4,152 +4,160 @@
 # define _CRT_NONSTDC_NO_DEPRECATE
 #endif
 
+#include <ctype.h>
 #include "annotation.h"
 #include "application.h"
 #include "ght_hash_table.h"
 #include "parameter.h"
+#include "utils.h"
 #include "memory.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-ANNOTATION* FxAnnotationNew(struct _EFFECT* effect, ANNOTATION* annotation, char* name)
+/*
+void InitializeFxAnnotation(FX_ANNOTATION* annotation, char* name)
 {
-	ANNOTATION *ret;
-
-	ret = (ANNOTATION*)MEM_ALLOC_FUNC(sizeof(*ret));
-	(void)memset(ret, 0, sizeof(*ret));
-	ret->type = ANNOTATION_TYPE_FX;
-	ret->anno.fx.name = MEM_STRDUP_FUNC(name);
-	ret->anno.fx.annotation = annotation;
-	ret->annotation_table = (ght_hash_table_t*)MEM_ALLOC_FUNC(sizeof(*ret->annotation_table));
-
-	return ret;
+	(void)memset(annotation, 0, sizeof(*annotation));
+	annotation->name = MEM_STRDUP_FUNC(name);
 }
 
-void AnnotationDestroy(ANNOTATION** annotation)
+int FxAnnotationGetBooleanValue(FX_ANNOTATION* annotation)
 {
-	switch((*annotation)->type)
+	if(annotation->base == EFFECT_PARAMETER_TYPE_BOOLEAN)
 	{
-	case ANNOTATION_TYPE_FX:
-		MEM_FREE_FUNC((*annotation)->anno.fx.name);
-		break;
-	case ANNOTATION_TYPE_NV:
-		break;
-	}
-
-	MEM_FREE_FUNC((*annotation)->annotation_table);
-
-	MEM_FREE_FUNC(*annotation);
-	*annotation = NULL;
-}
-
-float FxAnnotationGetFloat(FX_ANNOTATION* annotation, char* name)
-{
-	float *value;
-	if(annotation == NULL)
-	{
-		return 0.0f;
-	}
-
-	value = (float*)ght_get(annotation->float_table, sizeof(float), name);
-	if(value != NULL)
-	{
-		return *value;
-	}
-
-	return 0.0f;
-}
-
-int FxAnnotationGetInt(FX_ANNOTATION* annotation, char* name)
-{
-	int *value;
-	if(annotation == NULL)
-	{
-		return 0;
-	}
-
-	value = (int*)ght_get(annotation->int_table, sizeof(float), name);
-	if(value != NULL)
-	{
-		return *value;
-	}
-
-	return 0;
-}
-
-char* FxAnnotationGetString(FX_ANNOTATION* annotation, char* name)
-{
-	char **value;
-	if(annotation == NULL)
-	{
-		return 0;
-	}
-
-	value = (char**)ght_get(annotation->int_table, sizeof(char*), name);
-	if(value != NULL)
-	{
-		return *value;
-	}
-
-	return 0;
-}
-
-gboolean FxAnnotationGetBooleanValue(FX_ANNOTATION* annotation)
-{
-	if(annotation->base == PARAMETER_TYPE_BOOLEAN)
-	{
-		if(strcmp(annotation->value_str, "true") == 0)
-		{
-			return TRUE;
-		}
+		return strcmp(annotation->value, "true") == 0;
 	}
 
 	return FALSE;
 }
 
-ANNOTATION* EffectCacheFxAnnotationRefference(
-	struct _EFFECT* effect,
-	ANNOTATION* annotation,
-	char* name
-)
+int FxAnnotationGetIntegerValue(FX_ANNOTATION* annotation)
 {
-	ANNOTATION *ret;
-	ANNOTATION *new_annotation;
-	ANNOTATION *insert_annotation = annotation;
-	ght_hash_table_t *table;
-	table = (ght_hash_table_t*)ght_get(annotation->annotation_table, sizeof(table), annotation);
-	if(table != NULL)
+	if(annotation->base == EFFECT_PARAMETER_TYPE_INTEGER)
 	{
-		ret = (ANNOTATION*)ght_get(table, sizeof(ret), name);
-		if(ret != NULL)
-		{
-			return ret;
-		}
+		return atoi(annotation->value);
 	}
 
-	if(FxAnnotationGetFloat(&annotation->anno.fx, name) != 0.0f
-		|| FxAnnotationGetInt(&annotation->anno.fx, name) != 0
-		|| FxAnnotationGetString(&annotation->anno.fx, name) != NULL
-	)
-	{
-		table = (ght_hash_table_t*)ght_get(annotation->annotation_table, sizeof(table), annotation);
-		if(table == NULL)
-		{
-			annotation = FxAnnotationNew(effect, annotation, name);
-			table = annotation->annotation_table;
-			(void)ght_insert(table, annotation, sizeof(new_annotation->annotation_table),
-				annotation->annotation_table);
-		}
-		new_annotation = FxAnnotationNew(effect, insert_annotation, name);
-		(void)ght_insert(annotation->annotation_table, name, sizeof(new_annotation), new_annotation);
-		return new_annotation;
-	}
-
-	return NULL;
+	return 0;
 }
 
+int* FxAnnotationGetIntegerValues(FX_ANNOTATION* annotation, size_t* size)
+{
+#define BLOCK_SIZE 32
+	INTEGER_ARRAY *values = IntegerArrayNew(BLOCK_SIZE);
+	char *copy = MEM_STRDUP_FUNC(annotation->value);
+	char buff[32];
+	int *ret;
+	char **lines;
+	int num_lines;
+	int i;
+
+	if(annotation->base != PARAMETER_TYPE_INTEGER)
+	{
+		return NULL;
+	}
+
+	lines = SplitString(copy, "\n", &num_lines);
+
+	for(i=0; i<num_lines; i++)
+	{
+		char *str = lines[i];
+		int num_char;
+		while(*str != '\0')
+		{
+			if(isdigit(*str) != 0)
+			{
+				num_char = 0;
+				do
+				{
+					buff[num_char] = *str;
+					num_char++;
+					str++;
+				} while(isdigit(*str) != 0);
+
+				IntegerArrayAppend(values, atoi(buff));
+			}
+			else
+			{
+				str++;
+			}
+		}
+	}
+
+	MEM_FREE_FUNC(lines);
+	MEM_FREE_FUNC(copy);
+
+	ret = values->buffer;
+	MEM_FREE_FUNC(values);
+
+	return ret;
+#undef BLOCK_SIZE
+}
+
+float FxAnnotationGetFloatValue(FX_ANNOTATION* annotation)
+{
+	if(annotation->base == PARAMETER_TYPE_FLOAT)
+	{
+		return (float)atof(annotation->value);
+	}
+
+	return 0;
+}
+
+float* FxAnnotationGetFloatValues(FX_ANNOTATION* annotation, size_t* size)
+{
+#define BLOCK_SIZE 32
+	FLOAT_ARRAY *values = FloatArrayNew(BLOCK_SIZE);
+	char *copy = MEM_STRDUP_FUNC(annotation->value);
+	char buff[32];
+	float *ret;
+	char **lines;
+	int num_lines;
+	int i;
+
+	if(annotation->base != PARAMETER_TYPE_FLOAT)
+	{
+		return NULL;
+	}
+
+	lines = SplitString(copy, "\n", &num_lines);
+
+	for(i=0; i<num_lines; i++)
+	{
+		char *str = lines[i];
+		int num_char;
+		while(*str != '\0')
+		{
+			if(isdigit(*str) != 0 || *str == '.')
+			{
+				num_char = 0;
+				do
+				{
+					buff[num_char] = *str;
+					num_char++;
+					str++;
+				} while(isdigit(*str) != 0 || *str == '.');
+
+				FloatArrayAppend(values, (float)atof(buff));
+			}
+			else
+			{
+				str++;
+			}
+		}
+	}
+
+	MEM_FREE_FUNC(lines);
+	MEM_FREE_FUNC(copy);
+
+	ret = values->buffer;
+	MEM_FREE_FUNC(values);
+
+	return ret;
+#undef BLOCK_SIZE
+}
+*/
 #ifdef __cplusplus
 }
 #endif

@@ -987,6 +987,11 @@ size_t WritePmd2ModelDataAndState(
 	// 4バイト書き出し用
 	uint32 data32;
 
+	if(compressed_data == NULL)
+	{
+		return 0;
+	}
+
 	// データサイズ(4バイト)分をスキップ
 	(void)seek_func(dst, sizeof(uint32), SEEK_CUR);
 

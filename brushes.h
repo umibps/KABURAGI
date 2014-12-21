@@ -248,6 +248,31 @@ typedef struct _IMAGE_BRUSH
 	uint8 mode;
 } IMAGE_BRUSH;
 
+typedef struct _BLEND_IMAGE_BRUSH
+{
+	STAMP_CORE core;
+	int base_scale;
+	FLOAT_T points[BRUSH_POINT_BUFFER_SIZE][4];
+	FLOAT_T sum_distance, travel;
+	FLOAT_T finish_length;
+	FLOAT_T draw_start;
+	FLOAT_T enter_length;
+	FLOAT_T enter_size;
+	FLOAT_T stamp_distance;
+	FLOAT_T remain_distance;
+	FLOAT_T size_range;
+	FLOAT_T rotate_range;
+	uint16 blend_mode;
+	int16 random_rotate_range;
+	uint8 target;
+	uint8 mode;
+	int num_point;
+	int draw_finished;
+	int ref_point;
+	gdouble enter, out;
+	int flags;
+} BLEND_IMAGE_BRUSH;
+
 typedef enum _ePICKER_FLAGS
 {
 	PICKER_FLAG_PRESSURE_SIZE = 0x01,

@@ -2082,7 +2082,7 @@ cmsHPROFILE* GetPrimaryMonitorProfile(void)
 	return cmsOpenProfileFromMem(sRGB_profile, sizeof(sRGB_profile));
 }
 
-void GetColor(enum eCOLOR color_index, uint8* color)
+void GetColor(eCOLOR color_index, uint8* color)
 {
 	const uint8 colors[NUM_COLOR][3] =
 	{

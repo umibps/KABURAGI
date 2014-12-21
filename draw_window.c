@@ -511,11 +511,10 @@ DRAW_WINDOW* CreateDrawWindow(
 		gtk_box_pack_start(GTK_BOX(canvas_box), ret->window, TRUE, TRUE, 0);
 	}
 	else
-#else
+#endif
 	{
 		canvas = ret->window = gtk_drawing_area_new();
 	}
-#endif
 
 	// イベントの種類をセット
 	gtk_widget_set_events(ret->window,
@@ -575,7 +574,6 @@ DRAW_WINDOW* CreateDrawWindow(
 	SetDrawWindowCallbacks(canvas, ret);
 
 	// 描画領域を表示
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	if(GetHas3DLayer(app) != FALSE)
 	{
 		gtk_container_add(GTK_CONTAINER(alignment), canvas_box);
@@ -583,7 +581,6 @@ DRAW_WINDOW* CreateDrawWindow(
 		gtk_widget_hide(ret->window);
 	}
 	else
-#endif
 	{
 		gtk_container_add(GTK_CONTAINER(alignment), ret->window);
 		gtk_widget_show_all(ret->scroll);
@@ -1361,10 +1358,6 @@ void DrawWindowChangeZoom(
 {
 	// 拡大率設定用の行列データ
 	cairo_matrix_t matrix;
-	// 変更前の拡大縮小率
-	FLOAT_T before_zoom_rate = window->zoom_rate;
-	// キャンバスのスクロールバーの値取得用
-	GtkAdjustment *scroll_adjust;
 
 	// 新しい拡大率で行列データを初期化
 	cairo_matrix_init_scale(&matrix, 1/(zoom*0.01), 1/(zoom*0.01));
@@ -1400,14 +1393,6 @@ void DrawWindowChangeZoom(
 		(void)UpdateSelectionArea(&window->selection_area, window->selection, window->disp_temp);
 	}
 #endif
-
-	// キャンバスのスクロールバーの位置を更新
-	scroll_adjust = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(window->scroll));
-	gtk_adjustment_set_value(scroll_adjust,
-		gtk_adjustment_get_value(scroll_adjust) * (window->zoom_rate / before_zoom_rate));
-	scroll_adjust = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(window->scroll));
-	gtk_adjustment_set_value(scroll_adjust,
-		gtk_adjustment_get_value(scroll_adjust) * (window->zoom_rate / before_zoom_rate));
 }
 
 /*****************************************

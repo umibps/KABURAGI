@@ -732,6 +732,9 @@ void LoadLabels(
 		case BRUSH_TYPE_IMAGE_BRUSH:
 			length = IniFileGetString(file, "BRUSH_DEFAULT_NAME", "IMAGE_BRUSH", temp_str, MAX_STR_SIZE);
 			break;
+		case BRUSH_TYPE_BLEND_IMAGE_BRUSH:
+			length = IniFileGetString(file, "BRUSH_DEFAULT_NAME", "BLEND_IMAGE_BRUSH", temp_str, MAX_STR_SIZE);
+			break;
 		case BRUSH_TYPE_PICKER_IMAGE_BRUSH:
 			length = IniFileGetString(file, "BRUSH_DEFAULT_NAME", "PICKER_IMAGE_BRUSH", temp_str, MAX_STR_SIZE);
 			break;
@@ -828,7 +831,6 @@ void LoadFractalLabels(
 #undef MAX_STR_SIZE
 }
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 {
 #define MAX_STR_SIZE 512
@@ -864,8 +866,10 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	// 文字コードを取得
 	(void)IniFileGetString(file, "CODE", "CODE_TYPE", lang, MAX_STR_SIZE);
 
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	// 3Dモデル用のラベルデータを取得
 	labels = GetUILabel(app->modeling);
+#endif
 
 	labels->menu.file = app->labels->menu.file;
 	length = IniFileGetString(file, "3D_MODELING", "LOAD_PROJECT", temp_str, MAX_STR_SIZE);
@@ -948,7 +952,6 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	file->delete_func(file);
 #undef MAX_STR_SIZE
 }
-#endif
 
 #ifdef __cplusplus
 }

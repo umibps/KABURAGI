@@ -3,6 +3,7 @@
 
 #include "parameter.h"
 #include "technique.h"
+#include "effect.h"
 
 typedef struct _RECTANGLE_RENDER_ENGINE
 {
@@ -10,7 +11,7 @@ typedef struct _RECTANGLE_RENDER_ENGINE
 	GLuint vertices_buffer;
 	GLuint indices_buffer;
 } RECTAGNLE_RENDER_ENGINE;
-
+/*
 typedef struct _EFFECT_ENGINE
 {
 	EFFECT *effect;
@@ -20,5 +21,5 @@ typedef struct _EFFECT_ENGINE
 	TECHNIQUES techniques;
 	TECHNIQUES default_techniques;
 } EFFECT_ENGINE;
-
+*/
 #endif	// #ifndef _INCLUDED_EFFECT_ENGINE_H_

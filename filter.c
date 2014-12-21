@@ -480,23 +480,17 @@ void AddSelectionFilterHistory(
 *************************************************/
 void BlurFilterOneStep(LAYER* layer, LAYER* buff, int size)
 {
+	// ピクセル周辺の合計値
+	int sum[4];
+	// ピクセル値の合計計算に使用したピクセル数
+	int num_pixels;
+	// ピクセル値の合計計算の開始・終了
+	int start_x, end_x, start_y, end_y;
 	// for文用のカウンタ
-	int y;
+	int x, y, i, j;
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 	for(y=0; y<layer->height; y++)
-	{	// ピクセル周辺の合計値
-		int sum[4];
-		// ピクセル値の合計計算に使用したピクセル数
-		int num_pixels;
-		// ピクセル値の合計計算の開始・終了
-		int start_x, end_x, start_y, end_y;
-		// for文用のカウンタ
-		int x, i, j;
-
-
+	{
 		for(x=0; x<layer->width; x++)
 		{
 			start_x = x - size;
@@ -577,10 +571,10 @@ void BlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* dat
 	// ぼかし処理の詳細データ
 	BLUR_FILTER_DATA* blur = (BLUR_FILTER_DATA*)data;
 	// for文用のカウンタ
-	int i, j;
+	unsigned int i, j;
 
 	// 各レイヤーに対し
-	for(i=0; i<(int)num_layer; i++)
+	for(i=0; i<num_layer; i++)
 	{	// ぼかし処理を行う
 			// 現在のアクティブレイヤーのピクセルを一時保存にコピー
 		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
@@ -599,11 +593,7 @@ void BlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* dat
 			else
 			{
 				uint8 select_value;
-
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
-				for(j=0; j<(int)window->width*window->height; j++)
+				for(j=0; j<(unsigned int)window->width*window->height; j++)
 				{
 					select_value = window->selection->pixels[j];
 					layers[i]->pixels[j*4+0] = ((0xff-select_value)*layers[i]->pixels[j*4+0]
@@ -824,8 +814,11 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 				FLOAT_T check_x, check_y;
 				FLOAT_T dx, dy;
 				FLOAT_T angle;
+				int before_x, before_y;
+				int int_x, int_y;
 				int length;
-				int y;
+				int x, y;
+				int count;
 
 				if((filter_data->flags & MOTION_BLUR_BIDIRECTION) != 0)
 				{
@@ -839,16 +832,8 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 				angle = filter_data->angle * G_PI / 180.0;
 				dx = cos(angle),	dy = sin(angle);
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 				for(y=0; y<layers[i]->height; y++)
 				{
-					int before_x, before_y;
-					int int_x, int_y;
-					int x;
-					int count;
-
 					for(x=0; x<layers[i]->width; x++)
 					{
 						check_x = x - dx * filter_data->size;
@@ -888,10 +873,15 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 			break;
 		case MOTION_BLUR_STRAGHT_RANDOM:
 			{
+				FLOAT_T check_x, check_y;
+				FLOAT_T dx, dy;
 				FLOAT_T add_x = 0, add_y = 0;
 				FLOAT_T angle;
-				FLOAT_T dx, dy;
-				int y;
+				int before_x, before_y;
+				int int_x, int_y;
+				int length;
+				int x, y;
+				int count;
 
 				angle = filter_data->angle * G_PI / 180.0;
 				add_x = dx = cos(angle),	add_y = dy = sin(angle);
@@ -932,18 +922,8 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 
 				if(add_x >= 0 && add_y >= 0)
 				{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 					for(y=0; y<layers[i]->height; y++)
 					{
-						FLOAT_T check_x, check_y;
-						int before_x, before_y;
-						int int_x, int_y;
-						int length;
-						int x;
-						int count;
-
 						for(x=0; x<layers[i]->width; x++)
 						{
 							int_x = (int)(x - add_x),	int_y = (int)(y - add_y);
@@ -1002,18 +982,8 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 				}
 				else if(add_x < 0 && add_y >= 0)
 				{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 					for(y=0; y<layers[i]->height; y++)
 					{
-						FLOAT_T check_x, check_y;
-						int before_x, before_y;
-						int int_x, int_y;
-						int length;
-						int x;
-						int count;
-
 						for(x=layers[i]->width-1; x>=0; x--)
 						{
 							int_x = (int)(x - add_x),	int_y = (int)(y - add_y);
@@ -1072,18 +1042,8 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 				}
 				else if(add_x >= 0 && add_y < 0)
 				{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 					for(y=layers[i]->height-1; y>=0; y--)
 					{
-						FLOAT_T check_x, check_y;
-						int before_x, before_y;
-						int int_x, int_y;
-						int length;
-						int x;
-						int count;
-
 						for(x=0; x<layers[i]->width; x++)
 						{
 							int_x = (int)(x - add_x),	int_y = (int)(y - add_y);
@@ -1142,18 +1102,8 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 				}
 				else
 				{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 					for(y=layers[i]->height-1; y>=0; y--)
 					{
-						FLOAT_T check_x, check_y;
-						int before_x, before_y;
-						int int_x, int_y;
-						int length;
-						int x;
-						int count;
-
 						for(x=layers[i]->width-1; x>=0; x--)
 						{
 							int_x = (int)(x - add_x),	int_y = (int)(y - add_y);
@@ -1280,10 +1230,6 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 					(void)memset(window->mask->pixels, 0, window->pixel_buf_size);
 					cairo_set_source(window->mask->cairo_p, pattern);
 					cairo_paint_with_alpha(window->mask->cairo_p, alpha);
-
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 					for(x=0; x<window->width * window->height; x++)
 					{
 						if(window->mask->pixels[x*4+3] > window->temp_layer->pixels[x*4+3])
@@ -1307,9 +1253,9 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 
 				if(filter_data->rotate_mode == MOTION_BLUR_ROTATE_BOTH_DIRECTION)
 				{
-					alpha = 1 - alpha_minus;
-					for(j=0; j<filter_data->angle*2; j++)
-					{
+				alpha = 1 - alpha_minus;
+				for(j=0; j<filter_data->angle*2; j++)
+				{
 						angle = ((-(j+1) * G_PI) / 180.0)*0.5;
 						sin_value = sin(angle),	cos_value = cos(angle);
 						cairo_matrix_init_scale(&matrix, 1, 1);
@@ -1323,10 +1269,6 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 						(void)memset(window->mask->pixels, 0, window->pixel_buf_size);
 						cairo_set_source(window->mask->cairo_p, pattern);
 						cairo_paint_with_alpha(window->mask->cairo_p, alpha);
-
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 						for(x=0; x<window->width * window->height; x++)
 						{
 							if(window->mask->pixels[x*4+3] > window->temp_layer->pixels[x*4+3])
@@ -1358,13 +1300,14 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 				cairo_pattern_t *pattern;
 				cairo_surface_t *pattern_surface;
 				cairo_matrix_t matrix;
+				uint8 select_value;
 				FLOAT_T zoom, rev_zoom;
 				FLOAT_T alpha, alpha_minus;
 				int pattern_width, pattern_height, pattern_stride;
 				int pattern_size;
 				FLOAT_T half_width, half_height;
 				int x, y;
-				int sy;
+				int sx, sy;
 
 				if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 				{
@@ -1372,15 +1315,8 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 					pattern_stride = pattern_width * 4;
 					pattern_height = window->selection_area.max_y - window->selection_area.min_y;
 
-					sy = 0;
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
-					for(y=window->selection_area.min_y; y<window->selection_area.max_y; y++)
+					for(y=window->selection_area.min_y, sy=0; y<window->selection_area.max_y; y++, sy++)
 					{
-						uint8 select_value;
-						int sx;
-						int x;
 						for(x=window->selection_area.min_x, sx=0; x<window->selection_area.max_x; x++, sx++)
 						{
 							select_value = window->selection->pixels[y*window->selection->stride+x];
@@ -1389,7 +1325,6 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 							window->mask_temp->pixels[sy*pattern_stride+sx*4+2] = (layers[i]->pixels[y*layers[i]->stride+x*4+2] * select_value) / 255;
 							window->mask_temp->pixels[sy*pattern_stride+sx*4+3] = (layers[i]->pixels[y*layers[i]->stride+x*4+3] * select_value) / 255;
 						}
-						sy++;
 					}
 				}
 				else
@@ -1423,10 +1358,6 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 					(void)memset(window->mask->pixels, 0, window->pixel_buf_size);
 					cairo_set_source(window->mask->cairo_p, pattern);
 					cairo_paint_with_alpha(window->mask->cairo_p, alpha);
-
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 					for(x=0; x<window->width * window->height; x++)
 					{
 						if(window->mask->pixels[x*4+3] > window->temp_layer->pixels[x*4+3])
@@ -1456,12 +1387,10 @@ void MotionBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, voi
 		
 		if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 		{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
+			uint8 select_value;
 			for(j=0; j<window->width*window->height; j++)
 			{
-				uint8 select_value = window->selection->pixels[j];
+				select_value = window->selection->pixels[j];
 				layers[i]->pixels[j*4+0] = ((0xff-select_value)*layers[i]->pixels[j*4+0]
 					+ window->temp_layer->pixels[j*4+0]*select_value) / 255;
 				layers[i]->pixels[j*4+1] = ((0xff-select_value)*layers[i]->pixels[j*4+1]
@@ -1506,10 +1435,14 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 	{
 	case MOTION_BLUR_STRAGHT:
 		{
+			FLOAT_T check_x, check_y;
 			FLOAT_T dx, dy;
 			FLOAT_T angle;
+			int before_x, before_y;
+			int int_x, int_y;
 			int length;
-			int y;
+			int x, y;
+			int count;
 
 			if((filter_data->flags & MOTION_BLUR_BIDIRECTION) != 0)
 			{
@@ -1523,17 +1456,8 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 			angle = filter_data->angle * G_PI / 180.0;
 			dx = cos(angle),	dy = sin(angle);
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 			for(y=0; y<window->height; y++)
 			{
-				FLOAT_T check_x, check_y;
-				int before_x, before_y;
-				int int_x, int_y;
-				int x;
-				int count;
-
 				for(x=0; x<window->width; x++)
 				{
 					check_x = x - dx * filter_data->size;
@@ -1567,10 +1491,15 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 		break;
 	case MOTION_BLUR_STRAGHT_RANDOM:
 		{
+			FLOAT_T check_x, check_y;
 			FLOAT_T dx, dy;
 			FLOAT_T add_x = 0, add_y = 0;
 			FLOAT_T angle;
-			int y;
+			int before_x, before_y;
+			int int_x, int_y;
+			int length;
+			int x, y;
+			int count;
 
 			angle = filter_data->angle * G_PI / 180.0;
 			add_x = dx = cos(angle),	add_y = dy = sin(angle);
@@ -1611,18 +1540,8 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 
 			if(add_x >= 0 && add_y >= 0)
 			{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 				for(y=0; y<window->selection->height; y++)
 				{
-					FLOAT_T check_x, check_y;
-					int before_x, before_y;
-					int int_x, int_y;
-					int length;
-					int x;
-					int count;
-
 					for(x=0; x<window->selection->width; x++)
 					{
 						int_x = (int)(x - add_x),	int_y = (int)(y - add_y);
@@ -1675,18 +1594,8 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 			}
 			else if(add_x < 0 && add_y >= 0)
 			{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 				for(y=0; y<window->selection->height; y++)
 				{
-					FLOAT_T check_x, check_y;
-					int before_x, before_y;
-					int int_x, int_y;
-					int length;
-					int x;
-					int count;
-
 					for(x=window->selection->width-1; x>=0; x--)
 					{
 						int_x = (int)(x - add_x),	int_y = (int)(y - add_y);
@@ -1739,18 +1648,8 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 			}
 			else if(add_x >= 0 && add_y < 0)
 			{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 				for(y=window->selection->height-1; y>=0; y--)
 				{
-					FLOAT_T check_x, check_y;
-					int before_x, before_y;
-					int int_x, int_y;
-					int length;
-					int x;
-					int count;
-
 					for(x=0; x<window->selection->width; x++)
 					{
 						int_x = (int)(x - add_x),	int_y = (int)(y - add_y);
@@ -1803,18 +1702,8 @@ void SelectionMotionBlurFilter(DRAW_WINDOW* window, void* data)
 			}
 			else
 			{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 				for(y=window->selection->height-1; y>=0; y--)
 				{
-					FLOAT_T check_x, check_y;
-					int before_x, before_y;
-					int int_x, int_y;
-					int length;
-					int x;
-					int count;
-
 					for(x=window->selection->width-1; x>=0; x--)
 					{
 						int_x = (int)(x - add_x),	int_y = (int)(y - add_y);
@@ -2588,12 +2477,18 @@ void ChangeBrightContrastFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_
 {
 	// 明るさ・コントラストの調整値にキャスト
 	CHANGE_BRIGHT_CONTRAST *change_value = (CHANGE_BRIGHT_CONTRAST*)data;
-	// レイヤーの平均色
-	RGBA_DATA average_color;
+	// 明るさ調整用
+	int r, g, b;
+	// フィルタのデータをバイト単位に
+	uint8 *byte_data = (uint8*)data;
 	// コントラスト調整値テーブル
 	uint8 contrast_r[UCHAR_MAX+1], contrast_g[UCHAR_MAX+1], contrast_b[UCHAR_MAX+1];
 	// コントラスト出力直線の傾き
 	double a = tan((((double)((int)change_value->contrast + 127) / 255.0) * 90.0) * G_PI / 180.0);
+	// レイヤーの平均色
+	RGBA_DATA average_color;
+	// ピクセルデータのインデックス
+	int index;
 	int i, j;	// for文用のカウンタ
 
 	// 各レイヤーに対し明るさ・コントラストの変更を実行
@@ -2603,20 +2498,9 @@ void ChangeBrightContrastFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_
 		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
 		{
 			(void)memset(window->mask_temp->pixels, 0, window->pixel_buf_size);
-
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 			// 明るさを調整
 			for(j=0; j<layers[i]->width*layers[i]->height; j++)
 			{
-				// 明るさ調整用
-				int r, g, b;
-				// フィルタのデータをバイト単位に
-				uint8 *byte_data = (uint8*)data;
-				// ピクセルデータのインデックス
-				int index;
-
 				index = j*layers[i]->channel;
 				r = layers[i]->pixels[index] + change_value->bright * 2;
 				g = layers[i]->pixels[index+1] + change_value->bright * 2;
@@ -2674,14 +2558,11 @@ void ChangeBrightContrastFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_
 				};
 
 				// コントラスト調整値のテーブルを作成
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 				for(j=0; j<=UCHAR_MAX; j++)
 				{
-					int r = (int)(a * j + intercept[0]);
-					int g = (int)(a * j + intercept[1]);
-					int b = (int)(a * j + intercept[2]);
+					r = (int)(a * j + intercept[0]);
+					g = (int)(a * j + intercept[1]);
+					b = (int)(a * j + intercept[2]);
 
 					if(r < 0)
 					{
@@ -2732,12 +2613,10 @@ void ChangeBrightContrastFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_
 
 			if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 			{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
+				uint8 select_value;
 				for(j=0; j<window->width*window->height; j++)
 				{
-					uint8 select_value = window->selection->pixels[j];
+					select_value = window->selection->pixels[j];
 					window->temp_layer->pixels[j*4+0] = ((0xff-select_value)*layers[i]->pixels[j*4+0]
 						+ window->temp_layer->pixels[j*4+0]*select_value) / 255;
 					window->temp_layer->pixels[j*4+1] = ((0xff-select_value)*layers[i]->pixels[j*4+1]
@@ -2883,7 +2762,7 @@ void ExecuteChangeBrightContrastFilter(APPLICATION* app)
 	g_object_set_data(G_OBJECT(adjust), "pixel_data", pixel_data);
 	g_object_set_data(G_OBJECT(adjust), "layers", layers);
 	g_object_set_data(G_OBJECT(adjust), "num_layer", GINT_TO_POINTER(int_num_layer));
-	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
+	g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeBrightnessValueCallBack), &change_value);
 	label = gtk_label_new(app->labels->tool_box.brightness);
 	gtk_scale_set_digits(GTK_SCALE(scale), 0);
@@ -2899,7 +2778,7 @@ void ExecuteChangeBrightContrastFilter(APPLICATION* app)
 	g_object_set_data(G_OBJECT(adjust), "pixel_data", pixel_data);
 	g_object_set_data(G_OBJECT(adjust), "layers", layers);
 	g_object_set_data(G_OBJECT(adjust), "num_layer", GINT_TO_POINTER(int_num_layer));
-	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
+	g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeContrastValueCallBack), &change_value);
 	label = gtk_label_new(app->labels->tool_box.contrast);
 	gtk_scale_set_digits(GTK_SCALE(scale), 0);
@@ -2993,31 +2872,27 @@ void ChangeHueSaturationFilter(
 	int change_h = filter_data->hue,
 		change_s = (int)(filter_data->saturation * 0.01 * 255),
 		change_v = (int)(filter_data->vivid * 0.01 * 255);
+	// 変換後のHSVの値
+	int next_h, next_s, next_v;
+	// 1ピクセル分のデータ
+	uint8 rgb[3];
+	// HSVデータ
+	HSV hsv;
+	// ピクセル配列のインデックス
+	int index;
 	// for文用のカウンタ
-	int i, j;
+	unsigned int i, j;
 
 	// 各レイヤーに対し色相・彩度・輝度の変更を実行
-	for(i=0; i<(int)num_layer; i++)
+	for(i=0; i<num_layer; i++)
 	{
 		// 通常レイヤーなら
 		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
 		{
 			(void)memset(window->mask_temp->pixels, 0, window->pixel_buf_size);
 			// 全てのピクセルに対して処理実行
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
-			for(j=0; j<(int)(layers[i]->width*layers[i]->height); j++)
+			for(j=0; j<(unsigned int)(layers[i]->width*layers[i]->height); j++)
 			{
-				// 変換後のHSVの値
-				int next_h, next_s, next_v;
-				// 1ピクセル分のデータ
-				uint8 rgb[3];
-				// HSVデータ
-				HSV hsv;
-				// ピクセル配列のインデックス
-				int index;
-
 				index = j * layers[i]->channel;
 
 				// ピクセルデータをコピー
@@ -3076,7 +2951,7 @@ void ChangeHueSaturationFilter(
 			if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 			{
 				uint8 select_value;
-				for(j=0; j<(int)(window->width*window->height); j++)
+				for(j=0; j<(unsigned int)(window->width*window->height); j++)
 				{
 					select_value = window->selection->pixels[j];
 					window->temp_layer->pixels[j*4+0] = ((0xff-select_value)*layers[i]->pixels[j*4+0]
@@ -3090,7 +2965,7 @@ void ChangeHueSaturationFilter(
 				}
 			}
 
-			for(j=0; j<(int)(layers[i]->width*layers[i]->height); j++)
+			for(j=0; j<(unsigned int)(layers[i]->width*layers[i]->height); j++)
 			{
 				layers[i]->pixels[j*4] = MINIMUM(window->temp_layer->pixels[j*4], layers[i]->pixels[j*4+3]);
 				layers[i]->pixels[j*4+1] = MINIMUM(window->temp_layer->pixels[j*4+1], layers[i]->pixels[j*4+3]);
@@ -3260,7 +3135,7 @@ void ExecuteChangeHueSaturationFilter(APPLICATION* app)
 	g_object_set_data(G_OBJECT(adjust), "pixel_data", pixel_data);
 	g_object_set_data(G_OBJECT(adjust), "layers", layers);
 	g_object_set_data(G_OBJECT(adjust), "num_layer", GINT_TO_POINTER(int_num_layer));
-	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
+	g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeHueValueCallBack), &change_value);
 	label = gtk_label_new(app->labels->tool_box.hue);
 	gtk_scale_set_digits(GTK_SCALE(scale), 0);
@@ -3276,7 +3151,7 @@ void ExecuteChangeHueSaturationFilter(APPLICATION* app)
 	g_object_set_data(G_OBJECT(adjust), "pixel_data", pixel_data);
 	g_object_set_data(G_OBJECT(adjust), "layers", layers);
 	g_object_set_data(G_OBJECT(adjust), "num_layer", GINT_TO_POINTER(int_num_layer));
-	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
+	g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeSaturationValueCallBack), &change_value);
 	label = gtk_label_new(app->labels->tool_box.saturation);
 	gtk_scale_set_digits(GTK_SCALE(scale), 0);
@@ -3292,7 +3167,7 @@ void ExecuteChangeHueSaturationFilter(APPLICATION* app)
 	g_object_set_data(G_OBJECT(adjust), "pixel_data", pixel_data);
 	g_object_set_data(G_OBJECT(adjust), "layers", layers);
 	g_object_set_data(G_OBJECT(adjust), "num_layer", GINT_TO_POINTER(int_num_layer));
-	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
+	g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeVividValueCallBack), &change_value);
 	label = gtk_label_new(app->labels->tool_box.brightness);
 	gtk_scale_set_digits(GTK_SCALE(scale), 0);
@@ -3365,6 +3240,7 @@ void Luminosity2OpacityFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 {
 	HSV hsv;
 	uint8 buff;
+	uint8 *pix, *dst;
 	unsigned int i;
 	int j;
 
@@ -3372,13 +3248,9 @@ void Luminosity2OpacityFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 	{
 		(void)memset(window->temp_layer->pixels, 0, window->pixel_buf_size);
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
-		for(j=0; j<layers[i]->width*layers[i]->height; j++)
+		for(j=0, pix=layers[i]->pixels, dst=window->temp_layer->pixels;
+			j<layers[i]->width*layers[i]->height; j++, pix+=4, dst+=4)
 		{
-			uint8 *pix = &layers[i]->pixels[j*4];
-			uint8 *dst = &window->temp_layer->pixels[j*4];
 			RGB2HSV_Pixel(pix, &hsv);
 			buff = hsv.v;//0xff - hsv.v;
 			dst[3] = (pix[3] > buff) ? pix[3] - buff : 0;
@@ -3386,12 +3258,10 @@ void Luminosity2OpacityFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 
 		if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 		{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
+			uint8 select_value;
 			for(j=0; j<window->width*window->height; j++)
 			{
-				uint8 select_value = window->selection->pixels[j];
+				select_value = window->selection->pixels[j];
 				window->temp_layer->pixels[j*4+0] = ((0xff-select_value)*layers[i]->pixels[j*4+0]
 					+ window->temp_layer->pixels[j*4+0]*select_value) / 255;
 				window->temp_layer->pixels[j*4+1] = ((0xff-select_value)*layers[i]->pixels[j*4+1]
@@ -3618,6 +3488,9 @@ void ColorizeWithUnderFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_lay
 	COLORIZE_WITH_UNDER *adjust = (COLORIZE_WITH_UNDER*)data;
 	LAYER *target;
 	int delete_target = 0;
+	uint8 src_color[4];
+	HSV hsv;
+	int h, s, v;
 	int x, y;
 
 	cairo_set_operator(window->temp_layer->cairo_p, CAIRO_OPERATOR_OVER);
@@ -3657,16 +3530,8 @@ void ColorizeWithUnderFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_lay
 		delete_target++;
 	}
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 	for(y=0; y<(*layers)->height; y++)
 	{
-		uint8 src_color[4];
-		HSV hsv;
-		int h, s, v;
-		int x;
-
 		for(x=0; x<(*layers)->width; x++)
 		{
 			if((*layers)->pixels[y*(*layers)->stride+x*4+3] > 0)
@@ -3740,12 +3605,10 @@ void ColorizeWithUnderFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_lay
 
 	if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 	{
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
+		uint8 select_value;
 		for(x=0; x<window->width*window->height; x++)
 		{
-			uint8 select_value = window->selection->pixels[x];
+			select_value = window->selection->pixels[x];
 			window->mask_temp->pixels[x*4+0] = ((0xff-select_value)*target->pixels[x*4+0]
 				+ window->mask_temp->pixels[x*4+0]*select_value) / 255;
 			window->mask_temp->pixels[x*4+1] = ((0xff-select_value)*target->pixels[x*4+1]
@@ -3914,27 +3777,18 @@ typedef struct _GRADATION_MAP
 void GradationMapFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* data)
 {
 	GRADATION_MAP *filter_data = (GRADATION_MAP*)data;
-	FLOAT_T rate;
+	int gray_value;
 	int max_value, min_value;
-	int i, j;
+	uint8 alpha;
+	FLOAT_T rate;
+	int index;
+	int i, j, k;
 
-#ifdef _OPENMP
-#pragma omp parallel
-	{
-#endif
 	for(i=0; i<num_layer; i++)
 	{
 		if((filter_data->flags & GRADATION_MAP_DETECT_MAX) != 0)
 		{
-			int gray_value;
-			uint8 alpha;
-			int index;
-			int k;
-
 			max_value = 0,	min_value = 0xff;
-#ifdef _OPENMP
-#pragma omp for
-#endif
 			for(j=0; j<layers[i]->height; j++)
 			{
 				for(k=0; k<layers[i]->width; k++)
@@ -3971,16 +3825,8 @@ void GradationMapFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, v
 
 		rate = (FLOAT_T)0xff / (max_value - min_value);
 
-#ifdef _OPENMP
-#pragma omp for
-#endif
 		for(j=0; j<layers[i]->height; j++)
 		{
-			int gray_value;
-			uint8 alpha;
-			int index;
-			int k;
-
 			for(k=0; k<layers[i]->width; k++)
 			{
 				index = j*layers[i]->stride+k*4;
@@ -4028,12 +3874,10 @@ void GradationMapFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, v
 
 		if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 		{
-#ifdef _OPENMP
-#pragma omp for
-#endif
+			uint8 select_value;
 			for(j=0; j<window->width*window->height; j++)
 			{
-				uint8 select_value = window->selection->pixels[j];
+				select_value = window->selection->pixels[j];
 				window->mask_temp->pixels[j*4+0] = ((0xff-select_value)*layers[i]->pixels[j*4+0]
 					+ window->mask_temp->pixels[j*4+0]*select_value) / 255;
 				window->mask_temp->pixels[j*4+1] = ((0xff-select_value)*layers[i]->pixels[j*4+1]
@@ -4058,9 +3902,6 @@ void GradationMapFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, v
 			(void)memcpy(layers[i]->pixels, window->mask_temp->pixels, window->pixel_buf_size);
 		}
 	}	// for(i=0; i<num_layer; i++)
-#ifdef _OPENMP
-	}
-#endif
 
 	// キャンバスを更新
 	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
@@ -4838,7 +4679,8 @@ static void FillMonoColorPelinNoise2D(
 	const int width = data->width;
 	const int height = data->height;
 	const int stride = data->width * 4;
-	int y;
+	int x, y;
+	int pixel_value;
 	FLOAT_T boost = (1 - data->persistence) * 2.5;
 	if(boost < - 0.5)
 	{
@@ -4852,14 +4694,8 @@ static void FillMonoColorPelinNoise2D(
 	srand(data->seed);
 	MakePerlinNoiseRandom(&random);
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 	for(y=0; y<height; y++)
 	{
-		int pixel_value;
-		int x;
-
 		for(x=0; x<width; x++)
 		{
 			pixel_value =
@@ -4910,7 +4746,8 @@ static void FillMultiColorPelinNoise2D(
 	const int width = data->width;
 	const int height = data->height;
 	const int stride = data->width * 4;
-	int y;
+	int x, y;
+	int pixel_value;
 	FLOAT_T boost = (1 - data->persistence) * 2.5;
 	if(boost < - 0.5)
 	{
@@ -4927,14 +4764,8 @@ static void FillMultiColorPelinNoise2D(
 	MakePerlinNoiseRandom(&random3);
 	MakePerlinNoiseRandom(&random4);
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 	for(y=0; y<height; y++)
 	{
-		int pixel_value;
-		int x;
-
 		for(x=0; x<width; x++)
 		{
 			pixel_value = (int)(PerlinNoise2D(data, x, y, &random1) * boost);

@@ -91,14 +91,14 @@ void StrokeStraightLine(
 	VECTOR_LAYER_RECTANGLE* rect
 )
 {
-	FLOAT_T r, half_r, d, div_d, arg, dist;
-	int min_x, min_y, max_x, max_y;
-	FLOAT_T draw_x, draw_y;
-	FLOAT_T dx, dy, cos_x, sin_y;
-	FLOAT_T ad, bd;
-	FLOAT_T red, green, blue, alpha;
+	gdouble r, half_r, d, div_d, arg, dist;
+	int32 min_x, min_y, max_x, max_y;
+	gdouble draw_x, draw_y;
+	gdouble dx, dy, cos_x, sin_y;
+	gdouble ad, bd;
+	gdouble red, green, blue, alpha;
 	cairo_pattern_t *brush;
-	int i, y;
+	int i, x, y;
 
 	cairo_set_operator(window->temp_layer->cairo_p, CAIRO_OPERATOR_OVER);
 	rect->min_x = rect->max_x = line->points->x;
@@ -123,15 +123,8 @@ void StrokeStraightLine(
 
 		dx = d;
 
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
 		do
 		{
-#ifdef _OPENMP
-#pragma omp single
-			{
-#endif
 			ad = (d - dist) * div_d, bd = dist * div_d;
 			r = line->points[i].size * line->points[i].pressure * 0.01f * ad
 				+ line->points[i+1].size * line->points[i+1].pressure * 0.01f * bd;
@@ -220,16 +213,9 @@ void StrokeStraightLine(
 
 			cairo_arc(window->temp_layer->cairo_p, draw_x, draw_y, r, 0, 2*G_PI);
 			cairo_fill(window->temp_layer->cairo_p);
-#ifdef _OPENMP
-			}
-#endif
 
-#ifdef _OPENMP
-#pragma omp for
-#endif
 			for(y=min_y; y<max_y; y++)
 			{
-				int x;
 				for(x=min_x; x<max_x; x++)
 				{
 					if(window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >
@@ -259,17 +245,10 @@ void StrokeStraightLine(
 				}
 			}
 
-#ifdef _OPENMP
-#pragma omp single
-			{
-#endif
 			cairo_pattern_destroy(brush);
 
 			dx -= half_r;
 			draw_x -= cos_x*half_r, draw_y -= sin_y*half_r;
-#ifdef _OPENMP
-			}
-#endif
 		} while(dx >= half_r);
 	}
 }
@@ -287,7 +266,7 @@ void StrokeStraightCloseLine(
 	gdouble ad, bd;
 	gdouble red, green, blue, alpha;
 	cairo_pattern_t *brush;
-	int i, y;
+	int i, x, y;
 
 	cairo_set_operator(window->temp_layer->cairo_p, CAIRO_OPERATOR_OVER);
 	rect->min_x = rect->max_x = line->points->x;
@@ -295,216 +274,28 @@ void StrokeStraightCloseLine(
 
 	for(i=0; i<line->num_points-1; i++)
 	{
-#ifdef _OPENMP
-#pragma omp parallel
-		{
-#endif
-
-#ifdef _OPENMP
-#pragma omp single
-		{
-#endif
 		dx = line->points[i].x-line->points[i+1].x;
 		dy = line->points[i].y-line->points[i+1].y;
 		d = sqrt(dx*dx+dy*dy);
 
-#ifdef _OPENMP
-		}
-#endif
-
-		if(d >= 0.5)
+		if(d < 0.5)
 		{
-#ifdef _OPENMP
-#pragma omp single
-			{
-#endif
-			div_d = 1.0 / d;
-			dist = 0.0;
-			arg = atan2(dy, dx);
-			cos_x = cos(arg), sin_y = sin(arg);
-			draw_x = line->points[i].x, draw_y = line->points[i].y;
-
-			dx = d;
-#ifdef _OPENMP
-			}
-#endif
-
-			do
-			{
-#ifdef _OPENMP
-#pragma omp single
-				{
-#endif
-				ad = (d - dist) * div_d, bd = dist * div_d;
-				r = line->points[i].size * line->points[i].pressure * 0.01f * ad
-					+ line->points[i+1].size * line->points[i+1].pressure * 0.01f * bd;
-				half_r = r * 0.125;
-				if(half_r < 0.5)
-				{
-					half_r = 0.5;
-				}
-				dist += half_r;
-
-				min_x = (int32)(draw_x - r - 1);
-				min_y = (int32)(draw_y - r - 1);
-				max_x = (int32)(draw_x + r + 1);
-				max_y = (int32)(draw_y + r + 1);
-
-				if(min_x < 0)
-				{
-					min_x = 0;
-				}
-				else if(min_x > window->width)
-				{
-					min_x = window->width;
-				}
-				if(min_y < 0)
-				{
-					min_y = 0;
-				}
-				else if(min_y > window->height)
-				{
-					min_y = window->height;
-				}
-				if(max_x > window->width)
-				{
-					max_x = window->width;
-				}
-				else if(max_x < 0)
-				{
-					max_x = 0;
-				}
-				if(max_y > window->height)
-				{
-					max_y = window->height;
-				}
-				else if(max_y < 0)
-				{
-					max_y = 0;
-				}
-
-				if(rect->min_x > min_x)
-				{
-					rect->min_x = min_x;
-				}
-				if(rect->min_y > min_y)
-				{
-					rect->min_y = min_y;
-				}
-				if(rect->max_x < max_x)
-				{
-					rect->max_x = max_x;
-				}
-				if(rect->max_y < max_y)
-				{
-					rect->max_y = max_y;
-				}
-
-				for(y=min_y; y<max_y; y++)
-				{
-					(void)memset(&window->temp_layer->pixels[y*window->temp_layer->stride+min_x*window->temp_layer->channel],
-						0, (max_x - min_x)*window->temp_layer->channel);
-				}
-
-				ad *= DIV_PIXEL, bd *= DIV_PIXEL;
-				red = (line->points[i].color[0] * ad) + (line->points[i+1].color[0] * bd);
-				green = (line->points[i].color[1] * ad) + (line->points[i+1].color[1] * bd);
-				blue = (line->points[i].color[2] * ad) + (line->points[i+1].color[2] * bd);
-				alpha = (line->points[i].color[3] * ad) + (line->points[i+1].color[3] * bd);
-
-				brush = cairo_pattern_create_radial(draw_x, draw_y, r * 0.0, draw_x, draw_y, r);
-				cairo_pattern_set_extend(brush, CAIRO_EXTEND_NONE);
-				cairo_pattern_add_color_stop_rgba(brush, 0.0, red, green, blue, alpha);
-				cairo_pattern_add_color_stop_rgba(brush, 1.0-line->blur*0.01,
-					red, green, blue, alpha);
-				cairo_pattern_add_color_stop_rgba(brush, 1.0, red, green, blue,
-					line->outline_hardness*0.01f*alpha);
-				cairo_set_source(window->temp_layer->cairo_p, brush);
-
-				cairo_arc(window->temp_layer->cairo_p, draw_x, draw_y, r, 0, 2*G_PI);
-				cairo_fill(window->temp_layer->cairo_p);
-
-#ifdef _OPENMP
-				}
-#pragma omp for
-#endif
-				for(y=min_y; y<max_y; y++)
-				{
-					int x;
-					for(x=min_x; x<max_x; x++)
-					{
-						if(window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >
-							window->work_layer->pixels[y*window->work_layer->stride+x*window->channel+3])
-						{
-							window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel] =
-								(uint8)(((int)window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel]
-								- (int)window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel])
-									* window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >> 8)
-									+ window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel];
-							window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+1] =
-								(uint8)(((int)window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+1]
-								- (int)window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+1])
-									* window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >> 8)
-									+ window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+1];
-							window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+2] =
-								(uint8)(((int)window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+2]
-								- (int)window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+2])
-									* window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >> 8)
-									+ window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+2];
-							window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+3] =
-								(uint8)(((int)window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3]
-								- (int)window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+3])
-									* window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >> 8)
-									+ window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+3];
-						}
-					}
-				}
-
-#ifdef _OPENMP
-#pragma omp single
-				{
-#endif
-				cairo_pattern_destroy(brush);
-
-				dx -= half_r;
-				draw_x -= cos_x*half_r, draw_y -= sin_y*half_r;
-#ifdef _OPENMP
-				}
-#endif
-			} while(dx >= half_r);
+			continue;
 		}
-#ifdef _OPENMP
-		}
-#endif
-	}
 
-	i = line->num_points-1;
-	dx = line->points[i].x-line->points[0].x;
-	dy = line->points[i].y-line->points[0].y;
-	d = sqrt(dx*dx+dy*dy);
-
-	if(d >= 0.5)
-	{
 		div_d = 1.0 / d;
 		dist = 0.0;
 		arg = atan2(dy, dx);
 		cos_x = cos(arg), sin_y = sin(arg);
 		draw_x = line->points[i].x, draw_y = line->points[i].y;
+
 		dx = d;
 
-#ifdef _OPENMP
-#pragma omp parallel
-		{
-#endif
 		do
 		{
-#ifdef _OPENMP
-#pragma omp single
-			{
-#endif
 			ad = (d - dist) * div_d, bd = dist * div_d;
 			r = line->points[i].size * line->points[i].pressure * 0.01f * ad
-				+ line->points[0].size * line->points[0].pressure * 0.01f * bd;
+				+ line->points[i+1].size * line->points[i+1].pressure * 0.01f * bd;
 			half_r = r * 0.125;
 			if(half_r < 0.5)
 			{
@@ -566,7 +357,7 @@ void StrokeStraightCloseLine(
 			{
 				rect->max_y = max_y;
 			}
-
+			
 			for(y=min_y; y<max_y; y++)
 			{
 				(void)memset(&window->temp_layer->pixels[y*window->temp_layer->stride+min_x*window->temp_layer->channel],
@@ -574,10 +365,10 @@ void StrokeStraightCloseLine(
 			}
 
 			ad *= DIV_PIXEL, bd *= DIV_PIXEL;
-			red = (line->points[i].color[0] * ad) + (line->points[0].color[0] * bd);
-			green = (line->points[i].color[1] * ad) + (line->points[0].color[1] * bd);
-			blue = (line->points[i].color[2] * ad) + (line->points[0].color[2] * bd);
-			alpha = (line->points[i].color[3] * ad) + (line->points[0].color[3] * bd);
+			red = (line->points[i].color[0] * ad) + (line->points[i+1].color[0] * bd);
+			green = (line->points[i].color[1] * ad) + (line->points[i+1].color[1] * bd);
+			blue = (line->points[i].color[2] * ad) + (line->points[i+1].color[2] * bd);
+			alpha = (line->points[i].color[3] * ad) + (line->points[i+1].color[3] * bd);
 
 			brush = cairo_pattern_create_radial(draw_x, draw_y, r * 0.0, draw_x, draw_y, r);
 			cairo_pattern_set_extend(brush, CAIRO_EXTEND_NONE);
@@ -591,13 +382,8 @@ void StrokeStraightCloseLine(
 			cairo_arc(window->temp_layer->cairo_p, draw_x, draw_y, r, 0, 2*G_PI);
 			cairo_fill(window->temp_layer->cairo_p);
 
-#ifdef _OPENMP
-			}
-#pragma omp for
-#endif
 			for(y=min_y; y<max_y; y++)
 			{
-				int x;
 				for(x=min_x; x<max_x; x++)
 				{
 					if(window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >
@@ -627,23 +413,157 @@ void StrokeStraightCloseLine(
 				}
 			}
 
-#ifdef _OPENMP
-#pragma omp single
-			{
-#endif
 			cairo_pattern_destroy(brush);
 
 			dx -= half_r;
 			draw_x -= cos_x*half_r, draw_y -= sin_y*half_r;
-#ifdef _OPENMP
-			}
-#endif
 		} while(dx >= half_r);
-
-#ifdef _OPENMP
-		}
-#endif
 	}
+
+	dx = line->points[i].x-line->points[0].x;
+	dy = line->points[i].y-line->points[0].y;
+	d = sqrt(dx*dx+dy*dy);
+
+	if(d < 0.5)
+	{
+		return;
+	}
+
+	div_d = 1.0 / d;
+	dist = 0.0;
+	arg = atan2(dy, dx);
+	cos_x = cos(arg), sin_y = sin(arg);
+	draw_x = line->points[i].x, draw_y = line->points[i].y;
+
+	dx = d;
+
+	do
+	{
+		ad = (d - dist) * div_d, bd = dist * div_d;
+		r = line->points[i].size * line->points[i].pressure * 0.01f * ad
+			+ line->points[0].size * line->points[0].pressure * 0.01f * bd;
+		half_r = r * 0.125;
+		if(half_r < 0.5)
+		{
+			half_r = 0.5;
+		}
+		dist += half_r;
+
+		min_x = (int32)(draw_x - r - 1);
+		min_y = (int32)(draw_y - r - 1);
+		max_x = (int32)(draw_x + r + 1);
+		max_y = (int32)(draw_y + r + 1);
+
+		if(min_x < 0)
+		{
+			min_x = 0;
+		}
+		else if(min_x > window->width)
+		{
+			min_x = window->width;
+		}
+		if(min_y < 0)
+		{
+			min_y = 0;
+		}
+		else if(min_y > window->height)
+		{
+			min_y = window->height;
+		}
+		if(max_x > window->width)
+		{
+			max_x = window->width;
+		}
+		else if(max_x < 0)
+		{
+			max_x = 0;
+		}
+		if(max_y > window->height)
+		{
+			max_y = window->height;
+		}
+		else if(max_y < 0)
+		{
+			max_y = 0;
+		}
+
+		if(rect->min_x > min_x)
+		{
+			rect->min_x = min_x;
+		}
+		if(rect->min_y > min_y)
+		{
+			rect->min_y = min_y;
+		}
+		if(rect->max_x < max_x)
+		{
+			rect->max_x = max_x;
+		}
+		if(rect->max_y < max_y)
+		{
+			rect->max_y = max_y;
+		}
+
+		for(y=min_y; y<max_y; y++)
+		{
+			(void)memset(&window->temp_layer->pixels[y*window->temp_layer->stride+min_x*window->temp_layer->channel],
+				0, (max_x - min_x)*window->temp_layer->channel);
+		}
+
+		ad *= DIV_PIXEL, bd *= DIV_PIXEL;
+		red = (line->points[i].color[0] * ad) + (line->points[0].color[0] * bd);
+		green = (line->points[i].color[1] * ad) + (line->points[0].color[1] * bd);
+		blue = (line->points[i].color[2] * ad) + (line->points[0].color[2] * bd);
+		alpha = (line->points[i].color[3] * ad) + (line->points[0].color[3] * bd);
+
+		brush = cairo_pattern_create_radial(draw_x, draw_y, r * 0.0, draw_x, draw_y, r);
+		cairo_pattern_set_extend(brush, CAIRO_EXTEND_NONE);
+		cairo_pattern_add_color_stop_rgba(brush, 0.0, red, green, blue, alpha);
+		cairo_pattern_add_color_stop_rgba(brush, 1.0-line->blur*0.01,
+			red, green, blue, alpha);
+		cairo_pattern_add_color_stop_rgba(brush, 1.0, red, green, blue,
+			line->outline_hardness*0.01f*alpha);
+		cairo_set_source(window->temp_layer->cairo_p, brush);
+
+		cairo_arc(window->temp_layer->cairo_p, draw_x, draw_y, r, 0, 2*G_PI);
+		cairo_fill(window->temp_layer->cairo_p);
+
+		for(y=min_y; y<max_y; y++)
+		{
+			for(x=min_x; x<max_x; x++)
+			{
+				if(window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >
+					window->work_layer->pixels[y*window->work_layer->stride+x*window->channel+3])
+				{
+					window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel] =
+						(uint8)(((int)window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel]
+						- (int)window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel])
+							* window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >> 8)
+							+ window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel];
+					window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+1] =
+						(uint8)(((int)window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+1]
+						- (int)window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+1])
+							* window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >> 8)
+							+ window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+1];
+					window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+2] =
+						(uint8)(((int)window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+2]
+						- (int)window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+2])
+							* window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >> 8)
+							+ window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+2];
+					window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+3] =
+						(uint8)(((int)window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3]
+						- (int)window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+3])
+							* window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >> 8)
+							+ window->work_layer->pixels[y*window->work_layer->stride+x*window->work_layer->channel+3];
+				}
+			}
+		}
+
+		cairo_pattern_destroy(brush);
+
+		dx -= half_r;
+		draw_x -= cos_x*half_r, draw_y -= sin_y*half_r;
+	} while(dx >= half_r);
 }
 
 void RasterizeVectorLine(

@@ -403,11 +403,11 @@ void StrokeBezier3Line(
 {
 	BEZIER_POINT draw;
 	cairo_pattern_t* brush;
-	FLOAT_T r, oct_r, d, div_d, t = 0, dist = 0;
-	FLOAT_T red, green, blue, alpha;
-	FLOAT_T ad, bd;
+	gdouble r, oct_r, d, div_d, t = 0, dist = 0;
+	gdouble red, green, blue, alpha;
+	gdouble ad, bd;
 	int32 min_x, min_y, max_x, max_y;
-	int y;
+	int x, y;
 
 	// d = CalcBezier3Length(points, 0, 1);
 	d = SQRT((points[0].x-points[1].x)*(points[0].x-points[1].x)
@@ -419,15 +419,8 @@ void StrokeBezier3Line(
 
 	div_d = 1.0 / d;
 
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
 	do
 	{
-#ifdef _OPENMP
-#pragma omp single
-		{
-#endif
 		ad = (d - dist) * div_d, bd = dist * div_d;
 		r = vec_points[0].size * vec_points[0].pressure * 0.01 * ad
 			+ vec_points[1].size * vec_points[1].pressure * 0.01 * bd;
@@ -522,13 +515,8 @@ void StrokeBezier3Line(
 		cairo_arc(window->temp_layer->cairo_p, draw.x, draw.y, r, 0, 2*G_PI);
 		cairo_fill(window->temp_layer->cairo_p);
 
-#ifdef _OPENMP
-		}
-#pragma omp for
-#endif
 		for(y=min_y; y<max_y; y++)
 		{
-			int x;
 			for(x=min_x; x<max_x; x++)
 			{
 				if(window->temp_layer->pixels[y*window->temp_layer->stride+x*window->temp_layer->channel+3] >

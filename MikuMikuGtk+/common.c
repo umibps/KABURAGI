@@ -577,6 +577,138 @@ void StructArrayRemoveByIndex(
 	}
 }
 
+INTEGER_ARRAY* IntegerArrayNew(size_t block_size)
+{
+	INTEGER_ARRAY *ret;
+
+	if(block_size == 0)
+	{
+		return NULL;
+	}
+
+	ret = (INTEGER_ARRAY*)MEM_ALLOC_FUNC(sizeof(*ret));
+	ret->num_data = 0;
+	ret->block_size = ret->buffer_size = block_size;
+	ret->buffer = (int*)MEM_ALLOC_FUNC(sizeof(*ret->buffer)*block_size);
+	(void)memset(ret->buffer, 0, sizeof(float)*block_size);
+
+	return ret;
+}
+
+void IntegerArrayDestroy(
+	INTEGER_ARRAY** integer_array
+)
+{
+	if(integer_array == NULL || *integer_array == NULL)
+	{
+		return;
+	}
+
+	MEM_FREE_FUNC((*integer_array)->buffer);
+	MEM_FREE_FUNC(*integer_array);
+
+	*integer_array = NULL;
+}
+
+void IntegerArrayAppend(INTEGER_ARRAY* integer_array, int data)
+{
+	integer_array->buffer[integer_array->num_data] = data;
+	integer_array->num_data++;
+
+	if(integer_array->num_data == integer_array->buffer_size)
+	{
+		size_t before_size = integer_array->buffer_size;
+		integer_array->buffer_size += integer_array->block_size;
+		integer_array->buffer = (int*)MEM_REALLOC_FUNC(
+			integer_array->buffer, integer_array->buffer_size * sizeof(int));
+		(void)memset(&integer_array->buffer[before_size], 0,
+			integer_array->block_size * sizeof(float));
+	}
+}
+
+void IntegerArrayRemoveByIndex(
+	INTEGER_ARRAY* integer_array,
+	size_t index
+)
+{
+	if(index < integer_array->num_data)
+	{
+		size_t i;
+
+		integer_array->num_data--;
+		for(i=index; i<integer_array->num_data; i++)
+		{
+			integer_array->buffer[i] = integer_array->buffer[i+1];
+		}
+	}
+}
+
+FLOAT_ARRAY* FloatArrayNew(size_t block_size)
+{
+	FLOAT_ARRAY *ret;
+
+	if(block_size == 0)
+	{
+		return NULL;
+	}
+
+	ret = (FLOAT_ARRAY*)MEM_ALLOC_FUNC(sizeof(*ret));
+	ret->num_data = 0;
+	ret->block_size = ret->buffer_size = block_size;
+	ret->buffer = (float*)MEM_ALLOC_FUNC(sizeof(*ret->buffer)*block_size);
+	(void)memset(ret->buffer, 0, sizeof(float)*block_size);
+
+	return ret;
+}
+
+void FloatArrayDestroy(
+	FLOAT_ARRAY** float_array
+)
+{
+	if(float_array == NULL || *float_array == NULL)
+	{
+		return;
+	}
+
+	MEM_FREE_FUNC((*float_array)->buffer);
+	MEM_FREE_FUNC(*float_array);
+
+	*float_array = NULL;
+}
+
+void FloatArrayAppend(FLOAT_ARRAY* float_array, float data)
+{
+	float_array->buffer[float_array->num_data] = data;
+	float_array->num_data++;
+
+	if(float_array->num_data == float_array->buffer_size)
+	{
+		size_t before_size = float_array->buffer_size;
+		float_array->buffer_size += float_array->block_size;
+		float_array->buffer = (float*)MEM_REALLOC_FUNC(
+			float_array->buffer, float_array->buffer_size * sizeof(float));
+		(void)memset(&float_array->buffer[before_size], 0,
+			float_array->block_size * sizeof(float));
+	}
+}
+
+void FloatArrayRemoveByIndex(
+	FLOAT_ARRAY* float_array,
+	size_t index
+)
+{
+	if(index < float_array->num_data)
+	{
+		size_t i;
+
+		float_array->num_data--;
+		for(i=index; i<float_array->num_data; i++)
+		{
+			float_array->buffer[i] = float_array->buffer[i+1];
+		}
+	}
+}
+
 /*******************************************************
 * InflateData関数                                      *
 * ZIP圧縮されたデータをデコードする                    *

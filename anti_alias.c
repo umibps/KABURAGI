@@ -231,9 +231,6 @@ void AntiAliasLayer(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 	}
 
 	// 2行目から一番下手前の行まで処理
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 	for(i=y+1; i<end_y-1; i++)
 	{
 		// 一番左はそのままコピー
@@ -440,11 +437,19 @@ void AntiAliasVectorLine(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 {
 // アンチエイリアシングを行う1チャンネル分の閾値
 #define ANTI_ALIAS_THRESHOLD (51*51)
+	// ピクセルデータ配列のインデックス
+	int index, now_index;
+	// 現在のピクセルと周囲のピクセルの色差
+	int color_diff[4];
+	// 色差の合計
+	int sum_diff;
+	// 周囲のピクセルの合計値
+	int sum_color[4];
 	// アンチエイリアス開始・終了の座標
 	int x, y, end_x, end_y;
 	// 処理1行分のバイト数
 	int stride;
-	int i;	// for文用のカウンタ
+	int i, j;	// for文用のカウンタ
 
 	// 座標と範囲を設定
 	end_x = rect->width;
@@ -491,22 +496,9 @@ void AntiAliasVectorLine(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 		end_y = layer->height;
 	}
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
 	// 2行目から一番下手前の行まで処理
 	for(i=y+1; i<end_y-1; i++)
 	{
-		// ピクセルデータ配列のインデックス
-		int index, now_index;
-		// 現在のピクセルと周囲のピクセルの色差
-		int color_diff[4];
-		// 色差の合計
-		int sum_diff;
-		// 周囲のピクセルの合計値
-		int sum_color[4];
-		int j;	// for文用のカウンタ
-
 		// 一番左はそのままコピー
 		now_index = i * layer->stride + (x+1)*4;
 

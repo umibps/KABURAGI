@@ -9,8 +9,8 @@
 
 #if defined(_MSC_VER)
 
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-//# pragma comment(lib, "KABURAGI.lib")
+#if !defined(NO_KABURAGI_LIB) || NO_KABURAGI_LIB == 0
+# pragma comment(lib, "KABURAGI.lib")
 #endif
 
 #ifdef _UNICODE
@@ -32,10 +32,8 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 # endif
 
 #if 1
-# if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-#  pragma comment(lib, "OpenGL32.lib")
-#  pragma comment(lib, "GlU32.lib")
-# endif
+# pragma comment(lib, "OpenGL32.lib")
+# pragma comment(lib, "GlU32.lib")
 # ifdef TEST //_DEBUG
 #  pragma comment(lib, "tbb_debug.lib")
 #  pragma comment(lib, "tbb_preview_debug.lib")
@@ -367,7 +365,7 @@ int main(int argc, char** argv)
 			"Linear", "Cosine", "Cubic", "Colorize", "Start Editting 3D Model", "Finish Editting 3D Model",
 			{"Pencil", "Hard Pen", "Air Brush", "Old Air Brush", "Water Brush", "Picker Brush", "Eraser", "Bucket",
 				"Pattern Fill", "Blur Tool", "Smudge", "Mix Brush", "Gradation", "Text Tool", "Stamp Tool",
-				"Image Brush", "Picker Image Brush", "Script Brush", "PLUG_IN"},
+				"Image Brush", "Image Blend\nBrush", "Picker Image Brush", "Script Brush", "PLUG_IN"},
 			{"Detection Target", "Detect from ... ", "Pixels Color", "Pixel Color + Alpha",
 				"Alpha", "Active Layer", "Under Layer", "Canvas", "Threshold", "Detection Area", "Normal", "Large"},
 			{"Select/Release", "Move Control Point", "Change Pressure", "Delete Control Point",
@@ -406,10 +404,6 @@ int main(int argc, char** argv)
 	};
 
 	void *tbb = NULL;
-
-#ifdef _OPENMP
-	gdk_threads_init();
-#endif
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	application.flags |= APPLICATION_HAS_3D_LAYER;
@@ -451,18 +445,10 @@ int main(int argc, char** argv)
 #endif
 	}
 
-#ifdef _OPENMP
-	gdk_threads_enter();
-#endif
-
 	gtk_main();
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	DeleteTbbObject(tbb);
-#endif
-
-#ifdef _OPENMP
-	gdk_thread_leave();
 #endif
 
 	return 0;

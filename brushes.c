@@ -4610,7 +4610,7 @@ static void BlendBrushButtonPressCallBack(
 		// 描画する幅、高さ、一行分のバイト数
 		int width, height, stride;
 		// 参照ピクセル
-		uint8 *mask, *mask_pix;
+		uint8 *mask;
 		// 描画位置指定用
 		cairo_matrix_t matrix;
 		// 一時合成用
@@ -4920,9 +4920,12 @@ static void BlendBrushButtonPressCallBack(
 			cairo_surface_destroy(draw_surface);
 			cairo_surface_destroy(update_surface);
 
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
 			for(i=0; i<height; i++)
 			{
-				mask_pix = &mask[(start_y+i)*window->work_layer->stride+start_x*4+3];
+				uint8 *mask_pix = &mask[(start_y+i)*window->work_layer->stride+start_x*4+3];
 				for(j=0; j<width; j++, mask_pix+=4)
 				{
 					window->work_layer->pixels[(start_y+i)*window->work_layer->stride+(start_x+j)*4] =
@@ -5004,8 +5007,6 @@ static void BlendBrushMotionCallBack(
 				int width, height, stride;
 				// 参照ピクセル
 				uint8 *mask;
-				// 描画色のピクセル値
-				uint8 draw_value;
 				// 配列のインデックス用
 				int ref_point = brush->draw_finished % BRUSH_POINT_BUFFER_SIZE;
 				int before_point;
@@ -5403,6 +5404,7 @@ static void BlendBrushMotionCallBack(
 								uint8 *mask_pix = &window->mask->pixels[i*stride];
 								uint8 *alpha_pix = &mask[(start_y+i)*window->work_layer->stride
 									+start_x*4+3];
+								uint8 draw_value;
 								int j;
 
 								for(j=0; j<width; j++, ref_pix+=4, mask_pix+=4, alpha_pix+=4)
@@ -5516,8 +5518,6 @@ static void BlendBrushButtonReleaseCallBack(
 		cairo_surface_t *draw_surface;
 		// 参照ピクセル
 		uint8 *mask;
-		// 描画するピクセル値
-		uint8 draw_value;
 		// 配列のインデックス用
 		int ref_point;
 		int before_point;
@@ -5925,6 +5925,7 @@ static void BlendBrushButtonReleaseCallBack(
 						uint8 *mask_pix = &window->mask->pixels[i*stride];
 						uint8 *alpha_pix = &mask[(start_y+i)*window->work_layer->stride
 							+start_x*4+3];
+						uint8 draw_value;
 						int j;
 
 						for(j=0; j<width; j++, ref_pix+=4, mask_pix+=4, alpha_pix+=4)
@@ -11118,9 +11119,6 @@ static void ImageBrushPressCallBack(
 		FLOAT_T r;
 		// 座標の最大値・最小値
 		FLOAT_T min_x, min_y, max_x, max_y;
-		// 描画色
-		FLOAT_T color[3] = {(*core->color)[0]*DIV_PIXEL,
-			(*core->color)[1]*DIV_PIXEL, (*core->color)[2]*DIV_PIXEL};
 
 		window->work_layer->layer_mode = brush->blend_mode;
 
@@ -12894,6 +12892,1927 @@ static GtkWidget* CreateImageBrushDetailUI(APPLICATION* app, BRUSH_CORE* brush_c
 	scale = SpinScaleNew(scale_adjustment, app->labels->tool_box.rotate_range, 0);
 	(void)g_signal_connect(G_OBJECT(scale_adjustment), "value_changed",
 		G_CALLBACK(ImageBrushSetRotateRange), brush);
+	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+
+#undef UI_FONT_SIZE
+#undef ICON_SIZE
+
+	return vbox;
+}
+
+static void BlendImageBrushButtonPressCallBack(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	gdouble pressure,
+	BRUSH_CORE *core,
+	void* state
+)
+{
+	// 左クリックなら
+	if(((GdkEventButton*)state)->button == 1)
+	{
+		// ブラシの詳細情報にキャスト
+		BLEND_IMAGE_BRUSH *brush = (BLEND_IMAGE_BRUSH*)core->brush_data;
+		// ブラシの半径
+		FLOAT_T r;
+		// 座標の最大値・最小値
+		FLOAT_T min_x, min_y, max_x, max_y;
+
+		window->work_layer->layer_mode = LAYER_BLEND_NORMAL;
+
+		if(brush->target == BLEND_BRUSH_TARGET_UNDER_LAYER && window->active_layer->prev != NULL)
+		{
+			(void)memcpy(window->brush_buffer, window->active_layer->prev->pixels, window->pixel_buf_size);
+		}
+		else
+		{
+			(void)memcpy(window->brush_buffer, window->mixed_layer->pixels, window->pixel_buf_size);
+		}
+
+		r = ((brush->core.flags & STAMP_PRESSURE_SIZE) == 0) ?
+			brush->core.r : brush->core.r * pressure;
+
+		if((brush->core.flags & STAMP_RANDOM_SIZE) != 0)
+		{
+			r *= rand() / (FLOAT_T)RAND_MAX;
+		}
+
+		brush->stamp_distance = 0;
+		brush->core.before_x = x, brush->core.before_y = y;
+		brush->points[0][1] = x, brush->points[0][2] = y;
+		brush->points[0][3] = pressure;
+		brush->sum_distance = brush->travel = brush->finish_length = 0;
+		brush->remain_distance = brush->core.d * brush->core.d;
+		brush->draw_start = r * brush->out * 0.01 * 4;
+		brush->enter_length = r * brush->enter * 0.01 * 4;
+		brush->enter_size = (1 - brush->enter * 0.01);
+		brush->num_point = 0;
+		brush->draw_finished = 0;
+		brush->ref_point = 1;
+
+		min_x = x - r, max_x = x + r;
+		min_y = y - r, max_y = y + r;
+
+		if(min_x < 0.0)
+		{
+			min_x = 0.0;
+		}
+		if(min_y < 0.0)
+		{
+			min_y = 0.0;
+		}
+		if(max_x > window->work_layer->width)
+		{
+			max_x = window->work_layer->width;
+		}
+		if(max_y > window->work_layer->height)
+		{
+			max_y = window->work_layer->height;
+		}
+
+		core->min_x = min_x, core->min_y = min_y;
+		core->max_x = max_x, core->max_y = max_y;
+
+		window->update.x = (int)min_x, window->update.y = (int)min_y;
+		window->update.width = (int)max_x - window->update.x;
+		window->update.height = (int)max_y - window->update.y;
+
+		window->flags |= DRAW_WINDOW_UPDATE_PART;
+	}	// 左クリックなら
+		// if(((GdkEventButton*)state)->button == 1)
+}
+
+#define BlendImageBrushEditSelectionPress BlendImageBrushButtonPressCallBack
+
+static void BlendImageBrushMotionCallBack(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	gdouble pressure,
+	BRUSH_CORE *core,
+	void* state
+)
+{
+	// マウスの左ボタンが押されていたら
+	if(((*(GdkModifierType*)state) & GDK_BUTTON1_MASK) != 0)
+	{
+		// ブラシの詳細情報にキャスト
+		BLEND_IMAGE_BRUSH *brush = (BLEND_IMAGE_BRUSH*)core->brush_data;
+		FLOAT_T distance;
+		int index = brush->ref_point % BRUSH_POINT_BUFFER_SIZE;
+		// X、Y方向の移動量
+		gdouble dx, dy;
+		dx = x-brush->core.before_x;
+		dy = y-brush->core.before_y;
+		distance = dx*dx + dy*dy;
+		brush->stamp_distance += distance;
+		brush->remain_distance -= distance;
+
+		if(brush->remain_distance <= 0)
+		{
+			FLOAT_T update_x, update_y, update_r;
+
+			distance = sqrt(distance);
+			brush->core.before_x = x, brush->core.before_y = y;
+			brush->sum_distance += distance;
+			brush->travel += distance;
+			brush->points[index][0] = distance;
+			brush->points[index][1] = x, brush->points[index][2] = y;
+			brush->points[index][3] = pressure;
+			brush->ref_point++;
+
+			if(brush->sum_distance >= brush->draw_start
+				&& brush->sum_distance >= brush->enter_length)
+			{
+				// 更新範囲のイメージ情報
+				cairo_t *update;
+				cairo_surface_t *update_surface;
+				// 入りの色補正用
+				gdouble enter_alpha;
+				// ブラシの半径と不透明度
+				gdouble r, alpha;
+				// 座標の最大・最小値
+				gdouble min_x, min_y, max_x, max_y;
+				// ブラシの傾き用
+				gdouble diff_x, diff_y;
+				// ブラシの移動量
+				gdouble d;
+				// 描画を行う座標
+				gdouble draw_x = brush->core.before_x, draw_y = brush->core.before_y;
+				// 画像に対しての拡大・回転処理用の行列データ
+				cairo_matrix_t matrix, reset_matrix;
+				// 一時合成用
+				cairo_surface_t *draw_surface;
+				// 画像の拡大率
+				gdouble zoom;
+				// 移動量計算用
+				gdouble cos_x, sin_y, trans_x, trans_y;
+				// 画像の幅・高さの半分
+				gdouble half_width, half_height;
+				// ピクセルデータをリセットする座標
+				int start_x, start_y;
+				// 描画する幅、高さ、一行分のバイト数
+				int width, height, stride;
+				// 参照ピクセル
+				uint8 *mask;
+				// 配列のインデックス用
+				int ref_point = brush->draw_finished % BRUSH_POINT_BUFFER_SIZE;
+				int before_point;
+				int i;	// for文用のカウンタ
+
+				cairo_matrix_init_scale(&reset_matrix, 1, 1);
+
+				while(brush->sum_distance > brush->draw_start
+					&& brush->draw_finished < brush->ref_point-1
+					&& brush->remain_distance <= 0)
+				{
+					if(brush->finish_length < brush->enter_length)
+					{
+						enter_alpha = brush->finish_length / brush->enter_length;
+						r = brush->enter_size + brush->finish_length * 0.25;
+					}
+					else
+					{
+						enter_alpha = 1, r = 1;
+					}
+					if((brush->core.flags & STAMP_PRESSURE_SIZE) != 0)
+					{
+						r *= brush->points[ref_point][3];
+					}
+					if((brush->core.flags & STAMP_RANDOM_SIZE) != 0)
+					{
+						r *= 1 - (brush->size_range * (rand() / (FLOAT_T)RAND_MAX));
+					}
+
+					if(r < MIN_BRUSH_STEP)
+					{
+						r = MIN_BRUSH_STEP;
+					}
+
+					half_width = brush->core.half_width * r;
+					half_height = brush->core.half_height * r;
+					zoom = (1/r) * brush->core.scale;
+					r *= brush->core.r;
+
+					alpha = ((brush->core.flags & BRUSH_FLAG_FLOW) == 0)
+						? 1 : brush->points[ref_point][3];
+					alpha *= enter_alpha;
+
+					before_point = (ref_point == 0) ? BRUSH_POINT_BUFFER_SIZE - 1 : ref_point - 1;
+					d = brush->points[ref_point][0];
+					brush->sum_distance -= d;
+					if(brush->draw_finished == 0)
+					{
+						draw_x = brush->points[0][1], draw_y = brush->points[0][2];
+					}
+					else
+					{
+						draw_x = brush->points[before_point][1];
+						draw_y = brush->points[before_point][2];
+					}
+					dx = brush->points[ref_point][1] - draw_x;
+					dy = brush->points[ref_point][2] - draw_y;
+					if((brush->core.flags & STAMP_RANDOM_ROTATE) != 0)
+					{
+						brush->core.rotate = brush->core.rotate_start +
+							(rand() / (FLOAT_T)RAND_MAX) * brush->core.rotate_direction * brush->rotate_range;
+						if((brush->core.flags & BRUSH_FLAG_ROTATE) != 0)
+						{
+							brush->core.rotate += brush->core.rotate_direction * atan2(dy, dx);
+						}
+					}
+					else if((brush->core.flags & BRUSH_FLAG_ROTATE) != 0)
+					{
+						brush->core.rotate = brush->core.rotate_start + brush->core.rotate_direction * atan2(dy, dx);
+					}
+					else
+					{
+						brush->core.rotate = brush->core.rotate_start;
+					}
+					cos_x = cos(brush->core.rotate), sin_y = sin(brush->core.rotate);
+					diff_x = brush->core.d * dx/d, diff_y = brush->core.d * dy/d;
+
+					min_x = brush->points[ref_point][1] - r - 1;
+					max_x = brush->points[ref_point][1] + r + 1;
+					min_y = brush->points[ref_point][2] - r - 1;
+					max_y = brush->points[ref_point][2] + r + 1;
+
+					if(min_x < 0.0)
+					{
+						min_x = 0.0;
+					}
+					if(core->min_x > min_x)
+					{
+						core->min_x = min_x;
+					}
+					if(min_y < 0.0)
+					{
+						min_y = 0.0;
+					}
+					if(core->min_y > min_y)
+					{
+						core->min_y = min_y;
+					}
+					if(max_x > window->work_layer->width)
+					{
+						max_x = window->work_layer->width;
+					}
+					if(core->max_x < max_x)
+					{
+						core->max_x = max_x;
+					}
+					if(max_y > window->work_layer->height)
+					{
+						min_y = window->work_layer->height;
+					}
+					if(core->max_y < max_y)
+					{
+						core->max_y = max_y;
+					}
+
+					if(window->update.x > min_x)
+					{
+						window->update.width += window->update.x - (int)min_x;
+						window->update.x = (int)min_x;
+					}
+					if(window->update.width + window->update.x < max_x)
+					{
+						window->update.width += (int)max_x - window->update.width + window->update.x;
+					}
+					if(window->update.y > min_y)
+					{
+						window->update.height += window->update.y - (int)min_y;
+						window->update.y = (int)min_y;
+					}
+					if(window->update.height + window->update.y < max_y)
+					{
+						window->update.height += (int)max_y - window->update.height + window->update.y;
+					}
+
+					if(brush->stamp_distance >= brush->core.d)
+					{
+						dx = d;
+						do
+						{
+							start_x = (int)(draw_x - r);
+							start_y = (int)(draw_y - r);
+							width = (int)(draw_x + r);
+							height = (int)(draw_y + r);
+
+							if(start_x < 0)
+							{
+								start_x = 0;
+							}
+							else if(start_x > window->work_layer->width)
+							{
+								goto skip_draw;
+							}
+							if(start_y < 0)
+							{
+								start_y = 0;
+							}
+							else if(start_y > window->work_layer->height)
+							{
+								goto skip_draw;
+							}
+							if(width > window->work_layer->width)
+							{
+								width = window->work_layer->width - start_x;
+							}
+							else
+							{
+								width = width - start_x;
+							}
+							if(height > window->work_layer->height)
+							{
+								height = window->work_layer->height - start_y;
+							}
+							else
+							{
+								height = height - start_y;
+							}
+
+							if(width < 0 || height < 0)
+							{
+								goto skip_draw;
+							}
+
+							stride = width*4;
+
+							update_surface = cairo_surface_create_for_rectangle(
+								window->mask_temp->surface_p, draw_x - r, draw_y - r, r*2+1, r*2+1);
+							update = cairo_create(update_surface);
+
+							for(i=0; i<height; i++)
+							{
+								(void)memset(&window->mask_temp->pixels[(i+start_y)*window->mask_temp->stride+start_x*4],
+									0, stride);
+							}
+
+							trans_x = r - (half_width * cos_x + half_height * sin_y);
+							trans_y = r + (half_width * sin_y - half_height * cos_x);
+
+							// 行列データに拡大・縮小、回転角をセット
+							cairo_set_operator(window->mask_temp->cairo_p, CAIRO_OPERATOR_OVER);
+							cairo_matrix_init_scale(&matrix, zoom, zoom);
+							cairo_matrix_rotate(&matrix, brush->core.rotate);
+							cairo_matrix_translate(&matrix, - trans_x, - trans_y);
+
+							mask = window->mask_temp->pixels;
+							if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+							{
+								if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+								{
+									cairo_set_source(update, core->brush_pattern);
+									cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+									cairo_paint_with_alpha(update, alpha);
+								}
+								else
+								{
+									cairo_pattern_set_matrix(core->brush_pattern, &reset_matrix);
+									cairo_set_source(core->temp_cairo, core->brush_pattern);
+									cairo_paint_with_alpha(core->temp_cairo, alpha);
+									cairo_set_source(update, core->temp_pattern);
+									cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+									cairo_mask_surface(update,
+										window->active_layer->surface_p, - draw_x + r, - draw_y + r);
+								}
+							}
+							else
+							{
+								if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+								{
+									cairo_pattern_set_matrix(core->brush_pattern, &reset_matrix);
+									cairo_set_source(core->temp_cairo, core->brush_pattern);
+									cairo_paint_with_alpha(core->temp_cairo, alpha);
+									cairo_set_source(update, core->temp_pattern);
+									cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+									cairo_mask_surface(update,
+										window->selection->surface_p, - draw_x + r, - draw_y + r);
+								}
+								else
+								{
+									cairo_surface_t *temp_surface = cairo_surface_create_for_rectangle(
+										window->temp_layer->surface_p, draw_x-r, draw_y-r, r*2+1, r*2+1
+									);
+									cairo_t *update_temp = cairo_create(temp_surface);
+
+									for(i=0; i<height; i++)
+									{
+										(void)memset(&window->temp_layer->pixels[
+											(i+start_y)*window->temp_layer->stride+start_x*4],
+											0, stride
+										);
+									}
+
+									cairo_pattern_set_matrix(core->brush_pattern, &reset_matrix);
+									cairo_set_source(core->temp_cairo, core->brush_pattern);
+									cairo_paint_with_alpha(core->temp_cairo, alpha);
+									cairo_set_source(update, core->temp_pattern);
+									cairo_mask_surface(update,
+										window->selection->surface_p, - draw_x + r, - draw_y + r);
+									cairo_set_source_surface(update_temp,
+										update_surface, 0, 0);
+									cairo_mask_surface(update_temp,
+										window->active_layer->surface_p, - draw_x + r, - draw_y + r);
+
+									mask = window->temp_layer->pixels;
+
+									cairo_surface_destroy(temp_surface);
+									cairo_destroy(update_temp);
+								}
+							}
+
+							// テクスチャを適用
+							if(window->app->textures.active_texture != 0)
+							{
+								cairo_surface_t *temp_surface = cairo_surface_create_for_rectangle(
+									window->temp_layer->surface_p, draw_x - r, draw_y - r, r*2+1, r*2+1);
+								cairo_t *update_temp = cairo_create(temp_surface);
+
+								if(mask == window->mask_temp->pixels)
+								{
+									for(i=0; i<height; i++)
+									{
+										(void)memset(&window->temp_layer->pixels[
+											(i+start_y)*window->temp_layer->stride+start_x*4],
+											0, stride
+										);
+									}
+									cairo_set_source_surface(update_temp,
+										update_surface, 0, 0);
+									cairo_mask_surface(update_temp, window->texture->surface_p, - draw_x + r, - draw_y + r);
+									mask = window->temp_layer->pixels;
+								}
+								else
+								{
+									for(i=0; i<height; i++)
+									{
+										(void)memset(&window->mask_temp->pixels[
+											(i+start_y)*window->mask_temp->stride+start_x*4],
+											0, stride
+										);
+									}
+									cairo_set_source_surface(update,
+										temp_surface, 0, 0);
+									cairo_mask_surface(update, window->texture->surface_p, - draw_x + r, - draw_y + r);
+									mask = window->mask_temp->pixels;
+								}
+
+								cairo_surface_destroy(temp_surface);
+								cairo_destroy(update_temp);
+							}
+
+							cairo_surface_destroy(update_surface);
+							cairo_destroy(update);
+
+							if(mask == window->mask_temp->pixels)
+							{
+								update_surface = cairo_surface_create_for_rectangle(
+									window->mask_temp->surface_p, start_x, start_y, width, height);
+							}
+							else
+							{
+								update_surface = cairo_surface_create_for_rectangle(
+									window->temp_layer->surface_p, start_x, start_y, width, height);
+							}
+							draw_surface = cairo_image_surface_create_for_data(window->mask->pixels,
+								CAIRO_FORMAT_ARGB32, width, height, stride);
+							for(i=0; i<height; i++)
+							{
+								(void)memcpy(&window->mask->pixels[i*stride],
+									&window->brush_buffer[(start_y+i)*window->stride+start_x*4], stride);
+							}
+
+							update = cairo_create(draw_surface);
+							cairo_set_operator(update, g_layer_blend_operator[brush->blend_mode]);
+							cairo_set_source_surface(update, update_surface, 0, 0);
+							cairo_paint(update);
+
+							cairo_destroy(update);
+							cairo_surface_destroy(draw_surface);
+							cairo_surface_destroy(update_surface);
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+							for(i=0; i<height; i++)
+							{
+								uint8 *ref_pix = &window->work_layer->pixels[
+									(start_y+i)*window->work_layer->stride+start_x*4];
+								uint8 *mask_pix = &window->mask->pixels[i*stride];
+								uint8 *alpha_pix = &mask[(start_y+i)*window->work_layer->stride
+									+start_x*4+3];
+								uint8 draw_value;
+								int j;
+
+								for(j=0; j<width; j++, ref_pix+=4, mask_pix+=4, alpha_pix+=4)
+								{
+									if(ref_pix[3] < *alpha_pix)
+									{
+										draw_value = (uint8)((uint32)(((int)mask_pix[0]) * *alpha_pix >> 8));
+										if(draw_value > ref_pix[0])
+										{
+											ref_pix[0] = (uint8)((uint32)(((int)draw_value-(int)ref_pix[0])
+												* *alpha_pix >> 8) + ref_pix[0]);
+										}
+										draw_value = (uint8)((uint32)(((int)mask_pix[1]) * *alpha_pix >> 8));
+										if(draw_value > ref_pix[1])
+										{
+											ref_pix[1] = (uint8)((uint32)(((int)draw_value-(int)ref_pix[1])
+												* *alpha_pix >> 8) + ref_pix[1]);
+										}
+										draw_value = (uint8)((uint32)(((int)mask_pix[2]) * *alpha_pix >> 8));
+										if(draw_value > ref_pix[2])
+										{
+											ref_pix[2] = (uint8)((uint32)(((int)draw_value-(int)ref_pix[2])
+												* *alpha_pix >> 8) + ref_pix[2]);
+										}
+										ref_pix[3] = (uint8)((uint32)(((int)*alpha_pix-(int)ref_pix[3])
+											* *alpha_pix >> 8) + ref_pix[3]);
+									}
+								}
+							}
+
+							update_r = r * window->zoom_rate;
+							update_x = ((draw_x-window->width/2)*window->cos_value + (draw_y-window->height/2)*window->sin_value) * window->zoom_rate
+								+ window->rev_add_cursor_x;
+							update_y = (- (draw_x-window->width/2)*window->sin_value + (draw_y-window->height/2)*window->cos_value) * window->zoom_rate
+								+ window->rev_add_cursor_y;
+							gtk_widget_queue_draw_area(window->window, (gint)(update_x-update_r), (gint)(update_y-update_r),
+								(gint)(update_r * 2 + BRUSH_UPDATE_MARGIN), (gint)(update_r * 2 + BRUSH_UPDATE_MARGIN));
+skip_draw:
+							dx -= brush->core.d;
+							brush->remain_distance += brush->core.d * brush->core.d;
+							brush->stamp_distance -= brush->core.d;
+							if(brush->remain_distance > 0)
+							{
+								break;
+							}
+							else
+							{
+								draw_x += diff_x, draw_y += diff_y;
+							}
+						} while(1);
+					}
+
+					brush->finish_length += d;
+					brush->travel += d;
+					brush->draw_finished++;
+					ref_point = brush->draw_finished % BRUSH_POINT_BUFFER_SIZE;
+				}	// while(brush->sum_distance > brush->draw_start
+						// && brush->draw_finished < brush->ref_point)
+			}	// if(brush->sum_distance >= brush->draw_start
+					// && brush->sum_distance >= brush->enter_length)
+		}	// if(distance >= 1.0)
+
+		window->flags |= DRAW_WINDOW_UPDATE_PART;
+	}	// マウスの左ボタンが押されていたら
+		// if(((*(GdkModifierType*)state) & GDK_BUTTON1_MASK) != 0)
+}
+
+#define BlendImageBrushEditSelectionMotion BlendImageBrushMotionCallBack
+
+static void BlendImageBrushButtonReleaseCallBack(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	gdouble pressure,
+	BRUSH_CORE *core,
+	void* state
+)
+{
+	// マウスの左ボタンなら
+	if(((GdkEventButton*)state)->button == 1)
+	{
+		// ブラシの詳細情報にキャスト
+		BLEND_IMAGE_BRUSH *brush = (BLEND_IMAGE_BRUSH*)core->brush_data;
+		// 更新範囲のイメージ情報
+		cairo_t *update;
+		cairo_surface_t *update_surface;
+		// ブラシの半径と不透明度
+		gdouble r, alpha;
+		// 座標の最大・最小値
+		gdouble min_x, min_y, max_x, max_y;
+		// X、Y方向の移動量
+		gdouble dx, dy;
+		// ブラシの傾き用
+		gdouble diff_x, diff_y;
+		// ブラシの移動量
+		gdouble d;
+		// 描画を行う座標
+		gdouble draw_x, draw_y;
+		// 画面更新を行う座標、範囲
+		gdouble update_x, update_y, update_r;
+		// 入り、抜き時の色補正
+		gdouble enter_alpha, out_alpha;
+		// ピクセルデータをリセットする座標
+		int start_x, start_y;
+		// 描画する幅、高さ、一行分のバイト数
+		int width, height, stride;
+		// 画像に対しての拡大・回転処理用の行列データ
+		cairo_matrix_t matrix, reset_matrix;
+		// 一時合成用
+		cairo_surface_t *draw_surface;
+		// 画像の拡大率
+		gdouble zoom;
+		// 移動量計算用
+		gdouble cos_x, sin_y, trans_x, trans_y;
+		// 画像の幅・高さの半分
+		gdouble half_width, half_height;
+		// 参照ピクセル
+		uint8 *mask;
+		// 配列のインデックス用
+		int ref_point;
+		int before_point;
+		int i;	// for文用のカウンタ
+
+		ref_point = brush->ref_point % BRUSH_POINT_BUFFER_SIZE;
+		brush->points[ref_point][1] = x, brush->points[ref_point][2] = y;
+		brush->ref_point++;
+
+		while(brush->ref_point > brush->draw_finished)
+		{
+			ref_point = brush->draw_finished % BRUSH_POINT_BUFFER_SIZE;
+
+			if(brush->finish_length < brush->enter_length)
+			{
+				enter_alpha = brush->finish_length / brush->enter_length;
+				r = brush->enter_size + brush->finish_length * 0.25;
+			}
+			else
+			{
+				enter_alpha = 1;
+				r = 1;
+			}
+
+			if((brush->core.flags & STAMP_PRESSURE_SIZE) != 0)
+			{
+				r *= brush->points[ref_point][3];
+			}
+			if((brush->core.flags & STAMP_RANDOM_SIZE) != 0)
+			{
+				r *= 1 - (brush->size_range * (rand() / (FLOAT_T)RAND_MAX));
+			}
+			if(r < MIN_BRUSH_STEP)
+			{
+				r = MIN_BRUSH_STEP;
+			}
+
+			if((brush->core.flags & STAMP_RANDOM_ROTATE) != 0)
+			{
+				brush->core.rotate = (rand() / (FLOAT_T)RAND_MAX) * (2*G_PI);
+			}
+
+			half_width = brush->core.half_width * r;
+			half_height = brush->core.half_height * r;
+			zoom = (1/r) * brush->core.scale;
+			r *= brush->core.r;
+
+			if(brush->sum_distance < brush->draw_start)
+			{
+				out_alpha = brush->sum_distance / brush->draw_start;
+				r -= (brush->draw_start - brush->sum_distance) * 0.25;
+			}
+			else
+			{
+				out_alpha = 1;
+			}
+
+			if(r < 0.0)
+			{
+				brush->draw_finished++;
+				continue;
+			}
+
+			alpha = ((brush->core.flags & BRUSH_FLAG_FLOW) == 0)
+				? 1 : brush->points[ref_point][3];
+			alpha *= enter_alpha;
+
+			before_point = (ref_point == 0) ? BRUSH_POINT_BUFFER_SIZE - 1 : ref_point - 1;
+			d = brush->points[ref_point][0];
+			brush->sum_distance -= d;
+			if(brush->draw_finished == 0)
+			{
+				draw_x = brush->points[0][1], draw_y = brush->points[0][2];
+			}
+			else
+			{
+				draw_x = brush->points[before_point][1];
+				draw_y = brush->points[before_point][2];
+			}
+			dx = brush->points[ref_point][1] - draw_x;
+			dy = brush->points[ref_point][2] - draw_y;
+
+			if((brush->core.flags & STAMP_RANDOM_ROTATE) != 0)
+			{
+				brush->core.rotate = brush->core.rotate_start +
+					(rand() / (FLOAT_T)RAND_MAX) * brush->core.rotate_direction * brush->rotate_range;
+				if((brush->core.flags & BRUSH_FLAG_ROTATE) != 0)
+				{
+					brush->core.rotate += brush->core.rotate_direction * atan2(dy, dx);
+				}
+			}
+			else if((brush->core.flags & BRUSH_FLAG_ROTATE) != 0)
+			{
+				brush->core.rotate = brush->core.rotate_start + brush->core.rotate_direction * atan2(dy, dx);
+			}
+			else
+			{
+				brush->core.rotate = brush->core.rotate_start;
+			}
+			cos_x = cos(brush->core.rotate), sin_y = sin(brush->core.rotate);
+			diff_x = dx/d, diff_y = dy/d;
+
+			min_x = brush->points[ref_point][1] - r - 1;
+			max_x = brush->points[ref_point][1] + r + 1;
+			min_y = brush->points[ref_point][2] - r - 1;
+			max_y = brush->points[ref_point][2] + r + 1;
+
+			if(min_x < 0.0)
+			{
+				min_x = 0.0;
+			}
+			if(core->min_x > min_x)
+			{
+				core->min_x = min_x;
+			}
+			if(min_y < 0.0)
+			{
+				min_y = 0.0;
+			}
+			if(core->min_y > min_y)
+			{
+				core->min_y = min_y;
+			}
+			if(max_x > window->work_layer->width)
+			{
+				max_x = window->work_layer->width;
+			}
+			if(core->max_x < max_x)
+			{
+				core->max_x = max_x;
+			}
+			if(max_y > window->work_layer->height)
+			{
+				min_y = window->work_layer->height;
+			}
+			if(core->max_y < max_y)
+			{
+				core->max_y = max_y;
+			}
+
+			if(window->update.x > min_x)
+			{
+				window->update.width += window->update.x - (int)min_x;
+				window->update.x = (int)min_x;
+			}
+			if(window->update.width + window->update.x < max_x)
+			{
+				window->update.width += (int)max_x - window->update.width + window->update.x;
+			}
+			if(window->update.y > min_y)
+			{
+				window->update.height += window->update.y - (int)min_y;
+				window->update.y = (int)min_y;
+			}
+			if(window->update.height + window->update.y < max_y)
+			{
+				window->update.height += (int)max_y - window->update.height + window->update.y;
+			}
+
+			if(brush->stamp_distance > brush->core.d || brush->draw_finished == 0)
+			{
+				dx = d;
+				do
+				{
+					start_x = (int)(draw_x - r);
+					start_y = (int)(draw_y - r);
+					width = (int)(draw_x + r);
+					height = (int)(draw_y + r);
+
+					if(start_x < 0)
+					{
+						start_x = 0;
+					}
+					else if(start_x > window->work_layer->width)
+					{
+						goto skip_draw;
+					}
+					if(start_y < 0)
+					{
+						start_y = 0;
+					}
+					else if(start_y > window->work_layer->height)
+					{
+						goto skip_draw;
+					}
+					if(width > window->work_layer->width)
+					{
+						width = window->work_layer->width - start_x;
+					}
+					else
+					{
+						width = width - start_x;
+					}
+					if(height > window->work_layer->height)
+					{
+						height = window->work_layer->height - start_y;
+					}
+					else
+					{
+						height = height - start_y;
+					}
+
+					if(width < 0 || height < 0)
+					{
+						goto skip_draw;
+					}
+
+					stride = width*4;
+
+					update_surface = cairo_surface_create_for_rectangle(
+						window->mask_temp->surface_p, draw_x - r, draw_y - r, r*2+1, r*2+1);
+					update = cairo_create(update_surface);
+
+					for(i=0; i<height; i++)
+					{
+						(void)memset(&window->mask_temp->pixels[(i+start_y)*window->mask_temp->stride+start_x*4],
+							0, stride);
+					}
+
+					trans_x = r - (half_width * cos_x + half_height * sin_y);
+					trans_y = r + (half_width * sin_y - half_height * cos_x);
+
+					// 行列データに拡大・縮小、回転角をセット
+					cairo_set_operator(window->mask_temp->cairo_p, CAIRO_OPERATOR_OVER);
+					cairo_matrix_init_scale(&matrix, zoom, zoom);
+					cairo_matrix_rotate(&matrix, brush->core.rotate);
+					cairo_matrix_translate(&matrix, - trans_x, - trans_y);
+
+					mask = window->mask_temp->pixels;
+					if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+					{
+						if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+						{
+							cairo_set_source(update, core->brush_pattern);
+							cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+							cairo_paint_with_alpha(update, alpha);
+						}
+						else
+						{
+							cairo_pattern_set_matrix(core->brush_pattern, &reset_matrix);
+							cairo_set_source(core->temp_cairo, core->brush_pattern);
+							cairo_paint_with_alpha(core->temp_cairo, alpha);
+							cairo_set_source(update, core->temp_pattern);
+							cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+							cairo_mask_surface(update,
+								window->active_layer->surface_p, - draw_x + r, - draw_y + r);
+						}
+					}
+					else
+					{
+						if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+						{
+							cairo_pattern_set_matrix(core->brush_pattern, &reset_matrix);
+							cairo_set_source(core->temp_cairo, core->brush_pattern);
+							cairo_paint_with_alpha(core->temp_cairo, alpha);
+							cairo_set_source(update, core->temp_pattern);
+							cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+							cairo_mask_surface(update,
+								window->selection->surface_p, - draw_x + r, - draw_y + r);
+						}
+						else
+						{
+							cairo_surface_t *temp_surface = cairo_surface_create_for_rectangle(
+								window->temp_layer->surface_p, draw_x-r, draw_y-r, r*2+1, r*2+1
+							);
+							cairo_t *update_temp = cairo_create(temp_surface);
+
+							for(i=0; i<height; i++)
+							{
+								(void)memset(&window->temp_layer->pixels[
+									(i+start_y)*window->temp_layer->stride+start_x*4],
+									0, stride
+								);
+							}
+
+							cairo_pattern_set_matrix(core->brush_pattern, &reset_matrix);
+							cairo_set_source(core->temp_cairo, core->brush_pattern);
+							cairo_paint_with_alpha(core->temp_cairo, alpha);
+							cairo_set_source(update, core->temp_pattern);
+							cairo_mask_surface(update,
+								window->selection->surface_p, - draw_x + r, - draw_y + r);
+							cairo_set_source_surface(update_temp,
+								update_surface, 0, 0);
+							cairo_mask_surface(update_temp,
+								window->active_layer->surface_p, - draw_x + r, - draw_y + r);
+
+							mask = window->temp_layer->pixels;
+
+							cairo_surface_destroy(temp_surface);
+							cairo_destroy(update_temp);
+						}
+					}
+
+					// テクスチャを適用
+					if(window->app->textures.active_texture != 0)
+					{
+						cairo_surface_t *temp_surface = cairo_surface_create_for_rectangle(
+							window->temp_layer->surface_p, draw_x - r, draw_y - r, r*2+1, r*2+1);
+						cairo_t *update_temp = cairo_create(temp_surface);
+
+						if(mask == window->mask_temp->pixels)
+						{
+							for(i=0; i<height; i++)
+							{
+								(void)memset(&window->temp_layer->pixels[
+									(i+start_y)*window->temp_layer->stride+start_x*4],
+									0, stride
+								);
+							}
+							cairo_set_source_surface(update_temp,
+								update_surface, 0, 0);
+							cairo_mask_surface(update_temp, window->texture->surface_p, - draw_x + r, - draw_y + r);
+							mask = window->temp_layer->pixels;
+						}
+						else
+						{
+							for(i=0; i<height; i++)
+							{
+								(void)memset(&window->mask_temp->pixels[
+									(i+start_y)*window->mask_temp->stride+start_x*4],
+									0, stride
+								);
+							}
+							cairo_set_source_surface(update,
+								temp_surface, 0, 0);
+							cairo_mask_surface(update, window->texture->surface_p, - draw_x + r, - draw_y + r);
+							mask = window->mask_temp->pixels;
+						}
+
+						cairo_surface_destroy(temp_surface);
+						cairo_destroy(update_temp);
+					}
+
+					cairo_surface_destroy(update_surface);
+					cairo_destroy(update);
+
+					if(mask == window->mask_temp->pixels)
+					{
+						update_surface = cairo_surface_create_for_rectangle(
+							window->mask_temp->surface_p, start_x, start_y, width, height);
+					}
+					else
+					{
+						update_surface = cairo_surface_create_for_rectangle(
+							window->temp_layer->surface_p, start_x, start_y, width, height);
+					}
+					draw_surface = cairo_image_surface_create_for_data(window->mask->pixels,
+						CAIRO_FORMAT_ARGB32, width, height, stride);
+					for(i=0; i<height; i++)
+					{
+						(void)memcpy(&window->mask->pixels[i*stride],
+							&window->brush_buffer[(start_y+i)*window->stride+start_x*4], stride);
+					}
+
+					update = cairo_create(draw_surface);
+					cairo_set_operator(update, g_layer_blend_operator[brush->blend_mode]);
+					cairo_set_source_surface(update, update_surface, 0, 0);
+					cairo_paint(update);
+
+					cairo_destroy(update);
+					cairo_surface_destroy(draw_surface);
+					cairo_surface_destroy(update_surface);
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+					for(i=0; i<height; i++)
+					{
+						uint8 *ref_pix = &window->work_layer->pixels[
+							(start_y+i)*window->work_layer->stride+start_x*4];
+						uint8 *mask_pix = &window->mask->pixels[i*stride];
+						uint8 *alpha_pix = &mask[(start_y+i)*window->work_layer->stride
+							+start_x*4+3];
+						uint8 draw_value;
+						int j;
+
+						for(j=0; j<width; j++, ref_pix+=4, mask_pix+=4, alpha_pix+=4)
+						{
+							if(ref_pix[3] < *alpha_pix)
+							{
+								draw_value = (uint8)((uint32)(((int)mask_pix[0]) * *alpha_pix >> 8));
+								if(draw_value > ref_pix[0])
+								{
+									ref_pix[0] = (uint8)((uint32)(((int)draw_value-(int)ref_pix[0])
+										* *alpha_pix >> 8) + ref_pix[0]);
+								}
+								draw_value = (uint8)((uint32)(((int)mask_pix[1]) * *alpha_pix >> 8));
+								if(draw_value > ref_pix[1])
+								{
+									ref_pix[1] = (uint8)((uint32)(((int)draw_value-(int)ref_pix[1])
+										* *alpha_pix >> 8) + ref_pix[1]);
+								}
+								draw_value = (uint8)((uint32)(((int)mask_pix[2]) * *alpha_pix >> 8));
+								if(draw_value > ref_pix[2])
+								{
+									ref_pix[2] = (uint8)((uint32)(((int)draw_value-(int)ref_pix[2])
+										* *alpha_pix >> 8) + ref_pix[2]);
+								}
+								ref_pix[3] = (uint8)((uint32)(((int)*alpha_pix-(int)ref_pix[3])
+									* *alpha_pix >> 8) + ref_pix[3]);
+							}
+						}
+					}
+
+					update_r = r * window->zoom_rate;
+					update_x = ((draw_x-window->width/2)*window->cos_value + (draw_y-window->height/2)*window->sin_value) * window->zoom_rate
+						+ window->rev_add_cursor_x;
+					update_y = (- (draw_x-window->width/2)*window->sin_value + (draw_y-window->height/2)*window->cos_value) * window->zoom_rate
+						+ window->rev_add_cursor_y;
+					gtk_widget_queue_draw_area(window->window, (gint)(update_x-update_r), (gint)(update_y-update_r),
+						(gint)(update_r * 2 + BRUSH_UPDATE_MARGIN), (gint)(update_r * 2 + BRUSH_UPDATE_MARGIN));
+skip_draw:
+					dx -= brush->core.d;
+					brush->stamp_distance -= brush->core.d;
+					if(dx < brush->core.d)
+					{
+						break;
+					}
+					else
+					{
+						draw_x += diff_x, draw_y += diff_y;
+					}
+				} while(1);
+			}
+
+			brush->finish_length += d;
+			brush->travel += d;
+			brush->draw_finished++;
+			ref_point = brush->draw_finished % BRUSH_POINT_BUFFER_SIZE;
+		}	// while(brush->ref_point > brush->draw_finished)
+
+		AddBrushHistory(core, window->active_layer);
+
+		window->update.surface_p = cairo_surface_create_for_rectangle(
+			window->active_layer->surface_p, window->update.x, window->update.y,
+				window->update.width, window->update.height);
+		window->update.cairo_p = cairo_create(window->update.surface_p);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		cairo_destroy(window->update.cairo_p);
+		cairo_surface_destroy(window->update.surface_p);
+
+		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
+
+		window->work_layer->layer_mode = LAYER_BLEND_NORMAL;
+
+		brush->core.rotate = brush->core.rotate_start;
+
+		window->flags |= DRAW_WINDOW_UPDATE_PART;
+	}	// マウスの左ボタンなら
+		// if(((GdkEventButton*)state)->button == 1)
+}
+
+static void BlendImageBrushEditSelectionRelease(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	gdouble pressure,
+	BRUSH_CORE *core,
+	void* state
+)
+{
+	// マウスの左ボタンなら
+	if(((GdkEventButton*)state)->button == 1)
+	{
+		// ブラシの詳細情報にキャスト
+		BLEND_IMAGE_BRUSH *brush = (BLEND_IMAGE_BRUSH*)core->brush_data;
+		// ブラシの半径と不透明度
+		gdouble r, alpha;
+		// 座標の最大・最小値
+		gdouble min_x, min_y, max_x, max_y;
+		// X、Y方向の移動量
+		gdouble dx, dy;
+		// ブラシの傾き用
+		gdouble diff_x, diff_y;
+		// ブラシの移動量
+		gdouble d;
+		// 描画を行う座標
+		gdouble draw_x, draw_y;
+		// 入り、抜き時の色補正
+		gdouble enter_alpha, out_alpha;
+		// ピクセルデータをリセットする座標
+		int start_x, start_y;
+		// 描画する幅、高さ、一行分のバイト数
+		int width, height, stride;
+		// 画像に対しての拡大・回転処理用の行列データ
+		cairo_matrix_t matrix, reset_matrix;
+		// 画像の拡大率
+		gdouble zoom;
+		// 移動量計算用
+		gdouble cos_x, sin_y, trans_x, trans_y;
+		// 画像の幅・高さの半分
+		gdouble half_width, half_height;
+		// 参照ピクセル
+		uint8 *mask;
+		// 配列のインデックス用
+		int ref_point;
+		int before_point;
+		int i;	// for文用のカウンタ
+
+		ref_point = brush->ref_point % BRUSH_POINT_BUFFER_SIZE;
+		brush->points[ref_point][1] = x, brush->points[ref_point][2] = y;
+		brush->ref_point++;
+
+		while(brush->ref_point > brush->draw_finished)
+		{
+			ref_point = brush->draw_finished % BRUSH_POINT_BUFFER_SIZE;
+
+			if(brush->finish_length < brush->enter_length)
+			{
+				enter_alpha = brush->finish_length / brush->enter_length;
+				r = brush->enter_size + brush->finish_length * 0.25;
+			}
+			else
+			{
+				enter_alpha = 1;
+				r = 1;
+			}
+
+			if((brush->core.flags & STAMP_PRESSURE_SIZE) != 0)
+			{
+				r *= brush->points[ref_point][3];
+			}
+			if((brush->core.flags & STAMP_RANDOM_SIZE) != 0)
+			{
+				r *= 1 - (brush->size_range * (rand() / (FLOAT_T)RAND_MAX));
+			}
+			if(r < MIN_BRUSH_STEP)
+			{
+				r = MIN_BRUSH_STEP;
+			}
+
+			if((brush->core.flags & STAMP_RANDOM_ROTATE) != 0)
+			{
+				brush->core.rotate = (rand() / (FLOAT_T)RAND_MAX) * (2*G_PI);
+			}
+
+			half_width = brush->core.half_width * r;
+			half_height = brush->core.half_height * r;
+			zoom = (1/r) * brush->core.scale;
+			r *= brush->core.r;
+
+			if(brush->sum_distance < brush->draw_start)
+			{
+				out_alpha = brush->sum_distance / brush->draw_start;
+				r -= (brush->draw_start - brush->sum_distance) * 0.25;
+			}
+			else
+			{
+				out_alpha = 1;
+			}
+
+			if(r < 0.0)
+			{
+				brush->draw_finished++;
+				continue;
+			}
+
+			alpha = ((brush->core.flags & BRUSH_FLAG_FLOW) == 0)
+				? brush->core.flow : brush->core.flow * brush->points[ref_point][3];
+			alpha *= enter_alpha;
+
+			if(brush->core.brush_surface != NULL)
+			{
+				cairo_surface_destroy(brush->core.brush_surface);
+			}
+			brush->core.brush_surface = CreatePatternSurface(
+				&window->app->stamps, *core->color, *core->back_color, brush->core.pattern_flags, brush->mode, alpha);
+
+			before_point = (ref_point == 0) ? BRUSH_POINT_BUFFER_SIZE - 1 : ref_point - 1;
+			d = brush->points[ref_point][0];
+			brush->sum_distance -= d;
+			if(brush->draw_finished == 0)
+			{
+				draw_x = brush->points[0][1], draw_y = brush->points[0][2];
+			}
+			else
+			{
+				draw_x = brush->points[before_point][1];
+				draw_y = brush->points[before_point][2];
+			}
+			dx = brush->points[ref_point][1] - draw_x;
+			dy = brush->points[ref_point][2] - draw_y;
+
+			if((brush->core.flags & STAMP_RANDOM_ROTATE) != 0)
+			{
+				brush->core.rotate = brush->core.rotate_start +
+					(rand() / (FLOAT_T)RAND_MAX) * brush->core.rotate_direction * brush->rotate_range;
+				if((brush->core.flags & BRUSH_FLAG_ROTATE) != 0)
+				{
+					brush->core.rotate += brush->core.rotate_direction * atan2(dy, dx);
+				}
+			}
+			else if((brush->core.flags & BRUSH_FLAG_ROTATE) != 0)
+			{
+				brush->core.rotate = brush->core.rotate_start + brush->core.rotate_direction * atan2(dy, dx);
+			}
+			else
+			{
+				brush->core.rotate = brush->core.rotate_start;
+			}
+
+			cos_x = cos(brush->core.rotate), sin_y = sin(brush->core.rotate);
+			diff_x = dx/d, diff_y = dy/d;
+
+			min_x = brush->points[ref_point][1] - r - 1;
+			max_x = brush->points[ref_point][1] + r + 1;
+			min_y = brush->points[ref_point][2] - r - 1;
+			max_y = brush->points[ref_point][2] + r + 1;
+
+			if(min_x < 0.0)
+			{
+				min_x = 0.0;
+			}
+			if(core->min_x > min_x)
+			{
+				core->min_x = min_x;
+			}
+			if(min_y < 0.0)
+			{
+				min_y = 0.0;
+			}
+			if(core->min_y > min_y)
+			{
+				core->min_y = min_y;
+			}
+			if(max_x > window->work_layer->width)
+			{
+				max_x = window->work_layer->width;
+			}
+			if(core->max_x < max_x)
+			{
+				core->max_x = max_x;
+			}
+			if(max_y > window->work_layer->height)
+			{
+				min_y = window->work_layer->height;
+			}
+			if(core->max_y < max_y)
+			{
+				core->max_y = max_y;
+			}
+
+			if(brush->stamp_distance > brush->core.d)
+			{
+				dx = d;
+				do
+				{
+					start_x = (int)(draw_x - r);
+					start_y = (int)(draw_y - r);
+					width = (int)(draw_x + r);
+					height = (int)(draw_y + r);
+
+					if(start_x < 0)
+					{
+						start_x = 0;
+					}
+					else if(start_x > window->work_layer->width)
+					{
+						goto skip_draw;
+					}
+					if(start_y < 0)
+					{
+						start_y = 0;
+					}
+					else if(start_y > window->work_layer->height)
+					{
+						goto skip_draw;
+					}
+					if(width > window->work_layer->width)
+					{
+						width = window->work_layer->width - start_x;
+					}
+					else
+					{
+						width = width - start_x;
+					}
+					if(height > window->work_layer->height)
+					{
+						height = window->work_layer->height - start_y;
+					}
+					else
+					{
+						height = height - start_y;
+					}
+
+					if(width < 0 || height < 0)
+					{
+						goto skip_draw;
+					}
+					stride = width*4;
+
+					for(i=0; i<height; i++)
+					{
+						(void)memset(&window->mask_temp->pixels[(i+start_y)*window->mask_temp->stride+start_x*4],
+							0, stride);
+					}
+
+					trans_x = draw_x - (half_width * cos_x + half_height * sin_y);
+					trans_y = draw_y + (half_width * sin_y - half_height * cos_x);
+					// 行列データに拡大・縮小、回転角をセット
+					cairo_set_operator(window->mask_temp->cairo_p, CAIRO_OPERATOR_OVER);
+					cairo_matrix_init_scale(&matrix, zoom, zoom);
+					cairo_matrix_rotate(&matrix, brush->core.rotate);
+					cairo_matrix_translate(&matrix, - trans_x, - trans_y);
+
+					mask = window->mask_temp->pixels;
+					if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+					{
+						if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+						{
+							cairo_set_source(window->mask_temp->cairo_p, core->brush_pattern);
+							cairo_pattern_set_matrix(core->brush_pattern, &matrix);
+							cairo_paint_with_alpha(window->mask_temp->cairo_p, alpha);
+						}
+						else
+						{
+							cairo_pattern_set_matrix(core->brush_pattern, &reset_matrix);
+							cairo_set_source(core->temp_cairo, core->brush_pattern);
+							cairo_paint_with_alpha(core->temp_cairo, alpha);
+							cairo_set_source(window->mask_temp->cairo_p, core->temp_pattern);
+							cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+							cairo_mask_surface(window->mask_temp->cairo_p,
+								window->active_layer->surface_p, 0, 0);
+						}
+					}
+					else
+					{
+						if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+						{
+							cairo_pattern_set_matrix(core->brush_pattern, &reset_matrix);
+							cairo_set_source(core->temp_cairo, core->brush_pattern);
+							cairo_paint_with_alpha(core->temp_cairo, alpha);
+							cairo_set_source(window->mask_temp->cairo_p, core->temp_pattern);
+							cairo_pattern_set_matrix(core->temp_pattern, &matrix);
+							cairo_mask_surface(window->mask_temp->cairo_p,
+								window->selection->surface_p, 0, 0);
+						}
+						else
+						{
+							for(i=0; i<height; i++)
+							{
+								(void)memset(&window->temp_layer->pixels[
+									(i+start_y)*window->temp_layer->stride+start_x*4],
+									0, stride
+								);
+							}
+
+							cairo_pattern_set_matrix(core->brush_pattern, &reset_matrix);
+							cairo_set_source(core->temp_cairo, core->brush_pattern);
+							cairo_paint_with_alpha(core->temp_cairo, alpha);
+							cairo_set_source(window->mask_temp->cairo_p, core->temp_pattern);
+							cairo_mask_surface(window->mask_temp->cairo_p,
+								window->selection->surface_p, 0, 0);
+							cairo_set_source_surface(window->temp_layer->cairo_p,
+								window->mask_temp->surface_p, 0, 0);
+							cairo_mask_surface(window->temp_layer->cairo_p,
+								window->active_layer->surface_p, 0, 0);
+
+							mask = window->temp_layer->pixels;
+						}
+					}
+
+					// テクスチャを適用
+					if(window->app->textures.active_texture != 0)
+					{
+						if(mask == window->mask_temp->pixels)
+						{
+							for(i=0; i<height; i++)
+							{
+								(void)memset(&window->temp_layer->pixels[
+									(i+start_y)*window->temp_layer->stride+start_x*4],
+									0, stride
+								);
+							}
+							cairo_set_source_surface(window->temp_layer->cairo_p,
+								window->mask_temp->surface_p, 0, 0);
+							cairo_mask_surface(window->temp_layer->cairo_p, window->texture->surface_p, 0, 0);
+							mask = window->temp_layer->pixels;
+						}
+						else
+						{
+							for(i=0; i<height; i++)
+							{
+								(void)memset(&window->mask_temp->pixels[
+									(i+start_y)*window->mask_temp->stride+start_x*4],
+									0, stride
+								);
+							}
+							cairo_set_source_surface(window->mask_temp->cairo_p,
+								window->temp_layer->surface_p, 0, 0);
+							cairo_mask_surface(window->mask_temp->cairo_p, window->texture->surface_p, 0, 0);
+							mask = window->mask_temp->pixels;
+						}
+					}
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+					for(i=0; i<height; i++)
+					{
+						uint8 *ref_pix = &window->work_layer->pixels[
+							(start_y+i)*window->work_layer->stride+start_x*4];
+						uint8 *mask_pix = &mask[(start_y+i)*window->work_layer->stride
+							+start_x*4];
+						int j;
+
+						for(j=0; j<width; j++, ref_pix+=4, mask_pix+=4)
+						{
+							if(ref_pix[3] < mask_pix[3])
+							{
+								ref_pix[0] = (uint8)((uint32)(((int)mask_pix[0]-(int)ref_pix[0])
+									* mask_pix[3] >> 8) + ref_pix[0]);
+								ref_pix[1] = (uint8)((uint32)(((int)mask_pix[1]-(int)ref_pix[1])
+									* mask_pix[3] >> 8) + ref_pix[1]);
+								ref_pix[2] = (uint8)((uint32)(((int)mask_pix[2]-(int)ref_pix[2])
+									* mask_pix[3] >> 8) + ref_pix[2]);
+								ref_pix[3] = (uint8)((uint32)(((int)mask_pix[3]-(int)ref_pix[3])
+									* mask_pix[3] >> 8) + ref_pix[3]);
+							}
+						}
+					}
+skip_draw:
+					dx -= brush->core.d;
+					brush->stamp_distance -= brush->core.d;
+					if(dx < brush->core.d)
+					{
+						break;
+					}
+					else
+					{
+						draw_x += diff_x, draw_y += diff_y;
+					}
+				} while(1);
+			}
+
+			brush->finish_length += d;
+			brush->travel += d;
+			brush->draw_finished++;
+			ref_point = brush->draw_finished % BRUSH_POINT_BUFFER_SIZE;
+		}	// while(brush->ref_point > brush->draw_finished)
+
+		AddSelectionEditHistory(core, window->selection);
+
+		g_blend_selection_funcs[window->selection->layer_mode](window->work_layer, window->selection);
+
+		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
+
+		window->work_layer->layer_mode = LAYER_BLEND_NORMAL;
+
+		brush->core.rotate = brush->core.rotate_start;
+	}	// マウスの左ボタンなら
+		// if(((GdkEventButton*)state)->button == 1)
+}
+
+static void BlendImageBrushDrawCursor(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	void* data
+)
+{
+	StampCoreDrawCursor(window, x, y, &((BLEND_IMAGE_BRUSH*)data)->core);
+}
+
+static void BlendImageBrushButtonUpdate(DRAW_WINDOW* window, gdouble x, gdouble y, BLEND_IMAGE_BRUSH* brush)
+{
+	gdouble r;
+
+	if(brush->core.half_width > brush->core.half_height)
+	{
+		r = brush->core.half_width * 2 * window->zoom_rate + 1;
+	}
+	else
+	{
+		r = brush->core.half_height * 2 * window->zoom_rate + 1;
+	}
+
+	gtk_widget_queue_draw_area(window->window, (gint)(x - r - 1),
+		(gint)(y - r - 1), (gint)(r * 2) + 2, (gint)(r * 2) + 2);
+}
+
+static void BlendImageBrushMotionUpdate(DRAW_WINDOW* window, gdouble x, gdouble y, BLEND_IMAGE_BRUSH* brush)
+{
+	gdouble start_x, start_y;
+	gdouble width, height;
+	gdouble r;
+	gdouble enter = (brush->enter_length + brush->draw_start) * window->zoom_rate;
+
+	if(brush->core.half_width > brush->core.half_height)
+	{
+		r = brush->core.half_width * 2 * window->zoom_rate + 1;
+	}
+	else
+	{
+		r = brush->core.half_height * 2 * window->zoom_rate + 1;
+	}
+
+	if(window->before_cursor_x < x)
+	{
+		start_x = window->before_cursor_x - r;
+		width = r * 2 + x - window->before_cursor_x;
+	}
+	else
+	{
+		start_x = x - r;
+		width = r * 2 + window->before_cursor_x - x;
+	}
+
+	if(window->before_cursor_y < y)
+	{
+		start_y = window->before_cursor_y - r;
+		height = r * 2 + y - window->before_cursor_y;
+	}
+	else
+	{
+		start_y = y - r;
+		height = r * 2 + window->before_cursor_y - y;
+	}
+
+	start_x -= enter * 4;
+	width += enter * 4 * 2 + 2;
+	start_y -= enter * 4;
+	height += enter * 4 * 2 + 2;
+
+	gtk_widget_queue_draw_area(window->window,
+		(gint)start_x, (gint)start_y, (gint)width, (gint)height);
+}
+
+static void BlendImageBrushChangeColor(const uint8 color[3], void* data)
+{
+	BLEND_IMAGE_BRUSH *brush = (BLEND_IMAGE_BRUSH*)data;
+	InitializeStampCore(&brush->core, brush->mode, brush->core.app);
+}
+
+static void BlendImageBrushSetEnter(GtkAdjustment* slider, BLEND_IMAGE_BRUSH* brush)
+{
+	brush->enter = gtk_adjustment_get_value(slider);
+}
+
+static void BlendImageBrushSetOut(GtkAdjustment* slider, BLEND_IMAGE_BRUSH* brush)
+{
+	brush->out = gtk_adjustment_get_value(slider);
+}
+
+static void BlendImageBrushSetBlendMode(GtkComboBox* combo, BLEND_IMAGE_BRUSH* brush)
+{
+	brush->blend_mode = (uint16)gtk_combo_box_get_active(combo);
+}
+
+static void BlendImageBrushSetRotate2Direction(GtkWidget* button, BLEND_IMAGE_BRUSH* brush)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
+	{
+		brush->core.flags &= ~(BRUSH_FLAG_ROTATE);
+	}
+	else
+	{
+		brush->core.flags |= BRUSH_FLAG_ROTATE;
+	}
+}
+
+static void BlendImageBrushSetRotateDirection(GtkWidget* button, BLEND_IMAGE_BRUSH* brush)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
+	{
+		brush->core.rotate_direction = GPOINTER_TO_INT(g_object_get_data(
+			G_OBJECT(button), "rotate_direction"));
+	}
+}
+
+static void BlendImageBrushSetSizeRange(GtkAdjustment* slider, BLEND_IMAGE_BRUSH* brush)
+{
+	brush->size_range = gtk_adjustment_get_value(slider) * 0.01;
+}
+
+static void BlendImageBrushSetRotateRange(GtkAdjustment* slider, BLEND_IMAGE_BRUSH* brush)
+{
+	brush->random_rotate_range = (int16)gtk_adjustment_get_value(slider);
+	brush->rotate_range = brush->random_rotate_range * G_PI / 180;
+}
+
+static void BlendImageBrushSetBlendTarget(GtkWidget* button, BLEND_IMAGE_BRUSH* brush)
+{
+	int target = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "target"));
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
+	{
+		brush->target = (uint8)target;
+	}
+}
+
+static GtkWidget* CreateBlendImageBrushDetailUI(APPLICATION* app, BRUSH_CORE* brush_core)
+{
+#define UI_FONT_SIZE 8.0
+#define ICON_SIZE 32
+	BLEND_IMAGE_BRUSH *brush = (BLEND_IMAGE_BRUSH*)brush_core->brush_data;
+	STAMP_CORE *core = &brush->core;
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
+	// ラベル、スライダ
+	GtkWidget* label, *scale;
+	// スクロールドウィンドウ
+	GtkWidget* scrolled_window;
+	// ウィジェット整列用のテーブル
+	GtkWidget* table;
+	// 回転方向、モード設定用のラジオボタン
+	GtkWidget* radio_buttons[PATTERN_MODE_NUM];
+	// 筆圧使用設定のチェックボックス
+	GtkWidget* check_button;
+	// 合成モード選択用のコンボボックス
+	GtkWidget* combo;
+	// スライダに使用するアジャスタ
+	GtkAdjustment* scale_adjustment;
+	// ラベルのフォント変更用のマークアップバッファ
+	char mark_up_buff[256];
+	int i;	// for文用のカウンタ
+
+	// アプリケーション管理の構造体へのポインタをセット
+	core->app = app;
+
+	// クリップボードのパターンを更新
+	UpdateClipBoardPattern(&app->stamps);
+
+	// 拡大縮小率設定用のウィジェット
+	scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
+		(1 / core->scale) * 100, 10, 300, 0.1, 0.1, 0));
+	scale = SpinScaleNew(scale_adjustment,
+		app->labels->tool_box.brush_scale, 1);
+	(void)g_signal_connect(G_OBJECT(scale_adjustment), "value_changed",
+		G_CALLBACK(StampCoreChangeScale), core);
+	g_object_set_data(G_OBJECT(scale_adjustment), "application", app);
+	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+
+	// 濃度変更用ウィジェット
+	scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
+		core->flow * 100, 0, 100, 0.1, 0.1, 0));
+	scale = SpinScaleNew(scale_adjustment,
+		app->labels->tool_box.flow, 1);
+	g_object_set_data(G_OBJECT(scale_adjustment), "application", app);
+	g_signal_connect(G_OBJECT(scale_adjustment), "value_changed",
+		G_CALLBACK(StampCoreChangeFlow), core);
+	table = gtk_table_new(1, 3, TRUE);
+	gtk_table_attach_defaults(GTK_TABLE(table), scale, 0, 3, 0, 1);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
+
+	// 開始回転角変更用ウィジェット
+	scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
+		fabs(core->rotate_start) * 180 / G_PI, 0, 360, 0.1, 0.1, 0));
+	scale = SpinScaleNew(scale_adjustment,
+		app->labels->tool_box.rotate_start, 1);
+	g_object_set_data(G_OBJECT(scale_adjustment), "application", app);
+	(void)g_signal_connect(G_OBJECT(scale_adjustment), "value_changed",
+		G_CALLBACK(StampCoreChangeRotateStart), core);
+	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+
+	// 間隔変更用ウィジェット
+	scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
+		core->stamp_distance, 0.1, 3, 0.1, 0.1, 0));
+	scale = SpinScaleNew(scale_adjustment,
+		app->labels->tool_box.distance, 1);
+	(void)g_signal_connect(G_OBJECT(scale_adjustment), "value_changed",
+		G_CALLBACK(StampCoreChangeDistance), core);
+	g_object_set_data(G_OBJECT(scale_adjustment), "application", app);
+	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+
+	core->mode = &brush->mode;
+	core->mode_select[0] = radio_buttons[0] =
+		gtk_radio_button_new_with_label(NULL, app->labels->tool_box.saturation);
+	core->mode_select[1] = radio_buttons[1] = gtk_radio_button_new_with_label(
+		gtk_radio_button_get_group(GTK_RADIO_BUTTON(radio_buttons[0])),
+		app->labels->tool_box.brightness
+	);
+	core->mode_select[2] = radio_buttons[2] = gtk_radio_button_new_with_label(
+		gtk_radio_button_get_group(GTK_RADIO_BUTTON(radio_buttons[0])),
+		app->labels->tool_box.gradation_reverse
+	);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio_buttons[brush->mode]), TRUE);
+	g_object_set_data(G_OBJECT(radio_buttons[0]), "mode", GINT_TO_POINTER(0));
+	g_object_set_data(G_OBJECT(radio_buttons[0]), "application", app);
+	g_object_set_data(G_OBJECT(radio_buttons[0]), "stamp_core", core);
+	(void)g_signal_connect(G_OBJECT(radio_buttons[0]), "toggled", G_CALLBACK(StampCoreSetMode), &brush->mode);
+	g_object_set_data(G_OBJECT(radio_buttons[1]), "mode", GINT_TO_POINTER(1));
+	g_object_set_data(G_OBJECT(radio_buttons[1]), "application", app);
+	g_object_set_data(G_OBJECT(radio_buttons[1]), "stamp_core", core);
+	(void)g_signal_connect(G_OBJECT(radio_buttons[1]), "toggled", G_CALLBACK(StampCoreSetMode), &brush->mode);
+	g_object_set_data(G_OBJECT(radio_buttons[2]), "mode", GINT_TO_POINTER(2));
+	g_object_set_data(G_OBJECT(radio_buttons[2]), "application", app);
+	g_object_set_data(G_OBJECT(radio_buttons[2]), "stamp_core", core);
+	(void)g_signal_connect(G_OBJECT(radio_buttons[2]), "toggled", G_CALLBACK(StampCoreSetMode), &brush->mode);
+	table = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(table), radio_buttons[0], FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(table), radio_buttons[1], FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), radio_buttons[2], FALSE, TRUE, 0);
+
+	// 左右反転、上下反転選択用チェックボックス
+	table = gtk_hbox_new(FALSE, 0);
+	label = gtk_label_new("");
+	(void)sprintf(mark_up_buff, "<span font_desc=\"%.2f\">%s : </span>",
+		UI_FONT_SIZE, app->labels->tool_box.reverse);
+	gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
+	gtk_box_pack_start(GTK_BOX(table), label, FALSE, FALSE, 0);
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.reverse_horizontally);
+	g_object_set_data(G_OBJECT(check_button), "flag-id", GINT_TO_POINTER(0));
+	g_object_set_data(G_OBJECT(check_button), "application", app);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button),
+		core->pattern_flags & PATTERN_FLIP_HORIZONTALLY);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(StampCoreSetPatternFlags), core);
+	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.reverse_vertically);
+	g_object_set_data(G_OBJECT(check_button), "flag-id", GINT_TO_POINTER(1));
+	g_object_set_data(G_OBJECT(check_button), "application", app);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button),
+		core->pattern_flags & PATTERN_FLIP_VERTICALLY);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(StampCoreSetPatternFlags), core);
+	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
+
+	// 回転方向変更用ウィジェット
+	radio_buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.clockwise);
+	radio_buttons[1] = gtk_radio_button_new_with_label(
+		gtk_radio_button_get_group(GTK_RADIO_BUTTON(radio_buttons[0])),
+		app->labels->tool_box.counter_clockwise
+	);
+
+	if(core->rotate_direction < 0)
+	{
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio_buttons[0]), TRUE);
+	}
+	else
+	{
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio_buttons[1]), TRUE);
+	}
+
+	table = gtk_hbox_new(FALSE, 0);
+	g_object_set_data(G_OBJECT(radio_buttons[0]), "rotate_direction", GINT_TO_POINTER(1));
+	g_object_set_data(G_OBJECT(radio_buttons[1]), "rotate_direction", GINT_TO_POINTER(-1));
+	(void)g_signal_connect(G_OBJECT(radio_buttons[0]), "toggled",
+		G_CALLBACK(BlendImageBrushSetRotateDirection), brush);
+	(void)g_signal_connect(G_OBJECT(radio_buttons[1]), "toggled",
+		G_CALLBACK(BlendImageBrushSetRotateDirection), brush);
+	gtk_box_pack_start(GTK_BOX(table), radio_buttons[0], FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(table), radio_buttons[1], FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
+	// 詳細設定のUIが閉じられるときにボタン配列を開放する
+	(void)g_signal_connect(G_OBJECT(vbox), "destroy", G_CALLBACK(OnStampDetailUIDestroy), core);
+
+	// スタンプ選択テーブルを作成してスクロールドウィンドウに入れる
+	table = gtk_hbox_new(FALSE, 0);
+	scrolled_window = gtk_scrolled_window_new(NULL, NULL);
+	gtk_widget_set_size_request(table,
+		ICON_SIZE*STAMP_SELECT_TABLE_WIDTH+4, ICON_SIZE*4+4);
+	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(scrolled_window),
+		CreateStampSelectTable(core));
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window),
+		GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+	gtk_box_pack_start(GTK_BOX(table), scrolled_window, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
+
+	// クリップボードのスタンプがアクティブならばセット
+	if(app->stamps.has_clip_board_pattern != FALSE)
+	{
+		if(core->stamp_id == 0)
+		{
+			app->stamps.active_pattern =
+				&app->stamps.clip_board;
+		}
+		else
+		{
+			app->stamps.active_pattern =
+				&app->stamps.patterns[core->stamp_id-1];
+		}
+	}
+
+	// アクティブなパターンがチャンネル数2以外ならば着色モードは無効
+	gtk_widget_set_sensitive(core->mode_select[0], app->stamps.active_pattern->channel == 2);
+	gtk_widget_set_sensitive(core->mode_select[1], app->stamps.active_pattern->channel == 2);
+	gtk_widget_set_sensitive(core->mode_select[2], app->stamps.active_pattern->channel == 2);
+
+	InitializeStampCore(core, (int)brush->mode, app);
+
+	table = gtk_hbox_new(FALSE, 0);
+	label = gtk_label_new("");
+#if GTK_MAJOR_VERSION <= 2
+	combo = gtk_combo_box_new_text();
+#else
+	combo = gtk_combo_box_text_new();
+#endif
+	(void)sprintf(mark_up_buff, "<span font_desc=\"%.2f\">%s : </span>",
+		UI_FONT_SIZE, app->labels->layer_window.blend_mode);
+	gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
+	gtk_box_pack_start(GTK_BOX(table), label, FALSE, FALSE, 0);
+	for(i=0; i<LAYER_BLEND_SLELECTABLE_NUM; i++)
+	{
+#if GTK_MAJOR_VERSION <= 2
+		gtk_combo_box_append_text(GTK_COMBO_BOX(combo), app->labels->layer_window.blend_modes[i]);
+#else
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), app->labels->layer_window.blend_modes[i]);
+#endif
+	}
+	gtk_combo_box_set_active(GTK_COMBO_BOX(combo), brush->blend_mode);
+	(void)g_signal_connect(G_OBJECT(combo), "changed",
+		G_CALLBACK(BlendImageBrushSetBlendMode), brush);
+	gtk_box_pack_start(GTK_BOX(table), combo, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
+
+	scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(brush->enter, 0, 100, 1, 1, 0));
+	scale = SpinScaleNew(scale_adjustment,
+		app->labels->tool_box.enter, 1);
+	(void)g_signal_connect(G_OBJECT(scale_adjustment), "value_changed",
+		G_CALLBACK(BlendImageBrushSetEnter), core);
+	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+
+	scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(brush->out, 0, 100, 1, 1, 0));
+	scale = SpinScaleNew(scale_adjustment,
+		app->labels->tool_box.out, 1);
+	(void)g_signal_connect(G_OBJECT(scale_adjustment), "value_changed",
+		G_CALLBACK(BlendImageBrushSetOut), core);
+	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+
+	label = gtk_label_new("");
+	(void)sprintf(mark_up_buff, "<span font_desc=\"%.2f\">%s : </span>",
+		UI_FONT_SIZE, app->labels->tool_box.select.target);
+	gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
+	table = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(table), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, FALSE, 0);
+	radio_buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.select.under_layer);
+	g_object_set_data(G_OBJECT(radio_buttons[0]), "target", GINT_TO_POINTER(BLEND_BRUSH_TARGET_UNDER_LAYER));
+	(void)g_signal_connect(G_OBJECT(radio_buttons[0]), "toggled", G_CALLBACK(BlendImageBrushSetBlendTarget), brush);
+	radio_buttons[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(
+		GTK_RADIO_BUTTON(radio_buttons[0])), app->labels->tool_box.select.canvas);
+	g_object_set_data(G_OBJECT(radio_buttons[1]), "target", GINT_TO_POINTER(BLEND_BRUSH_TARGET_CANVAS));
+	(void)g_signal_connect(G_OBJECT(radio_buttons[1]), "toggled", G_CALLBACK(BlendImageBrushSetBlendTarget), brush);
+	gtk_box_pack_start(GTK_BOX(vbox), radio_buttons[0], FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), radio_buttons[1], FALSE, FALSE, 0);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio_buttons[brush->target]), TRUE);
+
+	// 筆圧使用設定変更用ウィジェット
+	table = gtk_hbox_new(FALSE, 0);
+	label = gtk_label_new("");
+	(void)sprintf(mark_up_buff, "<span font_desc=\"%.2f\">%s : </span>",
+		UI_FONT_SIZE, app->labels->tool_box.pressure);
+	gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
+	gtk_box_pack_start(GTK_BOX(table), label, FALSE, FALSE, 0);
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.scale);
+	g_object_set_data(G_OBJECT(check_button), "flag-id", GINT_TO_POINTER(0));
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), core->flags & BRUSH_FLAG_SIZE);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(StampCoreSetFlags), core);
+	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.flow);
+	g_object_set_data(G_OBJECT(check_button), "flag-id", GINT_TO_POINTER(1));
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), core->flags & BRUSH_FLAG_FLOW);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(StampCoreSetFlags), core);
+	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, FALSE, 0);
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.randoam_size);
+	g_object_set_data(G_OBJECT(check_button), "flag-value", GUINT_TO_POINTER(STAMP_RANDOM_SIZE));
+	g_object_set_data(G_OBJECT(check_button), "application", app);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), core->flags & STAMP_RANDOM_SIZE);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(StampCoreSetFlag), core);
+	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
+
+	// ブラシの移動方向へ回転
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.rotate_to_brush_direction);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button),
+		brush->core.flags & BRUSH_FLAG_ROTATE);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled",
+		G_CALLBACK(BlendImageBrushSetRotate2Direction), brush);
+	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, FALSE, 0);
+
+	// ランダムに回転
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.random_rotate);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), (core->flags & STAMP_RANDOM_ROTATE) != 0);
+	g_object_set_data(G_OBJECT(check_button), "flag-value", GUINT_TO_POINTER(STAMP_RANDOM_ROTATE));
+	g_object_set_data(G_OBJECT(check_button), "application", app);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(StampCoreSetFlag), core);
+	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
+
+	// ランダムサイズの変化幅
+	scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(brush->size_range * 100, 0, 100, 1, 1, 0));
+	scale = SpinScaleNew(scale_adjustment, app->labels->tool_box.size_range, 1);
+	(void)g_signal_connect(G_OBJECT(scale_adjustment), "value_changed",
+		G_CALLBACK(BlendImageBrushSetSizeRange), brush);
+	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+
+	// ランダム回転の変化幅
+	brush->rotate_range = brush->random_rotate_range * G_PI / 180;
+	scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(brush->random_rotate_range, 0, 360, 1, 1, 0));
+	scale = SpinScaleNew(scale_adjustment, app->labels->tool_box.rotate_range, 0);
+	(void)g_signal_connect(G_OBJECT(scale_adjustment), "value_changed",
+		G_CALLBACK(BlendImageBrushSetRotateRange), brush);
 	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
 
 #undef UI_FONT_SIZE
@@ -24255,6 +26174,36 @@ void LoadBrushDetailData(
 		core->create_detail_ui = CreateImageBrushDetailUI;
 		core->color_change = ImageBrushChangeColor;
 	}
+	else if(StringCompareIgnoreCase(brush_type, "BLEND_IMAGE_BRUSH") == 0)
+	{
+		BLEND_IMAGE_BRUSH* brush;
+		core->brush_type = (uint8)BRUSH_TYPE_BLEND_IMAGE_BRUSH;
+		core->brush_data = MEM_ALLOC_FUNC(sizeof(*brush));
+		(void)memset(core->brush_data, 0, sizeof(*brush));
+		core->detail_data_size = sizeof(*brush);
+		brush = (BLEND_IMAGE_BRUSH*)core->brush_data;
+
+		brush->core.brush_core = core;
+		LoadStampCoreData(file, section_name, &brush->core, &brush->mode, app);
+		brush->size_range = IniFileGetInteger(file, section_name, "SIZE_RANGE") * 0.01;
+		brush->random_rotate_range = IniFileGetInteger(file, section_name, "ROTATE_RANGE");
+		brush->blend_mode = (uint16)IniFileGetInteger(file, section_name, "BLEND_MODE");
+		brush->target = (uint8)IniFileGetInteger(file, section_name, "TARGET");
+
+		if(IniFileGetInteger(file, section_name, "ROTATE_TO_BRUSH_DIRECTION") != 0)
+		{
+			brush->core.flags |= BRUSH_FLAG_ROTATE;
+		}
+
+		core->press_func = BlendImageBrushButtonPressCallBack;
+		core->motion_func = BlendImageBrushMotionCallBack;
+		core->release_func = BlendImageBrushButtonReleaseCallBack;
+		core->draw_cursor = BlendImageBrushDrawCursor;
+		core->button_update = BlendImageBrushButtonUpdate;
+		core->motion_update = BlendImageBrushMotionUpdate;
+		core->create_detail_ui = CreateBlendImageBrushDetailUI;
+		core->color_change = BlendImageBrushChangeColor;
+	}
 	else if(StringCompareIgnoreCase(brush_type, "PICKER_BRUSH") == 0)
 	{
 		PICKER_BRUSH *brush;
@@ -24865,6 +26814,30 @@ void LoadBrushDefaultData(
 			core->color_change = ImageBrushChangeColor;
 		}
 		break;
+	case BRUSH_TYPE_BLEND_IMAGE_BRUSH:
+		{
+			BLEND_IMAGE_BRUSH* brush;
+			core->brush_type = (uint8)BRUSH_TYPE_BLEND_IMAGE_BRUSH;
+			core->brush_data = MEM_ALLOC_FUNC(sizeof(*brush));
+			(void)memset(core->brush_data, 0, sizeof(*brush));
+			core->detail_data_size = sizeof(*brush);
+			brush = (BLEND_IMAGE_BRUSH*)core->brush_data;
+
+			brush->core.brush_core = core;
+			LoadStampCoreDefaultData(&brush->core, &brush->mode, app);
+			brush->size_range = 100;
+			brush->random_rotate_range = 100;
+
+			core->press_func = BlendImageBrushButtonPressCallBack;
+			core->motion_func = BlendImageBrushMotionCallBack;
+			core->release_func = BlendImageBrushButtonReleaseCallBack;
+			core->draw_cursor = BlendImageBrushDrawCursor;
+			core->button_update = BlendImageBrushButtonUpdate;
+			core->motion_update = BlendImageBrushMotionUpdate;
+			core->create_detail_ui = CreateBlendImageBrushDetailUI;
+			core->color_change = BlendImageBrushChangeColor;
+		}
+		break;
 	case BRUSH_TYPE_PICKER_BRUSH:
 		{
 			PICKER_BRUSH *brush;
@@ -25393,6 +27366,44 @@ int WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATION
 							brush->random_rotate_range, 10);
 					}
 					break;
+				case BRUSH_TYPE_BLEND_IMAGE_BRUSH:
+					{
+						BLEND_IMAGE_BRUSH *brush = (BLEND_IMAGE_BRUSH*)window->brushes[y][x].brush_data;
+						(void)IniFileAddString(file, brush_section_name, "TYPE", "BLEND_IMAGE_BRUSH");
+						(void)IniFileAddInteger(file, brush_section_name, "SIZE",
+							(int)(brush->core.inv_scale*100), 10);
+						(void)IniFileAddInteger(file, brush_section_name, "FLOW",
+							(int)(brush->core.flow*100), 10);
+						(void)IniFileAddDouble(file, brush_section_name, "DISTANCE",
+							brush->core.stamp_distance);
+						(void)IniFileAddInteger(file, brush_section_name, "ROTATE_START",
+							(int)(brush->core.rotate_start * 180 / G_PI), 10);
+						(void)IniFileAddInteger(file, brush_section_name, "ROTATE_SPEED",
+							(int)(brush->core.rotate_speed * 180 / G_PI), 10);
+						(void)IniFileAddInteger(file, brush_section_name, "ROTATE_DIRECTION",
+							brush->core.rotate_direction, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "STAMP_ID",
+							brush->core.stamp_id, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "MODE",
+							brush->mode, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "PRESSURE_SIZE",
+							((brush->core.flags & STAMP_PRESSURE_SIZE) != 0) ? 1 : 0, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "PRESSURE_FLOW",
+							((brush->core.flags & STAMP_PRESSURE_FLOW) != 0) ? 1 : 0, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "ROTATE_TO_BRUSH_DIRECTION",
+							((brush->core.flags & BRUSH_FLAG_ROTATE) != 0) ? 1 : 0, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "RANDOM_ROTATE",
+							((brush->core.flags & STAMP_RANDOM_ROTATE) != 0) ? 1 : 0, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "RANDOM_SIZE",
+							((brush->core.flags & STAMP_RANDOM_SIZE) != 0) ? 1 : 0, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "SIZE_RANGE",
+							(int)(brush->size_range * 100), 10);
+						(void)IniFileAddInteger(file, brush_section_name, "ROTATE_RANGE",
+							brush->random_rotate_range, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "BLEND_MODE", brush->blend_mode, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "TARGET", brush->target, 10);
+					}
+					break;
 				case BRUSH_TYPE_PICKER_BRUSH:
 					{
 						PICKER_BRUSH *brush = (PICKER_BRUSH*)window->brushes[y][x].brush_data;
@@ -25672,6 +27683,11 @@ void SetBrushCallBack(BRUSH_CORE* core)
 		core->motion_func = ImageBrushMotionCallBack;
 		core->release_func = ImageBrushReleaseCallBack;
 		break;
+	case BRUSH_TYPE_BLEND_IMAGE_BRUSH:
+		core->press_func = BlendImageBrushButtonPressCallBack;
+		core->motion_func = BlendImageBrushMotionCallBack;
+		core->release_func = BlendImageBrushButtonReleaseCallBack;
+		break;
 	case BRUSH_TYPE_ERASER:
 		core->press_func = EraserButtonPressCallBack;
 		core->motion_func = EraserMotionCallBack;
@@ -25759,6 +27775,11 @@ void SetEditSelectionCallBack(BRUSH_CORE* core)
 		core->press_func = ImageBrushEditSelectionPress;
 		core->motion_func = ImageBrushEditSelectionMotion;
 		core->release_func = ImageBrushEditSelectionRelease;
+		break;
+	case BRUSH_TYPE_BLEND_IMAGE_BRUSH:
+		core->press_func = BlendImageBrushEditSelectionPress;
+		core->motion_func = BlendImageBrushEditSelectionMotion;
+		core->release_func = BlendImageBrushEditSelectionRelease;
 		break;
 	case BRUSH_TYPE_BUCKET:
 		core->press_func = BucketEditSelectionPressCallBack;

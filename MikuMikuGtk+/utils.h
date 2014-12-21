@@ -24,6 +24,14 @@
 # endif
 #endif
 
+#define SWAP_LE_BE(val)	((uint32) ( \
+	(((uint32) (val) & (uint32) 0x000000ffU) << 24) | \
+	(((uint32) (val) & (uint32) 0x0000ff00U) <<  8) | \
+	(((uint32) (val) & (uint32) 0x00ff0000U) >>  8) | \
+	(((uint32) (val) & (uint32) 0xff000000U) >> 24)))
+
+#define UINT32_FROM_BE(value) SWAP_LE_BE(value)
+
 #define CLAMPED(A, LB, UB) ((A) = (A) < (LB) ? (LB) : ((UB) < (A) ? (UB) : (A)))
 
 #define BOOL_COMPARE(B1, B2) ((B1) && (B2) || !(B1) && !(B2))
@@ -169,6 +177,22 @@ typedef struct _STRUCT_ARRAY
 	size_t data_size;
 } STRUCT_ARRAY;
 
+typedef struct _INTEGER_ARRAY
+{
+	int *buffer;
+	size_t num_data;
+	size_t buffer_size;
+	size_t block_size;
+} INTEGER_ARRAY;
+
+typedef struct _FLOAT_ARRAY
+{
+	float *buffer;
+	size_t num_data;
+	size_t buffer_size;
+	size_t block_size;
+} FLOAT_ARRAY;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -222,6 +246,26 @@ extern void StructArrayRemoveByIndex(
 	STRUCT_ARRAY* struct_array,
 	size_t index,
 	void (*destroy_func)(void*)
+);
+
+extern INTEGER_ARRAY* IntegerArrayNew(size_t block_size);
+extern void IntegerArrayDestroy(
+	INTEGER_ARRAY** integer_array
+);
+extern void IntegerArrayAppend(INTEGER_ARRAY* integer_array, int data);
+extern void IntegerArrayRemoveByIndex(
+	INTEGER_ARRAY* integer_array,
+	size_t index
+);
+
+extern FLOAT_ARRAY* FloatArrayNew(size_t block_size);
+extern void FloatArrayDestroy(
+	FLOAT_ARRAY** float_array
+);
+extern void FloatArrayAppend(FLOAT_ARRAY* float_array, float data);
+extern void FloatArrayRemoveByIndex(
+	FLOAT_ARRAY* float_array,
+	size_t index
 );
 
 extern int FuzzyZero(float value);

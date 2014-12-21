@@ -48,6 +48,11 @@ void ModelLeaveWorld(MODEL_INTERFACE* model, WORLD* world)
 
 void DeleteModel(MODEL_INTERFACE* model)
 {
+	if(model == NULL)
+	{
+		return;
+	}
+
 	switch(model->type)
 	{
 	case MODEL_TYPE_ASSET_MODEL:
@@ -189,6 +194,11 @@ int ReadModelData(
 	int (*seek_func)(void*, long, int)
 )
 {
+	if(model == NULL)
+	{
+		return FALSE;
+	}
+
 	switch(model->type)
 	{
 	case MODEL_TYPE_ASSET_MODEL:

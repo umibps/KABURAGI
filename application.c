@@ -16,9 +16,6 @@
 #include <stdlib.h>
 #include <glib.h>
 #include <glib/gstdio.h>
-#ifdef _OPENMP
-# include <omp.h>
-#endif
 #include "application.h"
 #include "menu.h"
 #include "labels.h"
@@ -1535,11 +1532,6 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 
 	app_dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
 
-#ifdef _OPENMP
-	omp_set_dynamic(FALSE);
-	omp_set_num_threads(1);
-#endif
-
 	// 初期化ファイルを読み込む
 		// まずはアプリケーションデータのディレクトリから
 	file_path = g_build_filename(app_dir_path, init_file_name, NULL);
@@ -2220,8 +2212,8 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 			G_CALLBACK(MainWindowRealizeCallBack), realize);
 	}
 
-	// 3Dモデリングの準備
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	// 3Dモデリングの準備
 	if(GetHas3DLayer(app) != FALSE)
 	{
 		app->modeling = ApplicationContextNew(app->window_width, app->window_height,
@@ -4752,10 +4744,12 @@ void SetHas3DLayer(APPLICATION* app, int enable)
 *****************************************************/
 int GetHas3DLayer(APPLICATION* app)
 {
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	if((app->flags & APPLICATION_HAS_3D_LAYER) != 0)
 	{
 		return TRUE;
 	}
+#endif
 	return FALSE;
 }
 

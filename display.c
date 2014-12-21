@@ -1,10 +1,7 @@
 #include "configure.h"
 #include <string.h>
 #include <gtk/gtk.h>
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-# include <GL/glew.h>
-#endif
-
+#include <GL/glew.h>
 #if GTK_MAJOR_VERSION >= 3
 # include <gdk/gdk.h>
 #endif
