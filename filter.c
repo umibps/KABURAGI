@@ -4890,6 +4890,7 @@ static gboolean DisplayPerlinNoisePreview(
 )
 {
 #if GTK_MAJOR_VERSION <= 2
+	//cairo_t *cairo_p = kaburagi_cairo_create((struct _GdkWindow*)widget->window);
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 #endif
 

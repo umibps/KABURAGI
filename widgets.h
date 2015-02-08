@@ -102,6 +102,13 @@ EXTERN GtkWidget* ToggleRadioButtonNew(
 	void* callback_data
 );
 
+#ifdef _WIN32
+EXTERN cairo_t *
+kaburagi_cairo_create (void* drawable);
+#else
+static inline kaburagi_cairo_create (void* window) {return gdk_cairo_create(window);}
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -1213,6 +1213,7 @@ extern int IniFileAddInteger(
 * section_name	: 検索するセクションの名前              *
 * key_name		: 検索するキーの名前                    *
 * num			: 追加する数値                          *
+* digigt		: 小数点以下の桁数(-1以下で設定無し)    *
 * 返り値                                                *
 *	正常終了(0)、以上終了(負の値)                       *
 ********************************************************/
@@ -1220,14 +1221,29 @@ int IniFileAddDouble(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name,
-	const double num
+	const double num,
+	const int digit
 )
 {
 	// 書き込むデータを格納
 	char buff[NUM_STRING_LEN];
 
-	// 数値を文字列に変換する
-	(void)sprintf(buff, "%.2f", num);
+	// 小数点以下の設定があれば
+	if(digit >= 0)
+	{
+		// 桁数作成用
+		char format[16];
+
+		// フォーマット用文字列作成
+		(void)sprintf(format, "%%.%df", digit);
+		// 数値を文字列に変換する
+		(void)sprintf(buff, format, num);
+	}
+	else
+	{
+		// 数値を文字列に変換する
+		(void)sprintf(buff, "%.2f", num);
+	}
 
 	// データを追加
 	return IniFileAddData(ini, section_name, key_name, buff);

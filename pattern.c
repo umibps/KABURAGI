@@ -430,7 +430,7 @@ cairo_surface_t* CreatePatternSurface(
 			int stride;
 
 			// RGB‚ðHSV‚É•ÏŠ·
-#if 1 //defined(DISPLAY_BGR) && DISPLAY_BGR != 0
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
 			if(mode == PATTERN_MODE_FORE_TO_BACK)
 			{
 				color[0] = rgb[0], color[1] = rgb[1], color[2] = rgb[2];
@@ -485,7 +485,7 @@ cairo_surface_t* CreatePatternSurface(
 				{
 					for(j=0; j<patterns->active_pattern->width; j++)
 					{
-#if 1 //defined(DISPLAY_BGR) && DISPLAY_BGR != 0
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
 						patterns->pattern_pixels_temp[i*patterns->active_pattern->width*4+j*4+2] = ((patterns->pattern_pixels[i*stride*2+j*2]+1)*color[0] +
 							(0xff - patterns->pattern_pixels[i*stride*2+j*2]+1)*back_rgb[0]) >> 8;
 						patterns->pattern_pixels_temp[i*patterns->active_pattern->width*4+j*4+1] = ((patterns->pattern_pixels[i*stride*2+j*2]+1)*color[1] +

@@ -144,6 +144,7 @@ typedef struct _PNG_IO
 
 /***************************************************
 * PngReadWrite関数                                 *
+* pnglibの要求に応じて読み書き用の関数を呼び出す   *
 * 引数                                             *
 * png_p		: pnglibの圧縮・展開管理構造体アドレス *
 * data		: 読み書き先のアドレス                 *
@@ -199,8 +200,8 @@ uint8* ReadPNGStream(
 	png_infop info_p;
 	uint32 local_width, local_height, local_stride;
 	int32 bit_depth, color_type, interlace_type;
-	uint8* pixels;
-	uint8** image;
+	uint8 *pixels;
+	uint8 **image;
 	uint32 i;
 
 	// ストリームのアドレスと関数ポインタをセット

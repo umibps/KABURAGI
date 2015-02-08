@@ -2094,6 +2094,42 @@ void SetPartLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, UPDA
 	layer_blend_functions[LAYER_BLEND_OVER] = PartBlendNormal_c;
 }
 
+/********************************************************************
+* SetLayerBlendOperators関数                                        *
+* レイヤー合成モードに対応するCAIROグラフィックの定数配列を設定する *
+* 引数                                                              *
+* operators	: 設定を行う配列                                        *
+********************************************************************/
+void SetLayerBlendOperators(cairo_operator_t operators[])
+{
+	operators[LAYER_BLEND_NORMAL] = CAIRO_OPERATOR_OVER;
+	operators[LAYER_BLEND_ADD] = CAIRO_OPERATOR_ADD;
+	operators[LAYER_BLEND_MULTIPLY] = CAIRO_OPERATOR_MULTIPLY;
+	operators[LAYER_BLEND_SCREEN] = CAIRO_OPERATOR_SCREEN;
+	operators[LAYER_BLEND_OVERLAY] = CAIRO_OPERATOR_OVERLAY;
+	operators[LAYER_BLEND_LIGHTEN] = CAIRO_OPERATOR_LIGHTEN;
+	operators[LAYER_BLEND_DARKEN] = CAIRO_OPERATOR_DARKEN;
+	operators[LAYER_BLEND_DODGE] = CAIRO_OPERATOR_COLOR_DODGE;
+	operators[LAYER_BLEND_BURN] = CAIRO_OPERATOR_COLOR_BURN;
+	operators[LAYER_BLEND_HARD_LIGHT] = CAIRO_OPERATOR_HARD_LIGHT;
+	operators[LAYER_BLEND_SOFT_LIGHT] = CAIRO_OPERATOR_SOFT_LIGHT;
+	operators[LAYER_BLEND_DIFFERENCE] = CAIRO_OPERATOR_DIFFERENCE;
+	operators[LAYER_BLEND_EXCLUSION] = CAIRO_OPERATOR_EXCLUSION;
+	operators[LAYER_BLEND_HSL_HUE] = CAIRO_OPERATOR_HSL_HUE;
+	operators[LAYER_BLEND_HSL_SATURATION] = CAIRO_OPERATOR_HSL_SATURATION;
+	operators[LAYER_BLEND_HSL_COLOR] = CAIRO_OPERATOR_HSL_COLOR;
+	operators[LAYER_BLEND_HSL_LUMINOSITY] = CAIRO_OPERATOR_HSL_LUMINOSITY;
+	operators[LAYER_BLEND_BINALIZE] = CAIRO_OPERATOR_OVER;
+	operators[LAYER_BLEND_COLOR_REVERSE] = CAIRO_OPERATOR_OVER;
+	operators[LAYER_BLEND_GREATER] = CAIRO_OPERATOR_OVER;
+	operators[LAYER_BLEND_ALPHA_MINUS] = CAIRO_OPERATOR_OVER;
+	operators[LAYER_BLEND_SOURCE] = CAIRO_OPERATOR_SOURCE;
+	operators[LAYER_BLEND_ATOP] = CAIRO_OPERATOR_ATOP;
+	operators[LAYER_BLEND_SOURCE_OVER] = CAIRO_OPERATOR_OVER;
+	//BlendOver_c
+	operators[LAYER_BLEND_OVER] = CAIRO_OPERATOR_OVER;
+}
+
 #ifdef __cplusplus
 }
 #endif

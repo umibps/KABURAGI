@@ -189,9 +189,9 @@ typedef struct _STAMP_CORE
 	int rotate_direction;
 
 	// スタンプ描画用のサーフェース
-	cairo_surface_t* brush_surface;
+	cairo_surface_t *brush_surface;
 	// カーソル描画用のサーフェース
-	cairo_surface_t* cursor_surface;
+	cairo_surface_t *cursor_surface;
 
 	// 使用パターンのID
 	int32 stamp_id;
@@ -504,6 +504,112 @@ typedef struct _MIX_BRUSH
 	gdouble before_x, before_y;	// 1ステップ前の座標
 	int flags;					// 筆圧設定等のフラグ
 } MIX_BRUSH;
+
+typedef enum _eCUSTOM_BRUSH_SHAPES
+{
+	CUSTOM_BRUSH_SHAPE_CIRCLE,
+	CUSTOM_BRUSH_SHAPE_TRIANGLE,
+	CUSTOM_BRUSH_SHAPE_SQUARE,
+	CUSTOM_BRUSH_SHAPE_HEXIAGON,
+	CUSTOM_BRUSH_SHAPE_STAR,
+	CUSTOM_BRUSH_SHAPE_PATTERN,
+	CUSTOM_BRUSH_SHAPE_IMAGE,
+	NUM_CUSTOM_BRUSH_SHAPES
+} eCUSTOM_BRUSH_SHAPE;
+
+typedef enum _eCUSTOM_BRUSH_MODE
+{
+	CUSTOM_BRUSH_MODE_NORMAL,
+	CUSTOM_BRUSH_MODE_BLEND,
+	CUSTOM_BRUSH_MODE_SMUDGE,
+	CUSTOM_BRUSH_MODE_WATER_BRUSH,
+	NUM_CUSTOM_BRUSH_MODE
+} eCUSTOM_BRUSH_MODE;
+
+typedef enum _eCUSTOM_BRUSH_FLAGS
+{
+	CUSTOM_BRUSH_FLAG_PRESSURE_SIZE,
+	CUSTOM_BRUSH_FLAG_PRESSURE_FLOW,
+	CUSTOM_BRUSH_FLAG_ROTATE_BY_CURSOR,
+	CUSTOM_BRUSH_FLAG_RANDOM_SIZE,
+	CUSTOM_BRUSH_FLAG_RANDOM_ROTATE,
+	CUSTOM_BRUSH_FLAG_ANTI_ALIAS,
+	CUSTOM_BRUSH_FLAG_IMAGE_FLIP_HORIZONTALLY,
+	CUSTOM_BRUSH_FLAG_IMAGE_FLIP_VERTICALLY,
+	CUSTOM_BRUSH_FLAG_ENTER_OUT_SIZE,
+	CUSTOM_BRUSH_FLAG_ENTER_OUT_FLOW
+} eCUSTOM_BRUSH_FLAGS;
+
+typedef struct _CUSTOM_BRUSH
+{
+	BRUSH_CORE *core;					// 基本情報
+	BRUSH_UPDATE_AREA update;			// キャンバスの更新範囲
+	int base_scale;						// x0.1、x1、x10
+	FLOAT_T r;							// ブラシ半径
+	FLOAT_T scale;						// ブラシの拡大率
+	FLOAT_T alpha;						// ブラシ濃度
+	FLOAT_T blur;						// ボケ足
+	FLOAT_T outline_hardness;			// 輪郭の硬さ
+	FLOAT_T enter;						// 入り
+	FLOAT_T out;						// 抜き
+	FLOAT_T angle;						// 角度
+	FLOAT_T rotate_speed;				// 回転速度
+	FLOAT_T random_size;				// サイズに対するランダム要素
+	FLOAT_T random_angle;				// 角度に対するランダム要素
+	// 入り・抜き処理用のバッファ
+	FLOAT_T points[BRUSH_POINT_BUFFER_SIZE][4];
+	FLOAT_T sum_distance, travel;		// クリックしてからの移動量
+	FLOAT_T finish_length;				// 抜きの距離
+	FLOAT_T draw_start;					// 次に描画する距離
+	FLOAT_T enter_length;				// 入りの距離
+	FLOAT_T enter_size;					// 入りのサイズ
+	FLOAT_T brush_distance;				// 描画間隔
+	FLOAT_T draw_distance;				// 次の描画までの間隔
+	FLOAT_T distance;					// ブラシが移動した距離
+	FLOAT_T remain_distance;			// カーソル移動距離 - 描画終了距離
+	FLOAT_T start_angle;				// 初期角度
+	int rotate_direction;				// 回転方向
+	uint16 blend_mode;					// 合成モード
+	uint8 blend_target;					// 合成時の色決定用のターゲット
+	uint8 brush_shape;					// ブラシの形状
+	uint8 color_mode;					// 着色方法
+	uint8 brush_mode;					// ブラシの動作モード
+	int num_point;						// 記録した座標の数
+	int draw_finished;					// 描画終了した座標の数
+	int ref_point;						// 現在参照している配列のインデックス
+	gdouble before_x, before_y;			// 前回描画時の座標
+	uint8 *brush_pixel;					// ブラシのピクセルデータ
+	uint8 *temp_pixel;					// マスク処理等の一時保存用ピクセルデータ
+	guint32 flags;						// フラグ
+	uint8 *image_pixel;					// 画像使用時のピクセルデータ
+	int image_size;						// 画像の長辺の長さ
+	int image_width;					// 画像の幅
+	int image_height;					// 画像の高さ
+	int image_channel;					// 画像のチャンネル数
+	FLOAT_T half_width;					// 画像幅の半分(描画行列計算用)
+	FLOAT_T half_height;				// 画像高さの半分(描画行列計算用)
+	char *image_path;					// 画像のパス
+	uint8 before_color[4];				// 水彩ブラシ用の色記憶バッファ
+	FLOAT_T last_draw_x;				// 水彩ブラシ用の前回描画時のX座標
+	FLOAT_T last_draw_y;				// 水彩ブラシ用の前回描画時のY座標
+	uint8 mix;							// 水彩ブラシの混色の割合
+	uint8 extend;						// 水彩ブラシと指先ツールの色延びの割合
+	int before_width;					// 指先ツール用の前回描画時の幅
+	int before_height;					// 指先ツール用の前回描画時の高さ
+	int num_scatter;					// 散布量
+	FLOAT_T scatter_size;				// 散布サイズ
+	FLOAT_T scatter_random_size;		// 散布サイズのランダム量
+	FLOAT_T scatter_range;				// 散布範囲
+	FLOAT_T scatter_random_flow;		// 散布濃度のランダム量
+	uint8 *cursor_pixel;				// カーソル用ピクセルデータ
+	cairo_surface_t *cursor_surface;	// カーソル用サーフェース
+	GtkWidget *vbox;					// 設定用ウィジェット
+	GtkWidget *button_image;			// ボタン用のイメージウィジェット
+	GtkWidget **pattern_buttons;		// パターン選択用のボタンウィジェット配列
+	int num_pattern_buttons;			// パターン選択用のボタンの数
+	int pattern_id;						// 選択しているパターン
+	GtkWidget *mode_detail_setting;		// ブラシのモード毎の設定用ウィジェット
+} CUSTOM_BRUSH;
 
 typedef enum _eTEXT_TOOL_FLAGS
 {

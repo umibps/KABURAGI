@@ -1,10 +1,15 @@
 ﻿#include "configure.h"
 
+#ifdef _DEBUG
+//# define CHECK_MEMORY_POOL 1
+#endif
+
 #include <string.h>
 #include <locale.h>
 #include <gtk/gtk.h>
 #include "application.h"
 #include "MikuMikuGtk+/tbb.h"
+#include "memory.h"
 #include <gtk/gtkgl.h>
 
 #if defined(_MSC_VER)
@@ -28,7 +33,7 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #endif
 
 # if !defined(_DEBUG)
-#  pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
+//#  pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
 # endif
 
 #if 1
@@ -85,7 +90,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #    pragma comment(lib, "pcre3d.lib")
 #    pragma comment(lib, "Shlwapi.lib")
 #    pragma comment(lib, "atk-1.0.lib")
-#    pragma comment(lib, "cairo.lib")
+//#    pragma comment(lib, "cairo.lib")
 #    pragma comment(lib, "expat.lib")
 #    pragma comment(lib, "fontconfig.lib")
 #    pragma comment(lib, "freetype.lib")
@@ -108,9 +113,9 @@ cairo_image_surface_create_from_png (const char	*filename)
 */
 #   else
 #    pragma comment(lib, "./STATIC_LIB/libatk-1.0.a")
-#    pragma comment(lib, "./STATIC_LIB/libcairo.a")
-#    pragma comment(lib, "./STATIC_LIB/libcairo-gobject.a")
-#    pragma comment(lib, "./STATIC_LIB/libcairo-script-interpreter.a")
+//#    pragma comment(lib, "./STATIC_LIB/libcairo.a")
+//#    pragma comment(lib, "./STATIC_LIB/libcairo-gobject.a")
+//#    pragma comment(lib, "./STATIC_LIB/libcairo-script-interpreter.a")
 #    pragma comment(lib, "./STATIC_LIB/libcharset.a")
 #    pragma comment(lib, "./STATIC_LIB/libexpat.a")
 #    pragma comment(lib, "./STATIC_LIB/libffi.a")
@@ -143,7 +148,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #  endif
 #   if GTK_MAJOR_VERSION <= 2
 #    pragma comment(lib, "atk-1.0.lib")
-#    pragma comment(lib, "cairo.lib")
+//#    pragma comment(lib, "cairo.lib")
 #    pragma comment(lib, "expat.lib")
 #    pragma comment(lib, "fontconfig.lib")
 #    pragma comment(lib, "freetype.lib")
@@ -180,7 +185,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #     pragma comment(lib, "libpng.lib")
 #    endif
 #    pragma comment(lib, "zlib.lib")
-#    pragma comment(lib, "cairo.lib")
+//#    pragma comment(lib, "cairo.lib")
 #    pragma comment(lib, "atk-1.0.lib")
 #    pragma comment(lib, "fontconfig.lib")
 #    pragma comment(lib, "gailutil.lib")
@@ -202,9 +207,9 @@ cairo_image_surface_create_from_png (const char	*filename)
 #    pragma comment(lib, "libintl-8.lib")
 
 #    pragma comment(lib, "libatk-1.0-0.lib")
-#    pragma comment(lib, "libcairo-2.lib")
-#    pragma comment(lib, "libcairo-gobject-2.lib")
-#    pragma comment(lib, "libcairo-script-interpreter-2.lib")
+//#    pragma comment(lib, "libcairo-2.lib")
+//#    pragma comment(lib, "libcairo-gobject-2.lib")
+//#    pragma comment(lib, "libcairo-script-interpreter-2.lib")
 #    pragma comment(lib, "libcroco-0.6-3.lib")
 #    pragma comment(lib, "libffi-6.lib")
 #    pragma comment(lib, "libfontconfig-1.lib")
@@ -224,7 +229,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #    pragma comment(lib, "libpangocairo-1.0-0.lib")
 #    pragma comment(lib, "libpangoft2-1.0-0.lib")
 #    pragma comment(lib, "libpangowin32-1.0-0.lib")
-#    pragma comment(lib, "libpixman-1-0.lib")
+//#    pragma comment(lib, "libpixman-1-0.lib")
 #    pragma comment(lib, "librsvg-2-2.lib")
 #    pragma comment(lib, "libtiff-5.lib")
 #    pragma comment(lib, "libxml2-2.lib")
@@ -240,7 +245,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #  endif
 #  if GTK_MAJOR_VERSION <= 2
 #   pragma comment(lib, "atk-1.0.lib")
-#   pragma comment(lib, "cairo.lib")
+//#   pragma comment(lib, "cairo.lib")
 #   pragma comment(lib, "expat.lib")
 #   pragma comment(lib, "fontconfig.lib")
 #   pragma comment(lib, "freetype.lib")
@@ -268,7 +273,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #    pragma comment(lib, "libpng15-15.lib")
 #    pragma comment(lib, "zlib.lib")
 #    pragma comment(lib, "libz.dll.a")
-#    pragma comment(lib, "cairo.lib")
+//#    pragma comment(lib, "cairo.lib")
 #    pragma comment(lib, "atk-1.0.lib")
 #    pragma comment(lib, "fontconfig.lib")
 #    pragma comment(lib, "gailutil.lib")
@@ -287,9 +292,9 @@ cairo_image_surface_create_from_png (const char	*filename)
 #    pragma comment(lib, "intl.lib")
 
 #    pragma comment(lib, "libatk-1.0-0.lib")
-#    pragma comment(lib, "libcairo.dll.a")
-#    pragma comment(lib, "libcairo-gobject.dll.a")
-#    pragma comment(lib, "libcairo-script-interpreter.dll.a")
+//#    pragma comment(lib, "libcairo.dll.a")
+//#    pragma comment(lib, "libcairo-gobject.dll.a")
+//#    pragma comment(lib, "libcairo-script-interpreter.dll.a")
 #    pragma comment(lib, "libcroco-0.6.dll.a")
 #    pragma comment(lib, "libffi.dll.a")
 #    pragma comment(lib, "libfontconfig.dll.a")
@@ -356,20 +361,24 @@ int main(int argc, char** argv)
 			"Reverse Vertically", "Blend Mode", "Hue", "Saturation", "Brightness", "Contrast", "Distance",
 			"Rotate Start", "Rotate Speed", "Random Rotate", "Rotate to Brush Direction", "Size Range",
 			"Rotate Range", "Random Size", "Clockwise", "Counter Clockwise", "Both Direction", "Minimum Degree",
-			"Minumum Distance", "Minimum Pressure", "Enter", "Out", "Mix", "Reverse FG BG", "Devide Stroke",
-			"Delete Stroke", "Target", "Stroke", "Prior Angle", "Control Point", "Free", "Scale", "Free Shape",
-			"Rotate", "Preference", "Name", "Copy Brush", "Change Brush", "Delete Brush", "Texture", "Strength",
-			"No Texture", "Add Color", "Delete Color", "Load Pallete", "Add Pallete","Write Pallete", "Clear Pallete",
-			"Pick Mode", "Single Pixel", "Average Color", "Open Path", "Close Path", "Update", "Frequency",
-			"Cloud Color", "Persistence", "Random Seed", "Use Random", "Update Immediately", "Number of Octaves",
-			"Linear", "Cosine", "Cubic", "Colorize", "Start Editting 3D Model", "Finish Editting 3D Model",
+			"Minumum Distance", "Minimum Pressure", "Enter", "Out", "Enter & Out", "Mix", "Reverse FG BG",
+			"Devide Stroke", "Delete Stroke", "Target", "Stroke", "Prior Angle", "Control Point", "Free", "Scale",
+			"Free Shape", "Rotate", "Preference", "Name", "Copy Brush", "Change Brush", "Delete Brush", "Texture",
+			"Strength", "No Texture", "Add Color", "Delete Color", "Load Pallete", "Add Pallete","Write Pallete",
+			"Clear Pallete", "Pick Mode", "Single Pixel", "Average Color", "Open Path", "Close Path", "Update",
+			"Frequency", "Cloud Color", "Persistence", "Random Seed", "Use Random", "Update Immediately",
+			"Number of Octaves", "Linear", "Cosine", "Cubic", "Colorize", "Start Editting 3D Model",
+			"Finish Editting 3D Model", "Scatter", "Scatter Size", "Scatter Range", "Random Size Scatter",
+			"Random Flow Scatter", "Normal Brush",
 			{"Pencil", "Hard Pen", "Air Brush", "Old Air Brush", "Water Brush", "Picker Brush", "Eraser", "Bucket",
 				"Pattern Fill", "Blur Tool", "Smudge", "Mix Brush", "Gradation", "Text Tool", "Stamp Tool",
-				"Image Brush", "Image Blend\nBrush", "Picker Image Brush", "Script Brush", "PLUG_IN"},
+				"Image Brush", "Image Blend\nBrush", "Picker Image Brush", "Script Brush", "Custom Brush", "PLUG_IN"},
 			{"Detection Target", "Detect from ... ", "Pixels Color", "Pixel Color + Alpha",
 				"Alpha", "Active Layer", "Under Layer", "Canvas", "Threshold", "Detection Area", "Normal", "Large"},
 			{"Select/Release", "Move Control Point", "Change Pressure", "Delete Control Point",
-				"Move Stroke", "Copy & Move Stroke", "Joint Stroke"}},
+				"Move Stroke", "Copy & Move Stroke", "Joint Stroke"},
+			{"Circle", "Triangle", "Square", "Hexagon", "Star", "Pattern", "Image"}
+		},
 		{"Layer", "Layer", "Vector", "Layer Set", "Text", "3D Modeling", "Add Layer", "Add Vector Layer",
 			"Add Layer Set", "Add 3D Modeling Layer", "Rename Layer", "Reorder Layer", "Opacity to Selection Area",
 			"Opacity Add Selection Area", "Pasted Layer", "Under Layer", "Mixed Under Layer", "Blend Mode", "Opacity",
@@ -404,6 +413,10 @@ int main(int argc, char** argv)
 	};
 
 	void *tbb = NULL;
+
+#if defined(CHECK_MEMORY_POOL) && CHECK_MEMORY_POOL != 0
+	_CrtSetDbgFlag(_CRTDBG_CHECK_ALWAYS_DF);
+#endif
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	application.flags |= APPLICATION_HAS_3D_LAYER;

@@ -23,6 +23,7 @@
 #include "script.h"
 #include "display.h"
 #include "MikuMikuGtk+/ui.h"
+#include "MikuMikuGtk+/mikumikugtk.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -862,6 +863,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 				{
 					GtkWidget *setting_dialog;
 					GtkWidget *setting;
+					GtkWidget *scroll;
 					core->brush_data = (void*)brush;
 					core->detail_data_size = sizeof(*brush);
 					core->brush_type = (uint8)BRUSH_TYPE_PLUG_IN;
@@ -888,8 +890,13 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 						GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 						NULL
 					);
+					scroll = gtk_scrolled_window_new(NULL, NULL);
+					gtk_widget_set_size_request(scroll, 300, 600);
+					gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+						GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+					gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(scroll), setting);
 					gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(setting_dialog))),
-						setting, TRUE, TRUE, 0);
+						scroll, TRUE, TRUE, 0);
 					gtk_widget_show_all(setting_dialog);
 					(void)gtk_dialog_run(GTK_DIALOG(setting_dialog));
 
@@ -933,6 +940,7 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 		}
 		else
 		{
+			GtkWidget *scroll;
 			LoadBrushDefaultData(core, gtk_combo_box_get_active(
 				GTK_COMBO_BOX(brush_type)), app);
 			initialize_dialog = gtk_dialog_new_with_buttons(
@@ -941,8 +949,15 @@ void BrushBlankButtonCallBack(GtkWidget* button, BRUSH_CORE* core)
 				GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 				GTK_STOCK_OK, GTK_RESPONSE_ACCEPT, NULL
 			);
+
+			scroll = gtk_scrolled_window_new(NULL, NULL);
+			gtk_widget_set_size_request(scroll, 300, 600);
+			gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+				GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+			gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(scroll),
+				core->create_detail_ui(app, core));
 			gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(initialize_dialog))),
-				core->create_detail_ui(app, core), FALSE, FALSE, 0);
+				scroll, FALSE, FALSE, 0);
 			gtk_widget_show_all(initialize_dialog);
 			(void)gtk_dialog_run(GTK_DIALOG(initialize_dialog));
 			gtk_widget_destroy(initialize_dialog);
@@ -2269,6 +2284,8 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 		G_CALLBACK(MouseWheelScrollEvent), layer->layer_data.project);
 	draw_window->callbacks.configure = g_signal_connect(G_OBJECT(draw_window->gl_area), "configure-event",
 		G_CALLBACK(ConfigureEvent), layer->layer_data.project);
+
+	ProjectSetOriginalSize(layer->layer_data.project, draw_window->original_width, draw_window->original_height);
 
 #if GTK_MAJOR_VERSION >= 3
 	gtk_widget_get_allocation(draw_window->scroll, &allocation);

@@ -161,6 +161,7 @@ static gboolean UpdatePreviewWindow(
 
 	// ‰æ–ÊXV
 #if GTK_MAJOR_VERSION <= 2
+	//cairo_p = kaburagi_cairo_create((struct _GdkWindow*)app->preview_window.image->window);
 	cairo_p = gdk_cairo_create(app->preview_window.image->window);
 #endif
 	cairo_rectangle(cairo_p, 0, 0, app->preview_window.draw_width, app->preview_window.draw_height);

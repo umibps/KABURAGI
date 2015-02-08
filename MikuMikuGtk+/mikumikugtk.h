@@ -72,6 +72,8 @@ extern void RenderForPixelData(
 	void* user_data
 );
 
+extern void ProjectSetOriginalSize(void* project_context, int width, int height);
+
 #ifdef __cplusplus
 }
 #endif

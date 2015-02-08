@@ -26,6 +26,12 @@ typedef struct _CONTROL_POINT_LABELS
 		*copy_stroke, *joint_stroke;
 } CONTROL_POINT_LABELS;
 
+typedef struct _SHAPE_LABELS
+{
+	gchar *circle, *triangle, *square, *hexagon,
+		*star, *pattern, *image;
+} SHAPE_LABELS;
+
 typedef struct _APPLICATON_LABELS
 {
 	char *language_name;
@@ -88,19 +94,22 @@ typedef struct _APPLICATON_LABELS
 			*rotate_start, *rotate_speed, *random_rotate,
 			*rotate_to_brush_direction, *size_range, *rotate_range, *randoam_size,
 			*clockwise, *counter_clockwise, *both_direction, *min_degree, *min_distance,
-			*min_pressure, *enter, *out, *mix, *gradation_reverse, *devide_stroke,
-			*delete_stroke, *target, *stroke, *prior_angle, *control_point,
-			*transform_free, *transform_scale, *transform_free_shape, *transform_rotate,
-			*preference, *name, *copy_brush, *change_brush, *delete_brush, *texture,
-			*texture_strength, *no_texture, *pallete_add, *pallete_delete,
-			*load_pallete, *load_pallete_after, *write_pallete, *clear_pallete,
-			*pick_mode, *single_pixels, *average_color, *open_path, *close_path,
-			*update, *frequency, *cloud_color, *persistence, *rand_seed, *use_random,
-			*update_immediately, *num_octaves, *linear, *cosine, *cubic,
-			*colorize, *start_edit_3d, *end_edit_3d;
+			*min_pressure, *enter, *out, *enter_out, *mix, *gradation_reverse,
+			*devide_stroke, *delete_stroke, *target, *stroke, *prior_angle,
+			*control_point, *transform_free, *transform_scale, *transform_free_shape,
+			*transform_rotate, *preference, *name, *copy_brush, *change_brush,
+			*delete_brush, *texture, *texture_strength, *no_texture, *pallete_add,
+			*pallete_delete, *load_pallete, *load_pallete_after, *write_pallete,
+			*clear_pallete, *pick_mode, *single_pixels, *average_color, *open_path,
+			*close_path, *update, *frequency, *cloud_color, *persistence, *rand_seed,
+			*use_random, *update_immediately, *num_octaves, *linear, *cosine, *cubic,
+			*colorize, *start_edit_3d, *end_edit_3d, *scatter,
+			*scatter_size, *scatter_range, *scatter_random_size,
+			*scatter_random_flow, *normal_brush;
 		gchar *brush_default_names[NUM_BRUSH_TYPE];
 		SELECT_TARGET_LABELS select;
 		CONTROL_POINT_LABELS control;
+		SHAPE_LABELS shape;
 	} tool_box;
 
 	struct

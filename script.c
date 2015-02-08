@@ -1759,10 +1759,12 @@ static int CallBack(CALLBACK_INFO* info)
 #if GTK_MAJOR_VERSION <= 2
 	else if(strcmp(info->query.signal_name, "expose-event") == 0)
 	{
+		//cairo_p = kaburagi_cairo_create((struct _GdkWindow*)info->object->window);
 		cairo_p = gdk_cairo_create(info->object->window);
 #else
 	else if(strcmp(info->query.signal_name, "draw") == 0)
 	{
+		//cairo_p = kaburagi_cairo_create((struct _GdkWindow*)gtk_widget_get_window(info->object));
 		cairo_p = gdk_cairo_create(gtk_widget_get_window(info->object));
 #endif
 		arg_num++;
@@ -2506,8 +2508,10 @@ static int ScriptGetWidgetCairo(lua_State* lua)
 {
 	GtkWidget *widget = GTK_WIDGET(lua_topointer(lua, -1));
 #if GTK_MAJOR_VERSION <= 2
+	//cairo_t *cairo_p = kaburagi_cairo_create((struct _GdkWindow*)widget->window);
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 #else
+	//cairo_t *cairo_p = kaburagi_cairo_create(gtk_widget_get_window(widget));
 	cairo_t * cairo_p = gdk_cairo_create(gtk_widget_get_window(widget));
 #endif
 	const cairo_user_data_key_t widget_key = {0};

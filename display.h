@@ -24,6 +24,22 @@ extern gboolean DisplayDrawWindow(
 	struct _DRAW_WINDOW* window
 );
 
+/***************************************************
+* DisplayBrushPreview関数                          *
+* ブラシプレビューの画面更新処理                   *
+* 引数                                             *
+* widget		: ブラシ描画結果表示用ウィジェット *
+* event_info	: 描画更新の情報                   *
+* window		: 描画領域の情報                   *
+* 返り値                                           *
+*	常にFALSE                                      *
+***************************************************/
+extern gboolean DisplayBrushPreview(
+	GtkWidget* widget,
+	GdkEventExpose* event_info,
+	struct _DRAW_WINDOW* window
+);
+
 /*****************************
 * UpdateDrawWindow関数       *
 * 描画領域の更新処理         *

@@ -43,6 +43,7 @@ typedef enum _eBRUSH_TYPE
 	BRUSH_TYPE_BLEND_IMAGE_BRUSH,
 	BRUSH_TYPE_PICKER_IMAGE_BRUSH,
 	BRUSH_TYPE_SCRIPT_BRUSH,
+	BRUSH_TYPE_CUSTOM_BRUSH,
 	BRUSH_TYPE_PLUG_IN,
 	NUM_BRUSH_TYPE
 } eBRUSH_TYPE;
@@ -67,8 +68,8 @@ typedef struct _BRUSH_CORE
 	uint8 **brush_pattern_buff, **temp_pattern_buff;
 	int stride;
 
-	gchar* name;
-	char* image_file_path;
+	gchar *name;
+	char *image_file_path;
 	uint8 (*color)[3];
 	uint8 (*back_color)[3];
 	uint8 brush_type;
@@ -82,8 +83,28 @@ typedef struct _BRUSH_CORE
 	GtkWidget* (*create_detail_ui)(struct _APPLICATION *app, struct _BRUSH_CORE* core);
 	void (*color_change)(const uint8 color[3], void* data);
 	void (*change_editting_selection)(void* data, int is_editting);
-	GtkWidget* button;
+	GtkWidget *button;
 } BRUSH_CORE;
+
+typedef struct _BRUSH_UPDATE_INFO
+{
+	// 更新を行う範囲
+	FLOAT_T min_x, min_y, max_x, max_y;
+	// 更新範囲の左上の座標
+	int start_x, start_y;
+	// 更新範囲の幅、高さ
+	FLOAT_T width, height;
+	// 描画を実行するか否か
+	int update;
+} BRUSH_UPDATE_INFO;
+
+typedef struct _BRUSH_UPDATE_AREA
+{
+	// 更新を行う範囲
+	FLOAT_T min_x, min_y, max_x, max_y;
+	// 初期化済みフラグ
+	int initialized;
+} BRUSH_UPDATE_AREA;
 
 EXTERN void ChangeBrush(
 	BRUSH_CORE* core,
@@ -151,6 +172,34 @@ EXTERN void BrushCoreSetGrayCirclePattern(
 
 EXTERN void BrushCoreUndoRedo(DRAW_WINDOW* window, void* p);
 
+/*****************************************************
+* DrawCircleBrush関数                                *
+* ブラシをマスクレイヤーに描画する                   *
+* 引数                                               *
+* window		: キャンバス                         *
+* core			: ブラシの基本情報                   *
+* x				: 描画範囲の左上のX座標              *
+* y				: 描画範囲の左上のY座標              *
+* width			: 描画範囲の幅                       *
+* height		: 描画範囲の高さ                     *
+* mask			: 作業レイヤーにコピーする際のマスク *
+* zoom			: 拡大・縮小率                       *
+* alpha			: 不透明度                           *
+* blend_mode	: 合成モード                         *
+*****************************************************/
+EXTERN void DrawCircleBrush(
+	DRAW_WINDOW* window,
+	BRUSH_CORE* core,
+	gdouble x,
+	gdouble y,
+	gdouble width,
+	gdouble height,
+	uint8** mask,
+	gdouble zoom,
+	gdouble alpha,
+	uint16 blend_mode
+);
+
 /*************************************************
 * DrawCircleBrushWorkLayer関数                   *
 * ブラシを作業レイヤーに描画する                 *
@@ -177,6 +226,192 @@ EXTERN void DrawCircleBrushWorkLayer(
 	gdouble alpha
 );
 
+/*************************************************
+* DrawImageBrush関数                             *
+* 画像ブラシをマスクレイヤーに描画する           *
+* 引数                                           *
+* window		: キャンバスの情報               *
+* core			: ブラシの基本情報               *
+* x				: 描画範囲の中心X座標            *
+* y				: 描画範囲の中心Y座標            *
+* width			: 描画範囲の幅                   *
+* height		: 描画範囲の高さ                 *
+* scale			: 描画する拡大率                 *
+* size			: 画像の長辺の長さ               *
+* angle			: 画像の角度                     *
+* image_width	: 画像の幅                       *
+* image_height	: 画像の高さ                     *
+* mask			: 合成時のマスクを受けるポインタ *
+* alpha			: 濃度                           *
+* blend_mode	: 合成モード                     *
+*************************************************/
+EXTERN void DrawImageBrush(
+	DRAW_WINDOW* window,
+	BRUSH_CORE* core,
+	gdouble x,
+	gdouble y,
+	gdouble width,
+	gdouble height,
+	gdouble scale,
+	gdouble size,
+	gdouble angle,
+	gdouble image_width,
+	gdouble image_height,
+	uint8** mask,
+	gdouble alpha,
+	uint16 blend_mode
+);
+
+/*************************************************
+* DrawImageBrushWorkLayer関数                    *
+* 画像ブラシを作業レイヤーに描画する             *
+* 引数                                           *
+* window		: キャンバスの情報               *
+* core			: ブラシの基本情報               *
+* x				: 描画範囲の中心X座標            *
+* y				: 描画範囲の中心Y座標            *
+* width			: 描画範囲の幅                   *
+* height		: 描画範囲の高さ                 *
+* scale			: 描画する拡大率                 *
+* size			: 画像の長辺の長さ               *
+* angle			: 画像の角度                     *
+* image_width	: 画像の幅                       *
+* image_height	: 画像の高さ                     *
+* mask			: 合成時のマスクを受けるポインタ *
+* alpha			: 濃度                           *
+*************************************************/
+EXTERN void DrawImageBrushWorkLayer(
+	DRAW_WINDOW* window,
+	BRUSH_CORE* core,
+	gdouble x,
+	gdouble y,
+	gdouble width,
+	gdouble height,
+	gdouble scale,
+	gdouble size,
+	gdouble angle,
+	gdouble image_width,
+	gdouble image_height,
+	uint8** mask,
+	gdouble alpha
+);
+
+/*************************************************
+* AdaptNormalBrush関数                           *
+* 通常のブラシの描画結果を作業レイヤーに反映する *
+* 引数                                           *
+* window		: キャンバスの情報               *
+* draw_pixel	: 描画結果の入ったピクセルデータ *
+* width			: 描画範囲の幅                   *
+* height		: 描画範囲の高さ                 *
+* start_x		: 描画範囲の左上のX座標          *
+* start_y		: 描画範囲の左上のY座標          *
+* anti_alias	: アンチエイリアスを行うか否か   *
+*************************************************/
+EXTERN void AdaptNormalBrush(
+	DRAW_WINDOW* window,
+	uint8* draw_pixel,
+	int width,
+	int height,
+	int start_x,
+	int start_y,
+	int anti_alias
+);
+
+/*************************************************
+* AdaptBlendBrush関数                            *
+* 合成ブラシの描画結果を作業レイヤーに反映する   *
+* 引数                                           *
+* window		: キャンバスの情報               *
+* draw_pixel	: 描画結果の入ったピクセルデータ *
+* width			: 描画範囲の幅                   *
+* height		: 描画範囲の高さ                 *
+* start_x		: 描画範囲の左上のX座標          *
+* start_y		: 描画範囲の左上のY座標          *
+* anti_alias	: アンチエイリアスを行うか否か   *
+* blend_mode	: 合成モード                     *
+*************************************************/
+EXTERN void AdaptBlendBrush(
+	DRAW_WINDOW* window,
+	uint8* draw_pixel,
+	int width,
+	int height,
+	int start_x,
+	int start_y,
+	int anti_alias,
+	int blend_mode
+);
+
+/******************************************************
+* UpdateBrushButtonPressDrawArea関数                  *
+* ブラシのクリックに対する更新する範囲を設定する      *
+* 引数                                                *
+* window		: キャンバスの情報                    *
+* area			: 更新範囲を記憶するアドレス          *
+* core			: ブラシの基本情報                    *
+* x				: 描画範囲の中心のX座標               *
+* y				: 描画範囲の中心のY座標               *
+* size			: ブラシの長辺の長さ                  *
+* brush_area	: ブラシストローク終了時の更新範囲    *
+******************************************************/
+EXTERN void UpdateBrushButtonPressDrawArea(
+	DRAW_WINDOW* window,
+	BRUSH_UPDATE_INFO* area,
+	BRUSH_CORE* core,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T size,
+	BRUSH_UPDATE_AREA* brush_area
+);
+
+/******************************************************
+* UpdateBrushMotionDrawArea関数                       *
+* ブラシのドラッグに対する更新する範囲を設定する      *
+* 引数                                                *
+* window		: キャンバスの情報                    *
+* area			: 更新範囲を記憶するアドレス          *
+* core			: ブラシの基本情報                    *
+* x				: 描画範囲の中心のX座標               *
+* y				: 描画範囲の中心のY座標               *
+* before_x		: 前回描画時のマウスのX座標           *
+* before_y		: 前回描画時のマウスのY座標           *
+* size			: ブラシの長辺の長さ                  *
+* brush_area	: ブラシストローク終了時の更新範囲    *
+******************************************************/
+EXTERN void UpdateBrushMotionDrawArea(
+	DRAW_WINDOW* window,
+	BRUSH_UPDATE_INFO* area,
+	BRUSH_CORE* core,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T before_x,
+	FLOAT_T before_y,
+	FLOAT_T size,
+	BRUSH_UPDATE_AREA* brush_area
+);
+
+/***************************************************
+* UpdateBrushScatterDrawArea関数                　 *
+* ブラシの散布に対する更新する範囲を設定する    　 *
+* 引数                                             *
+* window		: キャンバスの情報                 *
+* area			: 更新範囲を記憶するアドレス       *
+* core			: ブラシの基本情報                 *
+* x				: 描画範囲の中心のX座標            *
+* y				: 描画範囲の中心のY座標            *
+* size			: ブラシの長辺の長さ               *
+* brush_area	: ブラシストローク終了時の更新範囲 *
+***************************************************/
+EXTERN void UpdateBrushScatterDrawArea(
+	DRAW_WINDOW* window,
+	BRUSH_UPDATE_INFO* area,
+	BRUSH_CORE* core,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T size,
+	BRUSH_UPDATE_AREA* brush_area
+);
+
 /***************************************
 * DefaultToolUpdate関数                *
 * デフォルトのツールアップデートの関数 *
@@ -187,6 +422,122 @@ EXTERN void DrawCircleBrushWorkLayer(
 * dummy		: ダミーポインタ           *
 ***************************************/
 EXTERN void DefaultToolUpdate(DRAW_WINDOW* window, gdouble x, gdouble y, void* dummy);
+
+/***************************************************
+* UpdateBrushPreviewWindow関数                     *
+* ブラシのプレビューキャンバスを更新する           *
+* 引数                                             *
+* window		: ブラシのプレビューキャンバス     *
+* core			: プレビューするブラシの基本情報   *
+* press_func	: クリック時のコールバック関数     *
+* motion_func	: ドラッグ中のコールバック関数     *
+* release_func	: ドラッグ終了時のコールバック関数 *
+***************************************************/
+EXTERN void UpdateBrushPreviewWindow(
+	DRAW_WINDOW* window,
+	BRUSH_CORE* core,
+	brush_core_func press_func,
+	brush_core_func motion_func,
+	brush_core_func release_func
+);
+
+/*********************************************************
+* AdaptSmudge関数                                        *
+* 指先ツールの作業レイヤーとの合成処理                   *
+* 引数                                                   *
+* canvas		: キャンバスの情報                       *
+* start_x		: 描画範囲の左上のX座標                  *
+* start_y		: 描画範囲の左上のY座標                  *
+* width			: 描画範囲の幅                           *
+* height		: 描画範囲の高さ                         *
+* before_width	: 前回描画時の描画範囲の幅               *
+* before_height	: 前回描画時の描画範囲の高さ             *
+* mask			: ブラシの描画結果の入ったピクセルデータ *
+* extend		: 色延びの割合                           *
+* initialized	: 初期化済みか否か(初期化済み:0以外)     *
+*********************************************************/
+EXTERN void AdaptSmudge(
+	DRAW_WINDOW* canvas,
+	int start_x,
+	int start_y,
+	int width,
+	int height,
+	int before_width,
+	int before_height,
+	uint8* mask,
+	uint8 extend,
+	int initialized
+);
+
+/*********************************************************
+* AdaptSmudgeScatter関数                                 *
+* 指先ツールの作業レイヤーとの合成処理(散布用)           *
+* 引数                                                   *
+* canvas		: キャンバスの情報                       *
+* start_x		: 描画範囲の左上のX座標                  *
+* start_y		: 描画範囲の左上のY座標                  *
+* width			: 描画範囲の幅                           *
+* height		: 描画範囲の高さ                         *
+* before_width	: 前回描画時の描画範囲の幅               *
+* before_height	: 前回描画時の描画範囲の高さ             *
+* mask			: ブラシの描画結果の入ったピクセルデータ *
+* extend		: 色延びの割合                           *
+* initialized	: 初期化済みか否か(初期化済み:0以外)     *
+*********************************************************/
+EXTERN void AdaptSmudgeScatter(
+	DRAW_WINDOW* canvas,
+	int start_x,
+	int start_y,
+	int width,
+	int height,
+	int before_width,
+	int before_height,
+	uint8* mask,
+	uint8 extend,
+	int initialized
+);
+
+/*********************************************************
+* BlendWaterBrush関数                                    *
+* 水彩ブラシの作業レイヤーとの合成処理                   *
+* 引数                                                   *
+* canvas				: キャンバスの情報               *
+* core					: ブラシの基本情報               *
+* x						: 描画するX座標                  *
+* y						: 描画するY座標                  *
+* before_x				: 前回描画時のX座標              *
+* before_y				: 前回描画時のY座標              *
+* brush_size			: ブラシの半径                   *
+* start_x				: 描画範囲の左上のX座標          *
+* start_y				: 描画範囲の左上のY座標          *
+* width					: 描画範囲の幅                   *
+* height				: 描画範囲の高さ                 *
+* work_pixel			: 作業レイヤーのピクセルデータ   *
+* mask					: 描画結果の入ったピクセルデータ *
+* brush_alpha			: ブラシの濃度                   *
+* brush_before_color	: 前回描画時に記憶した色         *
+* mix					: 混色する割合                   *
+* extend				: 色を延ばす割合                 *
+*********************************************************/
+EXTERN void BlendWaterBrush(
+	DRAW_WINDOW* canvas,
+	BRUSH_CORE* core,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T before_x,
+	FLOAT_T before_y,
+	FLOAT_T brush_size,
+	int start_x,
+	int start_y,
+	int width,
+	int height,
+	uint8* work_pixel,
+	uint8* mask,
+	FLOAT_T brush_alpha,
+	uint8 brush_before_color[4],
+	uint8 mix,
+	uint8 extend
+);
 
 #ifdef __cplusplus
 }

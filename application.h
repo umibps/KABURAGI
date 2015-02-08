@@ -8,7 +8,7 @@
 #if MAJOR_VERSION == 1
 # define MINOR_VERSION 3
 # define RELEASE_VERSION 2
-# define BUILD_VERSION 4
+# define BUILD_VERSION 5
 #elif MAJOR_VERSION == 2
 # define MINOR_VERSION 0
 # define RELEASE_VERSION 1
@@ -20,6 +20,10 @@
 #include "draw_window.h"
 // 描画領域の最大数
 #define MAX_DRAW_WINDOW 128
+// ブラシプレビュー用キャンバスの幅
+#define BRUSH_PREVIEW_CANVAS_WIDTH 500
+// ブラシプレビュー用キャンバスの高さ
+#define BRUSH_PREVIEW_CANVAS_HEIGHT 500
 // タッチイベント同時検出の最大数
 #define MAX_TOUCH 10
 // 3Dモデル操作時のスクロールバー分のマージン
@@ -82,22 +86,23 @@ typedef enum _eTOOL_WINDOW_FLAGS
 *************************************************/
 typedef enum _eAPPLICATION_FLAGS
 {
-	APPLICATION_IN_OPEN_OPERATION = 0x01,			// ファイルオープン
-	APPLICATION_IN_MAKE_NEW_DRAW_AREA = 0x02,		// 描画領域の新規作成
-	APPLICATION_IN_REVERSE_OPERATION = 0x04,		// 左右反転処理中
-	APPLICATION_IN_EDIT_SELECTION = 0x08,			// 選択範囲編集切り替え中
-	APPLICATION_INITIALIZED = 0x10,					// 初期化済み
-	APPLICATION_IN_DELETE_EVENT = 0x20,				// 削除イベント内
-	APPLICATION_FULL_SCREEN = 0x40,					// フルスクリーンモード
-	APPLICATION_WINDOW_MAXIMIZE = 0x80,				// ウィンドウの最大化
-	APPLICATION_DISPLAY_GRAY_SCALE = 0x100,			// グレースケールでの表示
-	APPLICATION_DISPLAY_SOFT_PROOF = 0x200,			// ICCプロファイルでソフトプルーフ表示
-	APPLICATION_REMOVE_ACCELARATOR = 0x400,			// ショートカットキーを無効化
-	APPLICATION_DRAW_WITH_TOUCH = 0x800,			// タッチイベントで描画する
-	APPLICATION_SET_BACK_GROUND_COLOR = 0x1000,		// キャンバスの背景を設定する
-	APPLICATION_SHOW_PREVIEW_ON_TASK_BAR = 0x2000,	// プレビューウィンドウをタスクバーに表示する
-	APPLICATION_IN_SWITCH_DRAW_WINDOW = 0x4000,		// 描画領域の切替中
-	APPLICATION_HAS_3D_LAYER = 0x8000				// 3Dモデリングの使用可否
+	APPLICATION_IN_OPEN_OPERATION = 0x01,				// ファイルオープン
+	APPLICATION_IN_MAKE_NEW_DRAW_AREA = 0x02,			// 描画領域の新規作成
+	APPLICATION_IN_REVERSE_OPERATION = 0x04,			// 左右反転処理中
+	APPLICATION_IN_EDIT_SELECTION = 0x08,				// 選択範囲編集切り替え中
+	APPLICATION_INITIALIZED = 0x10,						// 初期化済み
+	APPLICATION_IN_DELETE_EVENT = 0x20,					// 削除イベント内
+	APPLICATION_FULL_SCREEN = 0x40,						// フルスクリーンモード
+	APPLICATION_WINDOW_MAXIMIZE = 0x80,					// ウィンドウの最大化
+	APPLICATION_DISPLAY_GRAY_SCALE = 0x100,				// グレースケールでの表示
+	APPLICATION_DISPLAY_SOFT_PROOF = 0x200,				// ICCプロファイルでソフトプルーフ表示
+	APPLICATION_REMOVE_ACCELARATOR = 0x400,				// ショートカットキーを無効化
+	APPLICATION_DRAW_WITH_TOUCH = 0x800,				// タッチイベントで描画する
+	APPLICATION_SET_BACK_GROUND_COLOR = 0x1000,			// キャンバスの背景を設定する
+	APPLICATION_SHOW_PREVIEW_ON_TASK_BAR = 0x2000,		// プレビューウィンドウをタスクバーに表示する
+	APPLICATION_IN_SWITCH_DRAW_WINDOW = 0x4000,			// 描画領域の切替中
+	APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY = 0x8000,	// ファイルの書出しをProgram Dataフェオルダにする
+	APPLICATION_HAS_3D_LAYER = 0x10000					// 3Dモデリングの使用可否
 } eAPPLICATION_FLAGS;
 
 #define DND_THRESHOLD 20
@@ -118,6 +123,8 @@ typedef enum _eAPPLICATION_FLAGS
 
 #define PALLETE_WIDTH 16
 #define PALLETE_HEIGHT 16
+
+#define NUM_LAYER_BLEND_MODE 17
 
 typedef enum _eINPUT_DEVICE
 {
@@ -392,6 +399,12 @@ typedef struct _APPLICATION
 	// レイヤー合成用の関数ポインタ配列
 	void (*layer_blend_functions[NUM_LAYER_BLEND_FUNCTIONS])(LAYER* src, LAYER* dst);
 	void (*part_layer_blend_functions[NUM_LAYER_BLEND_FUNCTIONS])(LAYER* src, UPDATE_RECTANGLE* update);
+
+	// 合成モードの定数配列
+	cairo_operator_t layer_blend_operators[NUM_LAYER_BLEND_FUNCTIONS];
+
+	// ブラシプレビュー用のキャンバス
+	DRAW_WINDOW *brush_preview_canvas;
 
 #ifndef _WIN32
 	// Ubuntuではツールの切り替えが効かなくなるので

@@ -429,6 +429,8 @@ static void UpdateCameraMatrices(PROJECT* project, float* size)
 
 static void UpdateViewPort(PROJECT* project, int width, int height, int update)
 {
+	int start_x = 0,	start_y = 0;
+
 	if(update != FALSE
 		|| (project->flags & PROJECT_FLAG_MARK_DIRTY) != 0)
 	{
@@ -440,7 +442,16 @@ static void UpdateViewPort(PROJECT* project, int width, int height, int update)
 		project->flags &= ~(PROJECT_FLAG_MARK_DIRTY);
 	}
 
-	glViewport(0, 0, width, height);
+	if(width != project->scene->width)
+	{
+		start_x = (width - project->scene->width) / 2;
+	}
+	if(height != project->scene->height)
+	{
+		start_y = (height - project->scene->height) / 2;
+	}
+
+	glViewport(start_x, start_y, project->scene->width, project->scene->height);
 }
 
 void RenderEngines(PROJECT* project, int width, int height)
@@ -916,6 +927,12 @@ int UploadWhiteTexture(int width, int height, PROJECT* project)
 	MEM_FREE_FUNC(pixels);
 
 	return CacheTexture(WHITE_TEXTURE_NAME, texture, &bridge, project);
+}
+
+void ProjectSetOriginalSize(void* project_context, int width, int height)
+{
+	((PROJECT*)project_context)->original_width = width;
+	((PROJECT*)project_context)->original_height = height;
 }
 
 #ifdef __cplusplus

@@ -251,6 +251,7 @@ static gboolean DisplayNavigation(
 
 	// 画像を拡大縮小してナビゲーションの画像へ
 #if GTK_MAJOR_VERSION <= 2
+	//cairo_p = kaburagi_cairo_create((struct _GdkWindow*)app->navigation_window.draw_area->window);
 	cairo_p = gdk_cairo_create(app->navigation_window.draw_area->window);
 #endif
 	cairo_set_operator(cairo_p, CAIRO_OPERATOR_OVER);

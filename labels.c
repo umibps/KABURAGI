@@ -441,6 +441,8 @@ void LoadLabels(
 	labels->tool_box.enter = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "OUT", temp_str, MAX_STR_SIZE);
 	labels->tool_box.out = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "ENTER_AND_OUT", temp_str, MAX_STR_SIZE);
+	labels->tool_box.enter_out = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "MIX", temp_str, MAX_STR_SIZE);
 	labels->tool_box.mix = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "REVERSE_FG_TO_BG", temp_str, MAX_STR_SIZE);
@@ -539,6 +541,30 @@ void LoadLabels(
 	labels->tool_box.start_edit_3d = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "END_EDIT_3D_MODEL", temp_str, MAX_STR_SIZE);
 	labels->tool_box.end_edit_3d = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SCATTER", temp_str, MAX_STR_SIZE);
+	labels->tool_box.scatter = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SCATTER_SIZE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.scatter_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SCATTER_RANGE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.scatter_range = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SCATTER_RANDOM_SIZE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.scatter_random_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SCATTER_RANDOM_FLOW", temp_str, MAX_STR_SIZE);
+	labels->tool_box.scatter_random_flow = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_CIRCLE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.shape.circle = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_TRIANGLE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.shape.triangle = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_SQUARE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.shape.square = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_HEXAGON", temp_str, MAX_STR_SIZE);
+	labels->tool_box.shape.hexagon = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_STAR", temp_str, MAX_STR_SIZE);
+	labels->tool_box.shape.star = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_PATTERN", temp_str, MAX_STR_SIZE);
+	labels->tool_box.shape.pattern = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_IMAGE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.shape.image = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// レイヤーウィンドウ
 	length = IniFileGetString(file, "LAYER_WINDOW", "TITLE", temp_str, MAX_STR_SIZE);
@@ -741,6 +767,9 @@ void LoadLabels(
 		case BRUSH_TYPE_SCRIPT_BRUSH:
 			length = IniFileGetString(file, "BRUSH_DEFAULT_NAME", "SCRIPT_BRUSH", temp_str, MAX_STR_SIZE);
 			break;
+		case BRUSH_TYPE_CUSTOM_BRUSH:
+			length = IniFileGetString(file, "BRUSH_DEFAULT_NAME", "CUSTOM_BRUSH", temp_str, MAX_STR_SIZE);
+			break;
 		case BRUSH_TYPE_PLUG_IN:
 			length = IniFileGetString(file, "BRUSH_DEFAULT_NAME", "PLUG_IN", temp_str, MAX_STR_SIZE);
 			break;
@@ -748,6 +777,8 @@ void LoadLabels(
 		labels->tool_box.brush_default_names[i] =
 			g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	}
+	length = IniFileGetString(file, "BRUSH_DEFAULT_NAME", "NORMAL_BRUSH", temp_str, MAX_STR_SIZE);
+	labels->tool_box.normal_brush = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	LoadFractalLabels(fractal_labels, labels, file, lang);
 

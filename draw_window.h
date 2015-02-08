@@ -29,7 +29,8 @@ typedef enum _eDRAW_WINDOW_FLAGS
 	DRAW_WINDOW_EDITTING_3D_MODEL = 0x200,
 	DRAW_WINDOW_IS_FOCAL_WINDOW = 0x400,
 	DRAW_WINDOW_INITIALIZED = 0x800,
-	DRAW_WINDOW_DISCONNECT_3D = 0x1000
+	DRAW_WINDOW_DISCONNECT_3D = 0x1000,
+	DRAW_WINDOW_UPDATE_AREA_INITIALIZED = 0x2000
 } eDRAW_WINDOW_FLAGS;
 
 typedef struct _UPDATE_RECTANGLE
@@ -634,6 +635,14 @@ extern void SetLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, L
 * layer_blend_functions	: 中身を設定する関数ポインタ配列     *
 *************************************************************/
 extern void SetPartLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, UPDATE_RECTANGLE* update));
+
+/********************************************************************
+* SetLayerBlendOperators関数                                        *
+* レイヤー合成モードに対応するCAIROグラフィックの定数配列を設定する *
+* 引数                                                              *
+* operators	: 設定を行う配列                                        *
+********************************************************************/
+extern void SetLayerBlendOperators(cairo_operator_t operators[]);
 
 /*****************************************
 * AutoSave関数                           *

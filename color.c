@@ -454,13 +454,14 @@ static gboolean OnColorChooserMotion(GtkWidget *widget, GdkEventMotion *event, C
 }
 
 #if GTK_MAJOR_VERSION <= 2
-void DisplayColorChooser(GtkWidget* widget, GdkEventExpose* expose, COLOR_CHOOSER* chooser)
+gboolean DisplayColorChooser(GtkWidget* widget, GdkEventExpose* expose, COLOR_CHOOSER* chooser)
 #else
-void DisplayColorChooser(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* chooser)
+gboolean DisplayColorChooser(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* chooser)
 #endif
 {
 #if GTK_MAJOR_VERSION <= 2
 	// 描画用のCairo情報
+	//cairo_t *cairo_p = kaburagi_cairo_create((struct _GdkWindow*)widget->window);
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 #endif
 	// グラデーションパターン
@@ -477,6 +478,12 @@ void DisplayColorChooser(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* cho
 	HSV hsv = {chooser->hsv.h, 0xff, 0xff};
 	// グラデーション用RGB情報
 	uint8 color[3];
+
+	if(cairo_p == NULL)
+	{
+		gtk_widget_queue_draw(widget);
+		return TRUE;
+	}
 
 	// 表示をリセット
 	(void)memset(chooser->chooser_pixel_data, 0, chooser->widget_width * 4 * chooser->widget_height);
@@ -566,6 +573,8 @@ void DisplayColorChooser(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* cho
 #if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 #endif
+
+	return TRUE;
 }
 
 void RGB2HSV_Pixel(uint8 rgb[3], HSV* hsv)
@@ -837,20 +846,30 @@ void DrawColorCircle(
 }
 
 #if GTK_MAJOR_VERSION <= 2
-void DrawColorBox(GtkWidget *widget, GdkEventExpose *event, COLOR_CHOOSER* chooser)
+gboolean DrawColorBox(GtkWidget *widget, GdkEventExpose *event, COLOR_CHOOSER* chooser)
 #else
-void DrawColorBox(GtkWidget *widget, cairo_t* cairo_p, COLOR_CHOOSER* chooser)
+gboolean DrawColorBox(GtkWidget *widget, cairo_t* cairo_p, COLOR_CHOOSER* chooser)
 #endif
 {
 #if GTK_MAJOR_VERSION <= 2
+	//cairo_t *cairo_p = kaburagi_cairo_create((struct _GdkWindow*)widget->window);
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 #endif
+
+	if(cairo_p == NULL)
+	{
+		gtk_widget_queue_draw(widget);
+		return TRUE;
+	}
+
 	cairo_set_source_surface(cairo_p, chooser->color_box_surface, 0, 0);
 	cairo_paint(cairo_p);
 
 #if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 #endif
+
+	return TRUE;
 }
 
 void ColorBoxButtonPressCalBack(GtkWidget *widget, GdkEventButton *event, COLOR_CHOOSER* chooser)
@@ -881,12 +900,13 @@ void ColorBoxButtonPressCalBack(GtkWidget *widget, GdkEventButton *event, COLOR_
 }
 
 #if GTK_MAJOR_VERSION <= 2
-static void DisplayPallete(GtkWidget* widget, GdkEventExpose* expose, COLOR_CHOOSER* chooser)
+static gboolean DisplayPallete(GtkWidget* widget, GdkEventExpose* expose, COLOR_CHOOSER* chooser)
 #else
-static void DisplayPallete(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* chooser)
+static gboolean DisplayPallete(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* chooser)
 #endif
 {
 #if GTK_MAJOR_VERSION <= 2
+	//cairo_t *cairo_p = kaburagi_cairo_create((struct _GdkWindow*)expose->window);
 	cairo_t *cairo_p = gdk_cairo_create(widget->window);
 #endif
 	uint8 *pixels = chooser->pallete_pixels;
@@ -895,12 +915,18 @@ static void DisplayPallete(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* c
 	int index;
 	int i, j, k, l;
 
+	if(cairo_p != NULL)
 	{
 		guint32 *pixels32 = (guint32*)pixels;
 		for(i=0; i<(PALLETE_WIDTH*PALLETE_BOX_SIZE+PALLETE_WIDTH+1)*(PALLETE_BOX_SIZE*PALLETE_HEIGHT+PALLETE_HEIGHT+1); i++)
 		{
 			pixels32[i] = 0xff000000;
 		}
+	}
+	else
+	{
+		gtk_widget_queue_draw(widget);
+		return TRUE;
 	}
 
 	for(i=0, index=0; i<PALLETE_HEIGHT; i++)
@@ -986,6 +1012,8 @@ static void DisplayPallete(GtkWidget* widget, cairo_t* cairo_p, COLOR_CHOOSER* c
 #if GTK_MAJOR_VERSION <= 2
 	cairo_destroy(cairo_p);
 #endif
+
+	return TRUE;
 }
 
 static void PalleteAddColor(COLOR_CHOOSER* chooser)

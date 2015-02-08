@@ -252,7 +252,8 @@ GtkWidget* GetMainMenu(
 	(void)sprintf(buff, "%s", app->labels->menu.quit);
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
-		GDK_KEY_Escape, 0, GTK_ACCEL_VISIBLE);
+		GDK_Escape, 0, GTK_ACCEL_VISIBLE);
+	//	GDK_KEY_Escape, 0, GTK_ACCEL_VISIBLE);
 	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(OnQuitApplication), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
@@ -1137,7 +1138,8 @@ GtkWidget* GetMainMenu(
 	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteSwitchFullScreen), app);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
-		GDK_KEY_Return, GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
+		GDK_Return, GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
+	//	GDK_KEY_Return, GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
 	//-----------------------------------------------------------//

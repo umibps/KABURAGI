@@ -319,6 +319,7 @@ gboolean ConfigureEvent(
 	GtkAllocation allocation;
 	GdkGLContext *context = gtk_widget_get_gl_context(widget);
 	GdkGLDrawable *drawable = gtk_widget_get_gl_drawable(widget);
+	int start_x = 0,	start_y = 0;
 #if GTK_MAJOR_VERSION <= 2
 	if(gdk_gl_drawable_gl_begin(drawable, context) == FALSE)
 #else
@@ -360,11 +361,55 @@ gboolean ConfigureEvent(
 		SetLightColorDirectionWidget(project->application_context);
 	}
 
-	project->scene->width = allocation.width;
-	project->scene->height = allocation.height;
-	ResizeHandle(&project->control.handle, allocation.width, allocation.height);
+#if 0
+	if(project->original_width != 0 && project->original_height != 0)
+	{
+		if((project->flags & PROJECT_FLAG_ADJUST_TO_RATIO) == 0)
+		{
+			int new_width,	new_height;
 
-	glViewport(0, 0, allocation.width, allocation.height);
+			project->flags |= PROJECT_FLAG_ADJUST_TO_RATIO;
+			new_width = allocation.width;
+			new_height = (new_width * project->original_height) / project->original_width;
+
+			if(new_width > allocation.width || new_height > allocation.height)
+			{
+				new_height = allocation.height;
+				new_width = (new_height * project->original_width) / project->original_height;
+			}
+
+			if(new_width != allocation.width || new_height != allocation.height)
+			{
+				project->scene->width = new_width;
+				project->scene->height = new_height;
+			}
+			else
+			{
+				project->scene->width = allocation.width;
+				project->scene->height = allocation.height;
+			}
+		}
+	}
+	else
+#endif
+	{
+		project->scene->width = allocation.width;
+		project->scene->height = allocation.height;
+	}
+	// project->flags &= ~(PROJECT_FLAG_ADJUST_TO_RATIO);
+
+	if(allocation.width != project->scene->width)
+	{
+		start_x = (allocation.width - project->scene->width) / 2;
+	}
+	if(allocation.height != project->scene->height)
+	{
+		start_y = (allocation.height - project->scene->height) / 2;
+	}
+
+	ResizeHandle(&project->control.handle, project->scene->width, project->scene->height);
+
+	glViewport(start_x, start_y, allocation.width, allocation.height);
 
 #if GTK_MAJOR_VERSION <= 2
 	gdk_gl_drawable_gl_end(drawable);

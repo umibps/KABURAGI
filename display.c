@@ -469,12 +469,16 @@ gboolean DisplayDrawWindow(
 	if((window->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE) != 0)
 	{
 		uint8 *ref, *src;
+		int width = window->disp_layer->width;
 
+#ifdef _OPENMP
+#pragma omp parallel for private(ref, src, x) firstprivate(width, window)
+#endif
 		for(y=0; y<window->disp_layer->height; y++)
 		{
 			ref = window->disp_temp->pixels;
 			src = &window->disp_layer->pixels[(y+1)*window->disp_layer->stride-4];
-			for(x=0; x<window->disp_layer->width; x++, ref += 4, src -= 4)
+			for(x=0; x<width; x++, ref += 4, src -= 4)
 			{
 				ref[0] = src[0], ref[1] = src[1], ref[2] = src[2], ref[3] = src[3];
 			}
@@ -486,6 +490,7 @@ execute_update:
 
 	// 回転処理 & 表示
 # if GTK_MAJOR_VERSION <= 2
+	//cairo_p = kaburagi_cairo_create((struct _GdkWindow*)window->window->window);
 	cairo_p = gdk_cairo_create(window->window->window);
 	gdk_cairo_region(cairo_p, event_info->region);
 	cairo_clip(cairo_p);
@@ -499,7 +504,8 @@ execute_update:
 # endif
 
 	// 画面更新が終わったのでフラグを下ろす
-	window->flags &= ~(DRAW_WINDOW_UPDATE_ACTIVE_UNDER | DRAW_WINDOW_UPDATE_ACTIVE_OVER);
+	window->flags &= ~(DRAW_WINDOW_UPDATE_ACTIVE_UNDER
+		| DRAW_WINDOW_UPDATE_ACTIVE_OVER | DRAW_WINDOW_UPDATE_AREA_INITIALIZED);
 
 	// ナビゲーションおよびプレビューの内容を更新
 	if(update_mode != NO_UPDATE)
@@ -514,6 +520,130 @@ execute_update:
 			gtk_widget_queue_draw(window->app->preview_window.image);
 		}
 	}
+
+	return TRUE;
+}
+
+/***************************************************
+* DisplayBrushPreview関数                          *
+* ブラシプレビューの画面更新処理                   *
+* 引数                                             *
+* widget		: ブラシ描画結果表示用ウィジェット *
+* event_info	: 描画更新の情報                   *
+* window		: 描画領域の情報                   *
+* 返り値                                           *
+*	常にFALSE                                      *
+***************************************************/
+gboolean DisplayBrushPreview(
+	GtkWidget* widget,
+	GdkEventExpose* event_info,
+	struct _DRAW_WINDOW* window
+)
+{
+	// 合成するレイヤー
+	LAYER *layer = NULL, *blend_layer;
+	// マウスの情報取得用
+	GdkModifierType state;
+	// 拡大・縮小を元に戻すための値
+	gdouble rev_zoom = window->rev_zoom;
+	// 合成モード
+	int blend_mode;
+
+	// 画面表示用Cairo情報
+	cairo_t *cairo_p;
+
+	state = window->state;
+
+	// 全レイヤーを合成
+	(void)memcpy(window->mixed_layer->pixels, window->back_ground, window->pixel_buf_size);
+	// 合成する最初のレイヤーは一番下のレイヤー
+	layer = window->layer;
+
+	// 一番上のレイヤーに辿り着くまでループ
+	while(layer != NULL)
+	{
+		// 合成レイヤーと合成方法を一度記憶して
+		blend_layer = layer;
+		blend_mode = layer->layer_mode;
+
+		// 非表示レイヤーになっていないことを確認
+		if((blend_layer->flags & LAYER_FLAG_INVISIBLE) == 0)
+		{	// もし、合成するレイヤーがアクティブレイヤーなら
+			if(layer == window->active_layer)
+			{
+				if(layer->layer_type == TYPE_NORMAL_LAYER)
+				{	// 通常レイヤーは
+						// 作業レイヤーとアクティブレイヤーを一度合成してから下のレイヤーと合成
+					(void)memcpy(window->temp_layer->pixels, layer->pixels, layer->stride*layer->height);
+					window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->temp_layer);
+					blend_layer = window->temp_layer;
+					blend_layer->alpha = layer->alpha;
+					blend_layer->flags = layer->flags;
+					blend_layer->prev = layer->prev;
+				}
+				else if(layer->layer_type == TYPE_VECTOR_LAYER)
+				{	// ベクトルレイヤーは
+						// レイヤーのラスタライズ処理を行なってから作業レイヤーと下のレイヤーを合成
+					RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+					if(window->work_layer->layer_mode != LAYER_BLEND_NORMAL)
+					{
+						window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, layer);
+					}
+				}
+				else if(layer->layer_type == TYPE_TEXT_LAYER)
+				{	// テキストレイヤーは
+						// テキストの内容をラスタライズ処理してから下のレイヤーと合成
+					RenderTextLayer(window, layer, layer->layer_data.text_layer_p);
+				}
+			}
+
+			// 合成する対象と方法が確定したので合成を実行する
+			window->layer_blend_functions[blend_mode](blend_layer, window->mixed_layer);
+			// 合成したらデータを元に戻す
+			window->temp_layer->alpha = 100;
+			window->temp_layer->flags = 0;
+			window->temp_layer->prev = NULL;
+			cairo_set_operator(window->temp_layer->cairo_p, CAIRO_OPERATOR_OVER);
+		}	// 非表示レイヤーになっていないことを確認
+		// if((blend_layer->flags & LAYER_FLAG_INVISIBLE) == 0)
+
+		// 次のレイヤーへ
+		layer = layer->next;
+	}	// 一番上のレイヤーに辿り着くまでループ
+			// while(layer != NULL)
+
+	if(window->app->display_filter.filter_func != NULL)
+	{
+		window->app->display_filter.filter_func(window->mixed_layer->pixels,
+			window->mixed_layer->pixels, window->width*window->height, window->app->display_filter.filter_data);
+	}
+
+	// 現在の拡大縮小率で表示用のデータに合成したデータを転写
+	cairo_set_operator(window->scaled_mixed->cairo_p, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_surface(window->scaled_mixed->cairo_p, window->mixed_layer->surface_p, 0, 0);
+	cairo_paint(window->scaled_mixed->cairo_p);
+	
+	(void)memcpy(window->disp_layer->pixels, window->scaled_mixed->pixels,
+		window->scaled_mixed->stride * window->scaled_mixed->height);
+
+	// 回転処理 & 表示
+# if GTK_MAJOR_VERSION <= 2
+	//cairo_p = kaburagi_cairo_create((struct _GdkWindow*)window->window->window);
+	cairo_p = gdk_cairo_create(window->window->window);
+	gdk_cairo_region(cairo_p, event_info->region);
+	cairo_clip(cairo_p);
+# else
+	cairo_p = (cairo_t*)event_info;
+# endif
+	cairo_set_source_surface(cairo_p, window->disp_layer->surface_p, 0, 0);
+	cairo_paint(cairo_p);
+# if GTK_MAJOR_VERSION <= 2
+	cairo_destroy(cairo_p);
+# endif
+
+	// 画面更新が終わったのでフラグを下ろす
+	window->flags &= ~(DRAW_WINDOW_UPDATE_ACTIVE_UNDER
+		| DRAW_WINDOW_UPDATE_ACTIVE_OVER | DRAW_WINDOW_UPDATE_AREA_INITIALIZED);
 
 	return TRUE;
 }

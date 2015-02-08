@@ -1019,6 +1019,16 @@ void AdjustmentChangeValueCallBackDouble(GtkAdjustment* adjustment, gdouble* val
 	}
 }
 
+void SetAdjustmentChangeValueCallBack(
+	GtkAdjustment* adjustment,
+	void (*func)(void*),
+	void* func_data
+)
+{
+	g_object_set_data(G_OBJECT(adjustment), "changed_callback", func);
+	g_object_set_data(G_OBJECT(adjustment), "callback_data", func_data);
+}
+
 static void CheckButtonChangeFlags(GtkWidget* button, guint32* flags)
 {
 	guint32 flag_value = (guint32)GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button), "flag-value"));
@@ -1032,7 +1042,7 @@ static void CheckButtonChangeFlags(GtkWidget* button, guint32* flags)
 	}
 }
 
-void CheckButtonSetFlagsCallBack(GtkWidget* button, guint32* flags, guint32 flag_value)
+void CheckButtonSetFlagsCallBack(GtkWidget* button, unsigned int* flags, unsigned int flag_value)
 {
 	g_object_set_data(G_OBJECT(button), "flag-value", GUINT_TO_POINTER(flag_value));
 	(void)g_signal_connect(G_OBJECT(button), "toggled",

@@ -91,6 +91,34 @@ static int SplashWindowTimeOut(GtkWidget* window)
 	return FALSE;
 }
 
+/*****************************************************
+* SetLayerBlendModeArray関数                         *
+* 合成モードの定数配列を初期化                       *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+static void SetLayerBlendModeArray(APPLICATION* app)
+{
+	app->layer_blend_operators[0] = CAIRO_OPERATOR_OVER;
+	app->layer_blend_operators[1] = CAIRO_OPERATOR_ADD;
+	app->layer_blend_operators[2] = CAIRO_OPERATOR_MULTIPLY;
+	app->layer_blend_operators[3] = CAIRO_OPERATOR_SCREEN;
+	app->layer_blend_operators[4] = CAIRO_OPERATOR_OVERLAY;
+	app->layer_blend_operators[5] = CAIRO_OPERATOR_LIGHTEN;
+	app->layer_blend_operators[6] = CAIRO_OPERATOR_DARKEN;
+	app->layer_blend_operators[7] = CAIRO_OPERATOR_COLOR_DODGE;
+	app->layer_blend_operators[8] = CAIRO_OPERATOR_COLOR_BURN;
+	app->layer_blend_operators[9] = CAIRO_OPERATOR_COLOR_BURN;
+	app->layer_blend_operators[10] = CAIRO_OPERATOR_HARD_LIGHT;
+	app->layer_blend_operators[11] = CAIRO_OPERATOR_SOFT_LIGHT;
+	app->layer_blend_operators[12] = CAIRO_OPERATOR_DIFFERENCE;
+	app->layer_blend_operators[13] = CAIRO_OPERATOR_EXCLUSION;
+	app->layer_blend_operators[14] = CAIRO_OPERATOR_HSL_HUE;
+	app->layer_blend_operators[15] = CAIRO_OPERATOR_HSL_SATURATION;
+	app->layer_blend_operators[16] = CAIRO_OPERATOR_HSL_COLOR;
+	app->layer_blend_operators[17] = CAIRO_OPERATOR_HSL_LUMINOSITY;
+}
+
 /*********************************************************
 * InitializeSplashWindow関数                             *
 * スプラッシュウィンドウの初期化&表示                    *
@@ -700,8 +728,8 @@ int WriteInitializeFile(APPLICATION* app, const char* file_path)
 	(void)IniFileAddInteger(file, "SMOOTH", "RATE", (int)app->tool_window.smoother.rate, 10);
 	(void)IniFileAddInteger(file, "SMOOTH", "MODE", app->tool_window.smoother.mode, 10);
 	// テクスチャ
-	(void)IniFileAddDouble(file, "TEXTURE", "STRENGTH", app->textures.strength);
-	(void)IniFileAddDouble(file, "TEXTURE", "SCALE", app->textures.scale);
+	(void)IniFileAddDouble(file, "TEXTURE", "STRENGTH", app->textures.strength, 2);
+	(void)IniFileAddDouble(file, "TEXTURE", "SCALE", app->textures.scale, 2);
 
 	// 環境設定を書き込む
 	WritePreference(file, &app->preference);
@@ -817,6 +845,8 @@ gboolean OnQuitApplication(APPLICATION* app)
 		file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
 		if(WriteCommonToolData(&app->tool_window, file_path, app) < 0)
 		{
+			app->flags |= APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY;
+
 			g_free(file_path);
 			dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
 			make_app_dir = TRUE;
@@ -855,6 +885,8 @@ gboolean OnQuitApplication(APPLICATION* app)
 				g_free(file_path);
 			}
 			g_free(dir_path);
+
+			app->flags &= ~(APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY);
 		}
 		else
 		{
@@ -871,6 +903,7 @@ gboolean OnQuitApplication(APPLICATION* app)
 		file_path = g_build_filename(app->current_path, &app->brush_file_path[2], NULL);
 		if(WriteBrushDetailData(&app->tool_window, file_path, app) < 0)
 		{
+			app->flags |= APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY;
 			g_free(file_path);
 			dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
 			make_app_dir = TRUE;
@@ -909,6 +942,8 @@ gboolean OnQuitApplication(APPLICATION* app)
 				g_free(file_path);
 			}
 			g_free(dir_path);
+
+			app->flags &= ~(APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY);
 		}
 		else
 		{
@@ -925,6 +960,8 @@ gboolean OnQuitApplication(APPLICATION* app)
 		file_path = g_build_filename(app->current_path, &app->vector_brush_file_path[2], NULL);
 		if(WriteVectorBrushData(&app->tool_window, file_path, app) < 0)
 		{
+			app->flags |= APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY;
+
 			g_free(file_path);
 			dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
 			make_app_dir = TRUE;
@@ -963,6 +1000,8 @@ gboolean OnQuitApplication(APPLICATION* app)
 				g_free(file_path);
 			}
 			g_free(dir_path);
+
+			app->flags &= ~(APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY);
 		}
 		else
 		{
@@ -2060,6 +2099,14 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	// レイヤー合成の設定
 	SetLayerBlendFunctions(app->layer_blend_functions);
 	SetPartLayerBlendFunctions(app->part_layer_blend_functions);
+	SetLayerBlendOperators(app->layer_blend_operators);
+
+	// ブラシプレビュー用のキャンバス作成
+	app->brush_preview_canvas = CreateTempDrawWindow(BRUSH_PREVIEW_CANVAS_WIDTH,
+		BRUSH_PREVIEW_CANVAS_HEIGHT, 4, NULL, NULL, 0, app);
+	app->brush_preview_canvas->layer = app->brush_preview_canvas->active_layer =
+		CreateLayer(0, 0, app->brush_preview_canvas->width, app->brush_preview_canvas->height, 4, TYPE_NORMAL_LAYER,
+			NULL, NULL, "Preview", app->brush_preview_canvas);
 
 	// 入力デバイスの設定
 	{
@@ -2080,7 +2127,8 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 		while(device_list != NULL)
 		{
 			device = (GdkDevice*)device_list->data;
-			device_name = gdk_device_get_name(device);
+			device_name = device->name;
+			//device_name = gdk_device_get_name(device);
 
 			if(StringStringIgnoreCase(device_name, "ERASER") != NULL)
 			{
@@ -4755,6 +4803,8 @@ int GetHas3DLayer(APPLICATION* app)
 
 #ifdef _MSC_VER
 
+#pragma comment(lib, "Msimg32.lib")
+
 #if 1
 # pragma comment(lib, "OpenGL32.lib")
 # pragma comment(lib, "GlU32.lib")
@@ -4809,7 +4859,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #    pragma comment(lib, "pcre3d.lib")
 #    pragma comment(lib, "Shlwapi.lib")
 #    pragma comment(lib, "atk-1.0.lib")
-#    pragma comment(lib, "cairo.lib")
+//#    pragma comment(lib, "cairo.lib")
 #    pragma comment(lib, "expat.lib")
 #    pragma comment(lib, "fontconfig.lib")
 #    pragma comment(lib, "freetype.lib")
@@ -4904,7 +4954,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #     pragma comment(lib, "libpng.lib")
 #    endif
 #    pragma comment(lib, "zlib.lib")
-#    pragma comment(lib, "cairo.lib")
+//#    pragma comment(lib, "cairo.lib")
 #    pragma comment(lib, "atk-1.0.lib")
 #    pragma comment(lib, "fontconfig.lib")
 #    pragma comment(lib, "gailutil.lib")
@@ -4964,7 +5014,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #  endif
 #  if GTK_MAJOR_VERSION <= 2
 #   pragma comment(lib, "atk-1.0.lib")
-#   pragma comment(lib, "cairo.lib")
+//#   pragma comment(lib, "cairo.lib")
 #   pragma comment(lib, "expat.lib")
 #   pragma comment(lib, "fontconfig.lib")
 #   pragma comment(lib, "freetype.lib")
@@ -4992,7 +5042,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #    pragma comment(lib, "libpng15-15.lib")
 #    pragma comment(lib, "zlib.lib")
 #    pragma comment(lib, "libz.dll.a")
-#    pragma comment(lib, "cairo.lib")
+//#    pragma comment(lib, "cairo.lib")
 #    pragma comment(lib, "atk-1.0.lib")
 #    pragma comment(lib, "fontconfig.lib")
 #    pragma comment(lib, "gailutil.lib")

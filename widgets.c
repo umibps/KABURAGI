@@ -348,7 +348,7 @@ GtkWidget *CreateImageButton(
 		NULL
 	);
 
-#if 1 //defined(DISPLAY_BGR) && DISPLAY_BGR != 0
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
 	{
 		// Windows‚È‚ç‚ÎBGR¨RGB‚Ì•ÏŠ·‚ğs‚¤
 		uint8* pix = cairo_image_surface_get_data(image);

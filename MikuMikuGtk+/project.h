@@ -117,6 +117,8 @@ typedef struct _PROJECT
 
 	char *file_path;
 
+	int original_width,	original_height;
+
 	struct _APPLICATION *application_context;
 } PROJECT;
 

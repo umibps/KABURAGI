@@ -2228,6 +2228,15 @@ gtk_expander_get_label_fill (GtkExpander *expander)
   return expander->priv->label_fill;
 }
 
+long lround(double v)
+{
+	if(v < 0.0)
+	{
+		return (long)(v - 0.5);
+	}
+	return (long)(v + 0.5);
+}
+
 #ifdef BUILD64BIT
 //_CRTIMP extern double _HUGE = 1.0e+308;
 #endif

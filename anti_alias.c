@@ -171,19 +171,16 @@ void AntiAliasLayer(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 {
 // アンチエイリアシングを行う1チャンネル分の閾値
 #define ANTI_ALIAS_THRESHOLD (51*51)
-	// ピクセルデータ配列のインデックス
-	int index, now_index;
-	// 現在のピクセルと周囲のピクセルの色差
-	int color_diff[4];
-	// 色差の合計
-	int sum_diff;
-	// 周囲のピクセルの合計値
-	int sum_color[4];
 	// アンチエイリアス開始・終了の座標
 	int x, y, end_x, end_y;
 	// 処理1行分のバイト数
 	int stride;
-	int i, j;	// for文用のカウンタ
+	// 処理するレイヤーの一行分のバイト数
+	int layer_stride = layer->stride;
+	// 処理するピクセル
+	uint8 *pixels = layer->pixels;
+	uint8 *temp_pixels = temp->pixels;
+	int i;	// for文用のカウンタ
 
 	// 座標と範囲を設定
 	end_x = rect->width;
@@ -231,8 +228,21 @@ void AntiAliasLayer(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 	}
 
 	// 2行目から一番下手前の行まで処理
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(pixels, temp_pixels, layer_stride, x, y, end_x)
+#endif
 	for(i=y+1; i<end_y-1; i++)
 	{
+		// ピクセルデータ配列のインデックス
+		int index, now_index;
+		// 現在のピクセルと周囲のピクセルの色差
+		int color_diff[4];
+		// 色差の合計
+		int sum_diff;
+		// 周囲のピクセルの合計値
+		int sum_color[4];
+		int j;	// for文用のカウンタ
+
 		// 一番左はそのままコピー
 		now_index = i * layer->stride + (x+1)*4;
 
@@ -240,121 +250,121 @@ void AntiAliasLayer(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 		{
 
 			// 周囲8ピクセルとの色差と値の合計を計算
-			index = (i-1)*layer->stride + (j-1)*4;
-			color_diff[0] = ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] = layer->pixels[now_index+0];
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] = ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] = layer->pixels[now_index+1];
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] = ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] = layer->pixels[now_index+2];
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] = ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] = layer->pixels[now_index+3];
-			sum_color[3] += layer->pixels[index+3];
+			index = (i-1)*layer_stride + (j-1)*4;
+			color_diff[0] = ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] = pixels[now_index+0];
+			sum_color[0] += pixels[index+0];
+			color_diff[1] = ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] = pixels[now_index+1];
+			sum_color[1] += pixels[index+1];
+			color_diff[2] = ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] = pixels[now_index+2];
+			sum_color[2] += pixels[index+2];
+			color_diff[3] = ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] = pixels[now_index+3];
+			sum_color[3] += pixels[index+3];
 
 			index += 4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index += 4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index = i*layer->stride + (j-1)*4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index += 8;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index = (i+1)*layer->stride + (j-1)*4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index += 4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index += 4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			sum_diff = color_diff[0] + color_diff[1] + color_diff[2] + color_diff[3];
 
@@ -409,10 +419,10 @@ void AntiAliasLayer(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 			}
 			else
 			{
-				temp->pixels[now_index] = layer->pixels[now_index];
-				temp->pixels[now_index+1] = layer->pixels[now_index+1];
-				temp->pixels[now_index+2] = layer->pixels[now_index+2];
-				temp->pixels[now_index+3] = layer->pixels[now_index+3];
+				temp_pixels[now_index] = pixels[now_index];
+				temp_pixels[now_index+1] = pixels[now_index+1];
+				temp_pixels[now_index+2] = pixels[now_index+2];
+				temp_pixels[now_index+3] = pixels[now_index+3];
 			}
 		}
 	}	// 2行目から一番下手前の行まで処理
@@ -437,19 +447,16 @@ void AntiAliasVectorLine(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 {
 // アンチエイリアシングを行う1チャンネル分の閾値
 #define ANTI_ALIAS_THRESHOLD (51*51)
-	// ピクセルデータ配列のインデックス
-	int index, now_index;
-	// 現在のピクセルと周囲のピクセルの色差
-	int color_diff[4];
-	// 色差の合計
-	int sum_diff;
-	// 周囲のピクセルの合計値
-	int sum_color[4];
 	// アンチエイリアス開始・終了の座標
 	int x, y, end_x, end_y;
 	// 処理1行分のバイト数
 	int stride;
-	int i, j;	// for文用のカウンタ
+	// 処理するレイヤーの一行分のバイト数
+	int layer_stride = layer->stride;
+	// 処理するピクセル
+	uint8 *pixels = layer->pixels;
+	uint8 *temp_pixels = temp->pixels;
+	int i;	// for文用のカウンタ
 
 	// 座標と範囲を設定
 	end_x = rect->width;
@@ -497,8 +504,21 @@ void AntiAliasVectorLine(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 	}
 
 	// 2行目から一番下手前の行まで処理
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(pixels, temp_pixels, layer_stride, x, y, end_x)
+#endif
 	for(i=y+1; i<end_y-1; i++)
 	{
+		// ピクセルデータ配列のインデックス
+		int index, now_index;
+		// 現在のピクセルと周囲のピクセルの色差
+		int color_diff[4];
+		// 色差の合計
+		int sum_diff;
+		// 周囲のピクセルの合計値
+		int sum_color[4];
+		int j;	// for文用のカウンタ
+
 		// 一番左はそのままコピー
 		now_index = i * layer->stride + (x+1)*4;
 
@@ -506,121 +526,121 @@ void AntiAliasVectorLine(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 		{
 
 			// 周囲8ピクセルとの色差と値の合計を計算
-			index = (i-1)*layer->stride + (j-1)*4;
-			color_diff[0] = ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] = layer->pixels[now_index+0];
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] = ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] = layer->pixels[now_index+1];
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] = ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] = layer->pixels[now_index+2];
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] = ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] = layer->pixels[now_index+3];
-			sum_color[3] += layer->pixels[index+3];
+			index = (i-1)*layer_stride + (j-1)*4;
+			color_diff[0] = ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] = pixels[now_index+0];
+			sum_color[0] += pixels[index+0];
+			color_diff[1] = ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] = pixels[now_index+1];
+			sum_color[1] += pixels[index+1];
+			color_diff[2] = ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] = pixels[now_index+2];
+			sum_color[2] += pixels[index+2];
+			color_diff[3] = ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] = pixels[now_index+3];
+			sum_color[3] += pixels[index+3];
 
 			index += 4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index += 4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index = i*layer->stride + (j-1)*4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index += 8;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index = (i+1)*layer->stride + (j-1)*4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index += 4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			index += 4;
-			color_diff[0] += ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0])
-				* ((int)layer->pixels[now_index+0]-(int)layer->pixels[index+0]);
-			sum_color[0] += layer->pixels[index+0];
-			color_diff[1] += ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+1])
-				* ((int)layer->pixels[now_index+1]-(int)layer->pixels[index+0]);
-			sum_color[1] += layer->pixels[index+1];
-			color_diff[2] += ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+2])
-				* ((int)layer->pixels[now_index+2]-(int)layer->pixels[index+0]);
-			sum_color[2] += layer->pixels[index+2];
-			color_diff[3] += ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3])
-				* ((int)layer->pixels[now_index+3]-(int)layer->pixels[index+3]);
-			sum_color[3] += layer->pixels[index+3];
+			color_diff[0] += ((int)pixels[now_index+0]-(int)pixels[index+0])
+				* ((int)pixels[now_index+0]-(int)pixels[index+0]);
+			sum_color[0] += pixels[index+0];
+			color_diff[1] += ((int)pixels[now_index+1]-(int)pixels[index+1])
+				* ((int)pixels[now_index+1]-(int)pixels[index+0]);
+			sum_color[1] += pixels[index+1];
+			color_diff[2] += ((int)pixels[now_index+2]-(int)pixels[index+2])
+				* ((int)pixels[now_index+2]-(int)pixels[index+0]);
+			sum_color[2] += pixels[index+2];
+			color_diff[3] += ((int)pixels[now_index+3]-(int)pixels[index+3])
+				* ((int)pixels[now_index+3]-(int)pixels[index+3]);
+			sum_color[3] += pixels[index+3];
 
 			sum_diff = color_diff[0] + color_diff[1] + color_diff[2] + color_diff[3];
 
@@ -643,10 +663,10 @@ void AntiAliasVectorLine(LAYER *layer, LAYER* temp, ANTI_ALIAS_RECTANGLE *rect)
 			}
 			else
 			{
-				temp->pixels[now_index] = layer->pixels[now_index];
-				temp->pixels[now_index+1] = layer->pixels[now_index+1];
-				temp->pixels[now_index+2] = layer->pixels[now_index+2];
-				temp->pixels[now_index+3] = layer->pixels[now_index+3];
+				temp_pixels[now_index] = pixels[now_index];
+				temp_pixels[now_index+1] = pixels[now_index+1];
+				temp_pixels[now_index+2] = pixels[now_index+2];
+				temp_pixels[now_index+3] = pixels[now_index+3];
 			}
 		}
 	}	// 2行目から一番下手前の行まで処理

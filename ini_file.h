@@ -232,6 +232,7 @@ EXTERN int IniFileAddInteger(
 * section_name	: 検索するセクションの名前              *
 * key_name		: 検索するキーの名前                    *
 * num			: 追加する数値                          *
+* digigt		: 小数点以下の桁数(-1以下で設定無し)    *
 * 返り値                                                *
 *	正常終了(0)、以上終了(負の値)                       *
 ********************************************************/
@@ -239,7 +240,8 @@ EXTERN int IniFileAddDouble(
 	INI_FILE_PTR ini,
 	const char* section_name,
 	const char* key_name,
-	const double num
+	const double num,
+	const int digit
 );
 
 /********************************************************
