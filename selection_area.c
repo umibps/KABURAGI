@@ -1503,9 +1503,12 @@ void ChangeEditSelectionMode(GtkWidget* menu_item, APPLICATION* app)
 				gtk_text_view_new();
 			window->active_layer->layer_data.text_layer_p->buffer =
 				gtk_text_view_get_buffer(GTK_TEXT_VIEW(window->active_layer->layer_data.text_layer_p->text_field));
-			gtk_text_buffer_set_text(window->active_layer->layer_data.text_layer_p->buffer,
-				window->active_layer->layer_data.text_layer_p->text, -1);
-			g_signal_connect(G_OBJECT(window->active_layer->layer_data.text_layer_p->buffer), "changed",
+			if(window->active_layer->layer_data.text_layer_p->text != NULL)
+			{
+				gtk_text_buffer_set_text(window->active_layer->layer_data.text_layer_p->buffer,
+					window->active_layer->layer_data.text_layer_p->text, -1);
+			}
+			(void)g_signal_connect(G_OBJECT(window->active_layer->layer_data.text_layer_p->buffer), "changed",
 				G_CALLBACK(OnChangeTextCallBack), window->active_layer);
 			gtk_widget_destroy(app->tool_window.detail_ui);
 			app->tool_window.detail_ui = CreateTextLayerDetailUI(

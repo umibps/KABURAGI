@@ -645,6 +645,8 @@ void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size)
 {
 	size_t alloc_size;
 
+	new_size += (struct_array->block_size - (new_size % struct_array->block_size)) % struct_array->block_size;
+
 	if(struct_array->buffer_size == new_size)
 	{
 		return;
@@ -1012,6 +1014,19 @@ void AdjustmentChangeValueCallBackDouble(GtkAdjustment* adjustment, gdouble* val
 	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
 
 	*value = gtk_adjustment_get_value(adjustment);
+
+	if(func != NULL)
+	{
+		func(func_data);
+	}
+}
+
+void AdjustmentChangeValueCallBackDoubleRate(GtkAdjustment* adjustment, gdouble* value)
+{
+	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
+	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
+
+	*value = gtk_adjustment_get_value(adjustment) * 0.01;
 
 	if(func != NULL)
 	{

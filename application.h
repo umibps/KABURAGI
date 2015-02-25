@@ -7,15 +7,15 @@
 
 #if MAJOR_VERSION == 1
 # define MINOR_VERSION 3
-# define RELEASE_VERSION 2
-# define BUILD_VERSION 5
+# define RELEASE_VERSION 3
+# define BUILD_VERSION 0
 #elif MAJOR_VERSION == 2
 # define MINOR_VERSION 0
 # define RELEASE_VERSION 1
 # define BUILD_VERSION 1
 #endif
 
-#define FILE_VERSION 4
+#define FILE_VERSION 5
 
 #include "draw_window.h"
 // 描画領域の最大数
@@ -402,6 +402,9 @@ typedef struct _APPLICATION
 
 	// 合成モードの定数配列
 	cairo_operator_t layer_blend_operators[NUM_LAYER_BLEND_FUNCTIONS];
+
+	// 吹き出しを描画する関数ポインタ配列
+	void (*draw_balloon_functions[NUM_TEXT_LAYER_BALLOON_TYPE])(TEXT_LAYER*, LAYER*, DRAW_WINDOW*);
 
 	// ブラシプレビュー用のキャンバス
 	DRAW_WINDOW *brush_preview_canvas;
@@ -882,6 +885,13 @@ EXTERN void TextLayerMotionCallBack(
 	gdouble x,
 	gdouble y,
 	GdkModifierType state
+);
+
+EXTERN void TextLayerButtonReleaseCallBack(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	GdkEventButton* event_info
 );
 
 EXTERN GtkWidget* CreateTextLayerDetailUI(APPLICATION* app, struct _LAYER* target, TEXT_LAYER* layer);

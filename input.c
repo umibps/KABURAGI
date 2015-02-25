@@ -771,7 +771,7 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 					{
 						if((event->state & GDK_SHIFT_MASK) != 0)
 						{
-								window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+							window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
 							window->app->tool_window.vector_control_core.release_func(
 									window, x, y,
 								pressure, &window->app->tool_window.vector_control_core, (void*)&button
@@ -793,6 +793,10 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 								pressure, window->app->tool_window.active_vector_brush[window->app->input], (void*)&button
 							);
 						}
+					}
+					else if(window->active_layer->layer_type == TYPE_TEXT_LAYER)
+					{
+						TextLayerButtonReleaseCallBack(window, x, y, &button);
 					}
 				}
 			}
@@ -1426,6 +1430,10 @@ gboolean ButtonReleaseEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDO
 					pressure, window->app->tool_window.active_vector_brush[window->app->input], (void*)event
 				);
 			}
+		}
+		else if(window->active_layer->layer_type == TYPE_TEXT_LAYER)
+		{
+			TextLayerButtonReleaseCallBack(window, x, y, event);
 		}
 	}
 

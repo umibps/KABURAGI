@@ -46,7 +46,7 @@ gboolean DisplayDrawWindow(
 	// 拡大・縮小を元に戻すための値
 	gdouble rev_zoom = window->rev_zoom;
 	// for文用のカウンタ
-	gint x, y;
+	gint y;
 	// 画面更新のモード
 	eUPDATE_MODE update_mode = UPDATE_ALL;
 	// アクティブレイヤーより下の合成結果を更新するフラグ
@@ -468,12 +468,28 @@ gboolean DisplayDrawWindow(
 	// 左右反転表示中なら表示内容を左右反転
 	if((window->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE) != 0)
 	{
-		uint8 *ref, *src;
-		int width = window->disp_layer->width;
+		const int width = window->disp_layer->width;
+		const int stride = window->disp_layer->stride;
 
 #ifdef _OPENMP
-#pragma omp parallel for private(ref, src, x) firstprivate(width, window)
-#endif
+#pragma omp parallel for firstprivate(width, stride, window)
+		for(y=0; y<window->disp_layer->height; y++)
+		{
+			uint8 *ref = &window->disp_temp->pixels[y*stride];
+			uint8 *src = &window->disp_layer->pixels[(y+1)*stride-4];
+			int x;
+
+			for(x=0; x<width; x++, ref+=4, src-=4)
+			{
+				ref[0] = src[0], ref[1] = src[1], ref[2] = src[2], ref[3] = src[3];
+			}
+			(void)memcpy(src+4, &window->disp_temp->pixels[y*stride], stride);
+		}
+#else
+		uint8 *ref;
+		uint8 *src;
+		int x;
+
 		for(y=0; y<window->disp_layer->height; y++)
 		{
 			ref = window->disp_temp->pixels;
@@ -484,6 +500,7 @@ gboolean DisplayDrawWindow(
 			}
 			(void)memcpy(src+4, window->disp_temp->pixels, window->disp_layer->stride);
 		}
+#endif
 	}
 
 execute_update:

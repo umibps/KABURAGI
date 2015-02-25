@@ -3,6 +3,7 @@
 #include <gtk/gtk.h>
 #include "application.h"
 #include "brush_core.h"
+#include "brushes.h"
 #include "anti_alias.h"
 #include "memory_stream.h"
 #include "layer.h"
@@ -1759,6 +1760,221 @@ void UpdateBrushButtonPressDrawArea(
 				brush_area->max_y = area->max_y;
 			}
 		}
+	}
+}
+
+/*****************************************************
+* AdaptPickerBrush関数                               *
+*スポイトブラシの描画結果を作業レイヤーに反映する    *
+* 引数                                               *
+* window			: キャンバスの情報               *
+* draw_pixel		: 描画結果の入ったピクセルデータ *
+* width				: 描画範囲の幅                   *
+* height			: 描画範囲の高さ                 *
+* start_x			: 描画範囲の左上のX座標          *
+* start_y			: 描画範囲の左上のY座標          *
+* anti_alias		: アンチエイリアスを行うか否か   *
+* pick_target		: 色を拾う対象                   *
+* picker_mode		: 色の収集モード                 *
+* blend_mode		: ブラシの合成モード             *
+* change_hue		: 色相の変化量                   *
+* change_saturation	: 彩度の変化量                   *
+* change_brightness	: 明度の変化量                   *
+*****************************************************/
+void AdaptPickerBrush(
+	DRAW_WINDOW* window,
+	uint8* draw_pixel,
+	int width,
+	int height,
+	int start_x,
+	int start_y,
+	int anti_alias,
+	int pick_target,
+	int picker_mode,
+	int blend_mode,
+	int16 change_hue,
+	int16 change_saturation,
+	int16 change_brightness
+)
+{
+	LAYER *target;
+	HSV hsv;
+	uint8 *work_pixel = window->work_layer->pixels;
+	uint8 *brush_buffer = window->brush_buffer;
+	uint8 *mask_pixel = window->mask->pixels;
+	uint64 sum_color0, sum_color1, sum_color2, sum_color3;
+	uint64 sum_color4, sum_color5;
+	uint8 color[3];
+	const int stride = width * 4;
+	const int layer_stride = window->work_layer->stride;
+	int saturation;
+	int brightness;
+	int i;
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+	uint8 r;
+#endif
+
+	if(pick_target == COLOR_PICKER_SOURCE_ACTIVE_LAYER)
+	{
+		UPDATE_RECTANGLE rectangle = {start_x, start_y, width, height,
+			window->mask->cairo_p, window->mask->surface_p};
+
+		for(i=0; i<height; i++)
+		{
+			(void)memcpy(&window->mask->pixels[(start_y+i)*layer_stride+start_x+4],
+				&window->active_layer->pixels[(start_y+i)*layer_stride+start_x+4], stride);
+		}
+		target = window->mask;
+		window->part_layer_blend_functions[blend_mode](window->work_layer, &rectangle);
+	}
+	else
+	{
+		target = window->mixed_layer;
+	}
+
+	if(picker_mode == PICKER_MODE_SINGLE_PIXEL)
+	{
+		int x,	y;
+
+		x = start_x + width / 2;
+		y = start_y + height / 2;
+
+		if(x >= window->width)
+		{
+			x = window->width - 1;
+		}
+		if(y >= window->height)
+		{
+			y = window->height - 1;
+		}
+
+		color[0] = target->pixels[y*layer_stride+x*4];
+		color[1] = target->pixels[y*layer_stride+x*4+1];
+		color[2] = target->pixels[y*layer_stride+x*4+2];
+	}
+	else
+	{
+		sum_color0 = sum_color1 = sum_color2 = sum_color4 = 0;
+		sum_color3 = sum_color5 = 0;
+
+#ifdef _OPENMP
+#pragma omp parallel for reduction( +: sum_color0, sum_color1, sum_color2, sum_color3, sum_color4, sum_color5) firstprivate(draw_pixel, start_x, start_y, width, layer_stride)
+#endif
+		for(i=0; i<height; i++)
+		{
+			uint8 *ref_pix = &target->pixels[(i+start_y)*layer_stride+start_x*4];
+			uint8 *mask_pix = &draw_pixel[(i+start_y)*layer_stride+start_x*4];
+			int j;
+
+			for(j=0; j<width; j++, ref_pix+=4, mask_pix+=4)
+			{
+				sum_color0 += ((ref_pix[0]+1) * *mask_pix * ref_pix[3]) >> 8;
+				sum_color1 += ((ref_pix[1]+1) * *mask_pix * ref_pix[3]) >> 8;
+				sum_color2 += ((ref_pix[2]+1) * *mask_pix * ref_pix[3]) >> 8;
+				sum_color3 += ((ref_pix[3]+1) * *mask_pix) >> 8;
+				sum_color4 += ref_pix[3] * *mask_pix;
+				sum_color5 += *mask_pix;
+			}
+		}
+
+		color[0] = (uint8)((sum_color0 + sum_color3 / 2) / sum_color3);
+		color[1] = (uint8)((sum_color1 + sum_color3 / 2) / sum_color3);
+		color[2] = (uint8)((sum_color2 + sum_color3 / 2) / sum_color3);
+	}
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+	r = color[2];
+	color[2] = color[0];
+	color[0] = r;
+#endif
+
+	RGB2HSV_Pixel(color, &hsv);
+	hsv.h += change_hue;
+	while(hsv.h < 0)
+	{
+		hsv.h += 360;
+	}
+	while(hsv.h >= 360)
+	{
+		hsv.h -= 360;
+	}
+	saturation = hsv.s + change_saturation;
+	if(saturation < 0)
+	{
+		saturation = 0;
+	}
+	else if(saturation > 255)
+	{
+		saturation = 255;
+	}
+	hsv.s = (uint8)saturation;
+	brightness = hsv.v + change_brightness;
+	if(brightness < 0)
+	{
+		brightness = 0;
+	}
+	else if(brightness > 255)
+	{
+		brightness = 255;
+	}
+	hsv.v = (uint8)brightness;
+
+	HSV2RGB_Pixel(&hsv, color);
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+	r = color[2];
+	color[2] = color[0];
+	color[0] = r;
+#endif
+
+	#ifdef _OPENMP
+#pragma omp parallel for firstprivate(work_pixel, width, layer_stride, start_x, start_y, draw_pixel)
+#endif
+	for(i=0; i<height; i++)
+	{
+		uint8 *ref_pix = &work_pixel[
+			(start_y+i)*layer_stride+start_x*4];
+		uint8 *mask_pix = &draw_pixel[(start_y+i)*layer_stride
+			+start_x*4];
+		int j;
+
+		for(j=0; j<width; j++, ref_pix+=4, mask_pix+=4)
+		{
+			if(ref_pix[3] < mask_pix[3])
+			{
+				ref_pix[0] = (uint8)((uint32)(((int)mask_pix[0]-(int)ref_pix[0])
+					* mask_pix[3] >> 8) + ref_pix[0]);
+				ref_pix[1] = (uint8)((uint32)(((int)mask_pix[1]-(int)ref_pix[1])
+					* mask_pix[3] >> 8) + ref_pix[1]);
+				ref_pix[2] = (uint8)((uint32)(((int)mask_pix[2]-(int)ref_pix[2])
+					* mask_pix[3] >> 8) + ref_pix[2]);
+				ref_pix[3] = (uint8)((uint32)(((int)mask_pix[3]-(int)ref_pix[3])
+					* mask_pix[3] >> 8) + ref_pix[3]);
+			}
+			else if(mask_pix[3] > 0)
+			{
+				uint8 src_value = mask_pix[3];
+				uint8 dst_value = ref_pix[3];
+				FLOAT_T src_alpha = src_value * DIV_PIXEL;
+				FLOAT_T dst_alpha = dst_value * DIV_PIXEL;
+				FLOAT_T div_alpha = src_alpha + dst_alpha*(1-src_alpha);
+				if(div_alpha > 0)
+				{
+					div_alpha = 1 / div_alpha;
+					ref_pix[0] = (uint8)(color[0]*src_alpha+(ref_pix[0]*dst_alpha*(1-src_alpha))*div_alpha);
+					ref_pix[1] = (uint8)(color[1]*src_alpha+(ref_pix[1]*dst_alpha*(1-src_alpha))*div_alpha);
+					ref_pix[2] = (uint8)(color[2]*src_alpha+(ref_pix[2]*dst_alpha*(1-src_alpha))*div_alpha);
+				}
+			}
+		}
+	}
+
+	if(anti_alias != FALSE)
+	{
+		ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
+			width + 3, height + 3};
+		AntiAliasLayer((draw_pixel == window->mask_temp->pixels) ? window->mask_temp : window->temp_layer,
+			window->mask, &range);
 	}
 }
 

@@ -751,7 +751,8 @@ int LoadPmxMaterials(
 		texture_index = m->toon_texture_index;
 		if(texture_index >= 0)
 		{
-			if(texture_index >= num_textures)
+			if(0)
+			//if(texture_index >= num_textures)
 			{
 				return FALSE;
 			}

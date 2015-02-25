@@ -687,7 +687,7 @@ void PmxMorphReadUVs(
 	for(i=0; i<count; i++)
 	{
 		MORPH_UV *uv = (MORPH_UV*)StructArrayReserve(morph->uvs);
-		int vertex_index = GetSignedValue(&stream->buff_ptr[stream->data_point], (int)info->vertex_index_size);
+		int vertex_index = GetUnsignedValue(&stream->buff_ptr[stream->data_point], (int)info->vertex_index_size);
 		stream->data_point += info->vertex_index_size;
 		(void)MemRead(uv->position, sizeof(uv->position), 1, stream);
 		uv->index = vertex_index;
@@ -708,7 +708,7 @@ void PmxMorphReadVertices(
 	for(i=0; i<count; i++)
 	{
 		MORPH_VERTEX *vertex = (MORPH_VERTEX*)StructArrayReserve(morph->vertices);
-		int vertex_index = GetSignedValue(&stream->buff_ptr[stream->data_point], (int)info->vertex_index_size);
+		int vertex_index = GetUnsignedValue(&stream->buff_ptr[stream->data_point], (int)info->vertex_index_size);
 		stream->data_point += info->vertex_index_size;
 		(void)MemRead(position, sizeof(position), 1, stream);
 		SET_POSITION(vertex->position, position);

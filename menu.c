@@ -1999,6 +1999,8 @@ void ExecuteDisplayReverseHorizontally(GtkWidget* menu_item, APPLICATION* app)
 		window->flags |= DRAW_WINDOW_DISPLAY_HORIZON_REVERSE;
 	}
 
+	ChangeNavigationDrawWindow(&app->navigation_window, window);
+
 #if GTK_MAJOR_VERSION >= 3
 	gtk_widget_get_allocation(window->scroll, &allocation);
 #else

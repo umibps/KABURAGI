@@ -689,6 +689,15 @@ EXTERN void Change2FocalMode(DRAW_WINDOW* parent_window);
 *********************************/
 EXTERN void ReturnFromFocalMode(DRAW_WINDOW* parent_window);
 
+/***********************************************************************
+* SetTextLayerDrawBalloonFunctions関数                                 *
+* 吹き出しを描画する関数の関数ポインタ配列の中身を設定                 *
+* 引数                                                                 *
+* draw_balloon_functions	: 吹き出しを描画する関数の関数ポインタ配列 *
+***********************************************************************/
+EXTERN void SetTextLayerDrawBalloonFunctions(void (*draw_balloon_functions[])(TEXT_LAYER*, LAYER*, DRAW_WINDOW*)
+);
+
 #ifdef __cplusplus
 }
 #endif

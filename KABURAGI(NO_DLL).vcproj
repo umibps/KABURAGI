@@ -201,7 +201,7 @@
 				FavorSizeOrSpeed="1"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="&quot;./Include&quot;;&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS; USE_3D_LAYER=0; NO_KABURAGI_LIB;"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS; USE_3D_LAYER=0; NO_KABURAGI_LIB=1;"
 				StringPooling="true"
 				ExceptionHandling="0"
 				RuntimeLibrary="0"
@@ -224,7 +224,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				LinkIncremental="1"
-				GenerateDebugInformation="true"
+				GenerateDebugInformation="false"
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"

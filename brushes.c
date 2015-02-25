@@ -25263,6 +25263,11 @@ static void CustomBrushButtonPressCallBack(
 					break;
 				case CUSTOM_BRUSH_MODE_SMUDGE:
 					break;
+				case CUSTOM_BRUSH_MODE_PICKER:
+					AdaptPickerBrush(window, draw_pixel, (int)area.width, (int)area.height,
+						area.start_x, area.start_y, brush->flags & (1 << CUSTOM_BRUSH_FLAG_ANTI_ALIAS),
+							brush->picker_mode, brush->blend_target, brush->picker_mode, brush->hue, brush->saturation, brush->brightness);
+					break;
 				case CUSTOM_BRUSH_MODE_WATER_BRUSH:
 					BlendWaterBrush(window, core, x, y, x, y, brush->r * 0.5, area.start_x, area.start_y,
 						(int)area.width, (int)area.height, window->work_layer->pixels, draw_pixel, brush->alpha, brush->before_color,
@@ -25336,6 +25341,11 @@ static void CustomBrushButtonPressCallBack(
 								area.start_x, area.start_y, brush->flags & (1 << CUSTOM_BRUSH_FLAG_ANTI_ALIAS), brush->blend_mode);
 							break;
 						case CUSTOM_BRUSH_MODE_SMUDGE:
+							break;
+						case CUSTOM_BRUSH_MODE_PICKER:
+							AdaptPickerBrush(window, draw_pixel, (int)area.width, (int)area.height,
+								area.start_x, area.start_y, brush->flags & (1 << CUSTOM_BRUSH_FLAG_ANTI_ALIAS),
+									brush->picker_mode, brush->blend_target, brush->picker_mode, brush->hue, brush->saturation, brush->brightness);
 							break;
 						case CUSTOM_BRUSH_MODE_WATER_BRUSH:
 							BlendWaterBrush(window, core, draw_x, draw_y, draw_x, draw_y, brush->r * 0.5, area.start_x, area.start_y,
@@ -25624,6 +25634,11 @@ static void CustomBrushMotionCallBack(
 									brush->before_width = width;
 									brush->before_height = height;
 									break;
+								case CUSTOM_BRUSH_MODE_PICKER:
+									AdaptPickerBrush(window, draw_pixel, (int)area.width, (int)area.height,
+										area.start_x, area.start_y, brush->flags & (1 << CUSTOM_BRUSH_FLAG_ANTI_ALIAS),
+											brush->picker_mode, brush->blend_target, brush->picker_mode, brush->hue, brush->saturation, brush->brightness);
+									break;
 								case CUSTOM_BRUSH_MODE_WATER_BRUSH:
 									BlendWaterBrush(window, core, draw_x, draw_y, brush->last_draw_x, brush->last_draw_y, r, area.start_x, area.start_y,
 										(int)area.width, (int)area.height, window->work_layer->pixels, draw_pixel, brush->alpha, brush->before_color,
@@ -25707,6 +25722,11 @@ static void CustomBrushMotionCallBack(
 											AdaptSmudge(window, area.start_x, area.start_y, (int)area.width, (int)area.height,
 												brush->before_width, brush->before_height, draw_pixel, brush->extend, brush->draw_finished
 											);
+											break;
+										case CUSTOM_BRUSH_MODE_PICKER:
+											AdaptPickerBrush(window, draw_pixel, (int)area.width, (int)area.height,
+												area.start_x, area.start_y, brush->flags & (1 << CUSTOM_BRUSH_FLAG_ANTI_ALIAS),
+													brush->picker_mode, brush->blend_target, brush->picker_mode, brush->hue, brush->saturation, brush->brightness);
 											break;
 										case CUSTOM_BRUSH_MODE_WATER_BRUSH:
 											BlendWaterBrush(window, core, scatter_x, scatter_y, scatter_x, scatter_y, scatter_r, area.start_x, area.start_y,
@@ -26012,6 +26032,11 @@ static void CustomBrushButtonReleaseCallBack(
 							brush->before_width = width;
 							brush->before_height = height;
 							break;
+						case CUSTOM_BRUSH_MODE_PICKER:
+							AdaptPickerBrush(window, draw_pixel, (int)area.width, (int)area.height,
+								area.start_x, area.start_y, brush->flags & (1 << CUSTOM_BRUSH_FLAG_ANTI_ALIAS),
+									brush->picker_mode, brush->blend_target, brush->picker_mode, brush->hue, brush->saturation, brush->brightness);
+							break;
 						case CUSTOM_BRUSH_MODE_WATER_BRUSH:
 							BlendWaterBrush(window, core, draw_x, draw_y, brush->last_draw_x, brush->last_draw_y, r, area.start_x, area.start_y,
 								(int)area.width, (int)area.height, window->work_layer->pixels, draw_pixel, brush->alpha, brush->before_color,
@@ -26095,6 +26120,11 @@ static void CustomBrushButtonReleaseCallBack(
 									AdaptSmudge(window, area.start_x, area.start_y, (int)area.width, (int)area.height,
 										brush->before_width, brush->before_height, draw_pixel, brush->extend, brush->draw_finished
 									);
+									break;
+								case CUSTOM_BRUSH_MODE_PICKER:
+									AdaptPickerBrush(window, draw_pixel, (int)area.width, (int)area.height,
+										area.start_x, area.start_y, brush->flags & (1 << CUSTOM_BRUSH_FLAG_ANTI_ALIAS),
+											brush->picker_mode, brush->blend_target, brush->picker_mode, brush->hue, brush->saturation, brush->brightness);
 									break;
 								case CUSTOM_BRUSH_MODE_WATER_BRUSH:
 									BlendWaterBrush(window, core, scatter_x, scatter_y, scatter_x, scatter_y, scatter_r, area.start_x, area.start_y,
@@ -26406,6 +26436,11 @@ static void CustomBrushEditSelectionRelease(
 							brush->before_width = width;
 							brush->before_height = height;
 							break;
+						case CUSTOM_BRUSH_MODE_PICKER:
+							AdaptPickerBrush(window, draw_pixel, (int)area.width, (int)area.height,
+								area.start_x, area.start_y, brush->flags & (1 << CUSTOM_BRUSH_FLAG_ANTI_ALIAS),
+									brush->picker_mode, brush->blend_target, brush->picker_mode, brush->hue, brush->saturation, brush->brightness);
+							break;
 						case CUSTOM_BRUSH_MODE_WATER_BRUSH:
 							BlendWaterBrush(window, core, draw_x, draw_y, brush->last_draw_x, brush->last_draw_y, r, area.start_x, area.start_y,
 								(int)area.width, (int)area.height, window->work_layer->pixels, draw_pixel, brush->alpha, brush->before_color,
@@ -26487,6 +26522,11 @@ static void CustomBrushEditSelectionRelease(
 									AdaptSmudge(window, area.start_x, area.start_y, (int)area.width, (int)area.height,
 										brush->before_width, brush->before_height, draw_pixel, brush->extend, brush->draw_finished
 									);
+									break;
+								case CUSTOM_BRUSH_MODE_PICKER:
+									AdaptPickerBrush(window, draw_pixel, (int)area.width, (int)area.height,
+										area.start_x, area.start_y, brush->flags & (1 << CUSTOM_BRUSH_FLAG_ANTI_ALIAS),
+											brush->picker_mode, brush->blend_target, brush->picker_mode, brush->hue, brush->saturation, brush->brightness);
 									break;
 								case CUSTOM_BRUSH_MODE_WATER_BRUSH:
 									BlendWaterBrush(window, core, scatter_x, scatter_y, scatter_x, scatter_y, scatter_r, area.start_x, area.start_y,
@@ -28215,6 +28255,21 @@ static void ChangeCustomBrushExtend(GtkAdjustment* scale, CUSTOM_BRUSH* brush)
 	brush->extend = (uint8)(gtk_adjustment_get_value(scale) * 2.555);
 }
 
+static void ChangeCustomBrushHue(GtkAdjustment* scale, CUSTOM_BRUSH* brush)
+{
+	brush->hue = (int16)gtk_adjustment_get_value(scale);
+}
+
+static void ChangeCustomBrushSaturation(GtkAdjustment* scale, CUSTOM_BRUSH* brush)
+{
+	brush->saturation = (uint8)(gtk_adjustment_get_value(scale) * 2.555);
+}
+
+static void ChangeCustomBrushBrightness(GtkAdjustment* scale, CUSTOM_BRUSH* brush)
+{
+	brush->brightness = (uint8)(gtk_adjustment_get_value(scale) * 2.555);
+}
+
 static void ChangeCustomBrushMix(GtkAdjustment* scale, CUSTOM_BRUSH* brush)
 {
 	brush->mix = (uint8)(gtk_adjustment_get_value(scale) * 2.555);
@@ -28262,6 +28317,44 @@ static GtkWidget* CustomBrushModeDetailSettingWidgetNew(CUSTOM_BRUSH* brush)
 		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
 			G_CALLBACK(ChangeCustomBrushExtend), brush);
 		gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+		break;
+	case CUSTOM_BRUSH_MODE_PICKER:
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
+			brush->hue, -180, 180, 1, 1, 0));
+		scale = SpinScaleNew(adjustment, app->labels->tool_box.hue, 0);
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+			G_CALLBACK(ChangeCustomBrushHue), brush);
+		gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
+			brush->saturation, -100, 100, 1, 1, 0));
+		scale = SpinScaleNew(adjustment, app->labels->tool_box.saturation, 0);
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+			G_CALLBACK(ChangeCustomBrushSaturation), brush);
+		gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
+			brush->brightness, -100, 100, 1, 1, 0));
+		scale = SpinScaleNew(adjustment, app->labels->tool_box.brightness, 0);
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+			G_CALLBACK(ChangeCustomBrushBrightness), brush);
+		gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(mark_up_buff, "<span font_desc=\"%.2f\">%s : </span>",
+			UI_FONT_SIZE, app->labels->tool_box.select.target);
+		gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
+		hbox = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+		buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.select.under_layer);
+		g_object_set_data(G_OBJECT(buttons[0]), "target", GINT_TO_POINTER(BLEND_BRUSH_TARGET_UNDER_LAYER));
+		(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(ChangeCustomBrushBlendTarget), brush);
+		buttons[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(
+			GTK_RADIO_BUTTON(buttons[0])), app->labels->tool_box.select.canvas);
+		g_object_set_data(G_OBJECT(buttons[1]), "target", GINT_TO_POINTER(BLEND_BRUSH_TARGET_CANVAS));
+		(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(ChangeCustomBrushBlendTarget), brush);
+		gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), buttons[1], FALSE, FALSE, 0);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[brush->blend_target]), TRUE);
 		break;
 	case CUSTOM_BRUSH_MODE_WATER_BRUSH:
 		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
@@ -28312,7 +28405,7 @@ static GtkWidget* CustomBrushSettingWidgetNew(APPLICATION* app, CUSTOM_BRUSH* br
 	GtkWidget *check_button;
 	GtkWidget *label;
 	GtkWidget *scale;
-	GtkWidget *radio_buttons[4];
+	GtkWidget *radio_buttons[6];
 	GtkAdjustment *adjustment;
 	char mark_up_buff[256];
 	int i;
@@ -28666,10 +28759,16 @@ static GtkWidget* CustomBrushSettingWidgetNew(APPLICATION* app, CUSTOM_BRUSH* br
 	(void)g_signal_connect(G_OBJECT(radio_buttons[2]), "toggled",
 		G_CALLBACK(ChangeCustomBrushMode), brush);
 	radio_buttons[3] = gtk_radio_button_new_with_label(
-		gtk_radio_button_get_group(GTK_RADIO_BUTTON(radio_buttons[0])), app->labels->tool_box.brush_default_names[BRUSH_TYPE_WATER_COLOR_BRUSH]);
+		gtk_radio_button_get_group(GTK_RADIO_BUTTON(radio_buttons[0])), app->labels->tool_box.brush_default_names[BRUSH_TYPE_PICKER_BRUSH]);
 	gtk_box_pack_start(GTK_BOX(vbox), radio_buttons[3], FALSE, FALSE, 0);
-	g_object_set_data(G_OBJECT(radio_buttons[3]), "brush_mode", GUINT_TO_POINTER(CUSTOM_BRUSH_MODE_WATER_BRUSH));
+	g_object_set_data(G_OBJECT(radio_buttons[3]), "brush_mode", GUINT_TO_POINTER(CUSTOM_BRUSH_MODE_PICKER));
 	(void)g_signal_connect(G_OBJECT(radio_buttons[3]), "toggled",
+		G_CALLBACK(ChangeCustomBrushMode), brush);
+	radio_buttons[4] = gtk_radio_button_new_with_label(
+		gtk_radio_button_get_group(GTK_RADIO_BUTTON(radio_buttons[0])), app->labels->tool_box.brush_default_names[BRUSH_TYPE_WATER_COLOR_BRUSH]);
+	gtk_box_pack_start(GTK_BOX(vbox), radio_buttons[4], FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(radio_buttons[4]), "brush_mode", GUINT_TO_POINTER(CUSTOM_BRUSH_MODE_WATER_BRUSH));
+	(void)g_signal_connect(G_OBJECT(radio_buttons[4]), "toggled",
 		G_CALLBACK(ChangeCustomBrushMode), brush);
 
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio_buttons[brush->brush_mode]), TRUE);
@@ -28770,6 +28869,22 @@ static void TextToolReleaseCallBack(
 		{
 			flags |= TEXT_LAYER_OBLIQUE;
 		}
+		if((text->flags & TEXT_TOOL_BALLOON_HAS_EDGE) != 0)
+		{
+			flags |= TEXT_LAYER_BALLOON_HAS_EDGE;
+		}
+		if((text->flags & TEXT_TOOL_CENTERING_HORIZONTALLY) != 0)
+		{
+			flags |= TEXT_LAYER_CENTERING_HORIZONTALLY;
+		}
+		if((text->flags & TEXT_TOOL_CENTERING_VERTICALLY) != 0)
+		{
+			flags |= TEXT_LAYER_CENTERING_VERTICALLY;
+		}
+		if((text->flags & TEXT_TOOL_ADJUST_RANGE_TO_TEXT) != 0)
+		{
+			flags |= TEXT_LAYER_ADJUST_RANGE_TO_TEXT;
+		}
 
 		if(text->start_x > x)
 		{
@@ -28805,8 +28920,9 @@ static void TextToolReleaseCallBack(
 		);
 		window->num_layer++;
 		layer->layer_data.text_layer_p = CreateTextLayer(
-			start_x, start_y, width, height, text->base_size, text->font_size,
-				text->font_id, *core->color, flags
+			window, start_x, start_y, width, height, text->base_size, text->font_size,
+				text->font_id, *core->color, text->balloon_type, text->back_color,
+					text->line_color, text->line_width, &text->balloon_data, flags
 		);
 
 		LayerViewAddLayer(layer, window->layer, window->app->layer_window.view, window->num_layer);
@@ -28830,26 +28946,26 @@ static void TextToolDrawCursor(
 		return;
 	}
 
-	if(text->start_x > x)
+	if(text->start_x * window->zoom_rate > x)
 	{
 		start_x = x;
-		width = text->start_x - x;
+		width = text->start_x * window->zoom_rate - x;
 	}
 	else
 	{
-		start_x = text->start_x;
-		width = x - text->start_x;
+		start_x = text->start_x * window->zoom_rate;
+		width = x - text->start_x * window->zoom_rate;
 	}
 
-	if(text->start_y > y)
+	if(text->start_y * window->zoom_rate > y)
 	{
 		start_y = y;
-		height = text->start_y - y;
+		height = text->start_y * window->zoom_rate - y;
 	}
 	else
 	{
-		start_y = text->start_y;
-		height = y - text->start_y;
+		start_y = text->start_y * window->zoom_rate;
+		height = y - text->start_y * window->zoom_rate;
 	}
 
 	cairo_set_line_width(window->disp_temp->cairo_p, 1.0);
@@ -28911,24 +29027,108 @@ static void ChangeTextToolStyle(GtkWidget* widget, TEXT_TOOL* text)
 	}
 }
 
+static void ChangeTextToolCenteringHorizontally(GtkWidget* button, TEXT_TOOL* text)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
+	{
+		text->flags &= ~(TEXT_TOOL_CENTERING_HORIZONTALLY);
+	}
+	else
+	{
+		text->flags |= TEXT_TOOL_CENTERING_HORIZONTALLY;
+	}
+}
+
+static void ChangeTextToolCenteringVertically(GtkWidget* button, TEXT_TOOL* text)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
+	{
+		text->flags &= ~(TEXT_TOOL_CENTERING_VERTICALLY);
+	}
+	else
+	{
+		text->flags |= TEXT_TOOL_CENTERING_VERTICALLY;
+	}
+}
+
+static void ChangeTextToolBalloonHasEdge(GtkWidget* button, TEXT_TOOL* text)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
+	{
+		text->flags &= ~(TEXT_TOOL_BALLOON_HAS_EDGE);
+	}
+	else
+	{
+		text->flags |= TEXT_TOOL_BALLOON_HAS_EDGE;
+	}
+}
+
+static void ChangeTextToolBackGroundColor(GtkColorButton* button, TEXT_TOOL* text)
+{
+	GdkColor color;
+	guint16 alpha;
+
+	gtk_color_button_get_color(button, &color);
+	text->back_color[0] = (uint8)(color.red >> 8);
+	text->back_color[1] = (uint8)(color.green >> 8);
+	text->back_color[2] = (uint8)(color.blue >> 8);
+
+	alpha = gtk_color_button_get_alpha(button);
+	text->back_color[3] = (uint8)(alpha >> 8);
+}
+
+static void ChangeTextToolLineColor(GtkColorButton* button, TEXT_TOOL* text)
+{
+	GdkColor color;
+	guint16 alpha;
+
+	gtk_color_button_get_color(button, &color);
+	text->line_color[0] = (uint8)(color.red >> 8);
+	text->line_color[1] = (uint8)(color.green >> 8);
+	text->line_color[2] = (uint8)(color.blue >> 8);
+
+	alpha = gtk_color_button_get_alpha(button);
+	text->line_color[3] = (uint8)(alpha >> 8);
+}
+
+static void ChangeTextToolLineWidth(GtkAdjustment* slider, TEXT_TOOL* text)
+{
+	text->line_width = gtk_adjustment_get_value(slider);
+}
+
+static void ChangeTextToolAdjust2Text(GtkWidget* button, TEXT_TOOL* text)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
+	{
+		text->flags &= ~(TEXT_TOOL_ADJUST_RANGE_TO_TEXT);
+	}
+	else
+	{
+		text->flags |= TEXT_TOOL_ADJUST_RANGE_TO_TEXT;
+	}
+}
+
 static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 {
 #define MAX_STR_LENGTH 256
 #define UI_FONT_SIZE 8.0
-	TEXT_TOOL* text = (TEXT_TOOL*)core->brush_data;
-	GtkWidget* vbox = gtk_vbox_new(FALSE, 0), *hbox = gtk_hbox_new(FALSE, 0);
+	TEXT_TOOL *text = (TEXT_TOOL*)core->brush_data;
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 0), *hbox = gtk_hbox_new(FALSE, 0);
 #if GTK_MAJOR_VERSION <= 2
-	GtkWidget* font_selection = gtk_combo_box_new_text();
+	GtkWidget *font_selection = gtk_combo_box_new_text();
 #else
-	GtkWidget* font_selection = gtk_combo_box_text_new();
+	GtkWidget *font_selection = gtk_combo_box_text_new();
 #endif
-	GtkWidget* font_scale, *label;
-	GtkWidget* base_scale;
-	GtkWidget* radio_buttons[3];
-	GtkWidget* button;
-	GtkAdjustment* adjust;
-	GList* list;
-	const gchar* font_name;
+	GtkWidget *control;
+	GtkWidget *font_scale, *label;
+	GtkWidget *base_scale;
+	GtkWidget *scale;
+	GtkWidget *radio_buttons[3];
+	GtkWidget *button;
+	GtkAdjustment *adjust;
+	GdkColor color;
+	GList *list;
+	const gchar *font_name;
 	char item_str[MAX_STR_LENGTH];
 	int i;
 
@@ -29008,7 +29208,7 @@ static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	for(i=0; i<2; i++)
 	{
 		g_object_set_data(G_OBJECT(radio_buttons[i]), "radio_id", GINT_TO_POINTER(i));
-		g_signal_connect(G_OBJECT(radio_buttons[i]), "toggled",
+		(void)g_signal_connect(G_OBJECT(radio_buttons[i]), "toggled",
 			G_CALLBACK(ChangeTextToolWriteDirection), core->brush_data);
 		gtk_box_pack_start(GTK_BOX(hbox), radio_buttons[i], FALSE, TRUE, 0);
 	}
@@ -29033,7 +29233,7 @@ static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 0);
 
 	button = gtk_check_button_new_with_label(app->labels->tool_box.text_bold);
-	g_signal_connect(G_OBJECT(button), "toggled", G_CALLBACK(ChangeTextToolBold), core->brush_data);
+	(void)g_signal_connect(G_OBJECT(button), "toggled", G_CALLBACK(ChangeTextToolBold), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), text->flags & TEXT_TOOL_BOLD);
 	gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, TRUE, 0);
 
@@ -29053,7 +29253,7 @@ static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	{
 		g_object_set_data(G_OBJECT(radio_buttons[i]), "text-style",
 			GINT_TO_POINTER(i));
-		g_signal_connect(G_OBJECT(radio_buttons[i]), "toggled",
+		(void)g_signal_connect(G_OBJECT(radio_buttons[i]), "toggled",
 			G_CALLBACK(ChangeTextToolStyle), core->brush_data);
 	}
 	gtk_box_pack_start(GTK_BOX(hbox), radio_buttons[0], FALSE, TRUE, 0);
@@ -29072,6 +29272,75 @@ static GtkWidget* CreateTextToolDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	}
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), radio_buttons[2], FALSE, TRUE, 0);
+
+	button = gtk_check_button_new_with_label(app->labels->tool_box.centering_horizontally);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
+		text->flags & TEXT_TOOL_CENTERING_HORIZONTALLY);
+	(void)g_signal_connect(G_OBJECT(button), "toggled",
+		G_CALLBACK(ChangeTextToolCenteringHorizontally), text);
+	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
+
+	button = gtk_check_button_new_with_label(app->labels->tool_box.centering_vertically);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
+		text->flags & TEXT_TOOL_CENTERING_VERTICALLY);
+	(void)g_signal_connect(G_OBJECT(button), "toggled",
+		G_CALLBACK(ChangeTextToolCenteringVertically), text);
+	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
+
+	control = TextLayerSelectBalloonTypeWidgetNew(
+		&text->balloon_type, NULL, NULL, &text->balloon_widgets, app);
+	gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(item_str, "%s : ", app->labels->unit.bg);
+	color.red = (text->back_color[0] << 8) | text->back_color[0];
+	color.green = (text->back_color[1] << 8) | text->back_color[1];
+	color.blue = (text->back_color[2] << 8) | text->back_color[2];
+	button = gtk_color_button_new_with_color(&color);
+	gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(button), TRUE);
+	gtk_color_button_set_alpha(GTK_COLOR_BUTTON(button), (text->back_color[3] << 8) | text->back_color[3]);
+	(void)g_signal_connect(G_OBJECT(button), "color-set",
+		G_CALLBACK(ChangeTextToolBackGroundColor), text);
+	gtk_box_pack_start(GTK_BOX(hbox), gtk_label_new(item_str), FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(item_str, "%s : ", app->labels->tool_box.line_color);
+	color.red = (text->line_color[0] << 8) | text->line_color[0];
+	color.green = (text->line_color[1] << 8) | text->line_color[1];
+	color.blue = (text->line_color[2] << 8) | text->line_color[2];
+	button = gtk_color_button_new_with_color(&color);
+	gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(button), TRUE);
+	gtk_color_button_set_alpha(GTK_COLOR_BUTTON(button), (text->line_color[3] << 8) | text->line_color[3]);
+	(void)g_signal_connect(G_OBJECT(button), "color-set",
+		G_CALLBACK(ChangeTextToolLineColor), text);
+	gtk_box_pack_start(GTK_BOX(hbox), gtk_label_new(item_str), FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	button = gtk_check_button_new_with_label(app->labels->tool_box.balloon_has_edge);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
+		text->flags & TEXT_TOOL_BALLOON_HAS_EDGE);
+	(void)g_signal_connect(G_OBJECT(button), "toggled",
+		G_CALLBACK(ChangeTextToolBalloonHasEdge), text);
+	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
+
+	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(text->line_width, 0.1, 100, 1, 1, 0));
+	scale = SpinScaleNew(adjust, app->labels->tool_box.line_width, 1);
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
+		G_CALLBACK(ChangeTextToolLineWidth), text);
+	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
+
+	button = gtk_check_button_new_with_label(app->labels->tool_box.adjust_range_to_text);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
+		text->flags & TEXT_TOOL_ADJUST_RANGE_TO_TEXT);
+	(void)g_signal_connect(G_OBJECT(button), "toggled",
+		G_CALLBACK(ChangeTextToolAdjust2Text), text);
+	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(vbox), CreateBalloonDetailSettinWidget(&text->balloon_data, &text->balloon_widgets,
+		NULL, NULL, app), FALSE, FALSE, 0);
 
 	g_list_free(list);
 
@@ -29968,8 +30237,12 @@ void LoadBrushDetailData(
 	else if(StringCompareIgnoreCase(brush_type, "TEXT_TOOL") == 0)
 	{
 		TEXT_TOOL* text;
+		char str[128];
+		char buff[16] = {0};
 		PangoFontFamily** search_font;
 		char font_name[256];
+		int i;
+
 		core->brush_data = MEM_ALLOC_FUNC(sizeof(*text));
 		(void)memset(core->brush_data, 0, sizeof(*text));
 		core->detail_data_size = sizeof(*text);
@@ -30000,6 +30273,57 @@ void LoadBrushDetailData(
 		else
 		{
 			text->font_id = (int32)(search_font - app->font_list);
+		}
+
+		text->balloon_type = (uint16)IniFileGetInteger(file, section_name, "BALLOON_TYPE");
+		text->line_width = IniFileGetDouble(file, section_name, "LINE_WIDTH");
+		text->balloon_data.num_edge = (uint16)IniFileGetInteger(file, section_name, "NUM_EDGE");
+		text->balloon_data.num_children = (uint16)IniFileGetInteger(file, section_name, "NUM_CHILDREN");
+		text->balloon_data.edge_size = IniFileGetDouble(file, section_name, "EDGE_SIZE");
+		text->balloon_data.random_seed = IniFileGetInteger(file, section_name, "RANDOM_SEED");
+		text->balloon_data.edge_random_size = IniFileGetDouble(file, section_name, "RANDOM_EDGE_SIZE") * 0.01;
+		text->balloon_data.edge_random_distance = IniFileGetDouble(file, section_name, "RANDOM_EDGE_DISTANCE") * 0.01;
+		text->balloon_data.start_child_size = IniFileGetDouble(file, section_name, "START_CHILD_SIZE") * 0.01;
+		text->balloon_data.end_child_size = IniFileGetDouble(file, section_name, "END_CHILD_SIZE") * 0.01;
+
+		if(IniFileGetString(file, section_name, "BACK_COLOR", str, (long)sizeof(str)) != 0)
+		{
+			int value;
+			for(i=0; i<4; i++)
+			{
+				buff[0] = str[i*2];
+				buff[1] = str[i*2+1];
+				(void)sscanf(buff, "%x", &value);
+				text->back_color[i] = (uint8)value;
+			}
+		}
+		if(IniFileGetString(file, section_name, "LINE_COLOR", str, (long)sizeof(str)) != 0)
+		{
+			int value;
+			for(i=0; i<4; i++)
+			{
+				buff[0] = str[i*2];
+				buff[1] = str[i*2+1];
+				(void)sscanf(buff, "%x", &value);
+				text->line_color[i] = (uint8)value;
+			}
+		}
+
+		if(IniFileGetInteger(file, section_name, "BALLOON_HAS_EDGE") != 0)
+		{
+			text->flags |= TEXT_TOOL_BALLOON_HAS_EDGE;
+		}
+		if(IniFileGetInteger(file, section_name, "CENTERING_HORIZONTALLY") != 0)
+		{
+			text->flags |= TEXT_TOOL_CENTERING_HORIZONTALLY;
+		}
+		if(IniFileGetInteger(file, section_name, "CENTERING_VERTICALLY") != 0)
+		{
+			text->flags |= TEXT_TOOL_CENTERING_VERTICALLY;
+		}
+		if(IniFileGetInteger(file, section_name, "ADJUST_RANGE_TO_TEXT") != 0)
+		{
+			text->flags |= TEXT_TOOL_ADJUST_RANGE_TO_TEXT;
 		}
 	}
 	else if(StringCompareIgnoreCase(brush_type, "SCRIPT_BRUSH") == 0)
@@ -30058,11 +30382,15 @@ void LoadBrushDetailData(
 		brush->random_angle = IniFileGetDouble(file, section_name, "RANDOM_ANGLE") * G_PI / 180.0;
 		brush->brush_distance = IniFileGetDouble(file, section_name, "DRAW_DISTANCE");
 		brush->rotate_direction = IniFileGetInteger(file, section_name, "ROTATE_DIRECTION");
-		brush->blend_mode = IniFileGetInteger(file, section_name, "BLEND_MODE");
-		brush->blend_target = IniFileGetInteger(file, section_name, "BLEND_TARGET");
-		brush->brush_shape = IniFileGetInteger(file, section_name, "BRUSH_SHAPE");
-		brush->color_mode = IniFileGetInteger(file, section_name, "COLOR_MODE");
-		brush->brush_mode =	IniFileGetInteger(file, section_name, "BRUSH_MODE");
+		brush->blend_mode = (uint8)IniFileGetInteger(file, section_name, "BLEND_MODE");
+		brush->blend_target = (uint8)IniFileGetInteger(file, section_name, "BLEND_TARGET");
+		brush->brush_shape = (uint8)IniFileGetInteger(file, section_name, "BRUSH_SHAPE");
+		brush->color_mode = (uint8)IniFileGetInteger(file, section_name, "COLOR_MODE");
+		brush->brush_mode =	(uint8)IniFileGetInteger(file, section_name, "BRUSH_MODE");
+		brush->picker_mode = (uint8)IniFileGetInteger(file, section_name, "PICKER_MODE");
+		brush->hue = (int16)IniFileGetInteger(file, section_name, "HUE");
+		brush->saturation = (int16)IniFileGetInteger(file, section_name, "SATURATION");
+		brush->brightness = (int16)IniFileGetInteger(file, section_name, "BRIGHTNESS");
 		brush->extend = (uint8)IniFileGetInteger(file, section_name, "COLOR_EXTEND");
 		brush->mix = (uint8)IniFileGetInteger(file, section_name, "COLOR_MIX");
 		brush->num_scatter = IniFileGetInteger(file, section_name, "NUM_SCATTER");
@@ -30735,6 +31063,19 @@ void LoadBrushDefaultData(
 
 			text->base_size = 1;
 			text->font_size = 10;
+			text->line_width = 3;
+			text->back_color[0] = text->back_color[1] =
+				text->back_color[2] = text->back_color[3] = 0xff;
+			text->line_color[0] = text->line_color[1] = text->line_color[2] = 0;
+			text->line_color[3] = 0xff;
+			text->balloon_data.num_edge = 10;
+			text->balloon_data.num_children = 3;
+			text->balloon_data.edge_size = 15;
+			text->balloon_data.random_seed = 0;
+			text->balloon_data.edge_random_size = 0.15;
+			text->balloon_data.edge_random_distance = 0.15;
+			text->balloon_data.start_child_size = 0.40;
+			text->balloon_data.end_child_size = 0.20;
 			// text->font_id = 0;
 		}
 		break;
@@ -31238,13 +31579,38 @@ int WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATION
 				case BRUSH_TYPE_TEXT:
 					{
 						TEXT_TOOL *text = (TEXT_TOOL*)window->brushes[y][x].brush_data;
+						char str[128];
 						(void)IniFileAddString(file, brush_section_name, "TYPE", "TEXT_TOOL");
 						(void)IniFileAddInteger(file, brush_section_name, "MAGNIFICATION", text->base_size, 10);
 						(void)IniFileAddInteger(file, brush_section_name, "SIZE", (int)text->font_size, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "NUM_EDGE", (int)text->balloon_data.num_edge, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "NUM_CHILDREN", (int)text->balloon_data.num_children, 10);
+						(void)IniFileAddDouble(file, brush_section_name, "EDGE_SIZE", text->balloon_data.edge_size, 1);
+						(void)IniFileAddInteger(file, brush_section_name, "RANDOM_SEED", (int)text->balloon_data.random_seed, 10);
+						(void)IniFileAddDouble(file, brush_section_name, "RANDOM_EDGE_SIZE", text->balloon_data.edge_random_size * 100, 1);
+						(void)IniFileAddDouble(file, brush_section_name, "RANDOM_EDGE_DISTANCE", text->balloon_data.edge_random_distance * 100, 1);
+						(void)IniFileAddDouble(file, brush_section_name, "START_CHILD_SIZE", text->balloon_data.start_child_size * 100, 1);
+						(void)IniFileAddDouble(file, brush_section_name, "END_CHILD_SIZE", text->balloon_data.end_child_size * 100, 1);
 						(void)IniFileAddInteger(file, brush_section_name, "VERTICAL",
 							((text->flags & TEXT_TOOL_VERTICAL) != 0) ? 1 : 0, 10);
 						(void)IniFileAddString(file, brush_section_name, "FONT_NAME",
 							pango_font_family_get_name(app->font_list[text->font_id]));
+						(void)IniFileAddInteger(file, brush_section_name, "BALLOON_TYPE", text->balloon_type, 10);
+						(void)IniFileAddDouble(file, brush_section_name, "LINE_WIDTH", text->line_width, 1);
+						(void)sprintf(str, "%02x%02x%02x%02x", text->back_color[0], text->back_color[1],
+							text->back_color[2], text->back_color[3]);
+						(void)IniFileAddString(file, brush_section_name, "BACK_COLOR", str);
+						(void)sprintf(str, "%02x%02x%02x%02x", text->line_color[0], text->line_color[1],
+							text->line_color[2], text->line_color[3]);
+						(void)IniFileAddString(file, brush_section_name, "LINE_COLOR", str);
+						(void)IniFileAddInteger(file, brush_section_name, "BALLOON_HAS_EDGE",
+							((text->flags & TEXT_TOOL_BALLOON_HAS_EDGE) != 0) ? 1 : 0, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "CENTERING_HORIZONTALLY",
+							((text->flags & TEXT_TOOL_CENTERING_HORIZONTALLY) != 0) ? 1 : 0, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "CENTERING_VERTICALLY",
+							((text->flags & TEXT_TOOL_CENTERING_VERTICALLY) != 0) ? 1 : 0, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "ADJUST_RANGE_TO_TEXT",
+							((text->flags & TEXT_TOOL_ADJUST_RANGE_TO_TEXT) != 0) ? 1 : 0, 10);
 					}
 					break;
 				case BRUSH_TYPE_SCRIPT_BRUSH:
@@ -31280,6 +31646,10 @@ int WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATION
 						(void)IniFileAddInteger(file, brush_section_name, "BRUSH_SHAPE", brush->brush_shape, 10);
 						(void)IniFileAddInteger(file, brush_section_name, "COLOR_MODE", brush->color_mode, 10);
 						(void)IniFileAddInteger(file, brush_section_name, "BRUSH_MODE", brush->brush_mode, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "PICKER_MODE", brush->picker_mode, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "HUE", brush->hue, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "SATURATION", brush->saturation, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "BRIGHTNESS", brush->brightness, 10);
 						(void)IniFileAddInteger(file, brush_section_name, "NUM_SCATTER", brush->num_scatter, 10);
 						(void)IniFileAddDouble(file, brush_section_name, "SCATTER_RANGE", brush->scatter_range * 100, 1);
 						(void)IniFileAddDouble(file, brush_section_name, "SCATTER_SIZE", brush->scatter_size * 100, 1);

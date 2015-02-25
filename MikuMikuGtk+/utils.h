@@ -393,7 +393,7 @@ extern char* GetFileExtention(char* file_name);
 extern int GetTextFromStream(char* stream, char** text);
 
 extern int GetSignedValue(uint8* stream, int length);
-extern unsigned int GetUnignedValue(uint8* stream, int length);
+extern unsigned int GetUnsignedValue(uint8* stream, int length);
 
 extern INLINE void ClampByteData(uint8* a, const uint8 lb, const uint8 ub);
 

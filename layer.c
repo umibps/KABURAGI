@@ -1466,7 +1466,8 @@ void AddLayerNameChangeHistory(
 
 void ChangeActiveLayer(DRAW_WINDOW* window, LAYER* layer)
 {
-	if(window->app->current_tool != layer->layer_type && window->transform == NULL)
+	if((window->app->current_tool != layer->layer_type || layer->layer_type == TYPE_TEXT_LAYER)
+		&& window->transform == NULL)
 	{
 		// メニューを有効にするフラグ
 		gboolean enable_menu = TRUE;
@@ -1516,16 +1517,19 @@ void ChangeActiveLayer(DRAW_WINDOW* window, LAYER* layer)
 			{
 				layer->layer_data.text_layer_p->text_field = layer->window->app->tool_window.brush_table
 					= gtk_text_view_new();
-				g_signal_connect(G_OBJECT(layer->layer_data.text_layer_p->text_field), "focus-in-event",
+				(void)g_signal_connect(G_OBJECT(layer->layer_data.text_layer_p->text_field), "focus-in-event",
 					G_CALLBACK(TextFieldFocusIn), layer->window->app);
-				g_signal_connect(G_OBJECT(layer->layer_data.text_layer_p->text_field), "focus-out-event",
+				(void)g_signal_connect(G_OBJECT(layer->layer_data.text_layer_p->text_field), "focus-out-event",
 					G_CALLBACK(TextFieldFocusOut), layer->window->app);
-				g_signal_connect(G_OBJECT(layer->layer_data.text_layer_p->text_field), "destroy",
+				(void)g_signal_connect(G_OBJECT(layer->layer_data.text_layer_p->text_field), "destroy",
 					G_CALLBACK(OnDestroyTextField), layer->window->app);
 				layer->layer_data.text_layer_p->buffer =
 					gtk_text_view_get_buffer(GTK_TEXT_VIEW(layer->layer_data.text_layer_p->text_field));
-				gtk_text_buffer_set_text(layer->layer_data.text_layer_p->buffer, layer->layer_data.text_layer_p->text, -1);
-				g_signal_connect(G_OBJECT(layer->layer_data.text_layer_p->buffer), "changed",
+				if(layer->layer_data.text_layer_p->text != NULL)
+				{
+					gtk_text_buffer_set_text(layer->layer_data.text_layer_p->buffer, layer->layer_data.text_layer_p->text, -1);
+				}
+				(void)g_signal_connect(G_OBJECT(layer->layer_data.text_layer_p->buffer), "changed",
 					G_CALLBACK(OnChangeTextCallBack), layer);
 				gtk_widget_destroy(window->app->tool_window.detail_ui);
 				layer->window->app->tool_window.detail_ui = CreateTextLayerDetailUI(
@@ -2469,11 +2473,18 @@ LAYER* CreateLayerCopy(LAYER* src)
 	else if(src->layer_type == TYPE_TEXT_LAYER)
 	{	// テキストレイヤーならテキストデータをコピー
 		ret->layer_data.text_layer_p = CreateTextLayer(
+			src->window,
 			src->layer_data.text_layer_p->x, src->layer_data.text_layer_p->y,
 			src->layer_data.text_layer_p->width, src->layer_data.text_layer_p->height,
 			src->layer_data.text_layer_p->base_size, src->layer_data.text_layer_p->font_size,
 			src->layer_data.text_layer_p->font_id,
-			src->layer_data.text_layer_p->color, src->layer_data.text_layer_p->flags
+			src->layer_data.text_layer_p->color,
+			src->layer_data.text_layer_p->balloon_type,
+			src->layer_data.text_layer_p->back_color,
+			src->layer_data.text_layer_p->line_color,
+			src->layer_data.text_layer_p->line_width,
+			&src->layer_data.text_layer_p->balloon_data,
+			src->layer_data.text_layer_p->flags
 		);
 		ret->layer_data.text_layer_p->text = MEM_STRDUP_FUNC(
 			src->layer_data.text_layer_p->text);

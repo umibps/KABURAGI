@@ -610,6 +610,8 @@ static void PmxModelParseVertices(PMX_MODEL* model)
 	size_t data_size;
 	int i;
 
+	StructArrayResize(model->vertices, num_vertices + 1);
+
 	for(i=0; i<num_vertices; i++)
 	{
 		PMX_VERTEX *vertex = (PMX_VERTEX*)StructArrayReserve(model->vertices);
@@ -630,7 +632,7 @@ static void PmxModelParseIndices(PMX_MODEL* model)
 
 	for(i=0; i<num_indices; i++)
 	{
-		index = GetUnignedValue(data_pointer, (int)data_size);
+		index = GetUnsignedValue(data_pointer, (int)data_size);
 
 		if(!CHECK_BOUND(index, 0, (unsigned int)num_vertices))
 		{

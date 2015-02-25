@@ -530,6 +530,8 @@ void StructArrayResize(STRUCT_ARRAY* struct_array, size_t new_size)
 {
 	size_t alloc_size;
 
+	new_size += (struct_array->block_size - (new_size % struct_array->block_size)) % struct_array->block_size;
+
 	if(struct_array->buffer_size == new_size)
 	{
 		return;

@@ -3,7 +3,7 @@
 	ProjectType="Visual C++"
 	Version="9.00"
 	Name="KABURAGI"
-	ProjectGUID="{52E388B6-50DB-4C39-BCB6-1218DDFC55A7}"
+	ProjectGUID="{5FD47FE5-7068-4378-8B8B-505192855303}"
 	RootNamespace="KABURAGI"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
@@ -25,6 +25,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine=""
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -37,18 +38,20 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
+				TargetEnvironment="3"
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
+				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
+				PreprocessorDefinitions="USE_3D_LAYER=0"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				DebugInformationFormat="4"
+				DebugInformationFormat="3"
+				CompileAs="0"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -62,9 +65,10 @@
 			<Tool
 				Name="VCLinkerTool"
 				LinkIncremental="2"
+				GenerateManifest="false"
 				GenerateDebugInformation="true"
 				SubSystem="1"
-				TargetMachine="1"
+				TargetMachine="17"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -98,6 +102,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine=""
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -110,6 +115,7 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
+				TargetEnvironment="3"
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
@@ -117,16 +123,17 @@
 				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
 				FavorSizeOrSpeed="1"
+				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;USE_3D_LAYER=0"
-				GeneratePreprocessedFile="0"
+				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
+				PreprocessorDefinitions="USE_3D_LAYER=0"
 				StringPooling="true"
 				ExceptionHandling="0"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				EnableEnhancedInstructionSet="2"
 				FloatingPointModel="2"
+				OpenMP="true"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -180,6 +187,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine=""
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -192,91 +200,19 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
+				TargetEnvironment="3"
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;_PROFILING"
+				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
+				PreprocessorDefinitions="USE_3D_LAYER=0"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				DebugInformationFormat="4"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				AdditionalOptions="/Zi /PROFILE"
-				LinkIncremental="2"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				TargetMachine="1"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="デバッグ(日本語)|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
-				MinimalRebuild="true"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="4"
+				DebugInformationFormat="3"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -292,7 +228,7 @@
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="1"
-				TargetMachine="1"
+				TargetMachine="17"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -326,842 +262,9 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\anti_alias.c"
-				>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						GeneratePreprocessedFile="0"
-						KeepComments="false"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath=".\application.c"
-				>
-			</File>
-			<File
-				RelativePath=".\bezier.c"
-				>
-			</File>
-			<File
-				RelativePath=".\bit_stream.c"
-				>
-			</File>
-			<File
-				RelativePath=".\brush_core.c"
-				>
-			</File>
-			<File
-				RelativePath=".\brushes.c"
-				>
-			</File>
-			<File
-				RelativePath=".\cell_renderer_widget.c"
-				>
-			</File>
-			<File
-				RelativePath=".\clip_board.c"
-				>
-			</File>
-			<File
-				RelativePath=".\color.c"
-				>
-			</File>
-			<File
-				RelativePath=".\common_tools.c"
-				>
-			</File>
-			<File
-				RelativePath=".\display.c"
-				>
-			</File>
-			<File
-				RelativePath=".\display_filter.c"
-				>
-			</File>
-			<File
-				RelativePath=".\draw_window.c"
-				>
-			</File>
-			<File
-				RelativePath=".\filter.c"
-				>
-			</File>
-			<File
-				RelativePath=".\fractal.c"
-				>
-			</File>
-			<File
-				RelativePath=".\fractal_color_map.c"
-				>
-			</File>
-			<File
-				RelativePath=".\fractal_editor.c"
-				>
-			</File>
-			<File
-				RelativePath=".\fractal_point.c"
-				>
-			</File>
-			<File
-				RelativePath=".\golomb_table.c"
-				>
-			</File>
-			<File
-				RelativePath=".\history.c"
-				>
-			</File>
-			<File
-				RelativePath=".\iccbutton.c"
-				>
-			</File>
-			<File
-				RelativePath=".\image_read_write.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ini_file.c"
-				>
-			</File>
-			<File
-				RelativePath=".\input.c"
-				>
-			</File>
-			<File
-				RelativePath=".\labels.c"
-				>
-			</File>
-			<File
-				RelativePath=".\layer.c"
-				>
-			</File>
-			<File
-				RelativePath=".\layer_blend.c"
-				>
-			</File>
-			<File
-				RelativePath=".\layer_set.c"
-				>
-			</File>
-			<File
-				RelativePath=".\layer_window.c"
-				>
-			</File>
-			<File
-				RelativePath=".\lcms_wrapper.c"
-				>
-			</File>
-			<File
 				RelativePath=".\main.c"
 				>
 			</File>
-			<File
-				RelativePath=".\memory_stream.c"
-				>
-			</File>
-			<File
-				RelativePath=".\menu.c"
-				>
-			</File>
-			<File
-				RelativePath=".\navigation.c"
-				>
-			</File>
-			<File
-				RelativePath=".\older_lib.c"
-				>
-			</File>
-			<File
-				RelativePath=".\pattern.c"
-				>
-			</File>
-			<File
-				RelativePath=".\plug_in.c"
-				>
-			</File>
-			<File
-				RelativePath=".\preference.c"
-				>
-			</File>
-			<File
-				RelativePath=".\preview_window.c"
-				>
-			</File>
-			<File
-				RelativePath=".\printer.c"
-				>
-			</File>
-			<File
-				RelativePath=".\reference_window.c"
-				>
-			</File>
-			<File
-				RelativePath=".\save.c"
-				>
-			</File>
-			<File
-				RelativePath=".\script.c"
-				>
-			</File>
-			<File
-				RelativePath=".\selection_area.c"
-				>
-			</File>
-			<File
-				RelativePath=".\slide.c"
-				>
-			</File>
-			<File
-				RelativePath=".\smoother.c"
-				>
-			</File>
-			<File
-				RelativePath=".\spin_scale.c"
-				>
-			</File>
-			<File
-				RelativePath=".\text_layer.c"
-				>
-			</File>
-			<File
-				RelativePath=".\texture.c"
-				>
-			</File>
-			<File
-				RelativePath=".\tlg.c"
-				>
-			</File>
-			<File
-				RelativePath=".\tlg6_bit_stream.c"
-				>
-			</File>
-			<File
-				RelativePath=".\tlg6_encode.c"
-				>
-			</File>
-			<File
-				RelativePath=".\tool_box.c"
-				>
-			</File>
-			<File
-				RelativePath=".\transform.c"
-				>
-			</File>
-			<File
-				RelativePath=".\utils.c"
-				>
-			</File>
-			<File
-				RelativePath=".\vector.c"
-				>
-			</File>
-			<File
-				RelativePath=".\vector_brushes.c"
-				>
-			</File>
-			<File
-				RelativePath=".\widgets.c"
-				>
-			</File>
-			<File
-				RelativePath=".\win32_gtk_2.24.c"
-				>
-			</File>
-			<Filter
-				Name="lua"
-				>
-				<File
-					RelativePath=".\lua\lapi.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lauxlib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lbaselib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lbitlib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lcode.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lcorolib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lctype.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\ldblib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\ldebug.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\ldo.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\ldump.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lfunc.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lgc.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\linit.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\liolib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\llex.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lmathlib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lmem.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\loadlib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lobject.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lopcodes.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\loslib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lparser.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lstate.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lstring.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lstrlib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\ltable.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\ltablib.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\ltm.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lua.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\luac.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lundump.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lvm.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lua\lzio.c"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="lcms"
-				>
-				<File
-					RelativePath=".\lcms\cmscam02.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmscgats.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmscnvrt.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmserr.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsgamma.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsgmt.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmshalf.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsintrp.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsio0.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsio1.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmslut.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsmd5.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsmtrx.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsnamed.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsopt.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmspack.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmspcs.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsplugin.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsps2.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmssamp.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmssm.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmstypes.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsvirt.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmswtpnt.c"
-					>
-				</File>
-				<File
-					RelativePath=".\lcms\cmsxform.c"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="libtiff"
-				>
-				<File
-					RelativePath=".\libtiff\tif_aux.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_close.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_codec.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_color.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_compress.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_dir.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_dirinfo.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_dirread.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_dirwrite.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_dumpmode.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_error.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_extension.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_fax3.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_fax3sm.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_flush.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_getimage.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_jbig.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_jpeg.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_jpeg_12.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_luv.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_lzma.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_lzw.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_next.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_ojpeg.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_open.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_packbits.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_pixarlog.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_predict.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_print.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_read.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_strip.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_swab.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_thunder.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_tile.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_version.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_warning.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_win32.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_write.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libtiff\tif_zip.c"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="libjpeg"
-				>
-				<File
-					RelativePath=".\libjpeg\jaricom.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcapimin.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcapistd.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcarith.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jccoefct.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jccolor.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcdctmgr.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jchuff.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcinit.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcmainct.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcmarker.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcmaster.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcomapi.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcparam.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcprepct.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jcsample.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jctrans.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdapimin.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdapistd.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdarith.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdatadst.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdatasrc.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdcoefct.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdcolor.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jddctmgr.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdhuff.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdinput.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdmainct.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdmarker.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdmaster.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdmerge.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdpostct.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdsample.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jdtrans.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jerror.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jfdctflt.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jfdctfst.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jfdctint.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jidctflt.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jidctfst.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jidctint.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jmemansi.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jmemmgr.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jquant1.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jquant2.c"
-					>
-				</File>
-				<File
-					RelativePath=".\libjpeg\jutils.c"
-					>
-				</File>
-			</Filter>
 		</Filter>
 		<Filter
 			Name="ヘッダー ファイル"
@@ -1214,10 +317,6 @@
 			</File>
 			<File
 				RelativePath=".\display.h"
-				>
-			</File>
-			<File
-				RelativePath=".\display_filter.h"
 				>
 			</File>
 			<File
@@ -1313,11 +412,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\pcre_internal.h"
+				RelativePath=".\plug_in.h"
 				>
 			</File>
 			<File
-				RelativePath=".\plug_in.h"
+				RelativePath=".\MikuMikuGtk+\pose.h"
 				>
 			</File>
 			<File
@@ -1333,19 +432,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\resource.h"
-				>
-			</File>
-			<File
-				RelativePath=".\resource1.h"
+				RelativePath=".\reference_window.h"
 				>
 			</File>
 			<File
 				RelativePath=".\save.h"
-				>
-			</File>
-			<File
-				RelativePath=".\script.h"
 				>
 			</File>
 			<File
@@ -1366,10 +457,6 @@
 			</File>
 			<File
 				RelativePath=".\text_layer.h"
-				>
-			</File>
-			<File
-				RelativePath=".\texture.h"
 				>
 			</File>
 			<File
@@ -1439,15 +526,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\x64\Debug\lang\english.lang"
+				>
+			</File>
+			<File
 				RelativePath=".\HISTORY.TXT"
 				>
 			</File>
 			<File
-				RelativePath=".\icon.ico"
-				>
-			</File>
-			<File
-				RelativePath=".\japanese.lang"
+				RelativePath=".\x64\Debug\lang\japanese.lang"
 				>
 			</File>
 			<File
@@ -1460,10 +547,6 @@
 			</File>
 			<File
 				RelativePath=".\vector_brushes.ini"
-				>
-			</File>
-			<File
-				RelativePath=".\Debug\script\テスト.lua"
 				>
 			</File>
 		</Filter>

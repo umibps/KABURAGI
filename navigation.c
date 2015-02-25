@@ -41,16 +41,34 @@ void ChangeNavigationRotate(NAVIGATION_WINDOW* navigation, DRAW_WINDOW* window)
 	zoom_x = ((gdouble)window->width) / navigation->width;
 	zoom_y = ((gdouble)window->height) / navigation->height;
 
-	trans_x = - half_width*zoom_x +
-		(half_width * (1/ROOT2) * zoom_x * window->cos_value + half_height * (1/ROOT2) * zoom_x * window->sin_value);
-	trans_x /= zoom_x;
-	trans_y = - half_height*zoom_y - (
-		half_width * (1/ROOT2) * zoom_y * window->sin_value - half_height * (1/ROOT2) * zoom_y * window->cos_value);
-	trans_y /= zoom_y;
-	
-	cairo_matrix_init_scale(&matrix, zoom_x*ROOT2, zoom_y*ROOT2);
-	cairo_matrix_rotate(&matrix, window->angle);
-	cairo_matrix_translate(&matrix, trans_x, trans_y);
+
+	if((window->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE) == 0)
+	{
+		trans_x = - half_width*zoom_x +
+			(half_width * (1/ROOT2) * zoom_x * window->cos_value + half_height * (1/ROOT2) * zoom_x * window->sin_value);
+		trans_x /= zoom_x;
+		trans_y = - half_height*zoom_y - (
+			half_width * (1/ROOT2) * zoom_y * window->sin_value - half_height * (1/ROOT2) * zoom_y * window->cos_value);
+		trans_y /= zoom_y;
+
+		cairo_matrix_init_scale(&matrix, zoom_x*ROOT2, zoom_y*ROOT2);
+		cairo_matrix_rotate(&matrix, window->angle);
+		cairo_matrix_translate(&matrix, trans_x, trans_y);
+	}
+	else
+	{
+		trans_x = - half_width*zoom_x +
+			(- half_width * (1/ROOT2) * zoom_x * window->cos_value + half_height * (1/ROOT2) * zoom_x * window->sin_value);
+		trans_x /= zoom_x;
+		trans_y = - half_height*zoom_y - (
+			- half_width * (1/ROOT2) * zoom_y * window->sin_value - half_height * (1/ROOT2) * zoom_y * window->cos_value);
+		trans_y /= zoom_y;
+
+		cairo_matrix_init_scale(&matrix, - zoom_x*ROOT2, zoom_y*ROOT2);
+		cairo_matrix_rotate(&matrix, window->angle);
+		cairo_matrix_translate(&matrix, trans_x, trans_y);
+	}
+
 	cairo_pattern_set_matrix(navigation->pattern, &matrix);
 }
 

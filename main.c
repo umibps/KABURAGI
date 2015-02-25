@@ -33,7 +33,7 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #endif
 
 # if !defined(_DEBUG)
-//#  pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
+#  pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
 # endif
 
 #if 1
@@ -148,7 +148,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #  endif
 #   if GTK_MAJOR_VERSION <= 2
 #    pragma comment(lib, "atk-1.0.lib")
-//#    pragma comment(lib, "cairo.lib")
+#    pragma comment(lib, "cairo.lib")
 #    pragma comment(lib, "expat.lib")
 #    pragma comment(lib, "fontconfig.lib")
 #    pragma comment(lib, "freetype.lib")
@@ -357,19 +357,21 @@ int main(int argc, char** argv)
 		{"Tool Box", "Initialize", "New Brush", "Smooth", "Quality", "Rate", "Gaussian", "Average", "Magnification",
 			"Brush Size", "Scale", "Flow", "Pressure", "Extend Range", "Blur", "OutLine Hardness",
 			"Color Extends", "Start Distance of Drag and Move", "Anti Alias", "Change Text Color", "Horizonal",
-			"Vertical", "Style", "Normal", "Bold", "Italic", "Oblique", "Reverse", "Reverse Horizontally",
-			"Reverse Vertically", "Blend Mode", "Hue", "Saturation", "Brightness", "Contrast", "Distance",
-			"Rotate Start", "Rotate Speed", "Random Rotate", "Rotate to Brush Direction", "Size Range",
-			"Rotate Range", "Random Size", "Clockwise", "Counter Clockwise", "Both Direction", "Minimum Degree",
-			"Minumum Distance", "Minimum Pressure", "Enter", "Out", "Enter & Out", "Mix", "Reverse FG BG",
-			"Devide Stroke", "Delete Stroke", "Target", "Stroke", "Prior Angle", "Control Point", "Free", "Scale",
-			"Free Shape", "Rotate", "Preference", "Name", "Copy Brush", "Change Brush", "Delete Brush", "Texture",
-			"Strength", "No Texture", "Add Color", "Delete Color", "Load Pallete", "Add Pallete","Write Pallete",
-			"Clear Pallete", "Pick Mode", "Single Pixel", "Average Color", "Open Path", "Close Path", "Update",
-			"Frequency", "Cloud Color", "Persistence", "Random Seed", "Use Random", "Update Immediately",
-			"Number of Octaves", "Linear", "Cosine", "Cubic", "Colorize", "Start Editting 3D Model",
-			"Finish Editting 3D Model", "Scatter", "Scatter Size", "Scatter Range", "Random Size Scatter",
-			"Random Flow Scatter", "Normal Brush",
+			"Vertical", "Style", "Normal", "Bold", "Italic", "Oblique", "Balloon", "Balloon Has Edge", "Line Color",
+			"Line Width", "Centering Horizontally", "Centering Vertically", "Adjust Range to Text", "Number of Edge,",
+			"Edge Size", "Edge Size Random", "Edge Distance Random", "Number of Children", "Start Child Size",
+			"End Child Size", "Reverse", "Reverse Horizontally", "Reverse Vertically", "Blend Mode", "Hue",
+			"Saturation", "Brightness", "Contrast", "Distance", "Rotate Start", "Rotate Speed", "Random Rotate",
+			"Rotate to Brush Direction", "Size Range", "Rotate Range", "Random Size", "Clockwise",
+			"Counter Clockwise", "Both Direction", "Minimum Degree", "Minumum Distance", "Minimum Pressure", "Enter",
+			"Out", "Enter & Out", "Mix", "Reverse FG BG", "Devide Stroke", "Delete Stroke", "Target", "Stroke",
+			"Prior Angle", "Control Point", "Free", "Scale", "Free Shape", "Rotate", "Preference", "Name",
+			"Copy Brush", "Change Brush", "Delete Brush", "Texture", "Strength", "No Texture", "Add Color",
+			"Delete Color", "Load Pallete", "Add Pallete","Write Pallete", "Clear Pallete", "Pick Mode",
+			"Single Pixel", "Average Color", "Open Path", "Close Path", "Update", "Frequency", "Cloud Color",
+			"Persistence", "Random Seed", "Use Random", "Update Immediately", "Number of Octaves", "Linear", "Cosine",
+			"Cubic", "Colorize", "Start Editting 3D Model", "Finish Editting 3D Model", "Scatter", "Scatter Size",
+			"Scatter Range", "Random Size Scatter", "Random Flow Scatter", "Normal Brush",
 			{"Pencil", "Hard Pen", "Air Brush", "Old Air Brush", "Water Brush", "Picker Brush", "Eraser", "Bucket",
 				"Pattern Fill", "Blur Tool", "Smudge", "Mix Brush", "Gradation", "Text Tool", "Stamp Tool",
 				"Image Brush", "Image Blend\nBrush", "Picker Image Brush", "Script Brush", "Custom Brush", "PLUG_IN"},
@@ -444,6 +446,21 @@ int main(int argc, char** argv)
 		InitializeApplication(&application, INITIALIZE_FILE_NAME);
 		g_free(raw_path);
 	}
+
+	/*
+	{
+		cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 500, 500);
+		cairo_t *cairo_p = cairo_create(surface);
+
+		cairo_scale(cairo_p, 1, 2);
+		cairo_arc(cairo_p, 100, 100, 50, 0, 2*G_PI);
+		cairo_fill(cairo_p);
+
+		cairo_surface_write_to_png(surface, "test.png");
+
+		cairo_destroy(cairo_p);
+	}
+	*/
 
 	if(argc > 1)
 	{

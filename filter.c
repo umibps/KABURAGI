@@ -480,18 +480,25 @@ void AddSelectionFilterHistory(
 *************************************************/
 void BlurFilterOneStep(LAYER* layer, LAYER* buff, int size)
 {
-	// ピクセル周辺の合計値
-	int sum[4];
-	// ピクセル値の合計計算に使用したピクセル数
-	int num_pixels;
-	// ピクセル値の合計計算の開始・終了
-	int start_x, end_x, start_y, end_y;
-	// for文用のカウンタ
-	int x, y, i, j;
+	// レイヤーの幅
+	const int width = layer->width;
+	int y;
 
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(width)
+#endif
 	for(y=0; y<layer->height; y++)
 	{
-		for(x=0; x<layer->width; x++)
+		// ピクセル周辺の合計値
+		int sum[4];
+		// ピクセル値の合計計算に使用したピクセル数
+		int num_pixels;
+		// ピクセル値の合計計算の開始・終了
+		int start_x, end_x, start_y, end_y;
+		// for文用のカウンタ
+		int x, i, j;
+
+		for(x=0; x<width; x++)
 		{
 			start_x = x - size;
 			if(start_x < 0)
@@ -2477,18 +2484,12 @@ void ChangeBrightContrastFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_
 {
 	// 明るさ・コントラストの調整値にキャスト
 	CHANGE_BRIGHT_CONTRAST *change_value = (CHANGE_BRIGHT_CONTRAST*)data;
-	// 明るさ調整用
-	int r, g, b;
-	// フィルタのデータをバイト単位に
-	uint8 *byte_data = (uint8*)data;
-	// コントラスト調整値テーブル
-	uint8 contrast_r[UCHAR_MAX+1], contrast_g[UCHAR_MAX+1], contrast_b[UCHAR_MAX+1];
-	// コントラスト出力直線の傾き
-	double a = tan((((double)((int)change_value->contrast + 127) / 255.0) * 90.0) * G_PI / 180.0);
 	// レイヤーの平均色
 	RGBA_DATA average_color;
-	// ピクセルデータのインデックス
-	int index;
+	// コントラスト出力直線の傾き
+	double a = tan((((double)((int)change_value->contrast + 127) / 255.0) * 90.0) * G_PI / 180.0);
+	// コントラスト調整値テーブル
+	uint8 contrast_r[UCHAR_MAX+1], contrast_g[UCHAR_MAX+1], contrast_b[UCHAR_MAX+1];
 	int i, j;	// for文用のカウンタ
 
 	// 各レイヤーに対し明るさ・コントラストの変更を実行
@@ -2499,8 +2500,18 @@ void ChangeBrightContrastFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_
 		{
 			(void)memset(window->mask_temp->pixels, 0, window->pixel_buf_size);
 			// 明るさを調整
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(layers, window, i)
+#endif
 			for(j=0; j<layers[i]->width*layers[i]->height; j++)
 			{
+				// 明るさ調整用
+				int r, g, b;
+				// フィルタのデータをバイト単位に
+				uint8 *byte_data = (uint8*)data;
+				// ピクセルデータのインデックス
+				int index;
+
 				index = j*layers[i]->channel;
 				r = layers[i]->pixels[index] + change_value->bright * 2;
 				g = layers[i]->pixels[index+1] + change_value->bright * 2;
@@ -2549,6 +2560,8 @@ void ChangeBrightContrastFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_
 
 			if(change_value->contrast < CHAR_MAX)
 			{
+				// 明るさ調整用
+				int r, g, b;
 				// 切片計算用
 				double intercept[3] =
 				{
@@ -2868,31 +2881,35 @@ void ChangeHueSaturationFilter(
 	// 色相・彩度・輝度のデータにキャスト
 	CHANGE_HUE_SATURATION_DATA *filter_data =
 		(CHANGE_HUE_SATURATION_DATA*)data;
-	// 画像のHSVデータに加える値
-	int change_h = filter_data->hue,
-		change_s = (int)(filter_data->saturation * 0.01 * 255),
-		change_v = (int)(filter_data->vivid * 0.01 * 255);
-	// 変換後のHSVの値
-	int next_h, next_s, next_v;
-	// 1ピクセル分のデータ
-	uint8 rgb[3];
-	// HSVデータ
-	HSV hsv;
-	// ピクセル配列のインデックス
-	int index;
 	// for文用のカウンタ
-	unsigned int i, j;
+	int i, j;
 
 	// 各レイヤーに対し色相・彩度・輝度の変更を実行
-	for(i=0; i<num_layer; i++)
+	for(i=0; i<(int)num_layer; i++)
 	{
 		// 通常レイヤーなら
 		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
 		{
 			(void)memset(window->mask_temp->pixels, 0, window->pixel_buf_size);
 			// 全てのピクセルに対して処理実行
-			for(j=0; j<(unsigned int)(layers[i]->width*layers[i]->height); j++)
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(i, window, layers, filter_data)
+#endif
+			for(j=0; j<layers[i]->width*layers[i]->height; j++)
 			{
+				// 画像のHSVデータに加える値
+				int change_h = filter_data->hue,
+					change_s = (int)(filter_data->saturation * 0.01 * 255),
+					change_v = (int)(filter_data->vivid * 0.01 * 255);
+				// 変換後のHSVの値
+				int next_h, next_s, next_v;
+				// 1ピクセル分のデータ
+				uint8 rgb[3];
+				// HSVデータ
+				HSV hsv;
+				// ピクセル配列のインデックス
+				int index;
+
 				index = j * layers[i]->channel;
 
 				// ピクセルデータをコピー
@@ -2951,7 +2968,7 @@ void ChangeHueSaturationFilter(
 			if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 			{
 				uint8 select_value;
-				for(j=0; j<(unsigned int)(window->width*window->height); j++)
+				for(j=0; j<window->width*window->height; j++)
 				{
 					select_value = window->selection->pixels[j];
 					window->temp_layer->pixels[j*4+0] = ((0xff-select_value)*layers[i]->pixels[j*4+0]
@@ -2965,7 +2982,7 @@ void ChangeHueSaturationFilter(
 				}
 			}
 
-			for(j=0; j<(unsigned int)(layers[i]->width*layers[i]->height); j++)
+			for(j=0; j<layers[i]->width*layers[i]->height; j++)
 			{
 				layers[i]->pixels[j*4] = MINIMUM(window->temp_layer->pixels[j*4], layers[i]->pixels[j*4+3]);
 				layers[i]->pixels[j*4+1] = MINIMUM(window->temp_layer->pixels[j*4+1], layers[i]->pixels[j*4+3]);
@@ -3258,10 +3275,12 @@ void Luminosity2OpacityFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 
 		if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 		{
-			uint8 select_value;
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(i, layers)
+#endif
 			for(j=0; j<window->width*window->height; j++)
 			{
-				select_value = window->selection->pixels[j];
+				uint8 select_value = window->selection->pixels[j];
 				window->temp_layer->pixels[j*4+0] = ((0xff-select_value)*layers[i]->pixels[j*4+0]
 					+ window->temp_layer->pixels[j*4+0]*select_value) / 255;
 				window->temp_layer->pixels[j*4+1] = ((0xff-select_value)*layers[i]->pixels[j*4+1]
@@ -3340,12 +3359,6 @@ static void Color2AlphaFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 	uint8 color[3];
 	// 一定以上のα値を持つピクセルは不透明にする
 	uint8 upper_threshold;
-	// 指定色との差
-	int difference;
-	// ピクセルのα値
-	int alpha;
-	// ピクセルのインデックス
-	int index;
 	// for文用のカウンタ
 	unsigned int i;
 	int j;
@@ -3365,8 +3378,18 @@ static void Color2AlphaFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 	{
 		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
 		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(upper_threshold, layers, i)
+#endif
 			for(j=0; j<layers[i]->width * layers[i]->height; j++)
 			{
+				// 指定色との差
+				int difference;
+				// ピクセルのα値
+				int alpha;
+				// ピクセルのインデックス
+				int index;
+
 				index = j*4;
 				difference = abs((int)setting->color[0] - (int)layers[i]->pixels[index+0]);
 				difference += abs((int)setting->color[1] - (int)layers[i]->pixels[index+1]);
@@ -3488,10 +3511,8 @@ void ColorizeWithUnderFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_lay
 	COLORIZE_WITH_UNDER *adjust = (COLORIZE_WITH_UNDER*)data;
 	LAYER *target;
 	int delete_target = 0;
-	uint8 src_color[4];
-	HSV hsv;
-	int h, s, v;
-	int x, y;
+	const int width = (*layers)->width;
+	int y;
 
 	cairo_set_operator(window->temp_layer->cairo_p, CAIRO_OPERATOR_OVER);
 
@@ -3530,9 +3551,17 @@ void ColorizeWithUnderFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_lay
 		delete_target++;
 	}
 
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(width, layers)
+#endif
 	for(y=0; y<(*layers)->height; y++)
 	{
-		for(x=0; x<(*layers)->width; x++)
+		uint8 src_color[4];
+		HSV hsv;
+		int h, s, v;
+		int x;
+
+		for(x=0; x<width; x++)
 		{
 			if((*layers)->pixels[y*(*layers)->stride+x*4+3] > 0)
 			{
@@ -3606,6 +3635,8 @@ void ColorizeWithUnderFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_lay
 	if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) != 0)
 	{
 		uint8 select_value;
+		int x;
+
 		for(x=0; x<window->width*window->height; x++)
 		{
 			select_value = window->selection->pixels[x];
@@ -3777,21 +3808,27 @@ typedef struct _GRADATION_MAP
 void GradationMapFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* data)
 {
 	GRADATION_MAP *filter_data = (GRADATION_MAP*)data;
-	int gray_value;
-	int max_value, min_value;
-	uint8 alpha;
 	FLOAT_T rate;
-	int index;
-	int i, j, k;
+	int max_value, min_value;
+	int i, j;
 
 	for(i=0; i<num_layer; i++)
 	{
 		if((filter_data->flags & GRADATION_MAP_DETECT_MAX) != 0)
 		{
 			max_value = 0,	min_value = 0xff;
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(filter_data, layers, i)
+#endif
 			for(j=0; j<layers[i]->height; j++)
 			{
-				for(k=0; k<layers[i]->width; k++)
+				uint8 alpha;
+				int gray_value;
+				int index;
+				const int width = layers[i]->width;
+				int k;
+
+				for(k=0; k<width; k++)
 				{
 					index = j*layers[i]->stride+k*4;
 					gray_value = (layers[i]->pixels[index+0] + layers[i]->pixels[index+1]
@@ -3825,8 +3862,17 @@ void GradationMapFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, v
 
 		rate = (FLOAT_T)0xff / (max_value - min_value);
 
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(filter_data, layers, i, rate, window)
+#endif
 		for(j=0; j<layers[i]->height; j++)
 		{
+			uint8 alpha;
+			int gray_value;
+			int index;
+			const int width = layers[i]->width;
+			int k;
+
 			for(k=0; k<layers[i]->width; k++)
 			{
 				index = j*layers[i]->stride+k*4;
@@ -4679,8 +4725,7 @@ static void FillMonoColorPelinNoise2D(
 	const int width = data->width;
 	const int height = data->height;
 	const int stride = data->width * 4;
-	int x, y;
-	int pixel_value;
+	int y;
 	FLOAT_T boost = (1 - data->persistence) * 2.5;
 	if(boost < - 0.5)
 	{
@@ -4694,8 +4739,13 @@ static void FillMonoColorPelinNoise2D(
 	srand(data->seed);
 	MakePerlinNoiseRandom(&random);
 
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(width, height, stride, boost, random)
+#endif
 	for(y=0; y<height; y++)
 	{
+		int pixel_value;
+		int x;
 		for(x=0; x<width; x++)
 		{
 			pixel_value =
@@ -4746,8 +4796,7 @@ static void FillMultiColorPelinNoise2D(
 	const int width = data->width;
 	const int height = data->height;
 	const int stride = data->width * 4;
-	int x, y;
-	int pixel_value;
+	int y;
 	FLOAT_T boost = (1 - data->persistence) * 2.5;
 	if(boost < - 0.5)
 	{
@@ -4764,8 +4813,14 @@ static void FillMultiColorPelinNoise2D(
 	MakePerlinNoiseRandom(&random3);
 	MakePerlinNoiseRandom(&random4);
 
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(width, height, stride, boost, random1, random2, random3, random4)
+#endif
 	for(y=0; y<height; y++)
 	{
+		int pixel_value;
+		int x;
+
 		for(x=0; x<width; x++)
 		{
 			pixel_value = (int)(PerlinNoise2D(data, x, y, &random1) * boost);

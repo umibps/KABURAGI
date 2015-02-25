@@ -522,6 +522,7 @@ typedef enum _eCUSTOM_BRUSH_MODE
 	CUSTOM_BRUSH_MODE_NORMAL,
 	CUSTOM_BRUSH_MODE_BLEND,
 	CUSTOM_BRUSH_MODE_SMUDGE,
+	CUSTOM_BRUSH_MODE_PICKER,
 	CUSTOM_BRUSH_MODE_WATER_BRUSH,
 	NUM_CUSTOM_BRUSH_MODE
 } eCUSTOM_BRUSH_MODE;
@@ -574,6 +575,10 @@ typedef struct _CUSTOM_BRUSH
 	uint8 brush_shape;					// ブラシの形状
 	uint8 color_mode;					// 着色方法
 	uint8 brush_mode;					// ブラシの動作モード
+	uint8 picker_mode;					// スポイトブラシの色取得モード
+	int16 hue;							// スポイトブラシモードでの色相変化量
+	int16 saturation;					// スポイトブラシモードでの彩度変化量
+	int16 brightness;					// スポイトブラシモードでの明度変化量
 	int num_point;						// 記録した座標の数
 	int draw_finished;					// 描画終了した座標の数
 	int ref_point;						// 現在参照している配列のインデックス
@@ -617,7 +622,11 @@ typedef enum _eTEXT_TOOL_FLAGS
 	TEXT_TOOL_VERTICAL = 0x02,
 	TEXT_TOOL_BOLD = 0x04,
 	TEXT_TOOL_ITALIC = 0x08,
-	TEXT_TOOL_OBLIQUE = 0x10
+	TEXT_TOOL_OBLIQUE = 0x10,
+	TEXT_TOOL_BALLOON_HAS_EDGE = 0x20,
+	TEXT_TOOL_CENTERING_HORIZONTALLY = 0x40,
+	TEXT_TOOL_CENTERING_VERTICALLY = 0x80,
+	TEXT_TOOL_ADJUST_RANGE_TO_TEXT = 0x100
 } eTEXT_TOOL_FLAGS;
 
 typedef struct _TEXT_TOOL
@@ -626,8 +635,14 @@ typedef struct _TEXT_TOOL
 	gdouble end_x, end_y;
 	int base_size;
 	gdouble font_size;
-	uint16 flags;
+	uint32 flags;
 	int32 font_id;
+	gdouble line_width;
+	uint16 balloon_type;
+	TEXT_LAYER_BALLOON_DATA balloon_data;
+	TEXT_LAYER_BALLOON_DATA_WIDGETS balloon_widgets;
+	uint8 back_color[4];
+	uint8 line_color[4];
 } TEXT_TOOL;
 
 typedef struct _PLUG_IN_BRUSH

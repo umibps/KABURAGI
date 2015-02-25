@@ -469,6 +469,40 @@ EXTERN void AdaptSmudge(
 	int initialized
 );
 
+/*****************************************************
+* AdaptPickerBrush関数                               *
+*スポイトブラシの描画結果を作業レイヤーに反映する    *
+* 引数                                               *
+* window			: キャンバスの情報               *
+* draw_pixel		: 描画結果の入ったピクセルデータ *
+* width				: 描画範囲の幅                   *
+* height			: 描画範囲の高さ                 *
+* start_x			: 描画範囲の左上のX座標          *
+* start_y			: 描画範囲の左上のY座標          *
+* anti_alias		: アンチエイリアスを行うか否か   *
+* pick_target		: 色を拾う対象                   *
+* picker_mode		: 色の収集モード                 *
+* blend_mode		: ブラシの合成モード             *
+* change_hue		: 色相の変化量                   *
+* change_saturation	: 彩度の変化量                   *
+* change_brightness	: 明度の変化量                   *
+*****************************************************/
+EXTERN void AdaptPickerBrush(
+	DRAW_WINDOW* window,
+	uint8* draw_pixel,
+	int width,
+	int height,
+	int start_x,
+	int start_y,
+	int anti_alias,
+	int pick_target,
+	int picker_mode,
+	int blend_mode,
+	int16 change_hue,
+	int16 change_saturation,
+	int16 change_brightness
+);
+
 /*********************************************************
 * AdaptSmudgeScatter関数                                 *
 * 指先ツールの作業レイヤーとの合成処理(散布用)           *

@@ -273,6 +273,7 @@ EXTERN void AdjustmentChangeValueCallBackUint16(GtkAdjustment* adjustment, uint1
 EXTERN void AdjustmentChangeValueCallBackInt32(GtkAdjustment* adjustment, int32* store);
 EXTERN void AdjustmentChangeValueCallBackUint32(GtkAdjustment* adjustment, uint32* store);
 EXTERN void AdjustmentChangeValueCallBackDouble(GtkAdjustment* adjustment, gdouble* value);
+EXTERN void AdjustmentChangeValueCallBackDoubleRate(GtkAdjustment* adjustment, gdouble* value);
 EXTERN void SetAdjustmentChangeValueCallBack(
 	GtkAdjustment* adjustment,
 	void (*func)(void*),

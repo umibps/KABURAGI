@@ -2101,6 +2101,9 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	SetPartLayerBlendFunctions(app->part_layer_blend_functions);
 	SetLayerBlendOperators(app->layer_blend_operators);
 
+	// 吹き出し描画の設定
+	SetTextLayerDrawBalloonFunctions(app->draw_balloon_functions);
+
 	// ブラシプレビュー用のキャンバス作成
 	app->brush_preview_canvas = CreateTempDrawWindow(BRUSH_PREVIEW_CANVAS_WIDTH,
 		BRUSH_PREVIEW_CANVAS_HEIGHT, 4, NULL, NULL, 0, app);

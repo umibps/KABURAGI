@@ -915,7 +915,7 @@ static void PartBlendNormal_c(LAYER* src, UPDATE_RECTANGLE* update)
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_OVER);
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
-		LAYER* mask_source = src->prev;
+		LAYER *mask_source = src->prev;
 		cairo_surface_t *update_surface = cairo_surface_create_for_rectangle(
 			src->window->mask->surface_p, update->x, update->y, update->width, update->height);
 		cairo_surface_t *temp_surface = NULL, *mask_surface = update_surface;

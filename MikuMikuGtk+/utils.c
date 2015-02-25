@@ -1032,7 +1032,7 @@ int GetSignedValue(uint8* stream, int length)
 	return 0;
 }
 
-unsigned int GetUnignedValue(uint8* stream, int length)
+unsigned int GetUnsignedValue(uint8* stream, int length)
 {
 	switch(length)
 	{
