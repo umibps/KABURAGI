@@ -583,48 +583,48 @@ void RGB2HSV_Pixel(uint8 rgb[3], HSV* hsv)
 #define MAX_IS_GREEN 1
 #define MAX_IS_BLUE 2
 
-	unsigned char max, min;
+	unsigned char maximum, minimum;
 	int channel = MAX_IS_RED;
 	FLOAT_T d;
 	FLOAT_T cr, cg, cb;
 	FLOAT_T h;
 	
-	max = rgb[0];
-	if(max < rgb[1])
+	maximum = rgb[0];
+	if(maximum < rgb[1])
 	{
 		channel = MAX_IS_GREEN;
-		max = rgb[1];
+		maximum = rgb[1];
 	}
-	if(max < rgb[2])
+	if(maximum < rgb[2])
 	{
 		channel = MAX_IS_BLUE;
-		max = rgb[2];
+		maximum = rgb[2];
 	}
 
-	min = rgb[0];
-	if(min > rgb[1])
+	minimum = rgb[0];
+	if(minimum > rgb[1])
 	{
-		min = rgb[1];
+		minimum = rgb[1];
 	}
-	if(min > rgb[2])
+	if(minimum > rgb[2])
 	{
-		min = rgb[2];
+		minimum = rgb[2];
 	}
 
-	d = max - min;
-	hsv->v = max;
+	d = 1.0 / (maximum - minimum);
+	hsv->v = maximum;
 
-	if(max == 0)
+	if(maximum == 0)
 	{
 		hsv->s = 0;
 		hsv->h = 0;
 	}
 	else
 	{
-		hsv->s = (uint8)(255*(max - min)/(FLOAT_T)max);
-		cr = (max - rgb[0])/d;
-		cg = (max - rgb[1])/d;
-		cb = (max - rgb[2])/d;
+		hsv->s = (uint8)(255*(maximum - minimum)/(FLOAT_T)maximum);
+		cr = (maximum - rgb[0])*d;
+		cg = (maximum - rgb[1])*d;
+		cb = (maximum - rgb[2])*d;
 
 		switch(channel)
 		{
@@ -656,10 +656,14 @@ HSV* RGB2HSV(
 {
 	int stride = width * channel;
 	HSV *ret = (HSV*)MEM_ALLOC_FUNC(sizeof(*ret)*stride*height);
-	int i, j;
+	int i;
 
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(width, pixels, ret, stride, channel)
+#endif
 	for(i=0; i<height; i++)
 	{
+		int j;
 		for(j=0; j<width; j++)
 		{
 			RGB2HSV_Pixel(&pixels[i*stride+j*channel], &ret[i*width+j]);
@@ -2132,6 +2136,297 @@ void GetColor(eCOLOR color_index, uint8* color)
 	color[0] = colors[color_index][0];
 	color[1] = colors[color_index][1];
 	color[2] = colors[color_index][2];
+}
+
+/****************************************************
+* GetLayerColorHistgram関数                         *
+* レイヤーのRGBA、CMYK、HSVのヒストグラムを取得する *
+* 引数                                              *
+* histgram	: ヒストグラムのデータを受ける変数      *
+* target	: ヒストグラムを取得するレイヤー        *
+****************************************************/
+void GetLayerColorHistgram(COLOR_HISTGRAM* histgram, LAYER* target)
+{
+#define RED_RATE 0.298912
+#define GREEN_RATE 0.586611
+#define BLUE_RATE 0.114477
+	int i;
+
+	// 0クリア
+	(void)memset(histgram, 0, sizeof(*histgram));
+
+	if((target->window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+	{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, histgram)
+#endif
+		for(i=0; i<target->width*target->height; i++)
+		{
+			HSV hsv;
+			CMYK cmyk;
+			uint8 *color;
+			uint8 rgb[3];
+			uint8 alpha;
+			unsigned int alpha_sum = 0;
+
+			color = &target->pixels[i*4];
+			alpha = color[3];
+
+			if(alpha > 0)
+			{
+				// RGB
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				rgb[0] = color[2];
+				rgb[1] = color[1];
+				rgb[2] = color[0];
+#else
+				rgb[0] = color[0];
+				rgb[1] = color[1];
+				rgb[2] = color[2];
+#endif
+				histgram->r[MINIMUM((rgb[0]*255)/alpha, 255)]++;
+				histgram->g[MINIMUM((rgb[1]*255)/alpha, 255)]++;
+				histgram->b[MINIMUM((rgb[2]*255)/alpha, 255)]++;
+				histgram->a[alpha]++;
+				alpha_sum += alpha;
+
+				// HSV
+				RGB2HSV_Pixel(rgb, &hsv);
+				histgram->h[hsv.h]++;
+				histgram->s[hsv.s]++;
+				histgram->v[MINIMUM(((int)(rgb[0]*RED_RATE+rgb[1]*GREEN_RATE+rgb[2]*BLUE_RATE)*255)/alpha, 255)]++;
+
+				// CMYK
+				RGB2CMYK_Pixel(rgb, &cmyk);
+
+				histgram->c[MINIMUM((cmyk.c*255)/alpha, 255)]++;
+				histgram->m[MINIMUM((cmyk.m*255)/alpha, 255)]++;
+				histgram->y[MINIMUM((cmyk.y*255)/alpha, 255)]++;
+				histgram->k[MINIMUM((cmyk.k*255)/alpha, 255)]++;
+			}
+		}
+	}
+	else
+	{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, histgram)
+#endif
+		for(i=0; i<target->width*target->height; i++)
+		{
+			HSV hsv;
+			CMYK cmyk;
+			uint8 *color;
+			uint8 rgb[3];
+			uint8 alpha;
+			uint8 selection;
+			unsigned int alpha_sum = 0;
+
+			color = &target->pixels[i*4];
+			selection = target->window->selection->pixels[i];
+
+			if(selection > 0)
+			{
+				alpha = (color[3] * selection) / 255;
+
+				if(alpha > 0)
+				{
+					// RGB
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+					rgb[0] = color[2];
+					rgb[1] = color[1];
+					rgb[2] = color[0];
+#else
+					rgb[0] = color[0];
+					rgb[1] = color[1];
+					rgb[2] = color[2];
+#endif
+					histgram->r[MINIMUM((rgb[0]*255)/alpha, 255)]++;
+					histgram->g[MINIMUM((rgb[1]*255)/alpha, 255)]++;
+					histgram->b[MINIMUM((rgb[2]*255)/alpha, 255)]++;
+					histgram->a[alpha]++;
+					alpha_sum += alpha;
+
+					// HSV
+					RGB2HSV_Pixel(rgb, &hsv);
+					histgram->h[hsv.h]++;
+					histgram->s[hsv.s]++;
+					histgram->v[MINIMUM(((int)(rgb[0]*RED_RATE+rgb[1]*GREEN_RATE+rgb[2]*BLUE_RATE)*255)/alpha, 255)]++;
+
+					// CMYK
+					RGB2CMYK_Pixel(rgb, &cmyk);
+
+					histgram->c[MINIMUM((cmyk.c*255)/alpha, 255)]++;
+					histgram->m[MINIMUM((cmyk.m*255)/alpha, 255)]++;
+					histgram->y[MINIMUM((cmyk.y*255)/alpha, 255)]++;
+					histgram->k[MINIMUM((cmyk.k*255)/alpha, 255)]++;
+				}
+			}
+		}
+	}
+
+	for(i=0; i<256; i++)
+	{
+		if(histgram->r[i] > 0)
+		{
+			histgram->r_min = (uint8)i;
+			break;
+		}
+	}
+	for(i=255; i>=0; i--)
+	{
+		if(histgram->r[i] > 0)
+		{
+			histgram->r_max = (uint8)i;
+			break;
+		}
+	}
+	for(i=0; i<256; i++)
+	{
+		if(histgram->g[i] > 0)
+		{
+			histgram->g_min = (uint8)i;
+			break;
+		}
+	}
+	for(i=255; i>=0; i--)
+	{
+		if(histgram->g[i] > 0)
+		{
+			histgram->g_max = (uint8)i;
+			break;
+		}
+	}
+	for(i=0; i<256; i++)
+	{
+		if(histgram->b[i] > 0)
+		{
+			histgram->b_min = (uint8)i;
+			break;
+		}
+	}
+	for(i=255; i>=0; i--)
+	{
+		if(histgram->b[i] > 0)
+		{
+			histgram->b_max = (uint8)i;
+			break;
+		}
+	}
+	for(i=0; i<256; i++)
+	{
+		if(histgram->a[i] > 0)
+		{
+			histgram->a_min = (uint8)i;
+			break;
+		}
+	}
+	for(i=255; i>=0; i--)
+	{
+		if(histgram->a[i] > 0)
+		{
+			histgram->a_max = (uint8)i;
+			break;
+		}
+	}
+	for(i=0; i<256; i++)
+	{
+		if(histgram->s[i] > 0)
+		{
+			histgram->s_min = (uint8)i;
+			break;
+		}
+	}
+	for(i=255; i>=0; i--)
+	{
+		if(histgram->s[i] > 0)
+		{
+			histgram->s_max = (uint8)i;
+			break;
+		}
+	}
+	for(i=0; i<256; i++)
+	{
+		if(histgram->v[i] > 0)
+		{
+			histgram->v_min = (uint8)i;
+			break;
+		}
+	}
+	for(i=255; i>=0; i--)
+	{
+		if(histgram->v[i] > 0)
+		{
+			histgram->v_max = (uint8)i;
+			break;
+		}
+	}
+	for(i=0; i<256; i++)
+	{
+		if(histgram->c[i] > 0)
+		{
+			histgram->c_min = (uint8)i;
+			break;
+		}
+	}
+	for(i=255; i>=0; i--)
+	{
+		if(histgram->c[i] > 0)
+		{
+			histgram->c_max = (uint8)i;
+			break;
+		}
+	}
+	for(i=0; i<256; i++)
+	{
+		if(histgram->m[i] > 0)
+		{
+			histgram->m_min = (uint8)i;
+			break;
+		}
+	}
+	for(i=255; i>=0; i--)
+	{
+		if(histgram->m[i] > 0)
+		{
+			histgram->m_max = (uint8)i;
+			break;
+		}
+	}
+	for(i=0; i<256; i++)
+	{
+		if(histgram->y[i] > 0)
+		{
+			histgram->y_min = (uint8)i;
+			break;
+		}
+	}
+	for(i=255; i>=0; i--)
+	{
+		if(histgram->y[i] > 0)
+		{
+			histgram->y_max = (uint8)i;
+			break;
+		}
+	}
+	for(i=0; i<256; i++)
+	{
+		if(histgram->k[i] > 0)
+		{
+			histgram->k_min = (uint8)i;
+			break;
+		}
+	}
+	for(i=255; i>=0; i--)
+	{
+		if(histgram->k[i] > 0)
+		{
+			histgram->k_max = (uint8)i;
+			break;
+		}
+	}
+#undef RED_RATE
+#undef GREEN_RATE
+#undef BLUE_RATE
 }
 
 #ifdef __cplusplus

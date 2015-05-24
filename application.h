@@ -8,7 +8,7 @@
 #if MAJOR_VERSION == 1
 # define MINOR_VERSION 3
 # define RELEASE_VERSION 3
-# define BUILD_VERSION 0
+# define BUILD_VERSION 1
 #elif MAJOR_VERSION == 2
 # define MINOR_VERSION 0
 # define RELEASE_VERSION 1
@@ -266,6 +266,30 @@ typedef struct _SCRIPTS
 	int num_script;
 } SCRIPTS;
 
+// フィルター関数配列のインデックス
+typedef enum _eFILTER_FUNC_ID
+{
+	FILTER_FUNC_BLUR,
+	FILTER_FUNC_MOTION_BLUR,
+	FILTER_FUNC_GAUSSIAN_BLUR,
+	FILTER_FUNC_BRIGHTNESS_CONTRAST,
+	FILTER_FUNC_HUE_SATURATION,
+	FILTER_FUNC_COLOR_LEVEL_ADJUST,
+	FILTER_FUNC_TONE_CURVE,
+	FILTER_FUNC_LUMINOSITY2OPACITY,
+	FILTER_FUNC_COLOR2ALPHA,
+	FILTER_FUNC_COLORIZE_WITH_UNDER,
+	FILTER_FUNC_GRADATION_MAP,
+	FILTER_FUNC_FILL_WITH_VECTOR,
+	FILTER_FUNC_PERLIN_NOISE,
+	FILTER_FUNC_FRACTAL,
+	NUM_FILTER_FUNC
+} eFILTER_FUNC_ID;
+
+typedef void (*filter_func)(struct _DRAW_WINDOW* window, struct _LAYER** layers,
+							uint16 num_layer, void* data);
+typedef void (*selection_filter_func)(struct _DRAW_WINDOW* window, void* data);
+
 /*************************************
 * APPLICATION構造体                  *
 * アプリケーション全体のデータを管理 *
@@ -402,6 +426,10 @@ typedef struct _APPLICATION
 
 	// 合成モードの定数配列
 	cairo_operator_t layer_blend_operators[NUM_LAYER_BLEND_FUNCTIONS];
+
+	// フィルター関数ポインタ配列
+	filter_func filter_funcs[NUM_FILTER_FUNC];
+	selection_filter_func selection_filter_funcs[NUM_FILTER_FUNC];
 
 	// 吹き出しを描画する関数ポインタ配列
 	void (*draw_balloon_functions[NUM_TEXT_LAYER_BALLOON_TYPE])(TEXT_LAYER*, LAYER*, DRAW_WINDOW*);
@@ -1087,6 +1115,31 @@ EXTERN void LayerViewSetDrawWindow(LAYER_WINDOW* layer_window, DRAW_WINDOW* draw
 * app		: アプリケーションを管理する構造体のアドレス         *
 *****************************************************************/
 EXTERN void LoupeButtonToggled(GtkWidget* button, APPLICATION* app);
+
+/****************************************************
+* GetLayerColorHistgram関数                         *
+* レイヤーのRGBA、CMYK、HSVのヒストグラムを取得する *
+* 引数                                              *
+* histgram	: ヒストグラムのデータを受ける変数      *
+* target	: ヒストグラムを取得するレイヤー        *
+****************************************************/
+EXTERN void GetLayerColorHistgram(COLOR_HISTGRAM* histgram, LAYER* target);
+
+/*****************************************
+* SetFilterFunctions関数                 *
+* フィルター関数ポインタ配列の中身を設定 *
+* 引数                                   *
+* functions	: フィルター関数ポインタ配列 *
+*****************************************/
+extern void SetFilterFunctions(filter_func* functions);
+
+/***********************************************************
+* SetSelectionFilterFunctions関数                          *
+* 選択範囲の編集中のフィルター関数ポインタ配列の中身を設定 *
+* 引数                                                     *
+* functions	: フィルター関数ポインタ配列                   *
+***********************************************************/
+extern void SetSelectionFilterFunctions(selection_filter_func* functions);
 
 /**********************************************************
 * MemoryAllocate関数                                      *

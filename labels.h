@@ -40,14 +40,15 @@ typedef struct _APPLICATON_LABELS
 	{
 		gchar *ok, *apply, *cancel, *close, *normal, *reverse, *edit_selection,
 			*window, *close_window, *place_left, *place_right, *fullscreen, *reference,
-			*move_top_left, *hot_ley, *loading, *saving;
+			*move_top_left, *hot_key, *loading, *saving;
 	} window;
 
 	struct
 	{
 		gchar* pixel, *length, *angle, *bg, *repeat, *preview, *interval, *minute,
 			*detail, *target, *clip_board, *name, *type, *resolution, *center,
-			*straight, *extend;
+			*straight, *extend, *mode, *red, *green, *blue, *cyan, *magenta, *yellow,
+			*key_plate;
 	} unit;
 
 	struct
@@ -67,10 +68,10 @@ typedef struct _APPLICATON_LABELS
 		gchar *view, *zoom, *zoom_in, *zoom_out, *zoom_reset, *reverse_horizontally,
 			*rotate, *reset_rotate, *display_filter, *no_filter, *gray_scale,
 			*gray_scale_yiq;
-		gchar *filters, *blur, *motion_blur, *bright_contrast, *hue_saturtion,
-			*luminosity2opacity, *color2alpha, *colorize_with_under, *gradation_map,
-			*detect_max, *tranparancy_as_white, *fill_with_vector, *render, *cloud,
-			*fractal;
+		gchar *filters, *blur, *motion_blur, *gaussian_blur, *bright_contrast,
+			*hue_saturtion, *color_levels, *tone_curve, *luminosity2opacity,
+			*color2alpha, *colorize_with_under, *gradation_map, *detect_max,
+			*tranparancy_as_white, *fill_with_vector, *render, *cloud, *fractal;
 		gchar *plug_in;
 		gchar *script;
 		gchar *help, *version;

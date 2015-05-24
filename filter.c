@@ -176,7 +176,7 @@ static void FilterHistoryRedo(DRAW_WINDOW* window, void* p)
 	}
 
 	// フィルターを再適用
-	g_filter_funcs[func_id](window, layers, num_layer, (void*)&stream.buff_ptr[filter_data_pos]);
+	window->app->filter_funcs[func_id](window, layers, num_layer, (void*)&stream.buff_ptr[filter_data_pos]);
 
 	MEM_FREE_FUNC(layers);
 
@@ -383,7 +383,7 @@ static void SelectionFilterHistoryRedo(DRAW_WINDOW* window, void* p)
 	(void)MemSeek(&stream, (long)data_size, SEEK_CUR);
 
 	// フィルターを再適用
-	g_selection_filter_funcs[func_id](window, (void*)&stream.buff_ptr[filter_data_pos]);
+	window->app->selection_filter_funcs[func_id](window, (void*)&stream.buff_ptr[filter_data_pos]);
 
 	if(UpdateSelectionArea(&window->selection_area, window->selection, window->temp_layer) == FALSE)
 	{
@@ -637,18 +637,22 @@ void SelectionBlurFilter(DRAW_WINDOW* window, void* data)
 	// for文用のカウンタ
 	unsigned int i;
 
-	(void)memcpy(window->temp_layer->pixels, window->selection->pixels, window->width * window->height);
-	window->temp_layer->channel = 1;
-	window->temp_layer->stride = window->width;
+	for(i=0; i<(unsigned int)(window->width*window->height); i++)
+	{
+		window->temp_layer->pixels[i*4] = window->selection->pixels[i];
+	}
 	for(i=0; i<blur->loop; i++)
 	{
 		BlurFilterOneStep(window->temp_layer, window->mask_temp, blur->size);
-		(void)memcpy(window->temp_layer->pixels, window->mask_temp->pixels, window->width * window->height);
+		(void)memcpy(window->temp_layer->pixels, window->mask_temp->pixels, window->stride * window->height);
 	}
 	window->temp_layer->channel = 4;
 	window->temp_layer->stride = window->temp_layer->channel * window->width;
 
-	(void)memcpy(window->selection->pixels, window->temp_layer->pixels, window->width * window->height);
+	for(i=0; i<(unsigned int)(window->width*window->height); i++)
+	{
+		window->selection->pixels[i] = window->temp_layer->pixels[i*4];
+	}
 
 	// キャンバスを更新
 	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
@@ -663,18 +667,12 @@ void SelectionBlurFilter(DRAW_WINDOW* window, void* data)
 *****************************************************/
 void ExecuteBlurFilter(APPLICATION* app)
 {
-// ピクセル判定最大範囲
-#define MAX_SIZE 100
 // 繰り返し最大数
 #define MAX_REPEAT 100
+	// キャンバス
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// 拡大するピクセル数を指定するダイアログ
-	GtkWidget* dialog = gtk_dialog_new_with_buttons(
-		app->labels->menu.blur,
-		GTK_WINDOW(app->window),
-		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
-		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
-	);
+	GtkWidget* dialog;
 	// ピクセル数指定用のウィジェット
 	GtkWidget* label, *spin, *hbox, *size;
 	// ピクセル数指定スピンボタンのアジャスタ
@@ -684,12 +682,26 @@ void ExecuteBlurFilter(APPLICATION* app)
 	// ダイアログの結果
 	gint result;
 
+	if(window == NULL)
+	{
+		return;
+	}
+
+	dialog = gtk_dialog_new_with_buttons(
+		app->labels->menu.blur,
+		GTK_WINDOW(app->window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
+	);
+
 	// ダイアログにウィジェットを入れる
 		// 判定サイズ
 	hbox = gtk_hbox_new(FALSE, 0);
 	(void)sprintf(str, "%s :", app->labels->tool_box.scale);
 	label = gtk_label_new(str);
-	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(1, 1, MAX_SIZE, 1, 1, 0));
+	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(1, 1,
+		(window->width < window->height) ? window->width / 10 : window->height / 10, 1, 1, 0));
 	size = gtk_spin_button_new(adjust, 1, 0);
 	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(hbox), size, FALSE, TRUE, 0);
@@ -708,15 +720,13 @@ void ExecuteBlurFilter(APPLICATION* app)
 
 	result = gtk_dialog_run(GTK_DIALOG(dialog));
 
-	if((app->draw_window[app->active_window]->flags & DRAW_WINDOW_EDIT_SELECTION) == 0)
+	if((window->flags & DRAW_WINDOW_EDIT_SELECTION) == 0)
 	{
-		if(app->draw_window[app->active_window]->active_layer->layer_type == TYPE_NORMAL_LAYER)
+		if(window->active_layer->layer_type == TYPE_NORMAL_LAYER)
 		{
 			if(result == GTK_RESPONSE_ACCEPT)
 			{	// O.K.ボタンが押された
-				DRAW_WINDOW* window =	// 処理する描画領域
-					app->draw_window[app->active_window];
-				// 繰り返す回数
+					// 繰り返す回数
 				BLUR_FILTER_DATA loop = {
 					(uint16)gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin)),
 					(uint16)gtk_spin_button_get_value(GTK_SPIN_BUTTON(size))
@@ -2461,6 +2471,396 @@ void ExecuteMotionBlurFilter(APPLICATION* app)
 	MEM_FREE_FUNC(layers);
 }
 
+/*****************************************************
+* GaussianBlurFilterOneStep関数                      *
+* ガウシアンぼかしを1ステップ分実行                  *
+* 引数                                               *
+* layer		: ぼかしを適用するレイヤー               *
+* buff		: 適用後のピクセルデータを入れるレイヤー *
+* size		: ぼかし後の色を決定するピクセルサイズ   *
+* kernel	: ガウシアンフィルターの分子の値         *
+*****************************************************/
+void GaussianBlurFilterOneStep(LAYER* layer, LAYER* buff, int size, int** kernel)
+{
+	// レイヤーの幅
+	const int width = layer->width;
+	int y;
+
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(width, layer)
+#endif
+	for(y=0; y<layer->height; y++)
+	{
+		// ピクセル周辺の合計値
+		int sum[4];
+		// 適用したフィルターの値の合計
+		int kernel_sum;
+		// ピクセル値の合計計算の開始・終了
+		int start_x, end_x, start_y, end_y;
+		// for文用のカウンタ
+		int x, i, j, width_counter, height_counter;
+
+		for(x=0; x<width; x++)
+		{
+			start_x = x - size / 2;
+			if(start_x < 0)
+			{
+				start_x = 0;
+			}
+			end_x = x + size / 2;
+			if(end_x >= layer->width)
+			{
+				end_x = layer->width - 1;
+			}
+
+			start_y = y - size / 2;
+			if(start_y < 0)
+			{
+				start_y = 0;
+			}
+			end_y = y + size / 2;
+			if(end_y >= layer->height)
+			{
+				end_y = layer->height - 1;
+			}
+
+			kernel_sum = 0;
+			sum[0] = sum[1] = sum[2] = sum[3] = 0;
+			for(i=start_y, height_counter=0; i<end_y; i++, height_counter++)
+			{
+				for(j=start_x, width_counter=0; j<end_x; j++, width_counter++)
+				{
+					sum[0] += layer->pixels[i*layer->stride+j*4] * kernel[height_counter][width_counter];
+					sum[1] += layer->pixels[i*layer->stride+j*4+1] * kernel[height_counter][width_counter];
+					sum[2] += layer->pixels[i*layer->stride+j*4+2] * kernel[height_counter][width_counter];
+					sum[3] += layer->pixels[i*layer->stride+j*4+3] * kernel[height_counter][width_counter];
+					kernel_sum += kernel[height_counter][width_counter];
+				}
+			}
+
+			buff->pixels[y*layer->stride+x*4] = sum[0] / kernel_sum;
+			buff->pixels[y*layer->stride+x*4+1] = sum[1] / kernel_sum;
+			buff->pixels[y*layer->stride+x*4+2] = sum[2] / kernel_sum;
+			buff->pixels[y*layer->stride+x*4+3] = sum[3] / kernel_sum;
+		}
+	}
+}
+
+/*********************************************************
+* ApplyGaussianBlurFilter関数                            *
+* ガウシアンぼかしフィルターを適用する                   *
+* 引数                                                   *
+* target	: ぼかしフィルターを適用するレイヤー         *
+* size		: ぼかしフィルターで平均色を計算する矩形範囲 *
+* kernel	: ガウシアンフィルターの値                   *
+*********************************************************/
+void ApplyGaussianBlurFilter(LAYER* target, int size, int** kernel)
+{
+	(void)memcpy(target->window->mask_temp->pixels, target->pixels,
+		target->stride * target->height);
+	GaussianBlurFilterOneStep(target->window->mask_temp, target, size, kernel);
+}
+
+typedef struct _GAUSSIAN_BLUR_FILTER_DATA
+{
+	uint16 loop;
+	uint16 size;
+} GAUSSIAN_BLUR_FILTER_DATA;
+
+/*************************************
+* GaussianBlurFilter関数             *
+* ガウシアンぼかし処理               *
+* 引数                               *
+* window	: 描画領域の情報         *
+* layers	: 処理を行うレイヤー配列 *
+* num_layer	: 処理を行うレイヤーの数 *
+* data		: ぼかし処理の詳細データ *
+*************************************/
+void GaussianBlurFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* data)
+{
+	// ぼかし処理の詳細データ
+	GAUSSIAN_BLUR_FILTER_DATA* blur = (GAUSSIAN_BLUR_FILTER_DATA*)data;
+	// ガウシアンフィルターのデータ
+	int **kernel;
+	// for文用のカウンタ
+	unsigned int i, j;
+
+	// フィルターデータをパスカルの三角形を利用して作成
+	kernel = (int**)MEM_ALLOC_FUNC(sizeof(*kernel)*blur->size);
+	for(i=0; i<blur->size; i++)
+	{
+		kernel[i] = (int*)MEM_ALLOC_FUNC(sizeof(**kernel)*(blur->size+1));
+	}
+	{
+		int **pascal = (int**)MEM_ALLOC_FUNC(sizeof(*pascal)*(blur->size+1));
+		for(i=0; i<(unsigned int)blur->size+1; i++)
+		{
+			pascal[i] = (int*)MEM_ALLOC_FUNC(sizeof(**pascal)*(blur->size+1));
+		}
+
+		for(i=0; i<blur->size; i++)
+		{
+			pascal[i][0] = 1;
+			for(j=1; j<i; j++)
+			{
+				pascal[i][j] = pascal[i-1][j-1] + pascal[i-1][j];
+			}
+			pascal[i][j] = 1;
+		}
+
+		for(i=0; i<blur->size; i++)
+		{
+			for(j=0; j<blur->size; j++)
+			{
+				kernel[i][j] = pascal[blur->size-1][j] * pascal[blur->size-1][i];
+			}
+		}
+
+		for(i=0; i<(unsigned int)blur->size+1; i++)
+		{
+			MEM_FREE_FUNC(pascal[i]);
+		}
+		MEM_FREE_FUNC(pascal);
+	}
+
+	// 各レイヤーに対し
+	for(i=0; i<num_layer; i++)
+	{	// ぼかし処理を行う
+			// 現在のアクティブレイヤーのピクセルを一時保存にコピー
+		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
+		{
+			(void)memcpy(window->temp_layer->pixels, layers[i]->pixels, window->pixel_buf_size);
+			for(j=0; j<blur->loop; j++)
+			{
+				GaussianBlurFilterOneStep(window->temp_layer, window->mask_temp, blur->size, kernel);
+				(void)memcpy(window->temp_layer->pixels, window->mask_temp->pixels, window->pixel_buf_size);
+			}
+
+			if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+			{
+				(void)memcpy(layers[i]->pixels, window->temp_layer->pixels, window->pixel_buf_size);
+			}
+			else
+			{
+				uint8 select_value;
+				for(j=0; j<(unsigned int)window->width*window->height; j++)
+				{
+					select_value = window->selection->pixels[j];
+					layers[i]->pixels[j*4+0] = ((0xff-select_value)*layers[i]->pixels[j*4+0]
+						+ window->temp_layer->pixels[j*4+0]*select_value) / 255;
+					layers[i]->pixels[j*4+1] = ((0xff-select_value)*layers[i]->pixels[j*4+1]
+						+ window->temp_layer->pixels[j*4+1]*select_value) / 255;
+					layers[i]->pixels[j*4+2] = ((0xff-select_value)*layers[i]->pixels[j*4+2]
+						+ window->temp_layer->pixels[j*4+2]*select_value) / 255;
+					layers[i]->pixels[j*4+3] = ((0xff-select_value)*layers[i]->pixels[j*4+3]
+						+ window->temp_layer->pixels[j*4+3]*select_value) / 255;
+				}
+			}
+		}
+	}
+
+	for(i=0; i<blur->size; i++)
+	{
+		MEM_FREE_FUNC(kernel[i]);
+	}
+	MEM_FREE_FUNC(kernel);
+
+	// キャンバスを更新
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	gtk_widget_queue_draw(window->window);
+}
+
+/*************************************
+* SelectionGaussianBlurFilter関数    *
+* 選択範囲のガウシアンぼかし処理     *
+* 引数                               *
+* window	: 描画領域の情報         *
+* layers	: 処理を行うレイヤー配列 *
+* num_layer	: 処理を行うレイヤーの数 *
+* data		: ぼかし処理の詳細データ *
+*************************************/
+void SelectionGaussianBlurFilter(DRAW_WINDOW* window, void* data)
+{
+	// ぼかし処理の詳細データ
+	GAUSSIAN_BLUR_FILTER_DATA* blur = (GAUSSIAN_BLUR_FILTER_DATA*)data;
+	// ガウシアンフィルターのデータ
+	int **kernel;
+	// for文用のカウンタ
+	unsigned int i, j;
+
+	// フィルターデータをパスカルの三角形を利用して作成
+	kernel = (int**)MEM_ALLOC_FUNC(sizeof(*kernel)*blur->size);
+	for(i=0; i<blur->size; i++)
+	{
+		kernel[i] = (int*)MEM_ALLOC_FUNC(sizeof(**kernel)*blur->size);
+	}
+	{
+		int **pascal = (int**)MEM_ALLOC_FUNC(sizeof(*pascal)*blur->size);
+		for(i=0; i<blur->size; i++)
+		{
+			pascal[i] = (int*)MEM_ALLOC_FUNC(sizeof(**pascal)*blur->size);
+		}
+
+		for(i=0; i<blur->size; i++)
+		{
+			pascal[i][0] = 1;
+			for(j=1; j<i; j++)
+			{
+				pascal[i][j] = pascal[i-1][j-1] + pascal[i-1][j];
+			}
+		}
+		pascal[j][i] = 1;
+
+		for(i=0; i<blur->size; i++)
+		{
+			for(j=0; j<blur->size; j++)
+			{
+				kernel[i][j] = pascal[blur->size-1][j];
+			}
+		}
+
+		for(i=0; i<blur->size; i++)
+		{
+			MEM_FREE_FUNC(pascal[i]);
+		}
+		MEM_FREE_FUNC(pascal);
+	}
+
+	for(i=0; i<(unsigned int)(window->width*window->height); i++)
+	{
+		window->temp_layer->pixels[i*4] = window->selection->pixels[i];
+	}
+	for(i=0; i<blur->loop; i++)
+	{
+		GaussianBlurFilterOneStep(window->temp_layer, window->mask_temp, blur->size, kernel);
+		(void)memcpy(window->temp_layer->pixels, window->mask_temp->pixels, window->stride * window->height);
+	}
+	window->temp_layer->channel = 4;
+	window->temp_layer->stride = window->temp_layer->channel * window->width;
+
+	for(i=0; i<(unsigned int)(window->width*window->height); i++)
+	{
+		window->selection->pixels[i] = window->temp_layer->pixels[i*4];
+	}
+
+	for(i=0; i<blur->size; i++)
+	{
+		MEM_FREE_FUNC(kernel[i]);
+	}
+	MEM_FREE_FUNC(kernel);
+
+	// キャンバスを更新
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	gtk_widget_queue_draw(window->window);
+}
+
+/*****************************************************
+* ExecuteGaussianBlurFilter関数                      *
+* ガウシアンぼかしフィルタを実行                     *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+void ExecuteGaussianBlurFilter(APPLICATION* app)
+{
+// ピクセル判定最大範囲
+#define MAX_SIZE 100
+// 繰り返し最大数
+#define MAX_REPEAT 100
+	// 拡大するピクセル数を指定するダイアログ
+	GtkWidget* dialog = gtk_dialog_new_with_buttons(
+		app->labels->menu.gaussian_blur,
+		GTK_WINDOW(app->window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
+	);
+	// ピクセル数指定用のウィジェット
+	GtkWidget* label, *spin, *hbox, *size;
+	// ピクセル数指定スピンボタンのアジャスタ
+	GtkAdjustment* adjust;
+	// ラベル用のバッファ
+	char str[4096];
+	// ダイアログの結果
+	gint result;
+
+	// ダイアログにウィジェットを入れる
+		// 判定サイズ
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s :", app->labels->tool_box.scale);
+	label = gtk_label_new(str);
+	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(1, 1, MAX_SIZE, 1, 1, 0));
+	size = gtk_spin_button_new(adjust, 1, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), size, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), hbox, FALSE, TRUE, 0);
+
+	// 適用回数
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s :", app->labels->unit.repeat);
+	label = gtk_label_new(str);
+	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(1, 1, MAX_REPEAT, 1, 1, 0));
+	spin = gtk_spin_button_new(adjust, 1, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), hbox, FALSE, TRUE, 0);
+	gtk_widget_show_all(gtk_dialog_get_content_area(GTK_DIALOG(dialog)));
+
+	result = gtk_dialog_run(GTK_DIALOG(dialog));
+
+	if((app->draw_window[app->active_window]->flags & DRAW_WINDOW_EDIT_SELECTION) == 0)
+	{
+		if(app->draw_window[app->active_window]->active_layer->layer_type == TYPE_NORMAL_LAYER)
+		{
+			if(result == GTK_RESPONSE_ACCEPT)
+			{	// O.K.ボタンが押された
+				DRAW_WINDOW* window =	// 処理する描画領域
+					app->draw_window[app->active_window];
+				// 繰り返す回数
+				BLUR_FILTER_DATA loop = {
+					(uint16)gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin)),
+					(uint16)gtk_spin_button_get_value(GTK_SPIN_BUTTON(size)) * 2 + 1
+				};
+				// レイヤーの数
+				uint16 num_layer;
+				// 処理を実行するレイヤー
+				LAYER** layers = GetLayerChain(window, &num_layer);
+
+				// 先に履歴データを残す
+				AddFilterHistory(app->labels->menu.blur, &loop, sizeof(loop),
+					FILTER_FUNC_GAUSSIAN_BLUR, layers, num_layer, window);
+
+				// ぼかしフィルター実行
+				GaussianBlurFilter(window, layers, num_layer, &loop);
+
+				MEM_FREE_FUNC(layers);
+
+				// キャンバスを更新
+				window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+			}
+		}
+	}
+	else
+	{
+		if(result == GTK_RESPONSE_ACCEPT)
+		{	// O.K.ボタンが押された
+			DRAW_WINDOW* window =	// 処理する描画領域
+				app->draw_window[app->active_window];
+			// 繰り返す回数
+			BLUR_FILTER_DATA loop = {(uint16)gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin))};
+
+			// 先に履歴データを残す
+			AddSelectionFilterHistory(app->labels->menu.blur, &loop, sizeof(loop),
+				FILTER_FUNC_BLUR, window);
+
+			// ぼかしフィルター実行
+			SelectionBlurFilter(window, (void*)&loop);
+		}
+	}
+
+	// ダイアログを消す
+	gtk_widget_destroy(dialog);
+}
+
 /*************************************
 * CHANGE_BRIGHT_CONTRAST_DATA構造体  *
 * 明るさ・コントラスト調整用のデータ *
@@ -3243,6 +3643,2392 @@ void ExecuteChangeHueSaturationFilter(APPLICATION* app)
 	// ダイアログを消す
 	gtk_widget_destroy(dialog);
 }
+
+typedef enum _eCOLOR_LEVEL_ADUST_TARGET
+{
+	COLOR_LEVEL_ADUST_TARGET_LUMINOSITY,
+	COLOR_LEVEL_ADUST_TARGET_RED,
+	COLOR_LEVEL_ADUST_TARGET_GREEN,
+	COLOR_LEVEL_ADUST_TARGET_BLUE,
+	COLOR_LEVEL_ADUST_TARGET_ALPHA,
+	//COLOR_LEVEL_ADUST_TARGET_HUE,
+	COLOR_LEVEL_ADUST_TARGET_SATURATION,
+	COLOR_LEVEL_ADUST_TARGET_CYAN,
+	COLOR_LEVEL_ADUST_TARGET_MAGENTA,
+	COLOR_LEVEL_ADUST_TARGET_YELLOW,
+	COLOR_LEVEL_ADUST_TARGET_KEYPLATE
+} COLOR_LEVEL_ADUST_TARGET;
+
+/***************************************
+* COLOR_LEVEL_ADJUST_FILTER_DATA構造体 *
+* レベル補正フィルターの設定           *
+***************************************/
+typedef struct _COLOR_LEVEL_ADJUST_FILTER_DATA
+{
+	uint8 target_color;
+	uint8 maximum[4];
+	uint8 minimum[4];
+	FLOAT_T midium[4];
+} COLOR_LEVEL_ADJUST_FILTER_DATA;
+
+/*****************************************
+* ResetColorLevelAdjust関数              *
+* レベル補正の設定をリセットする         *
+* 引数                                   *
+* filter_data	: フィルターの設定データ *
+*****************************************/
+static void ResetColorLevelAdjust(COLOR_LEVEL_ADJUST_FILTER_DATA* filter_data)
+{
+	filter_data->maximum[0] = filter_data->maximum[1] = filter_data->maximum[2] = filter_data->maximum[3] = 0xFF;
+	filter_data->minimum[0] = filter_data->minimum[1] = filter_data->minimum[2] = filter_data->minimum[3] = 0;
+	filter_data->midium[0] = filter_data->midium[1] = filter_data->midium[2] = filter_data->midium[3] = 1;
+}
+
+/***********************************************
+* AdoptColorLevelAdjust関数                    *
+* レイヤーにレベル補正を適用する               *
+* 引数                                         *
+* target		: レベル補正を適用するレイヤー *
+* histgram		: レイヤーの色のヒストグラム   *
+* filter_data	: フィルターの設定データ       *
+***********************************************/
+void AdoptColorLevelAdjust(LAYER* target, COLOR_HISTGRAM* histgram, COLOR_LEVEL_ADJUST_FILTER_DATA* filter_data)
+{
+	int color_value;
+	int distance[4];
+	uint8 color_data[4][256] = {0};
+	int i, j;
+
+	for(i=0; i<4; i++)
+	{
+		for(j=0; j<filter_data->minimum[i]; j++)
+		{
+			color_data[i][j] = filter_data->minimum[i];
+		}
+		for(j=filter_data->maximum[i]; j<256; j++)
+		{
+			color_data[i][j] = filter_data->maximum[i];
+		}
+		distance[i] = filter_data->maximum[i] - filter_data->minimum[i];
+	}
+
+	switch(filter_data->target_color)
+	{
+	case COLOR_LEVEL_ADUST_TARGET_LUMINOSITY:
+	case COLOR_LEVEL_ADUST_TARGET_RED:
+	case COLOR_LEVEL_ADUST_TARGET_BLUE:
+	case COLOR_LEVEL_ADUST_TARGET_GREEN:
+		for(i=0; i<4; i++)
+		{
+			for(j=filter_data->minimum[i]; j<filter_data->maximum[i]; j++)
+			{
+				color_value = ((int)(j * filter_data->midium[i] - filter_data->minimum[i]) * filter_data->maximum[i])
+					/ distance[i];
+				color_data[i][j] = MINIMUM(0xFF, MAXIMUM(filter_data->minimum[i], color_value));
+			}
+		}
+
+		if((target->window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], color_data[2][target->pixels[i*4+0]]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], color_data[1][target->pixels[i*4+1]]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], color_data[0][target->pixels[i*4+2]]);
+#else
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], color_data[0][target->pixels[i*4+0]]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], color_data[1][target->pixels[i*4+1]]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], color_data[2][target->pixels[i*4+2]]);
+#endif
+			}
+		}
+		else
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				uint8 selection = target->window->selection->pixels[i];
+				uint8 set;
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * color_data[2][target->pixels[i*4+0]]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * color_data[1][target->pixels[i*4+1]]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * color_data[0][target->pixels[i*4+2]]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#else
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * color_data[0][target->pixels[i*4+0]]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * color_data[1][target->pixels[i*4+1]]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * color_data[2][target->pixels[i*4+2]]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#endif
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_ALPHA:
+		for(i=filter_data->minimum[0]; i<filter_data->maximum[0]; i++)
+		{
+			color_value = ((int)(i * filter_data->midium[0] - filter_data->minimum[0]) * filter_data->maximum[0])
+				/ distance[0];
+			color_data[3][i] = MINIMUM(0xFF, MAXIMUM(0, color_value));
+		}
+
+		if((target->window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				target->pixels[i*4+3] = color_data[3][target->pixels[i*4+3]];
+			}
+		}
+		else
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				uint8 selection = target->window->selection->pixels[i];
+				uint8 set;
+
+				set = ((0xFF - selection) * target->pixels[i*4+3] + selection * color_data[3][target->pixels[i*4+3]]) / 0xFF;
+				target->pixels[i*4+3] = set;
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_SATURATION:
+		for(i=filter_data->minimum[0]; i<filter_data->maximum[0]; i++)
+		{
+			color_value = ((int)(i * filter_data->midium[0] - filter_data->minimum[0]) * filter_data->maximum[0])
+				/ distance[0];
+			color_data[0][i] = MINIMUM(0xFF, MAXIMUM(0, color_value));
+		}
+
+		if((target->window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				HSV hsv;
+				uint8 rgb[3];
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				rgb[0] = target->pixels[i*4+2];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+0];
+				RGB2HSV_Pixel(rgb, &hsv);
+#else
+				RGB2HSV_Pixel(&target->pixels[i*4], &hsv);
+#endif
+				hsv.s = color_data[0][hsv.s];
+				HSV2RGB_Pixel(&hsv, rgb);
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], rgb[2]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], rgb[1]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], rgb[0]);
+#else
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], rgb[0]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], rgb[1]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], rgb[2]);
+#endif
+			}
+		}
+		else
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				HSV hsv;
+				uint8 rgb[3];
+				uint8 selection = target->window->selection->pixels[i];
+				uint8 set;
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				rgb[0] = target->pixels[i*4+2];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+0];
+				RGB2HSV_Pixel(rgb, &hsv);
+#else
+				RGB2HSV_Pixel(&target->pixels[i*4], &hsv);
+#endif
+				hsv.s = color_data[0][hsv.s];
+
+				HSV2RGB_Pixel(&hsv, rgb);
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * rgb[2]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * rgb[1]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * rgb[0]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#else
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * rgb[0]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * rgb[1]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * rgb[2]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#endif
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_CYAN:
+	case COLOR_LEVEL_ADUST_TARGET_MAGENTA:
+	case COLOR_LEVEL_ADUST_TARGET_YELLOW:
+	case COLOR_LEVEL_ADUST_TARGET_KEYPLATE:
+		for(i=0; i<4; i++)
+		{
+			for(j=filter_data->minimum[i]; j<filter_data->maximum[i]; j++)
+			{
+				color_value = ((int)(j * filter_data->midium[i] - filter_data->minimum[i]) * filter_data->maximum[i])
+					/ distance[i];
+				color_data[i][j] = MINIMUM(0xFF, MAXIMUM(filter_data->minimum[i], color_value));
+			}
+		}
+
+		if((target->window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				CMYK cmyk;
+				uint8 rgb[3];
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				rgb[0] = target->pixels[i*4+2];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+0];
+#else
+				rgb[0] = target->pixels[i*4+0];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+2];
+#endif
+				RGB2CMYK_Pixel(rgb, &cmyk);
+				cmyk.c = color_data[0][cmyk.c];
+				cmyk.m = color_data[0][cmyk.m];
+				cmyk.y = color_data[0][cmyk.y];
+				cmyk.k = color_data[0][cmyk.k];
+				CMYK2RGB_Pixel(&cmyk, rgb);
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], rgb[2]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], rgb[1]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], rgb[0]);
+#else
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], rgb[0]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], rgb[1]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], rgb[2]);
+#endif
+			}
+		}
+		else
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				uint8 selection = target->window->selection->pixels[i];
+				uint8 set;
+
+				CMYK cmyk;
+				uint8 rgb[3];
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				rgb[0] = target->pixels[i*4+2];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+0];
+#else
+				rgb[0] = target->pixels[i*4+0];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+2];
+#endif
+				RGB2CMYK_Pixel(rgb, &cmyk);
+				cmyk.c = color_data[0][cmyk.c];
+				cmyk.m = color_data[0][cmyk.m];
+				cmyk.y = color_data[0][cmyk.y];
+				cmyk.k = color_data[0][cmyk.k];
+				CMYK2RGB_Pixel(&cmyk, rgb);
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * rgb[2]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * rgb[1]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * rgb[0]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#else
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * rgb[0]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * rgb[1]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * rgb[2]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#endif
+			}
+		}
+		break;
+	}
+}
+
+typedef enum _eCOLOR_ADJUST_MODE
+{
+	COLOR_ADJUST_MODE_LUMINOSITY,
+	COLOR_ADJUST_MODE_RGB,
+	COLOR_ADJUST_MODE_ALPHA,
+	COLOR_ADJUST_MODE_SATURATION,
+	COLOR_ADJUST_MODE_CMYK
+} eCOLOR_ADJUST_MODE;
+
+/*********************************************************
+* EXECUTE_COLOR_LEVEL_ADJUST構造体                       *
+* ダイアログで設定変更しながらレベル補正するためのデータ *
+*********************************************************/
+typedef struct _EXECUTE_COLOR_LEVLE_ADJUST
+{
+	COLOR_HISTGRAM *histgrams;
+	LAYER **layers;
+	uint8 **pixel_data;
+	uint16 num_layer;
+	COLOR_LEVEL_ADJUST_FILTER_DATA *filter_data;
+	GtkWidget *histgram_view;
+	GtkWidget *color_select;
+	FLOAT_T levels[4][3];
+	eCOLOR_ADJUST_MODE adjust_mode;
+	int level_index;
+	int moving_cursor;
+} EXECUTE_COLOR_LEVLE_ADJUST;
+
+/***************************************************************
+* SetColorAdjustLevels関数                                     *
+* ユーザーインターフェース用のデータからフィルター用のデータへ *
+* 引数                                                         *
+* adjust_data	: ユーザーインターフェース用のデータ           *
+* filter_data	: フィルター用のデータ                         *
+***************************************************************/
+static void SetColorAdjustLevels(EXECUTE_COLOR_LEVLE_ADJUST* adjust_data, COLOR_LEVEL_ADJUST_FILTER_DATA* filter_data)
+{
+	FLOAT_T levels[3];
+	int loop;
+	int i, j;
+
+	for(i=0; i<4; i++)
+	{
+		levels[0] = adjust_data->levels[i][0];
+		levels[1] = adjust_data->levels[i][1];
+		levels[2] = adjust_data->levels[i][2];
+		do
+		{
+			loop = FALSE;
+			for(j=0; j<2; j++)
+			{
+				if(levels[j] > levels[j+1])
+				{
+					FLOAT_T temp = levels[j];
+					levels[j] = levels[j+1];
+					levels[j+1] = temp;
+				}
+			}
+		} while(loop != FALSE);
+
+		filter_data->minimum[i] = (uint8)levels[0];
+		filter_data->midium[i] = levels[1] / (255 * 0.5);
+		filter_data->maximum[i] = (uint8)levels[2];
+	}
+}
+
+/*****************************************************************
+* ResetColorLevelAdjustData関数                                  *
+* レベル補正のユーザーインターフェース用のデータをリセットする   *
+* 引数                                                           *
+* adjust_data	: レベル補正のユーザーインターフェース用のデータ *
+*****************************************************************/
+static void ResetColorLevelAdjustData(EXECUTE_COLOR_LEVLE_ADJUST* adjust_data)
+{
+	int i;
+	for(i=0; i<4; i++)
+	{
+		adjust_data->levels[i][0] = 0;
+		adjust_data->levels[i][1] = 255 * 0.5;
+		adjust_data->levels[i][2] = 255;
+	}
+}
+
+#define CONTROL_SIZE 20
+
+/***************************************
+* DisplayHistgram関数                  *
+* 色のヒストグラムを表示する           *
+* 引数                                 *
+* widget		: 描画するウィジェット *
+* event_info	: イベントのデータ     *
+* adjust_data	: フィルターのデータ   *
+* 返り値                               *
+*	常にTRUE                           *
+***************************************/
+static gboolean DisplayHistgram(GtkWidget* widget, GdkEventExpose* event_info, EXECUTE_COLOR_LEVLE_ADJUST* adjust_data)
+{
+#define GLAY_VALUE 0.333
+	unsigned int *histgram = NULL;
+	int width, height;
+	int bottom;
+	cairo_t *cairo_p;
+	unsigned int maximum = 0;
+	int level_index = 0;
+	int i;
+
+#if GTK_MAJOR_VERSION <= 2
+	cairo_p = gdk_cairo_create(event_info->window);
+#else
+	cairo_p = (cairo_t*)event_info;
+#endif
+
+	switch(adjust_data->filter_data->target_color)
+	{
+	case COLOR_LEVEL_ADUST_TARGET_LUMINOSITY:
+		histgram = adjust_data->histgrams[0].v;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < adjust_data->histgrams[0].v[i])
+			{
+				maximum = adjust_data->histgrams[0].v[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_RED:
+		histgram = adjust_data->histgrams[0].r;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < adjust_data->histgrams[0].r[i])
+			{
+				maximum = adjust_data->histgrams[0].r[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_GREEN:
+		histgram = adjust_data->histgrams[0].g;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < adjust_data->histgrams[0].g[i])
+			{
+				maximum = adjust_data->histgrams[0].g[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_BLUE:
+		histgram = adjust_data->histgrams[0].b;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < adjust_data->histgrams[0].b[i])
+			{
+				maximum = adjust_data->histgrams[0].b[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_ALPHA:
+		histgram = adjust_data->histgrams[0].a;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < adjust_data->histgrams[0].a[i])
+			{
+				maximum = adjust_data->histgrams[0].a[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_SATURATION:
+		histgram = adjust_data->histgrams[0].s;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < adjust_data->histgrams[0].s[i])
+			{
+				maximum = adjust_data->histgrams[0].s[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_CYAN:
+		histgram = adjust_data->histgrams[0].c;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < adjust_data->histgrams[0].c[i])
+			{
+				maximum = adjust_data->histgrams[0].c[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_MAGENTA:
+		histgram = adjust_data->histgrams[0].m;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < adjust_data->histgrams[0].m[i])
+			{
+				maximum = adjust_data->histgrams[0].m[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_YELLOW:
+		histgram = adjust_data->histgrams[0].y;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < adjust_data->histgrams[0].y[i])
+			{
+				maximum = adjust_data->histgrams[0].y[i];
+			}
+		}
+		break;
+	default:
+		return TRUE;
+	}
+
+
+	width = gdk_window_get_width(gtk_widget_get_window(widget));
+	height = gdk_window_get_height(gtk_widget_get_window(widget));
+	bottom = height - CONTROL_SIZE;
+
+	cairo_set_source_rgb(cairo_p, 1, 1, 1);
+	cairo_rectangle(cairo_p, 0, 0, width, bottom);
+	cairo_fill(cairo_p);
+
+	if(adjust_data->adjust_mode == COLOR_ADJUST_MODE_RGB)
+	{
+		level_index = adjust_data->level_index;
+		switch(adjust_data->level_index)
+		{
+		case 0:
+			cairo_set_source_rgb(cairo_p, 1, 0, 0);
+			break;
+		case 1:
+			cairo_set_source_rgb(cairo_p, 0, 1, 0);
+			break;
+		case 2:
+			cairo_set_source_rgb(cairo_p, 0, 0, 1);
+			break;
+		}
+	}
+	else if(adjust_data->adjust_mode == COLOR_ADJUST_MODE_CMYK)
+	{
+		level_index = adjust_data->level_index;
+		switch(adjust_data->level_index)
+		{
+		case 0:
+			cairo_set_source_rgb(cairo_p, 0, 1, 1);
+			break;
+		case 1:
+			cairo_set_source_rgb(cairo_p, 1, 0, 1);
+			break;
+		case 2:
+			cairo_set_source_rgb(cairo_p, 1, 1, 0);
+			break;
+		case 3:
+			cairo_set_source_rgb(cairo_p, GLAY_VALUE, GLAY_VALUE, GLAY_VALUE);
+			break;
+		}
+	}
+	else
+	{
+		cairo_set_source_rgb(cairo_p, GLAY_VALUE, GLAY_VALUE, GLAY_VALUE);
+	}
+	for(i=0; i<0xFF; i++)
+	{
+		cairo_move_to(cairo_p, i, bottom);
+		cairo_line_to(cairo_p, i,
+			bottom - (bottom * ((FLOAT_T)histgram[i] / maximum)));
+		cairo_stroke(cairo_p);
+	}
+
+	cairo_set_source_rgb(cairo_p, 0, 0, 0);
+	for(i=0; i<3; i++)
+	{
+		cairo_move_to(cairo_p, adjust_data->levels[level_index][i], bottom);
+		cairo_line_to(cairo_p, adjust_data->levels[level_index][i] - CONTROL_SIZE * 0.5, height);
+		cairo_line_to(cairo_p, adjust_data->levels[level_index][i] + CONTROL_SIZE * 0.5, height);
+		cairo_close_path(cairo_p);
+		cairo_fill(cairo_p);
+	}
+
+#if GTK_MAJOR_VERSION <= 2
+	cairo_destroy(cairo_p);
+#endif
+
+	return TRUE;
+#undef GLAY_VALUE
+}
+
+/***********************************************
+* UpdateColorLevelAdjust関数                   *
+* 現在のレベル補正の設定でキャンバスを更新する *
+* 引数                                         *
+* adjust_data	: フィルターのデータ           *
+***********************************************/
+static void UpdateColorLevelAdjust(EXECUTE_COLOR_LEVLE_ADJUST* adjust_data)
+{
+	unsigned int i;
+
+	SetColorAdjustLevels(adjust_data, adjust_data->filter_data);
+
+	for(i=0; i<adjust_data->num_layer; i++)
+	{
+		if(adjust_data->layers[i]->layer_type == TYPE_NORMAL_LAYER)
+		{
+			(void)memcpy(adjust_data->layers[i]->pixels,
+				adjust_data->pixel_data[i], adjust_data->layers[i]->stride * adjust_data->layers[i]->height);
+			AdoptColorLevelAdjust(adjust_data->layers[i], &adjust_data->histgrams[i], adjust_data->filter_data);
+		}
+	}
+
+	if(adjust_data->layers[0] == adjust_data->layers[0]->window->active_layer)
+	{
+		adjust_data->layers[0]->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	}
+	else
+	{
+		adjust_data->layers[0]->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	}
+	gtk_widget_queue_draw(adjust_data->layers[0]->window->window);
+}
+
+/*********************************************************************
+* HistgramViewClicked関数                                            *
+* ヒストグラムの表示ウィジェットのマウスクリックに対するコールバック *
+* 引数                                                               *
+* widget		: 描画するウィジェット                               *
+* event_info	: イベントのデータ                                   *
+* adjust_data	: フィルターのデータ                                 *
+* 返り値                                                             *
+*	常にTRUE                                                         *
+*********************************************************************/
+static gboolean HistgramViewClicked(GtkWidget* widget, GdkEventButton* event_info, EXECUTE_COLOR_LEVLE_ADJUST* adjust_data)
+{
+	int level_index = 0;
+	int height;
+	int bottom;
+	int i;
+
+	if(adjust_data->adjust_mode == COLOR_ADJUST_MODE_RGB
+		|| adjust_data->adjust_mode == COLOR_ADJUST_MODE_CMYK)
+	{
+		level_index = adjust_data->level_index;
+	}
+
+	if(event_info->button == 1)
+	{
+		height = gdk_window_get_height(gtk_widget_get_window(widget));
+		bottom = height - CONTROL_SIZE;
+
+		if(event_info->y >= bottom)
+		{
+			for(i=0; i<3; i++)
+			{
+				if(event_info->x >= adjust_data->levels[level_index][i] - CONTROL_SIZE * 0.5
+					&& event_info->x <= adjust_data->levels[level_index][i] + CONTROL_SIZE * 0.5)
+				{
+					adjust_data->moving_cursor = i;
+					return TRUE;
+				}
+			}
+		}
+	}
+
+	return TRUE;
+}
+
+/*********************************************************************
+* HistgramViewMotion関数                                             *
+* ヒストグラムの表示ウィジェット上でのマウス移動に対するコールバック *
+* 引数                                                               *
+* widget		: 描画するウィジェット                               *
+* event_info	: イベントのデータ                                   *
+* adjust_data	: フィルターのデータ                                 *
+* 返り値                                                             *
+*	常にTRUE                                                         *
+*********************************************************************/
+static gboolean HistgramViewMotion(GtkWidget* widget, GdkEventMotion* event_info, EXECUTE_COLOR_LEVLE_ADJUST* adjust_data)
+{
+	FLOAT_T set_value;
+	gdouble x, y;
+	int i;
+
+	if(event_info->is_hint != FALSE)
+	{
+		gint mouse_x, mouse_y;
+		GdkModifierType state;
+#if GTK_MAJOR_VERSION <= 2
+		gdk_window_get_pointer(event_info->window, &mouse_x, &mouse_y, &state);
+#else
+		gdk_window_get_device_position(event_info->window, event_info->device,
+			&mouse_x, &mouse_y, &state);
+#endif
+		x = mouse_x, y = mouse_y;
+	}
+	else
+	{
+		x = event_info->x;
+		y = event_info->y;
+	}
+
+	if(adjust_data->moving_cursor >= 0)
+	{
+		set_value = x;
+		if(set_value < 0)
+		{
+			set_value = 0;
+		}
+		else if(set_value > 255)
+		{
+			set_value = 255;
+		}
+
+		if(adjust_data->adjust_mode == COLOR_ADJUST_MODE_LUMINOSITY
+			|| adjust_data->adjust_mode == COLOR_ADJUST_MODE_SATURATION)
+		{
+			for(i=0; i<4; i++)
+			{
+				adjust_data->levels[i][adjust_data->moving_cursor] = set_value;
+			}
+		}
+		else
+		{
+			adjust_data->levels[adjust_data->level_index][adjust_data->moving_cursor] = set_value;
+		}
+
+		gtk_widget_queue_draw(adjust_data->histgram_view);
+	}
+
+	return TRUE;
+}
+
+/***************************************************************************
+* HistgramViewReleased関数                                                 *
+* ヒストグラムの表示ウィジェットでマウスのボタンが離された時のコールバック *
+* 引数                                                                     *
+* widget		: 描画するウィジェット                                     *
+* event_info	: イベントのデータ                                         *
+* adjust_data	: フィルターのデータ                                       *
+* 返り値                                                                   *
+*	常にTRUE                                                               *
+***************************************************************************/
+static gboolean HistgramViewReleased(GtkWidget* widget, GdkEventButton* event_info, EXECUTE_COLOR_LEVLE_ADJUST* adjust_data)
+{
+	if(event_info->button == 1)
+	{
+		adjust_data->moving_cursor = -1;
+		UpdateColorLevelAdjust(adjust_data);
+	}
+
+	return TRUE;
+}
+
+/*************************************************************
+* ColorLevelAdjustChangeMode関数                             *
+* レベル補正の補正対象色モード選択ウィジェットのコールバック *
+* 引数                                                       *
+* combo			: コンボボックスウィジェット                 *
+* adjust_data	: フィルターのデータ                         *
+*************************************************************/
+static void ColorLevelAdjustChangeMode(GtkWidget* combo, EXECUTE_COLOR_LEVLE_ADJUST* adjust_data)
+{
+	APPLICATION *app = adjust_data->layers[0]->window->app;
+	int index = gtk_combo_box_get_active(GTK_COMBO_BOX(adjust_data->color_select));
+
+	adjust_data->adjust_mode = (eCOLOR_ADJUST_MODE)gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+	gtk_list_store_clear(GTK_LIST_STORE(gtk_combo_box_get_model(GTK_COMBO_BOX(adjust_data->color_select))));
+	switch(adjust_data->adjust_mode)
+	{
+	case COLOR_ADJUST_MODE_LUMINOSITY:
+		adjust_data->filter_data->target_color = COLOR_LEVEL_ADUST_TARGET_LUMINOSITY;
+		gtk_widget_set_sensitive(adjust_data->color_select, FALSE);
+		break;
+	case COLOR_ADJUST_MODE_RGB:
+		adjust_data->filter_data->target_color = COLOR_LEVEL_ADUST_TARGET_RED;
+		adjust_data->level_index = index;
+		gtk_widget_set_sensitive(adjust_data->color_select, TRUE);
+#if GTK_MAJOR_VERSION <= 2
+		gtk_combo_box_append_text(GTK_COMBO_BOX(adjust_data->color_select), app->labels->unit.red);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(adjust_data->color_select), app->labels->unit.green);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(adjust_data->color_select), app->labels->unit.blue);
+#else
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.red);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.green);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.blue);
+#endif
+		gtk_combo_box_set_active(GTK_COMBO_BOX(adjust_data->color_select), 0);
+		break;
+	case COLOR_ADJUST_MODE_ALPHA:
+		adjust_data->filter_data->target_color = COLOR_LEVEL_ADUST_TARGET_ALPHA;
+		adjust_data->level_index = 0;
+		gtk_widget_set_sensitive(adjust_data->color_select, FALSE);
+	case COLOR_ADJUST_MODE_SATURATION:
+		adjust_data->filter_data->target_color = COLOR_LEVEL_ADUST_TARGET_SATURATION;
+		break;
+	case COLOR_ADJUST_MODE_CMYK:
+		adjust_data->filter_data->target_color = COLOR_LEVEL_ADUST_TARGET_CYAN;
+		adjust_data->level_index = index;
+		gtk_widget_set_sensitive(adjust_data->color_select, TRUE);
+#if GTK_MAJOR_VERSION <= 2
+		gtk_combo_box_append_text(GTK_COMBO_BOX(adjust_data->color_select), app->labels->unit.cyan);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(adjust_data->color_select), app->labels->unit.magenta);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(adjust_data->color_select), app->labels->unit.yellow);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(adjust_data->color_select), app->labels->unit.key_plate);
+#else
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.cyan);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.,magenta);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.yellow);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.key_plate);
+#endif
+		gtk_combo_box_set_active(GTK_COMBO_BOX(adjust_data->color_select), 0);
+		break;
+	}
+
+	UpdateColorLevelAdjust(adjust_data);
+}
+
+/*******************************************************
+* ColorLevelAdjustChangeTarget関数                     *
+* レベル補正の補正対象色選択ウィジェットのコールバック *
+* 引数                                                 *
+* combo			: コンボボックスウィジェット           *
+* adjust_data	: フィルターのデータ                   *
+*******************************************************/
+static void ColorLevelAdjustChangeTarget(GtkWidget* combo, EXECUTE_COLOR_LEVLE_ADJUST* adjust_data)
+{
+	if(adjust_data->adjust_mode == COLOR_ADJUST_MODE_RGB
+		|| adjust_data->adjust_mode == COLOR_ADJUST_MODE_CMYK)
+	{
+		adjust_data->level_index = gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+	}
+
+	UpdateColorLevelAdjust(adjust_data);
+}
+
+/*****************************************************
+* ExecuteColorLevelAdjust関数                        *
+* 色のレベル補正フィルターを実行                     *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+void ExecuteColorLevelAdjust(APPLICATION* app)
+{
+	DRAW_WINDOW *canvas = GetActiveDrawWindow(app);
+	GtkWidget *dialog;
+	GtkWidget *vbox;
+	GtkWidget *hbox;
+	GtkWidget *drawing_area;
+	GtkWidget *label;
+	GtkWidget *control;
+	EXECUTE_COLOR_LEVLE_ADJUST adjust_data = {0};
+	COLOR_LEVEL_ADJUST_FILTER_DATA filter_data = {0};
+	char buff[128];
+	int i;
+
+	if(canvas == NULL)
+	{
+		return;
+	}
+
+	adjust_data.filter_data = &filter_data;
+	ResetColorLevelAdjust(&filter_data);
+	ResetColorLevelAdjustData(&adjust_data);
+	adjust_data.moving_cursor = -1;
+	adjust_data.layers = GetLayerChain(canvas, &adjust_data.num_layer);
+	adjust_data.pixel_data = (uint8**)MEM_ALLOC_FUNC(sizeof(*adjust_data.pixel_data)*adjust_data.num_layer);
+	for(i=0; i<(int)adjust_data.num_layer; i++)
+	{
+		adjust_data.pixel_data[i] = (uint8*)MEM_ALLOC_FUNC(
+			adjust_data.layers[i]->width * adjust_data.layers[i]->height * 4);
+		(void)memcpy(adjust_data.pixel_data[i], adjust_data.layers[i]->pixels,
+			adjust_data.layers[i]->stride * adjust_data.layers[i]->height);
+	}
+	adjust_data.histgrams = (COLOR_HISTGRAM*)MEM_ALLOC_FUNC(sizeof(*adjust_data.histgrams)*adjust_data.num_layer);
+	for(i=0; i<(int)adjust_data.num_layer; i++)
+	{
+		GetLayerColorHistgram(&adjust_data.histgrams[i], adjust_data.layers[i]);
+	}
+
+	dialog = gtk_dialog_new_with_buttons(
+		app->labels->menu.color_levels,
+		GTK_WINDOW(app->window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		NULL
+	);
+	vbox = gtk_vbox_new(FALSE, 0);
+
+#if GTK_MAJOR_VERSION <= 2
+	adjust_data.color_select = gtk_combo_box_new_text();
+	control = gtk_combo_box_new_text();
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.brightness);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control), "RGB");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->layer_window.opacity);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.saturation);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control), "CMYK");
+#else
+	adjust_data.color_select = gtk_combo_box_text_new();
+	control = gtk_combo_box_text_new();
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.brightness);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), "RGB");
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->layer_window.opacity);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.saturation);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), "CMYK");
+#endif
+	gtk_combo_box_set_active(GTK_COMBO_BOX(control), 0);
+
+	(void)sprintf(buff, "%s : ", app->labels->unit.mode);
+	label = gtk_label_new(buff);
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)g_signal_connect(G_OBJECT(control), "changed",
+		G_CALLBACK(ColorLevelAdjustChangeMode), &adjust_data);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), control, TRUE, FALSE, 0);
+
+	(void)sprintf(buff, "%s : ", app->labels->unit.target);
+	label = gtk_label_new(buff);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	(void)g_signal_connect(G_OBJECT(adjust_data.color_select), "changed",
+		G_CALLBACK(ColorLevelAdjustChangeTarget), &adjust_data);
+
+	gtk_widget_set_sensitive(adjust_data.color_select, FALSE);
+	gtk_box_pack_start(GTK_BOX(hbox), adjust_data.color_select, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	adjust_data.histgram_view = drawing_area = gtk_drawing_area_new();
+	gtk_widget_set_size_request(drawing_area, 256, 200);
+	gtk_widget_set_events(drawing_area,
+		GDK_EXPOSURE_MASK | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_SCROLL_MASK
+		| GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_HINT_MASK
+	);
+#if GTK_MAJOR_VERSION <= 2
+	(void)g_signal_connect(G_OBJECT(drawing_area), "expose_event",
+		G_CALLBACK(DisplayHistgram), &adjust_data);
+#else
+	(void)g_signal_connect(G_OBJECT(drawing_area), "draw",
+		G_CALLBACK(DisplayHistgram), &adjust_data);
+#endif
+	(void)g_signal_connect(G_OBJECT(drawing_area), "button_press_event",
+		G_CALLBACK(HistgramViewClicked), &adjust_data);
+	(void)g_signal_connect(G_OBJECT(drawing_area), "motion_notify_event",
+		G_CALLBACK(HistgramViewMotion), &adjust_data);
+	(void)g_signal_connect(G_OBJECT(drawing_area), "button_release_event",
+		G_CALLBACK(HistgramViewReleased), &adjust_data);
+	gtk_box_pack_start(GTK_BOX(vbox), drawing_area, TRUE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		vbox, TRUE, TRUE, 0);
+	gtk_widget_show_all(dialog);
+
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{	// O.K.ボタンが押された
+			// 一度、ピクセルデータを元に戻して
+		for(i=0; i<adjust_data.num_layer; i++)
+		{
+			(void)memcpy(canvas->temp_layer->pixels, adjust_data.layers[i]->pixels,
+				canvas->pixel_buf_size);
+			(void)memcpy(adjust_data.layers[i]->pixels, adjust_data.pixel_data[i], canvas->pixel_buf_size);
+			(void)memcpy(adjust_data.pixel_data[i], canvas->temp_layer->pixels, canvas->pixel_buf_size);
+		}
+
+		// 先に履歴データを残す
+		AddFilterHistory(app->labels->menu.color_levels, &filter_data, sizeof(filter_data),
+			FILTER_FUNC_COLOR_LEVEL_ADJUST, adjust_data.layers, adjust_data.num_layer, canvas);
+
+		// 色相・彩度・輝度調整実行後のデータに戻す
+		for(i=0; i<adjust_data.num_layer; i++)
+		{
+			(void)memcpy(adjust_data.layers[i]->pixels, adjust_data.pixel_data[i],
+				adjust_data.layers[i]->width * adjust_data.layers[i]->height * adjust_data.layers[i]->channel);
+		}
+	}
+	else
+	{
+		for(i=0; i<(int)adjust_data.num_layer; i++)
+		{
+			(void)memcpy(adjust_data.layers[i]->pixels,
+				adjust_data.pixel_data[i], adjust_data.layers[i]->stride * adjust_data.layers[i]->height);
+		}
+		if(adjust_data.layers[0] == canvas->active_layer)
+		{
+			canvas->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+		}
+		else
+		{
+			canvas->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+		}
+		gtk_widget_queue_draw(canvas->window);
+	}
+
+	for(i=0; i<(int)adjust_data.num_layer; i++)
+	{
+		MEM_FREE_FUNC(adjust_data.pixel_data[i]);
+	}
+	MEM_FREE_FUNC(adjust_data.pixel_data);
+	MEM_FREE_FUNC(adjust_data.layers);
+	MEM_FREE_FUNC(adjust_data.histgrams);
+
+	gtk_widget_destroy(dialog);
+}
+
+/*************************************
+* ColorLevelAdjustFilter関数         *
+* 色のレベル補正                     *
+* 引数                               *
+* window	: 描画領域の情報         *
+* layers	: 処理を行うレイヤー配列 *
+* num_layer	: 処理を行うレイヤーの数 *
+* data		: フィルターの設定データ *
+*************************************/
+void ColorLevelAdjustFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* data)
+{
+	COLOR_LEVEL_ADJUST_FILTER_DATA *filter_data = (COLOR_LEVEL_ADJUST_FILTER_DATA*)data;
+	COLOR_HISTGRAM histgram;
+	unsigned int i;
+
+	for(i=0; i<num_layer; i++)
+	{
+		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
+		{
+			GetLayerColorHistgram(&histgram, layers[i]);
+			AdoptColorLevelAdjust(layers[i], &histgram, filter_data);
+		}
+	}
+
+	// キャンバスを更新
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	gtk_widget_queue_draw(window->window);
+}
+
+#undef CONTROL_SIZE
+
+#define MAX_POINTS 32
+/*************************************
+* TONE_CURVE_FILTER_DATA構造体       *
+* トーンカーブフィルターの設定データ *
+*************************************/
+typedef struct _TONE_CURVE_FILTER_DATA
+{
+	uint8 target_color;
+	uint16 num_points[4];
+	BEZIER_POINT points[4][MAX_POINTS];
+} TONE_CURVE_FILTER_DATA;
+
+/*********************************************************
+* EXECUTE_TONE_CURVE構造体                               *
+* トーンカーブフィルターのユーザーインターフェースデータ *
+*********************************************************/
+typedef struct _EXECUTE_TONE_CURVE
+{
+	TONE_CURVE_FILTER_DATA *filter_data;
+	COLOR_HISTGRAM *histgram;
+	GtkWidget *view;
+	GtkWidget *color_select;
+	eCOLOR_ADJUST_MODE adjust_mode;
+	int color_index;
+	uint16 num_layer;
+	LAYER **layers;
+	uint8 **pixel_data;
+	int moving_point;
+	FLOAT_T move_maximum;
+	FLOAT_T move_minimum;
+} EXECUTE_TONE_CURVE;
+
+/*******************************************
+* TransformToneCurve関数                   *
+* トーンカーブを色データに変換する         *
+* 引数                                     *
+* points	: トーンカーブの制御点         *
+* rate		: 色の伸長割合                 *
+* color		: 変換後の色データを入れる配列 *
+*******************************************/
+static void TransformToneCurve(BEZIER_POINT* points, FLOAT_T rate, uint8* color)
+{
+	BEZIER_POINT target;
+	FLOAT_T d, div_d;
+	FLOAT_T t;
+	FLOAT_T color_value;
+	int i;
+
+	d = sqrt((points[0].x-points[1].x)*(points[0].x-points[1].x)
+		+ (points[0].y-points[1].y)*(points[0].y-points[1].y));
+	d += sqrt((points[1].x-points[2].x)*(points[1].x-points[2].x)
+		+ (points[1].y-points[2].y)*(points[1].y-points[2].y));
+	d += sqrt((points[2].x-points[3].x)*(points[2].x-points[3].x)
+		+ (points[2].y-points[3].y)*(points[2].y-points[3].y));
+	div_d = 1.0 / d;
+
+	for(t=0; t<1; t+=div_d)
+	{
+		CalcBezier3(points, t, &target);
+
+		if(target.x >= 0 && target.x < 256)
+		{
+			color_value = target.y * rate;
+			if(color_value < 0)
+			{
+				color[(int)target.x] = 0;
+			}
+			else if(color_value > 255)
+			{
+				color[(int)target.x] = 255;
+			}
+			else
+			{
+				color[(int)target.x] = (uint8)color_value;
+			}
+		}
+	}
+	if(target.x < 255)
+	{
+		for(i=(int)target.x; i<256; i++)
+		{
+			color[i] = (uint8)(255 * rate);
+		}
+	}
+}
+
+/*****************************************************
+* AdoptToneCurveFilter関数                           *
+* トーンカーブフィルターをレイヤーに適用する         *
+* 引数                                               *
+* target		: トーンカーブを適用するレイヤー     *
+* histgram		: 適用するレイヤーの色のヒストグラム *
+* filter_data	: フィルターの設定データ             *
+*****************************************************/
+void AdoptToneCurveFilter(LAYER* target, COLOR_HISTGRAM* histgram, TONE_CURVE_FILTER_DATA* filter_data)
+{
+	uint8 color_data[4][256] = {0};
+	BEZIER_POINT points[4], inter[2];
+	BEZIER_POINT calc[4];
+	FLOAT_T maximum[4], minimum[4];
+	FLOAT_T length[4];
+	int channels = 0;
+	int i, j, k;
+
+	switch(filter_data->target_color)
+	{
+	case COLOR_LEVEL_ADUST_TARGET_LUMINOSITY:
+	case COLOR_LEVEL_ADUST_TARGET_RED:
+	case COLOR_LEVEL_ADUST_TARGET_BLUE:
+	case COLOR_LEVEL_ADUST_TARGET_GREEN:
+		channels = 3;
+		length[0] = histgram->r_max - histgram->r_min;
+		maximum[0] = histgram->r_max;
+		minimum[0] = histgram->r_min;
+		length[1] = histgram->r_max - histgram->g_min;
+		maximum[1] = histgram->g_max;
+		minimum[1] = histgram->g_min;
+		length[2] = histgram->b_max - histgram->b_min;
+		maximum[2] = histgram->b_max;
+		minimum[2] = histgram->b_min;
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_ALPHA:
+		channels = 1;
+		length[0] = histgram->a_max - histgram->a_min;
+		maximum[0] = histgram->a_max;
+		minimum[0] = histgram->a_min;
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_SATURATION:
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_CYAN:
+	case COLOR_LEVEL_ADUST_TARGET_MAGENTA:
+	case COLOR_LEVEL_ADUST_TARGET_YELLOW:
+	case COLOR_LEVEL_ADUST_TARGET_KEYPLATE:
+		channels = 4;
+		length[0] = histgram->c_max - histgram->c_min;
+		maximum[0] = histgram->c_max;
+		minimum[0] = histgram->c_min;
+		length[1] = histgram->m_max - histgram->m_min;
+		maximum[1] = histgram->m_max;
+		minimum[1] = histgram->m_min;
+		length[2] = histgram->y_max - histgram->y_min;
+		maximum[2] = histgram->y_max;
+		minimum[2] = histgram->y_min;
+		length[3] = histgram->k_max - histgram->k_min;
+		maximum[3] = histgram->k_max;
+		minimum[3] = histgram->k_min;
+		break;
+	}
+
+	if(filter_data->num_points == 0)
+	{
+		FLOAT_T rate;
+		for(i=0; i<channels; i++)
+		{
+			rate = length[i] * DIV_PIXEL;
+			for(j=0; j<256; j++)
+			{
+				color_data[i][j] = (uint8)(rate * j);
+			}
+		}
+	}
+	else
+	{
+		for(i=0; i<channels; i++)
+		{
+			points[0].x = 0,	points[0].y = 0;
+			points[1] = filter_data->points[i][0];
+			if(filter_data->num_points[i] == 1)
+			{
+				points[2].x = 255,	points[2].y = 255;
+			}
+			else
+			{
+				points[2] = filter_data->points[i][1];
+			}
+			MakeBezier3EdgeControlPoint(points, inter);
+			points[1].x = 0,	points[1].y = 0;
+			points[2] = inter[0];
+			if(filter_data->num_points[i] == 1)
+			{
+				points[3].x = 255,	points[3].y = 255;
+			}
+			else
+			{
+				points[3] = filter_data->points[i][1];
+			}
+			TransformToneCurve(points, 1, color_data[i]);
+
+			for(j=0; j<filter_data->num_points[i]-1; j++)
+			{
+				if(j==0)
+				{
+					points[0].x = 0,	points[0].y = 0;
+				}
+				else
+				{
+					points[0] = filter_data->points[i][j];
+				}
+				for(k=0; k<2; k++)
+				{
+					points[k] = filter_data->points[i][j+k];
+				}
+				if(j+2==filter_data->num_points[i])
+				{
+					points[3].x = 255,	points[3].y = 255;
+				}
+				else
+				{
+					points[3] = filter_data->points[i][j+3];
+				}
+				calc[0] = points[0];
+				calc[1] = points[1];
+				calc[2] = points[2];
+				calc[3] = points[3];
+				MakeBezier3ControlPoints(calc, inter);
+				points[0] = calc[1];
+				points[1] = inter[0];
+				points[2] = inter[1];
+				points[3] = calc[2];
+
+				TransformToneCurve(points, 1, color_data[i]);
+			}
+
+			if(filter_data->num_points[i] == 1)
+			{
+				points[0].x = 0,	points[0].y = 0;
+			}
+			else
+			{
+				points[0] = filter_data->points[i][j];
+			}
+			points[1] = filter_data->points[i][j];
+			points[2].x = 255,	points[2].y = 255;
+			calc[0] = points[0];
+			calc[1] = points[1];
+			calc[2] = points[2];
+			calc[3] = points[2];
+			MakeBezier3EdgeControlPoint(calc, inter);
+
+			points[0] = calc[1];
+			points[1] = inter[1];
+			points[2] = points[3] = calc[2];
+			TransformToneCurve(points, 1, color_data[i]);
+		}
+	}
+
+	switch(filter_data->target_color)
+	{
+	case COLOR_LEVEL_ADUST_TARGET_LUMINOSITY:
+	case COLOR_LEVEL_ADUST_TARGET_RED:
+	case COLOR_LEVEL_ADUST_TARGET_BLUE:
+	case COLOR_LEVEL_ADUST_TARGET_GREEN:
+		if((target->window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], color_data[2][target->pixels[i*4+0]]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], color_data[1][target->pixels[i*4+1]]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], color_data[0][target->pixels[i*4+2]]);
+#else
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], color_data[0][target->pixels[i*4+0]]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], color_data[1][target->pixels[i*4+1]]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], color_data[2][target->pixels[i*4+2]]);
+#endif
+			}
+		}
+		else
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				uint8 selection = target->window->selection->pixels[i];
+				uint8 set;
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * color_data[2][target->pixels[i*4+0]]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * color_data[1][target->pixels[i*4+1]]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * color_data[0][target->pixels[i*4+2]]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#else
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * color_data[0][target->pixels[i*4+0]]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * color_data[1][target->pixels[i*4+1]]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * color_data[2][target->pixels[i*4+2]]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#endif
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_ALPHA:
+		if((target->window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				target->pixels[i*4+3] = color_data[3][target->pixels[i*4+3]];
+			}
+		}
+		else
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				uint8 selection = target->window->selection->pixels[i];
+				uint8 set;
+
+				set = ((0xFF - selection) * target->pixels[i*4+3] + selection * color_data[3][target->pixels[i*4+3]]) / 0xFF;
+				target->pixels[i*4+3] = set;
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_SATURATION:
+		if((target->window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				HSV hsv;
+				uint8 rgb[3];
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				rgb[0] = target->pixels[i*4+2];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+0];
+				RGB2HSV_Pixel(rgb, &hsv);
+#else
+				RGB2HSV_Pixel(&target->pixels[i*4], &hsv);
+#endif
+				hsv.s = color_data[0][hsv.s];
+				HSV2RGB_Pixel(&hsv, rgb);
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], rgb[2]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], rgb[1]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], rgb[0]);
+#else
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], rgb[0]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], rgb[1]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], rgb[2]);
+#endif
+			}
+		}
+		else
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				HSV hsv;
+				uint8 rgb[3];
+				uint8 selection = target->window->selection->pixels[i];
+				uint8 set;
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				rgb[0] = target->pixels[i*4+2];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+0];
+				RGB2HSV_Pixel(rgb, &hsv);
+#else
+				RGB2HSV_Pixel(&target->pixels[i*4], &hsv);
+#endif
+				hsv.s = color_data[0][hsv.s];
+
+				HSV2RGB_Pixel(&hsv, rgb);
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * rgb[2]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * rgb[1]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * rgb[0]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#else
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * rgb[0]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * rgb[1]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * rgb[2]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#endif
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_CYAN:
+	case COLOR_LEVEL_ADUST_TARGET_MAGENTA:
+	case COLOR_LEVEL_ADUST_TARGET_YELLOW:
+	case COLOR_LEVEL_ADUST_TARGET_KEYPLATE:
+		if((target->window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				CMYK cmyk;
+				uint8 rgb[3];
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				rgb[0] = target->pixels[i*4+2];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+0];
+#else
+				rgb[0] = target->pixels[i*4+0];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+2];
+#endif
+				RGB2CMYK_Pixel(rgb, &cmyk);
+				cmyk.c = color_data[0][cmyk.c];
+				cmyk.m = color_data[0][cmyk.m];
+				cmyk.y = color_data[0][cmyk.y];
+				cmyk.k = color_data[0][cmyk.k];
+				CMYK2RGB_Pixel(&cmyk, rgb);
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], rgb[2]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], rgb[1]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], rgb[0]);
+#else
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], rgb[0]);
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], rgb[1]);
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], rgb[2]);
+#endif
+			}
+		}
+		else
+		{
+#ifdef _OPENMP
+#pragma omp parallel for firstprivate(target, color_data)
+#endif
+			for(i=0; i<target->width*target->height; i++)
+			{
+				uint8 selection = target->window->selection->pixels[i];
+				uint8 set;
+
+				CMYK cmyk;
+				uint8 rgb[3];
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				rgb[0] = target->pixels[i*4+2];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+0];
+#else
+				rgb[0] = target->pixels[i*4+0];
+				rgb[1] = target->pixels[i*4+1];
+				rgb[2] = target->pixels[i*4+2];
+#endif
+				RGB2CMYK_Pixel(rgb, &cmyk);
+				cmyk.c = color_data[0][cmyk.c];
+				cmyk.m = color_data[0][cmyk.m];
+				cmyk.y = color_data[0][cmyk.y];
+				cmyk.k = color_data[0][cmyk.k];
+				CMYK2RGB_Pixel(&cmyk, rgb);
+
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * rgb[2]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * rgb[1]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * rgb[0]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#else
+				set = ((0xFF - selection) * target->pixels[i*4+0] + selection * rgb[0]) / 0xFF;
+				target->pixels[i*4+0] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+1] + selection * rgb[1]) / 0xFF;
+				target->pixels[i*4+1] = MINIMUM(target->pixels[i*4+3], set);
+				set = ((0xFF - selection) * target->pixels[i*4+2] + selection * rgb[2]) / 0xFF;
+				target->pixels[i*4+2] = MINIMUM(target->pixels[i*4+3], set);
+#endif
+			}
+		}
+		break;
+	}
+}
+
+static void StrokeToneCureve(cairo_t* cairo_p, int num_points, BEZIER_POINT* points, int height)
+{
+	BEZIER_POINT calc[4], inter[2];
+	FLOAT_T height_rate = height / 255.0;
+	int i, j;
+
+	cairo_move_to(cairo_p, 0, height);
+
+	if(num_points == 0)
+	{
+		cairo_line_to(cairo_p, 255, 0);
+	}
+	else
+	{
+		calc[0].x = 0,	calc[0].y = height;
+		calc[1].x = points[0].x;
+		calc[1].y = height - (points[0].y * height_rate);
+		if(num_points == 1)
+		{
+			calc[2].x = 255,	calc[2].y = height;
+		}
+		else
+		{
+			calc[2].x = points[1].x;
+			calc[2].y = height - (points[1].y * height_rate);
+		}
+		MakeBezier3EdgeControlPoint(calc, inter);
+		cairo_curve_to(cairo_p, 0, height, inter[0].x, inter[0].y,
+			calc[1].x, calc[1].y);
+
+		for(i=0; i<num_points-1; i++)
+		{
+			if(i==0)
+			{
+				calc[0].x = 0,	calc[0].y = height;
+			}
+			else
+			{
+				calc[0].x = points[j].x;
+				calc[0].y = height - points[j].y * height_rate;
+			}
+			for(j=0; j<2; j++)
+			{
+				calc[j].x = points[i+j].x;
+				calc[j].y = height - points[i+j].y * height_rate;
+			}
+			if(i+2==num_points)
+			{
+				calc[3].x = 255,	calc[3].y = 0;
+			}
+			else
+			{
+				calc[3].x = points[i+3].x;
+				calc[3].y = height - points[i+3].y * height_rate;
+			}
+			MakeBezier3ControlPoints(calc, inter);
+
+			cairo_curve_to(cairo_p, inter[0].x, inter[0].y,
+				inter[1].x, inter[1].y, calc[2].x, calc[2].y);
+		}
+
+		if(num_points == 1)
+		{
+			calc[0].x = 0,	calc[0].y = height;
+		}
+		else
+		{
+			calc[0].x = points[i].x;
+			calc[0].y = height - points[i].y * height_rate;
+		}
+		calc[1].x = points[i].x;
+		calc[1].y = height - points[i].y * height_rate;
+		calc[2].x = 255,	calc[2].y = 0;
+		MakeBezier3EdgeControlPoint(calc, inter);
+
+		cairo_curve_to(cairo_p, inter[1].x, inter[1].y,
+			calc[2].x, calc[2].y, calc[2].x, calc[2].y);
+	}
+
+	cairo_stroke(cairo_p);
+}
+
+#define CATCH_DISTANCE 20
+/***************************************
+* DisplayToneCurve関数                 *
+* トーンカーブを表示する               *
+* 引数                                 *
+* widget		: 描画するウィジェット *
+* event_info	: イベントのデータ     *
+* tone_curve	: フィルターのデータ   *
+* 返り値                               *
+*	常にTRUE                           *
+***************************************/
+static gboolean DisplayToneCurve(GtkWidget* widget, GdkEventExpose* event_info, EXECUTE_TONE_CURVE* tone_curve)
+{
+#define GLAY_VALUE 0.222
+	unsigned int *histgram = NULL;
+	int width, height;
+	int bottom;
+	cairo_t *cairo_p;
+	unsigned int maximum = 0;
+	int color_index = 0;
+	int channels = 1;
+	int i, j;
+
+#if GTK_MAJOR_VERSION <= 2
+	cairo_p = gdk_cairo_create(event_info->window);
+#else
+	cairo_p = (cairo_t*)event_info;
+#endif
+
+	switch(tone_curve->filter_data->target_color)
+	{
+	case COLOR_LEVEL_ADUST_TARGET_LUMINOSITY:
+		histgram = tone_curve->histgram->v;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < tone_curve->histgram->v[i])
+			{
+				maximum = tone_curve->histgram->v[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_RED:
+		histgram = tone_curve->histgram->r;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < tone_curve->histgram->r[i])
+			{
+				maximum = tone_curve->histgram->r[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_GREEN:
+		histgram = tone_curve->histgram->g;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < tone_curve->histgram->g[i])
+			{
+				maximum = tone_curve->histgram->g[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_BLUE:
+		histgram = tone_curve->histgram->b;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < tone_curve->histgram->b[i])
+			{
+				maximum = tone_curve->histgram->b[i];
+			}
+		}
+		break;
+	case COLOR_LEVEL_ADUST_TARGET_ALPHA:
+		histgram = tone_curve->histgram->a;
+		for(i=0; i<0xFF; i++)
+		{
+			if(maximum < tone_curve->histgram->a[i])
+			{
+				maximum = tone_curve->histgram->a[i];
+			}
+		}
+		break;
+	default:
+		return TRUE;
+	}
+
+
+	width = gdk_window_get_width(gtk_widget_get_window(widget));
+	height = gdk_window_get_height(gtk_widget_get_window(widget));
+	bottom = height;
+
+	cairo_set_source_rgb(cairo_p, 1, 1, 1);
+	cairo_rectangle(cairo_p, 0, 0, width, bottom);
+	cairo_fill(cairo_p);
+
+	if(tone_curve->adjust_mode == COLOR_ADJUST_MODE_RGB)
+	{
+		channels = 3;
+		color_index = tone_curve->color_index;
+		switch(tone_curve->color_index)
+		{
+		case 0:
+			cairo_set_source_rgb(cairo_p, 1, 0, 0);
+			break;
+		case 1:
+			cairo_set_source_rgb(cairo_p, 0, 1, 0);
+			break;
+		case 2:
+			cairo_set_source_rgb(cairo_p, 0, 0, 1);
+			break;
+		}
+	}
+	else if(tone_curve->adjust_mode == COLOR_ADJUST_MODE_CMYK)
+	{
+		channels = 4;
+		color_index = tone_curve->color_index;
+		switch(tone_curve->color_index)
+		{
+		case 0:
+			cairo_set_source_rgb(cairo_p, 0, 1, 1);
+			break;
+		case 1:
+			cairo_set_source_rgb(cairo_p, 1, 0, 1);
+			break;
+		case 2:
+			cairo_set_source_rgb(cairo_p, 1, 1, 0);
+			break;
+		case 3:
+			cairo_set_source_rgb(cairo_p, GLAY_VALUE, GLAY_VALUE, GLAY_VALUE);
+			break;
+		}
+	}
+	else
+	{
+		cairo_set_source_rgb(cairo_p, GLAY_VALUE, GLAY_VALUE, GLAY_VALUE);
+	}
+	for(i=0; i<0xFF; i++)
+	{
+		cairo_move_to(cairo_p, i, bottom);
+		cairo_line_to(cairo_p, i,
+			bottom - (bottom * ((FLOAT_T)histgram[i] / maximum)));
+		cairo_stroke(cairo_p);
+	}
+
+	for(i=0; i<channels; i++)
+	{
+		if(tone_curve->adjust_mode == COLOR_ADJUST_MODE_RGB)
+		{
+			channels = 3;
+			color_index = tone_curve->color_index;
+			switch(i)
+			{
+			case 0:
+				cairo_set_source_rgb(cairo_p, 1, 0, 0);
+				break;
+			case 1:
+				cairo_set_source_rgb(cairo_p, 0, 1, 0);
+				break;
+			case 2:
+				cairo_set_source_rgb(cairo_p, 0, 0, 1);
+				break;
+			}
+		}
+		else if(tone_curve->adjust_mode == COLOR_ADJUST_MODE_CMYK)
+		{
+			channels = 4;
+			color_index = tone_curve->color_index;
+			switch(i)
+			{
+			case 0:
+				cairo_set_source_rgb(cairo_p, 0, 1, 1);
+				break;
+			case 1:
+				cairo_set_source_rgb(cairo_p, 1, 0, 1);
+				break;
+			case 2:
+				cairo_set_source_rgb(cairo_p, 1, 1, 0);
+				break;
+			case 3:
+				cairo_set_source_rgb(cairo_p, GLAY_VALUE, GLAY_VALUE, GLAY_VALUE);
+				break;
+			}
+		}
+		else
+		{
+			cairo_set_source_rgb(cairo_p, GLAY_VALUE, GLAY_VALUE, GLAY_VALUE);
+		}
+
+		StrokeToneCureve(cairo_p, tone_curve->filter_data->num_points[i],
+			tone_curve->filter_data->points[i], bottom);
+
+		cairo_set_source_rgb(cairo_p, 0, 0, 0);
+		for(j=0; j<tone_curve->filter_data->num_points[i]; j++)
+		{
+			cairo_arc(cairo_p, tone_curve->filter_data->points[i][j].x, height - (tone_curve->filter_data->points[i][j].y * (height / 255.0)),
+				CATCH_DISTANCE, 0, 2*G_PI);
+			cairo_stroke(cairo_p);
+		}
+	}
+
+#if GTK_MAJOR_VERSION <= 2
+	cairo_destroy(cairo_p);
+#endif
+
+	return TRUE;
+#undef GLAY_VALUE
+}
+
+/*************************************************
+* UpdateToneCurve関数                            *
+* 現在のトーンカーブの設定でキャンバスを更新する *
+* 引数                                           *
+* tone_curve	: フィルターのデータ             *
+*************************************************/
+static void UpdateToneCurve(EXECUTE_TONE_CURVE* tone_curve)
+{
+	unsigned int i;
+
+	for(i=0; i<tone_curve->num_layer; i++)
+	{
+		if(tone_curve->layers[i]->layer_type == TYPE_NORMAL_LAYER)
+		{
+			(void)memcpy(tone_curve->layers[i]->pixels,
+				tone_curve->pixel_data[i], tone_curve->layers[i]->stride * tone_curve->layers[i]->height);
+			AdoptToneCurveFilter(tone_curve->layers[i], tone_curve->histgram, tone_curve->filter_data);
+		}
+	}
+
+	if(tone_curve->layers[0] == tone_curve->layers[0]->window->active_layer)
+	{
+		tone_curve->layers[0]->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	}
+	else
+	{
+		tone_curve->layers[0]->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	}
+	gtk_widget_queue_draw(tone_curve->layers[0]->window->window);
+}
+
+/*********************************************************************
+* ToneCurveViewClicked関数                                           *
+* トーンカーブの表示ウィジェットのマウスクリックに対するコールバック *
+* 引数                                                               *
+* widget		: 描画するウィジェット                               *
+* event_info	: イベントのデータ                                   *
+* adjust_data	: フィルターのデータ                                 *
+* 返り値                                                             *
+*	常にTRUE                                                         *
+*********************************************************************/
+static gboolean ToneCurveViewClicked(GtkWidget* widget, GdkEventButton* event_info, EXECUTE_TONE_CURVE* tone_curve)
+{
+	FLOAT_T distance;
+	FLOAT_T y;
+	int point_index = -1;
+	int color_index = 0;
+	int height;
+	int bottom;
+	int i, j;
+
+	if(tone_curve->adjust_mode == COLOR_ADJUST_MODE_RGB
+		|| tone_curve->adjust_mode == COLOR_ADJUST_MODE_CMYK)
+	{
+		color_index = tone_curve->color_index;
+	}
+
+	if(event_info->button == 1)
+	{
+		height = gdk_window_get_height(gtk_widget_get_window(widget));
+		y = (height - event_info->y) * (255.0 / height);
+		bottom = height;
+
+		for(i=0; i<tone_curve->filter_data->num_points[color_index]; i++)
+		{
+			distance = (event_info->x - tone_curve->filter_data->points[color_index][i].x) * (event_info->x - tone_curve->filter_data->points[color_index][i].x)
+				+ (y - tone_curve->filter_data->points[color_index][i].y) * (y - tone_curve->filter_data->points[color_index][i].y);
+			if(distance <= CATCH_DISTANCE * CATCH_DISTANCE)
+			{
+				point_index = i;
+				if(point_index == 0)
+				{
+					tone_curve->move_minimum = 0;
+				}
+				else
+				{
+					tone_curve->move_minimum = tone_curve->filter_data->points[color_index][point_index-1].x;
+				}
+				if(point_index == tone_curve->filter_data->num_points[color_index]-1)
+				{
+					tone_curve->move_maximum = 255;
+				}
+				else
+				{
+					tone_curve->move_maximum = tone_curve->filter_data->points[color_index][point_index+1].x;
+				}
+				break;
+			}
+		}
+		if(i == tone_curve->filter_data->num_points[color_index] && tone_curve->filter_data->num_points[color_index] < MAX_POINTS)
+		{	// 制御点追加
+			int find = FALSE;
+			point_index = 0;
+			for(i=0; i<tone_curve->filter_data->num_points[color_index]-1; i++)
+			{
+				if(event_info->x >= tone_curve->filter_data->points[color_index][i].x
+					&& event_info->x <= tone_curve->filter_data->points[color_index][i+1].x)
+				{
+					for(j=tone_curve->filter_data->num_points[color_index]; j>i; j--)
+					{
+						tone_curve->filter_data->points[color_index][j] = tone_curve->filter_data->points[color_index][j-1];
+					}
+					point_index = i;
+					if(point_index == 0)
+					{
+						tone_curve->move_minimum = 0;
+					}
+					else
+					{
+						tone_curve->filter_data->points[color_index][point_index-1].x;
+					}
+					tone_curve->move_maximum = tone_curve->filter_data->points[color_index][point_index+1].x;
+					tone_curve->filter_data->num_points[color_index]++;
+					find = TRUE;
+					break;
+				}
+			}
+			if(find == FALSE)
+			{
+				if(tone_curve->filter_data->num_points[color_index] == 0)
+				{
+					tone_curve->move_minimum = 0;
+					tone_curve->move_maximum = 255;
+				}
+				else
+				{
+					if(event_info->x > tone_curve->filter_data->points[color_index][0].x)
+					{
+						tone_curve->move_minimum = tone_curve->filter_data->points[color_index][0].x;
+						tone_curve->move_maximum = 255;
+						point_index = 1;
+					}
+					else
+					{
+						tone_curve->filter_data->points[color_index][1] = tone_curve->filter_data->points[color_index][0];
+						tone_curve->move_minimum = 0;
+						tone_curve->move_maximum = tone_curve->filter_data->points[color_index][0].x;
+						point_index = 0;
+					}
+				}
+				tone_curve->filter_data->num_points[color_index]++;
+			}
+		}
+
+		if(point_index >= 0)
+		{
+			tone_curve->filter_data->points[color_index][point_index].x = event_info->x;
+			tone_curve->filter_data->points[color_index][point_index].y = event_info->y;
+			tone_curve->moving_point = point_index;
+		}
+	}
+
+	if(tone_curve->adjust_mode != COLOR_ADJUST_MODE_RGB
+		&& tone_curve->adjust_mode != COLOR_ADJUST_MODE_CMYK)
+	{
+		tone_curve->filter_data->num_points[3] = tone_curve->filter_data->num_points[2]
+			= tone_curve->filter_data->num_points[1] = tone_curve->filter_data->num_points[0];
+
+		for(i=1; i<4; i++)
+		{
+			for(j=0; j<tone_curve->filter_data->num_points[i]; j++)
+			{
+				tone_curve->filter_data->points[i][j] = tone_curve->filter_data->points[0][j];
+			}
+		}
+	}
+
+	return TRUE;
+}
+
+#undef CATCH_DISTANCE
+/*********************************************************************
+* ToneCurveViewMotion関数                                            *
+* トーンカーブの表示ウィジェット上でのマウス移動に対するコールバック *
+* 引数                                                               *
+* widget		: 描画するウィジェット                               *
+* event_info	: イベントのデータ                                   *
+* tone_curve	: フィルターのデータ                                 *
+* 返り値                                                             *
+*	常にTRUE                                                         *
+*********************************************************************/
+static gboolean ToneCurveViewMotion(GtkWidget* widget, GdkEventMotion* event_info, EXECUTE_TONE_CURVE* tone_curve)
+{
+	FLOAT_T set_point[2];
+	int height = gdk_window_get_height(gtk_widget_get_window(widget));
+	gdouble x, y;
+	int i;
+
+	if(event_info->is_hint != FALSE)
+	{
+		gint mouse_x, mouse_y;
+		GdkModifierType state;
+#if GTK_MAJOR_VERSION <= 2
+		gdk_window_get_pointer(event_info->window, &mouse_x, &mouse_y, &state);
+#else
+		gdk_window_get_device_position(event_info->window, event_info->device,
+			&mouse_x, &mouse_y, &state);
+#endif
+		x = mouse_x, y = mouse_y;
+	}
+	else
+	{
+		x = event_info->x;
+		y = event_info->y;
+	}
+
+	if(tone_curve->moving_point >= 0)
+	{
+		set_point[0] = x;
+		if(set_point[0] < tone_curve->move_minimum)
+		{
+			set_point[0] = tone_curve->move_minimum;
+		}
+		else if(set_point[0] > tone_curve->move_maximum)
+		{
+			set_point[0] = tone_curve->move_maximum;
+		}
+
+		set_point[1] = (height - y) * (255.0 / height);
+		if(set_point[1] < 0)
+		{
+			set_point[1] = 0;
+		}
+		else if(set_point[1] > 255)
+		{
+			set_point[1] = 255;
+		}
+
+		if(tone_curve->adjust_mode == COLOR_ADJUST_MODE_LUMINOSITY
+			|| tone_curve->adjust_mode == COLOR_ADJUST_MODE_SATURATION)
+		{
+			for(i=0; i<4; i++)
+			{
+				tone_curve->filter_data->points[i][tone_curve->moving_point].x = set_point[0];
+				tone_curve->filter_data->points[i][tone_curve->moving_point].y = set_point[1];
+			}
+		}
+		else
+		{
+			tone_curve->filter_data->points[tone_curve->color_index][tone_curve->moving_point].x = set_point[0];
+			tone_curve->filter_data->points[tone_curve->color_index][tone_curve->moving_point].y = set_point[1];
+		}
+
+		gtk_widget_queue_draw(tone_curve->view);
+	}
+
+	return TRUE;
+}
+
+/***************************************************************************
+* ToneCurveViewReleased関数                                                *
+* トーンカーブの表示ウィジェットでマウスのボタンが離された時のコールバック *
+* 引数                                                                     *
+* widget		: 描画するウィジェット                                     *
+* event_info	: イベントのデータ                                         *
+* tone_curve	: フィルターのデータ                                       *
+* 返り値                                                                   *
+*	常にTRUE                                                               *
+***************************************************************************/
+static gboolean ToneCurveViewReleased(GtkWidget* widget, GdkEventButton* event_info, EXECUTE_TONE_CURVE* tone_curve)
+{
+	if(event_info->button == 1)
+	{
+		tone_curve->moving_point = -1;
+		UpdateToneCurve(tone_curve);
+	}
+
+	return TRUE;
+}
+
+/***************************************************************
+* ToneCurveChangeMode関数                                      *
+* トーンカーブの補正対象色モード選択ウィジェットのコールバック *
+* 引数                                                         *
+* combo			: コンボボックスウィジェット                   *
+* tone_curve	: フィルターのデータ                           *
+***************************************************************/
+static void ToneCurveChangeMode(GtkWidget* combo, EXECUTE_TONE_CURVE* tone_curve)
+{
+	APPLICATION *app = tone_curve->layers[0]->window->app;
+	int index = gtk_combo_box_get_active(GTK_COMBO_BOX(tone_curve->color_select));
+
+	tone_curve->adjust_mode = (eCOLOR_ADJUST_MODE)gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+	gtk_list_store_clear(GTK_LIST_STORE(gtk_combo_box_get_model(GTK_COMBO_BOX(tone_curve->color_select))));
+	switch(tone_curve->adjust_mode)
+	{
+	case COLOR_ADJUST_MODE_LUMINOSITY:
+		tone_curve->filter_data->target_color = COLOR_LEVEL_ADUST_TARGET_LUMINOSITY;
+		gtk_widget_set_sensitive(tone_curve->color_select, FALSE);
+		break;
+	case COLOR_ADJUST_MODE_RGB:
+		tone_curve->filter_data->target_color = COLOR_LEVEL_ADUST_TARGET_RED;
+		tone_curve->color_index = index;
+		gtk_widget_set_sensitive(tone_curve->color_select, TRUE);
+#if GTK_MAJOR_VERSION <= 2
+		gtk_combo_box_append_text(GTK_COMBO_BOX(tone_curve->color_select), app->labels->unit.red);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(tone_curve->color_select), app->labels->unit.green);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(tone_curve->color_select), app->labels->unit.blue);
+#else
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.red);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.green);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.blue);
+#endif
+		gtk_combo_box_set_active(GTK_COMBO_BOX(tone_curve->color_select), 0);
+		break;
+	case COLOR_ADJUST_MODE_ALPHA:
+		tone_curve->filter_data->target_color = COLOR_LEVEL_ADUST_TARGET_ALPHA;
+		tone_curve->color_index = 0;
+		gtk_widget_set_sensitive(tone_curve->color_select, FALSE);
+	case COLOR_ADJUST_MODE_SATURATION:
+		tone_curve->filter_data->target_color = COLOR_LEVEL_ADUST_TARGET_SATURATION;
+		break;
+	case COLOR_ADJUST_MODE_CMYK:
+		tone_curve->filter_data->target_color = COLOR_LEVEL_ADUST_TARGET_CYAN;
+		tone_curve->color_index = index;
+		gtk_widget_set_sensitive(tone_curve->color_select, TRUE);
+#if GTK_MAJOR_VERSION <= 2
+		gtk_combo_box_append_text(GTK_COMBO_BOX(tone_curve->color_select), app->labels->unit.cyan);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(tone_curve->color_select), app->labels->unit.magenta);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(tone_curve->color_select), app->labels->unit.yellow);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(tone_curve->color_select), app->labels->unit.key_plate);
+#else
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.cyan);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.,magenta);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.yellow);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.key_plate);
+#endif
+		gtk_combo_box_set_active(GTK_COMBO_BOX(tone_curve->color_select), 0);
+		break;
+	}
+
+	UpdateToneCurve(tone_curve);
+}
+
+/*********************************************************
+* ToneCurveChangeTarget関数                              *
+* トーンカーブの補正対象色選択ウィジェットのコールバック *
+* 引数                                                   *
+* combo			: コンボボックスウィジェット             *
+* adjust_data	: フィルターのデータ                     *
+*********************************************************/
+static void ToneCurveChangeTarget(GtkWidget* combo, EXECUTE_TONE_CURVE* tone_curve)
+{
+	if(tone_curve->adjust_mode == COLOR_ADJUST_MODE_RGB
+		|| tone_curve->adjust_mode == COLOR_ADJUST_MODE_CMYK)
+	{
+		tone_curve->color_index = gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+	}
+
+	UpdateToneCurve(tone_curve);
+}
+
+/*****************************************************
+* ExecuteToneCurve関数                               *
+* トーンカーブフィルターを実行                       *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+void ExecuteToneCurve(APPLICATION* app)
+{
+	DRAW_WINDOW *canvas = GetActiveDrawWindow(app);
+	GtkWidget *dialog;
+	GtkWidget *vbox;
+	GtkWidget *hbox;
+	GtkWidget *drawing_area;
+	GtkWidget *label;
+	GtkWidget *control;
+	COLOR_HISTGRAM histgram;
+	EXECUTE_TONE_CURVE tone_curve = {0};
+	TONE_CURVE_FILTER_DATA filter_data = {0};
+	char buff[128];
+	int i;
+
+	if(canvas == NULL)
+	{
+		return;
+	}
+
+	tone_curve.filter_data = &filter_data;
+	tone_curve.moving_point = -1;
+	tone_curve.layers = GetLayerChain(canvas, &tone_curve.num_layer);
+	tone_curve.histgram = &histgram;
+	tone_curve.pixel_data = (uint8**)MEM_ALLOC_FUNC(sizeof(*tone_curve.pixel_data)*tone_curve.num_layer);
+	for(i=0; i<(int)tone_curve.num_layer; i++)
+	{
+		tone_curve.pixel_data[i] = (uint8*)MEM_ALLOC_FUNC(
+			tone_curve.layers[i]->width * tone_curve.layers[i]->height * 4);
+		(void)memcpy(tone_curve.pixel_data[i], tone_curve.layers[i]->pixels,
+			tone_curve.layers[i]->stride * tone_curve.layers[i]->height);
+	}
+	GetLayerColorHistgram(&histgram, canvas->active_layer);
+
+	dialog = gtk_dialog_new_with_buttons(
+		app->labels->menu.tone_curve,
+		GTK_WINDOW(app->window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		NULL
+	);
+	vbox = gtk_vbox_new(FALSE, 0);
+
+#if GTK_MAJOR_VERSION <= 2
+	tone_curve.color_select = gtk_combo_box_new_text();
+	control = gtk_combo_box_new_text();
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.brightness);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control), "RGB");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->layer_window.opacity);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.saturation);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(control), "CMYK");
+#else
+	tone_curve.color_select = gtk_combo_box_text_new();
+	control = gtk_combo_box_text_new();
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.brightness);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), "RGB");
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->layer_window.opacity);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.saturation);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), "CMYK");
+#endif
+	gtk_combo_box_set_active(GTK_COMBO_BOX(control), 0);
+
+	(void)sprintf(buff, "%s : ", app->labels->unit.mode);
+	label = gtk_label_new(buff);
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)g_signal_connect(G_OBJECT(control), "changed",
+		G_CALLBACK(ToneCurveChangeMode), &tone_curve);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), control, TRUE, FALSE, 0);
+
+	(void)sprintf(buff, "%s : ", app->labels->unit.target);
+	label = gtk_label_new(buff);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	(void)g_signal_connect(G_OBJECT(tone_curve.color_select), "changed",
+		G_CALLBACK(ToneCurveChangeTarget), &tone_curve);
+
+	gtk_widget_set_sensitive(tone_curve.color_select, FALSE);
+	gtk_box_pack_start(GTK_BOX(hbox), tone_curve.color_select, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	tone_curve.view = drawing_area = gtk_drawing_area_new();
+	gtk_widget_set_size_request(drawing_area, 256, 200);
+	gtk_widget_set_events(drawing_area,
+		GDK_EXPOSURE_MASK | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_SCROLL_MASK
+		| GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_HINT_MASK
+	);
+#if GTK_MAJOR_VERSION <= 2
+	(void)g_signal_connect(G_OBJECT(drawing_area), "expose_event",
+		G_CALLBACK(DisplayToneCurve), &tone_curve);
+#else
+	(void)g_signal_connect(G_OBJECT(drawing_area), "draw",
+		G_CALLBACK(DisplayToneCurve), &tone_curve);
+#endif
+	(void)g_signal_connect(G_OBJECT(drawing_area), "button_press_event",
+		G_CALLBACK(ToneCurveViewClicked), &tone_curve);
+	(void)g_signal_connect(G_OBJECT(drawing_area), "motion_notify_event",
+		G_CALLBACK(ToneCurveViewMotion), &tone_curve);
+	(void)g_signal_connect(G_OBJECT(drawing_area), "button_release_event",
+		G_CALLBACK(ToneCurveViewReleased), &tone_curve);
+	gtk_box_pack_start(GTK_BOX(vbox), drawing_area, TRUE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		vbox, TRUE, TRUE, 0);
+	gtk_widget_show_all(dialog);
+
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{	// O.K.ボタンが押された
+			// 一度、ピクセルデータを元に戻して
+		for(i=0; i<tone_curve.num_layer; i++)
+		{
+			(void)memcpy(canvas->temp_layer->pixels, tone_curve.layers[i]->pixels,
+				canvas->pixel_buf_size);
+			(void)memcpy(tone_curve.layers[i]->pixels, tone_curve.pixel_data[i], canvas->pixel_buf_size);
+			(void)memcpy(tone_curve.pixel_data[i], canvas->temp_layer->pixels, canvas->pixel_buf_size);
+		}
+
+		// 先に履歴データを残す
+		AddFilterHistory(app->labels->menu.color_levels, &filter_data, sizeof(filter_data),
+			FILTER_FUNC_COLOR_LEVEL_ADJUST, tone_curve.layers, tone_curve.num_layer, canvas);
+
+		// 色相・彩度・輝度調整実行後のデータに戻す
+		for(i=0; i<tone_curve.num_layer; i++)
+		{
+			(void)memcpy(tone_curve.layers[i]->pixels, tone_curve.pixel_data[i],
+				tone_curve.layers[i]->width * tone_curve.layers[i]->height * tone_curve.layers[i]->channel);
+		}
+	}
+	else
+	{
+		for(i=0; i<(int)tone_curve.num_layer; i++)
+		{
+			(void)memcpy(tone_curve.layers[i]->pixels,
+				tone_curve.pixel_data[i], tone_curve.layers[i]->stride * tone_curve.layers[i]->height);
+		}
+		if(tone_curve.layers[0] == canvas->active_layer)
+		{
+			canvas->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+		}
+		else
+		{
+			canvas->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+		}
+		gtk_widget_queue_draw(canvas->window);
+	}
+
+	for(i=0; i<(int)tone_curve.num_layer; i++)
+	{
+		MEM_FREE_FUNC(tone_curve.pixel_data[i]);
+	}
+	MEM_FREE_FUNC(tone_curve.pixel_data);
+	MEM_FREE_FUNC(tone_curve.layers);
+
+	gtk_widget_destroy(dialog);
+}
+
+/*************************************
+* ToneCurveFilter関数                *
+* トーンカーブ                       *
+* 引数                               *
+* window	: 描画領域の情報         *
+* layers	: 処理を行うレイヤー配列 *
+* num_layer	: 処理を行うレイヤーの数 *
+* data		: フィルターの設定データ *
+*************************************/
+void ToneCurveFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* data)
+{
+	TONE_CURVE_FILTER_DATA *filter_data = (TONE_CURVE_FILTER_DATA*)data;
+	COLOR_HISTGRAM histgram;
+	unsigned int i;
+
+	for(i=0; i<num_layer; i++)
+	{
+		if(layers[i]->layer_type == TYPE_NORMAL_LAYER)
+		{
+			GetLayerColorHistgram(&histgram, layers[i]);
+			AdoptToneCurveFilter(layers[i], &histgram, filter_data);
+		}
+	}
+
+	// キャンバスを更新
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	gtk_widget_queue_draw(window->window);
+}
+
+#undef MAX_POINTS
 
 /*************************************
 * Luminosity2OpacityFilter関数       *
@@ -5564,31 +8350,52 @@ void ExecuteFractal(APPLICATION* app)
 	gtk_widget_queue_draw(window->window);
 }
 
-filter_func g_filter_funcs[] =
+/*****************************************
+* SetFilterFunctions関数                 *
+* フィルター関数ポインタ配列の中身を設定 *
+* 引数                                   *
+* functions	: フィルター関数ポインタ配列 *
+*****************************************/
+void SetFilterFunctions(filter_func* functions)
 {
-	BlurFilter,
-	MotionBlurFilter,
-	ChangeBrightContrastFilter,
-	ChangeHueSaturationFilter,
-	Luminosity2OpacityFilter,
-	Color2AlphaFilter,
-	ColorizeWithUnderFilter,
-	GradationMapFilter,
-	FillWithVectorLineFilter,
-	PerlinNoiseFilter,
-	FractalFilter
-};
+	functions[FILTER_FUNC_BLUR] = BlurFilter;
+	functions[FILTER_FUNC_MOTION_BLUR] = MotionBlurFilter;
+	functions[FILTER_FUNC_GAUSSIAN_BLUR] = GaussianBlurFilter;
+	functions[FILTER_FUNC_BRIGHTNESS_CONTRAST] = ChangeBrightContrastFilter;
+	functions[FILTER_FUNC_HUE_SATURATION] = ChangeHueSaturationFilter;
+	functions[FILTER_FUNC_COLOR_LEVEL_ADJUST] = ColorLevelAdjustFilter;
+	functions[FILTER_FUNC_TONE_CURVE] = ToneCurveFilter;
+	functions[FILTER_FUNC_LUMINOSITY2OPACITY] = Luminosity2OpacityFilter;
+	functions[FILTER_FUNC_COLOR2ALPHA] = Color2AlphaFilter;
+	functions[FILTER_FUNC_COLORIZE_WITH_UNDER] = ColorizeWithUnderFilter;
+	functions[FILTER_FUNC_GRADATION_MAP] = GradationMapFilter;
+	functions[FILTER_FUNC_FILL_WITH_VECTOR] = FillWithVectorLineFilter;
+	functions[FILTER_FUNC_PERLIN_NOISE] = PerlinNoiseFilter;
+	functions[FILTER_FUNC_FRACTAL] = FractalFilter;
+}
 
-selection_filter_func g_selection_filter_funcs[] =
+/***********************************************************
+* SetSelectionFilterFunctions関数                          *
+* 選択範囲の編集中のフィルター関数ポインタ配列の中身を設定 *
+* 引数                                                     *
+* functions	: フィルター関数ポインタ配列                   *
+***********************************************************/
+void SetSelectionFilterFunctions(selection_filter_func* functions)
 {
-	SelectionBlurFilter,
-	SelectionMotionBlurFilter,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL
+	functions[FILTER_FUNC_BLUR] = SelectionBlurFilter,
+	functions[FILTER_FUNC_MOTION_BLUR] = SelectionMotionBlurFilter,
+	functions[FILTER_FUNC_GAUSSIAN_BLUR] = SelectionGaussianBlurFilter,
+	functions[FILTER_FUNC_BRIGHTNESS_CONTRAST] = NULL;
+	functions[FILTER_FUNC_HUE_SATURATION] = NULL;
+	functions[FILTER_FUNC_COLOR_LEVEL_ADJUST] = NULL;
+	functions[FILTER_FUNC_TONE_CURVE] = NULL;
+	functions[FILTER_FUNC_LUMINOSITY2OPACITY] = NULL;
+	functions[FILTER_FUNC_COLOR2ALPHA] = NULL;
+	functions[FILTER_FUNC_COLORIZE_WITH_UNDER] = NULL;
+	functions[FILTER_FUNC_GRADATION_MAP] = NULL;
+	functions[FILTER_FUNC_FILL_WITH_VECTOR] = NULL;
+	functions[FILTER_FUNC_PERLIN_NOISE] = NULL;
+	functions[FILTER_FUNC_FRACTAL] = NULL;
 };
 
 #ifdef __cplusplus

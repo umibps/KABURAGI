@@ -79,7 +79,7 @@ void LoadLabels(
 	length = IniFileGetString(file, "WINDOW", "MOVE_TOP_LEFT", temp_str, MAX_STR_SIZE);
 	labels->window.move_top_left = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "WINDOW", "HOT_KEY", temp_str, MAX_STR_SIZE);
-	labels->window.hot_ley = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	labels->window.hot_key = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "WINDOW", "LOADING", temp_str, MAX_STR_SIZE);
 	labels->window.loading = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "WINDOW", "SAVING", temp_str, MAX_STR_SIZE);
@@ -120,6 +120,22 @@ void LoadLabels(
 	labels->unit.straight = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "COMMON", "EXTEND", temp_str, MAX_STR_SIZE);
 	labels->unit.extend = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "MODE", temp_str, MAX_STR_SIZE);
+	labels->unit.mode = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "RED", temp_str, MAX_STR_SIZE);
+	labels->unit.red = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "GREEN", temp_str, MAX_STR_SIZE);
+	labels->unit.green = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "BLUE", temp_str, MAX_STR_SIZE);
+	labels->unit.blue = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "CYAN", temp_str, MAX_STR_SIZE);
+	labels->unit.cyan = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "MAGENTA", temp_str, MAX_STR_SIZE);
+	labels->unit.magenta = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "YELLOW", temp_str, MAX_STR_SIZE);
+	labels->unit.yellow = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "KEYPLATE", temp_str, MAX_STR_SIZE);
+	labels->unit.key_plate = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// メニューバー
 		// ファイルメニュー
@@ -267,6 +283,8 @@ void LoadLabels(
 	labels->menu.blur = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "MOTION_BLUR", temp_str, MAX_STR_SIZE);
 	labels->menu.motion_blur = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FILTERS", "GAUSSIAN_BLUR", temp_str, MAX_STR_SIZE);
+	labels->menu.gaussian_blur = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "STRAIGHT_RANDOM", temp_str, MAX_STR_SIZE);
 	labels->filter.straight_random = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "BIDIRECTION", temp_str, MAX_STR_SIZE);
@@ -275,6 +293,10 @@ void LoadLabels(
 	labels->menu.bright_contrast = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "HUE_SATURATION", temp_str, MAX_STR_SIZE);
 	labels->menu.hue_saturtion = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FILTERS", "LEVELS", temp_str, MAX_STR_SIZE);
+	labels->menu.color_levels = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FILTERS", "TONE_CURVE", temp_str, MAX_STR_SIZE);
+	labels->menu.tone_curve = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "LUMINOSITY_TO_OPACITY", temp_str, MAX_STR_SIZE);
 	labels->menu.luminosity2opacity = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "COLOR_TO_ALPHA", temp_str, MAX_STR_SIZE);
@@ -415,7 +437,7 @@ void LoadLabels(
 	labels->tool_box.num_children = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "START_CHILD_SIZE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.start_child_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
-	length = IniFileGetString(file, "TOOL_BOX", "EDN_CHILD_SIZE", temp_str, MAX_STR_SIZE);
+	length = IniFileGetString(file, "TOOL_BOX", "END_CHILD_SIZE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.end_child_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "REVERSE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.reverse = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);

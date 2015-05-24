@@ -339,7 +339,8 @@ int main(int argc, char** argv)
 			"Close Window", "Dock Left", "Dock Right", "Full Screen", "Reference Image Window",
 			"Move Top Left", "Hot Key", "Loading...", "Saving..."},
 		{"pixel", "Length", "Angle", "_BG", "Loop", "Preview", "Interval", "minute", "Detail", "Target",
-			"Clip Board", "Name", "Type", "Resolution", "Center", "Straight", "Grow"},
+			"Clip Board", "Name", "Type", "Resolution", "Center", "Straight", "Grow", "Mode", "Red", "Green", "Blue",
+			"Cyan", "Magenta", "Yellow", "Key Plate"},
 		{"File", "New", "Open", "Open As Layer", "Save", "Save as", "Close", "Quit", "Edit", "Undo", "Redo",
 			"Copy", "Copy Visible", "Cut", "Paste", "Clipboard", "Transform", "Projection", "Canvas",
 			"Change Resolution", "Change Canvas Size", "Flip Canvas Horizontally", "Flip Canvas Vertically",
@@ -349,9 +350,10 @@ int main(int argc, char** argv)
 			"_Visible to Layer", "Visible Copy", "Select", "None", "Invert", "All", "Grow", "Shrink", "View", "Zoom",
 			"Zoom _In", "Zoom _Out", "Actual Size", "Reverse Horizontally", "Rotate", "Reset Roatate",
 			"Display Filters", "Nothing", "Gray Scale", "Gray Scale (YIQ)", "Filters", "Blur", "Motion Blur",
-			"Brightness & Contrast", "Hue & Saturation", "Luminosity to Opacity", "Color to Alpha",
-			"Colorize with Under Layer", "Gradation Map", "Map with Detect Max Black Value", "Transparency as White",
-			"Fill with Vector", "Render", "Cloud", "Fractal", "Plug-in", "Script", "Help", "Version"
+			"Gaussian Blur", "Brightness & Contrast", "Hue & Saturation", "Levels", "Tone Curve",
+			"Luminosity to Opacity", "Color to Alpha", "Colorize with Under Layer", "Gradation Map",
+			"Map with Detect Max Black Value", "Transparency as White", "Fill with Vector", "Render", "Cloud",
+			"Fractal", "Plug-in", "Script", "Help", "Version"
 		},
 		{"New", "New Canvas", "Width", "Height", "2nd BG Color", "Adopt ICC Profile?"},
 		{"Tool Box", "Initialize", "New Brush", "Smooth", "Quality", "Rate", "Gaussian", "Average", "Magnification",

@@ -16,11 +16,24 @@
 #include "texture.h"
 #include "text_encode.h"
 #include "libguess/libguess.h"
+#include "system_depends.h"
 #include "memory.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+static void TexturePathBackSlash2Slash(char* path)
+{
+	while(*path != '\0')
+	{
+		if(*path == 0x5c)
+		{
+			*path = '/';
+		}
+		path = NextCharUTF8(path);
+	}
+}
 
 PMX_RENDER_ENGINE* PmxRenderEngineNew(
 	PROJECT* project_context,
@@ -199,6 +212,7 @@ static int PmxRenderEngineUploadMaterialsFromArchive(
 			if(data_pointer != NULL)
 			{
 				(void)sprintf(file_path, "%s%s", ARCHIVE_FILE_PATH_HEADER, texture_path);
+				TexturePathBackSlash2Slash(file_path);
 				if(FindTextureCache(file_path, &bridge, project) == FALSE)
 				{
 					pixels = DecodeImageData(texture_data + data_pointer->data_start, data_pointer->data_size,
@@ -225,6 +239,7 @@ static int PmxRenderEngineUploadMaterialsFromArchive(
 			if(data_pointer != NULL)
 			{
 				(void)sprintf(file_path, "%s%s", ARCHIVE_FILE_PATH_HEADER, texture_path);
+				TexturePathBackSlash2Slash(file_path);
 				if(FindTextureCache(file_path, &bridge, project) == FALSE)
 				{
 					pixels = DecodeImageData(texture_data + data_pointer->data_start, data_pointer->data_size,
@@ -271,6 +286,7 @@ static int PmxRenderEngineUploadMaterialsFromArchive(
 			if(data_pointer != NULL)
 			{
 				(void)sprintf(file_path, "%s%s", ARCHIVE_FILE_PATH_HEADER, texture_path);
+				TexturePathBackSlash2Slash(file_path);
 				if(FindTextureCache(file_path, &bridge, project) == FALSE)
 				{
 					pixels = DecodeImageData(texture_data + data_pointer->data_start, data_pointer->data_size,
@@ -295,6 +311,7 @@ static int PmxRenderEngineUploadMaterialsFromArchive(
 				(void)strcpy(file_path, engine->project_context->application_context->application_path);
 				(void)strcat(file_path, "/image/");
 				(void)strcat(file_path, texture_path);
+				TexturePathBackSlash2Slash(file_path);
 
 				if(UploadTexture(file_path, &bridge, engine->project_context) != FALSE)
 				{
@@ -359,6 +376,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			(void)strcpy(file_path, ((MODEL_INTERFACE*)engine->interface_data.model)->model_path);
 			(void)strcat(file_path, "/");
 			(void)strcat(file_path, texture_path);
+			TexturePathBackSlash2Slash(file_path);
 			if(UploadTexture(file_path, &bridge, engine->project_context) != FALSE)
 			{
 				t = bridge.texture;
@@ -375,6 +393,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			(void)strcpy(file_path, ((MODEL_INTERFACE*)engine->interface_data.model)->model_path);
 			(void)strcat(file_path, "/");
 			(void)strcat(file_path, texture_path);
+			TexturePathBackSlash2Slash(file_path);
 
 			if(UploadTexture(file_path, &bridge, engine->project_context) != FALSE)
 			{
@@ -412,6 +431,7 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			(void)strcpy(file_path, engine->interface_data.model->model_path);
 			(void)strcat(file_path, "/");
 			(void)strcat(file_path, texture_path);
+			TexturePathBackSlash2Slash(file_path);
 
 			if(UploadTexture(file_path, &bridge, engine->project_context) != FALSE)
 			{
@@ -1227,12 +1247,15 @@ int AssetModelSplitTexturePath(
 		*main_texture = (char*)MEM_ALLOC_FUNC(position+1);
 		(void)memcpy(*main_texture, path, position);
 		(*main_texture)[position] = '\0';
+		TexturePathBackSlash2Slash(*main_texture);
 		*sub_texture = MEM_STRDUP_FUNC(first_asterisk+1);
+		TexturePathBackSlash2Slash(*sub_texture);
 		return TRUE;
 	}
 	else
 	{
 		*main_texture = MEM_STRDUP_FUNC(path);
+		TexturePathBackSlash2Slash(*main_texture);
 		*sub_texture = MEM_ALLOC_FUNC(1);
 		(*sub_texture)[0] = '\0';
 	}

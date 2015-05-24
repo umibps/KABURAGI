@@ -53,6 +53,35 @@ typedef struct _CMYK16
 	uint16 k;
 } CMYK16;
 
+/************************************
+* COLOR_HISTGRAM構造体              *
+* RGBA、CMYK、HSVのヒストグラムの値 *
+************************************/
+typedef struct _COLOR_HISTGRAM
+{
+	unsigned int r[256];
+	uint8 r_min, r_max;
+	unsigned int g[256];
+	uint8 g_min, g_max;
+	unsigned int b[256];
+	uint8 b_min, b_max;
+	unsigned int a[256];
+	uint8 a_min, a_max;
+	unsigned int h[360];
+	unsigned int s[256];
+	uint8 s_min, s_max;
+	unsigned int v[256];
+	uint8 v_min, v_max;
+	unsigned int c[256];
+	uint8 c_min, c_max;
+	unsigned int m[256];
+	uint8 m_min, m_max;
+	unsigned int y[256];
+	uint8 y_min, y_max;
+	unsigned int k[256];
+	uint8 k_min, k_max;
+} COLOR_HISTGRAM;
+
 typedef enum _eCOLOR_CHOOSER_FLAGS
 {
 	COLOR_CHOOSER_MOVING_CIRCLE = 0x01,
@@ -114,6 +143,10 @@ EXTERN void HSV2RGB(
 	int32 height,
 	int32 channel
 );
+
+EXTERN void RGB2CMYK_Pixel(uint8 rgb[3], CMYK* cmyk);
+
+EXTERN void CMYK2RGB_Pixel(CMYK* cmyk, uint8 rgb[3]);
 
 EXTERN void DrawColorCircle(
 	COLOR_CHOOSER* chooser,

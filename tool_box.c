@@ -225,7 +225,7 @@ void ChangeCommonToolPreference(APPLICATION* app)
 	// Ý’è‚ð•ÏX‚·‚éƒuƒ‰ƒV
 	COMMON_TOOL_CORE *target = (COMMON_TOOL_CORE*)app->tool_window.copy_brush;
 	int x, y;
-	(void)sprintf(str, "%s : ", app->labels->window.hot_ley);
+	(void)sprintf(str, "%s : ", app->labels->window.hot_key);
 	label = gtk_label_new(str);
 	gtk_table_attach(GTK_TABLE(table), label, 0, 1, 0, 1,
 		GTK_FILL, GTK_FILL, 0, 0);
@@ -1141,7 +1141,7 @@ void ChangeBrushPreference(APPLICATION* app)
 	gtk_table_attach(GTK_TABLE(table), separator, 1, 3, 1, 2,
 		GTK_FILL, GTK_FILL, 0, 0);
 
-	(void)sprintf(str, "%s : ", app->labels->window.hot_ley);
+	(void)sprintf(str, "%s : ", app->labels->window.hot_key);
 	label = gtk_label_new(str);
 	gtk_table_attach(GTK_TABLE(table), label, 0, 1, 2, 3,
 		GTK_FILL, GTK_FILL, 0, 0);
@@ -1534,7 +1534,7 @@ void ChangeVectorBrushPreference(APPLICATION* app)
 	gtk_table_attach(GTK_TABLE(table), separator, 1, 3, 1, 2,
 		GTK_FILL, GTK_FILL, 0, 0);
 
-	(void)sprintf(str, "%s : ", app->labels->window.hot_ley);
+	(void)sprintf(str, "%s : ", app->labels->window.hot_key);
 	label = gtk_label_new(str);
 	gtk_table_attach(GTK_TABLE(table), label, 0, 1, 2, 3,
 		GTK_FILL, GTK_FILL, 0, 0);

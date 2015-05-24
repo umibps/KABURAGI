@@ -741,6 +741,24 @@ GtkWidget* GetMainMenu(
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
 
+	// 「レベル補正」
+	(void)sprintf(buff, "%s", app->labels->menu.color_levels);
+	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteColorLevelAdjust), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	app->menus.num_disable_if_no_open++;
+
+	// 「トーンカーブ」
+	(void)sprintf(buff, "%s", app->labels->menu.tone_curve);
+	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteToneCurve), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	app->menus.num_disable_if_no_open++;
+
 	// 「ぼかし」
 	(void)sprintf(buff, "%s", app->labels->menu.blur);
 	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
@@ -756,6 +774,15 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteMotionBlurFilter), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	app->menus.num_disable_if_no_open++;
+
+	// 「ガウシアンぼかし」
+	(void)sprintf(buff, "%s", app->labels->menu.gaussian_blur);
+	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteGaussianBlurFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
 

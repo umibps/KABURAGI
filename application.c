@@ -2101,6 +2101,10 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	SetPartLayerBlendFunctions(app->part_layer_blend_functions);
 	SetLayerBlendOperators(app->layer_blend_operators);
 
+	// フィルターの設定
+	SetFilterFunctions(app->filter_funcs);
+	SetSelectionFilterFunctions(app->selection_filter_funcs);
+
 	// 吹き出し描画の設定
 	SetTextLayerDrawBalloonFunctions(app->draw_balloon_functions);
 
