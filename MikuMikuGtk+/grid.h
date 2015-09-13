@@ -35,6 +35,7 @@ typedef struct _GRID
 	uint8 axis_x_color[3];
 	uint8 axis_y_color[3];
 	uint8 axis_z_color[3];
+	int num_lines;
 	int num_indices;
 
 	unsigned int flags;
@@ -61,6 +62,8 @@ extern void LoadGrid(GRID* grid, void* project_context);
 extern void GridBindVertexBundle(GRID* grid, int bundle);
 
 extern void GridReleaseVertexBundle(GRID* grid, int bundle);
+
+extern void GridChangeLineColor(GRID* grid, uint8* new_color);
 
 #ifdef __cplusplus
 }

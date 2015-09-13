@@ -1,3 +1,10 @@
+// Visual Studio 2005以降では古いとされる関数を使用するので
+	// 警告が出ないようにする
+#if defined _MSC_VER && _MSC_VER >= 1400
+# define _CRT_SECURE_NO_DEPRECATE
+# define _CRT_NONSTDC_NO_DEPRECATE
+#endif
+
 #include <string.h>
 #include <math.h>
 #include <zlib.h>
@@ -9,6 +16,10 @@
 #include "bezier.h"
 #include "anti_alias.h"
 #include "memory_stream.h"
+#include "lua/lua.h"
+#include "lua/lualib.h"
+#include "lua/lauxlib.h"
+#include "LuaCairo/lcairo.h"
 #include "memory.h"
 
 #ifdef __cplusplus
@@ -55,6 +66,12 @@ VECTOR_LINE_LAYER* CreateVectorLineLayer(
 	ret->height = height;
 	ret->stride = width*4;
 	ret->pixels = (uint8*)MEM_ALLOC_FUNC(height*ret->stride);
+
+	if(ret->pixels == NULL)
+	{
+		MEM_FREE_FUNC(ret);
+		return NULL;
+	}
 
 	for(i=0; i<height; i++)
 	{
@@ -566,6 +583,327 @@ void StrokeStraightCloseLine(
 	} while(dx >= half_r);
 }
 
+void RasterizeVectorSquare(
+	DRAW_WINDOW* window,
+	VECTOR_SQUARE* square,
+	VECTOR_LAYER_RECTANGLE* rectangle
+)
+{
+	cairo_t *cairo_p = cairo_create(window->work_layer->surface_p);
+	FLOAT_T sin_value = sin(square->rotate);
+	FLOAT_T cos_value = cos(square->rotate);
+
+	(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
+	cairo_translate(cairo_p, square->left + square->width * 0.5, square->top + square->height * 0.5);
+	cairo_rotate(cairo_p, square->rotate);
+	cairo_translate(cairo_p, - square->width * 0.5, - square->height * 0.5);
+	cairo_set_line_width(cairo_p, square->line_width);
+	cairo_set_line_join(cairo_p, (cairo_line_join_t)square->line_joint);
+	cairo_rectangle(cairo_p, 0,
+		0, square->width, square->height);
+	cairo_path_extents(cairo_p, &rectangle->min_x, &rectangle->min_y,
+		&rectangle->max_x, &rectangle->max_y);
+
+	rectangle->min_x += square->left - square->line_width;
+	rectangle->max_x += square->left + square->line_width;
+	rectangle->min_y += square->top - square->line_width;
+	rectangle->max_y += square->top + square->line_width;
+
+	if(square->line_color[3] > 0)
+	{
+		cairo_set_source_rgba(cairo_p,
+#if 0 //defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+			square->line_color[2] * DIV_PIXEL, square->line_color[1] * DIV_PIXEL, square->line_color[0] * DIV_PIXEL,
+#else
+			square->line_color[0] * DIV_PIXEL, square->line_color[1] * DIV_PIXEL, square->line_color[2] * DIV_PIXEL,
+#endif
+				square->line_color[3] * DIV_PIXEL
+		);
+		cairo_stroke_preserve(cairo_p);
+	}
+	if(square->fill_color[3] > 0)
+	{
+		cairo_set_source_rgba(cairo_p,
+#if 0//defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+			square->fill_color[2] * DIV_PIXEL, square->fill_color[1] * DIV_PIXEL, square->fill_color[0] * DIV_PIXEL,
+#else
+			square->fill_color[0] * DIV_PIXEL, square->fill_color[1] * DIV_PIXEL, square->fill_color[2] * DIV_PIXEL,
+#endif
+				square->fill_color[3] * DIV_PIXEL
+		);
+		cairo_fill(cairo_p);
+	}
+
+	cairo_destroy(cairo_p);
+}
+
+void RasterizeVectorRhombus(
+	DRAW_WINDOW* window,
+	VECTOR_ECLIPSE* rhombus,
+	VECTOR_LAYER_RECTANGLE* rectangle
+)
+{
+	cairo_t *cairo_p = cairo_create(window->work_layer->surface_p);
+	double x_scale;
+	double y_scale;
+	double width, height;
+	double sin_value = sin(- rhombus->rotate);
+	double cos_value = cos(- rhombus->rotate);
+
+	if(rhombus->ratio > 1.0)
+	{
+		x_scale = rhombus->ratio;
+		y_scale = 1;
+	}
+	else
+	{
+		x_scale = 1;
+		y_scale = 1.0 / rhombus->ratio;
+	}
+
+	width = rhombus->radius * x_scale;
+	height = rhombus->radius * y_scale;
+
+	(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
+
+	cairo_set_line_width(cairo_p, rhombus->line_width);
+	cairo_set_line_join(cairo_p, (cairo_line_join_t)rhombus->line_joint);
+	cairo_move_to(cairo_p, rhombus->x - sin_value * height, rhombus->y - cos_value * height);
+	cairo_line_to(cairo_p, rhombus->x - cos_value * width, rhombus->y + sin_value * width);
+	cairo_line_to(cairo_p, rhombus->x + sin_value * height, rhombus->y + cos_value * height);
+	cairo_line_to(cairo_p, rhombus->x + cos_value * width, rhombus->y - sin_value * width);
+	cairo_close_path(cairo_p);
+	cairo_path_extents(cairo_p, &rectangle->min_x, &rectangle->min_y,
+		&rectangle->max_x, &rectangle->max_y);
+
+	rectangle->min_x += - rhombus->radius * x_scale - rhombus->line_width;
+	rectangle->max_x += rhombus->radius * x_scale + rhombus->line_width;
+	rectangle->min_y += - rhombus->radius * y_scale - rhombus->line_width;
+	rectangle->max_y += rhombus->radius * y_scale + rhombus->line_width;
+
+	if(rhombus->line_color[3] > 0)
+	{
+		cairo_set_source_rgba(cairo_p,
+#if 0 //defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+			rhombus->line_color[2] * DIV_PIXEL, rhombus->line_color[1] * DIV_PIXEL, rhombus->line_color[0] * DIV_PIXEL,
+#else
+			rhombus->line_color[0] * DIV_PIXEL, rhombus->line_color[1] * DIV_PIXEL, rhombus->line_color[2] * DIV_PIXEL,
+#endif
+				rhombus->line_color[3] * DIV_PIXEL
+		);
+		cairo_stroke_preserve(cairo_p);
+	}
+	if(rhombus->fill_color[3] > 0)
+	{
+		cairo_set_source_rgba(cairo_p,
+#if 0 //defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+			rhombus->fill_color[2] * DIV_PIXEL, rhombus->fill_color[1] * DIV_PIXEL, rhombus->fill_color[0] * DIV_PIXEL,
+#else
+			rhombus->fill_color[0] * DIV_PIXEL, rhombus->fill_color[1] * DIV_PIXEL, rhombus->fill_color[2] * DIV_PIXEL,
+#endif
+				rhombus->fill_color[3] * DIV_PIXEL
+		);
+		cairo_fill(cairo_p);
+	}
+
+	cairo_destroy(cairo_p);
+}
+
+void RasterizeVectorEclipse(
+	DRAW_WINDOW* window,
+	VECTOR_ECLIPSE* eclipse,
+	VECTOR_LAYER_RECTANGLE* rectangle
+)
+{
+	cairo_t *cairo_p = cairo_create(window->work_layer->surface_p);
+	double x_scale;
+	double y_scale;
+	double sin_value = sin(eclipse->rotate);
+	double cos_value = cos(eclipse->rotate);
+
+	if(eclipse->radius < 0.01)
+	{
+		return;
+	}
+
+	if(eclipse->ratio > 1.0)
+	{
+		x_scale = eclipse->ratio;
+		y_scale = 1;
+	}
+	else
+	{
+		x_scale = 1;
+		y_scale = 1.0 / eclipse->ratio;
+	}
+
+	(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
+	cairo_translate(cairo_p, eclipse->x + eclipse->radius, eclipse->y + eclipse->radius);
+	cairo_rotate(cairo_p, eclipse->rotate);
+	cairo_translate(cairo_p, - eclipse->radius, - eclipse->radius);
+
+	cairo_save(cairo_p);
+	cairo_scale(cairo_p, x_scale, y_scale);
+	cairo_arc(cairo_p, (1 - cos_value - sin_value) * eclipse->radius / x_scale,
+		(1 - cos_value + sin_value) * eclipse->radius / y_scale, eclipse->radius, 0, 2 * G_PI);
+	cairo_close_path(cairo_p);
+	cairo_path_extents(cairo_p, &rectangle->min_x, &rectangle->min_y,
+		&rectangle->max_x, &rectangle->max_y);
+
+	rectangle->min_x += eclipse->x - eclipse->radius * x_scale - eclipse->line_width;
+	rectangle->max_x += eclipse->x + eclipse->radius * x_scale + eclipse->line_width;
+	rectangle->min_y += eclipse->y - eclipse->radius * y_scale - eclipse->line_width;
+	rectangle->max_y += eclipse->y + eclipse->radius * y_scale + eclipse->line_width;
+
+	if(eclipse->fill_color[3] > 0)
+	{
+		cairo_set_source_rgba(cairo_p,
+#if 0 //defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+			eclipse->fill_color[2] * DIV_PIXEL, eclipse->fill_color[1] * DIV_PIXEL, eclipse->fill_color[0] * DIV_PIXEL,
+#else
+			eclipse->fill_color[0] * DIV_PIXEL, eclipse->fill_color[1] * DIV_PIXEL, eclipse->fill_color[2] * DIV_PIXEL,
+#endif
+				eclipse->fill_color[3] * DIV_PIXEL
+		);
+		cairo_fill_preserve(cairo_p);
+	}
+	cairo_restore(cairo_p);
+	cairo_set_line_width(cairo_p, eclipse->line_width);
+	cairo_set_line_join(cairo_p, (cairo_line_join_t)eclipse->line_joint);
+	if(eclipse->line_color[3] > 0)
+	{
+		cairo_set_source_rgba(cairo_p,
+#if 0 //defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+			eclipse->line_color[2] * DIV_PIXEL, eclipse->line_color[1] * DIV_PIXEL, eclipse->line_color[0] * DIV_PIXEL,
+#else
+			eclipse->line_color[0] * DIV_PIXEL, eclipse->line_color[1] * DIV_PIXEL, eclipse->line_color[2] * DIV_PIXEL,
+#endif
+				eclipse->line_color[3] * DIV_PIXEL
+		);
+		cairo_stroke(cairo_p);
+	}
+
+	cairo_destroy(cairo_p);
+}
+
+void RasterizeVectorScript(
+	DRAW_WINDOW* window,
+	VECTOR_SCRIPT* script,
+	VECTOR_LAYER_RECTANGLE* rectangle
+)
+{
+	struct lua_State *state;
+	cairo_t *cairo_p;
+	int result;
+	int x, y;
+
+	if(script->script_data == NULL
+		|| (window->flags & DRAW_WINDOW_IN_RASTERIZING_VECTOR_SCRIPT) != 0)
+	{
+		return;
+	}
+
+	window->flags |= DRAW_WINDOW_IN_RASTERIZING_VECTOR_SCRIPT;
+
+	state = luaL_newstate();
+	luaL_openlibs(state);
+	(void)luaopen_lcairo(state);
+
+	cairo_p = cairo_create(window->work_layer->surface_p);
+	lua_pushlightuserdata(state, cairo_p);
+	lua_setglobal(state, "cr");
+
+	lua_pushnumber(state, G_PI);
+	lua_setglobal(state, "PI");
+
+	(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
+
+	if(luaL_loadstring(state, script->script_data) != 0)
+	{
+		GtkWidget *dialog;
+		char message[8192];
+		(void)sprintf(message, "Failed to rasterize script vector.\n%s",
+			lua_tostring(state, -1));
+		dialog = gtk_message_dialog_new(
+			GTK_WINDOW(window->app->window), GTK_DIALOG_MODAL,
+				GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, message);
+		gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
+		gtk_widget_show_all(dialog);
+		(void)gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+		rectangle->min_x = rectangle->max_x = rectangle->min_y = rectangle->max_y = 0;
+		lua_close(state);
+		cairo_destroy(cairo_p);
+		window->flags &= ~(DRAW_WINDOW_IN_RASTERIZING_VECTOR_SCRIPT);
+		return;
+	}
+
+	result = lua_pcall(state, 0, 0, 0);
+	if(result == 0)
+	{
+		lua_getglobal(state, "main");
+		if(lua_isfunction(state, -1) != 0)
+		{
+			result = lua_pcall(state, 0, LUA_MULTRET, 0);
+		}
+	}
+
+	if(result != 0)
+	{
+		GtkWidget *dialog;
+		char message[8192];
+		(void)sprintf(message, "Failed to rasterize script vector.\n%s",
+			lua_tostring(state, -1));
+		dialog = gtk_message_dialog_new(
+			GTK_WINDOW(window->app->window), GTK_DIALOG_MODAL,
+				GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, message);
+		gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
+		gtk_widget_show_all(dialog);
+		(void)gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+		rectangle->min_x = rectangle->max_x = rectangle->min_y = rectangle->max_y = 0;
+		lua_close(state);
+		cairo_destroy(cairo_p);
+		window->flags &= ~(DRAW_WINDOW_IN_RASTERIZING_VECTOR_SCRIPT);
+		return;
+	}
+
+	cairo_destroy(cairo_p);
+	lua_close(state);
+
+	rectangle->min_x = window->width;
+	rectangle->min_y = window->height;
+	rectangle->max_x = 0;
+	rectangle->max_y = 0;
+	for(y=0; y<window->height; y++)
+	{
+		for(x=0; x<window->width; x++)
+		{
+			if(window->work_layer->pixels[y*window->stride+x*4+3] > 0)
+			{
+				if(rectangle->max_x < x)
+				{
+					rectangle->max_x = x;
+				}
+				if(rectangle->min_x > x)
+				{
+					rectangle->min_x = 0;
+				}
+				if(rectangle->max_y < y)
+				{
+					rectangle->max_y = y;
+				}
+				if(rectangle->min_y > y)
+				{
+					rectangle->min_y = y;
+				}
+			}
+		}
+	}
+
+	window->flags &= ~(DRAW_WINDOW_IN_RASTERIZING_VECTOR_SCRIPT);
+}
+
 void RasterizeVectorLine(
 	DRAW_WINDOW* window,
 	VECTOR_LAYER* layer,
@@ -573,12 +911,12 @@ void RasterizeVectorLine(
 	VECTOR_LAYER_RECTANGLE* rect
 )
 {
-	switch(line->vector_type)
+	switch(line->base_data.vector_type)
 	{
-	case VECTOR_LINE_STRAIGHT:
+	case VECTOR_TYPE_STRAIGHT:
 		StrokeStraightLine(window, line, rect);
 		break;
-	case VECTOR_LINE_BEZIER_OPEN:
+	case VECTOR_TYPE_BEZIER_OPEN:
 		if(line->num_points < 3)
 		{
 			StrokeStraightLine(window, line, rect);
@@ -588,7 +926,7 @@ void RasterizeVectorLine(
 			StrokeBezierLine(window, line, rect);
 		}
 		break;
-	case VECTOR_LINE_STRAIGHT_CLOSE:
+	case VECTOR_TYPE_STRAIGHT_CLOSE:
 		if(line->num_points < 3)
 		{
 			StrokeStraightLine(window, line, rect);
@@ -598,7 +936,7 @@ void RasterizeVectorLine(
 			StrokeStraightCloseLine(window, line, rect);
 		}
 		break;
-	case VECTOR_LINE_BEZIER_CLOSE:
+	case VECTOR_TYPE_BEZIER_CLOSE:
 		if(line->num_points < 3)
 		{
 			StrokeStraightLine(window, line, rect);
@@ -608,19 +946,116 @@ void RasterizeVectorLine(
 			StrokeBezierLineClose(window, line, rect);
 		}
 		break;
+	case VECTOR_TYPE_SQUARE:
+		RasterizeVectorSquare(window, (VECTOR_SQUARE*)line, rect);
+		break;
+	case VECTOR_TYPE_ECLIPSE:
+		RasterizeVectorEclipse(window, (VECTOR_ECLIPSE*)line, rect);
+		break;
 	}
 
-	if((line->flags & VECTOR_LINE_ANTI_ALIAS) != 0)
+	if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 	{
-		ANTI_ALIAS_RECTANGLE range;
+		if((line->flags & VECTOR_LINE_ANTI_ALIAS) != 0)
+		{
+			ANTI_ALIAS_RECTANGLE range;
 
-		range.x = (int)rect->min_x;
-		range.y = (int)rect->min_y;
-		range.width = (int)(rect->max_x - rect->min_x) + 1;
-		range.height = (int)(rect->max_y - rect->min_y) + 1;
+			range.x = (int)rect->min_x;
+			range.y = (int)rect->min_y;
+			range.width = (int)(rect->max_x - rect->min_x) + 1;
+			range.height = (int)(rect->max_y - rect->min_y) + 1;
 
-		AntiAliasVectorLine(window->work_layer, window->temp_layer, &range);
+			AntiAliasVectorLine(window->work_layer, window->temp_layer, &range);
+		}
 	}
+}
+
+void ReadVectorShapeData(VECTOR_DATA* data, MEMORY_STREAM* stream)
+{
+	uint8 vector_type;
+
+	(void)MemRead(&vector_type, sizeof(vector_type), 1, stream);
+
+	if(vector_type == VECTOR_TYPE_SQUARE)
+	{
+		data->square.base_data.vector_type = vector_type;
+		(void)MemRead(&data->square.flags, sizeof(data->square.flags), 1, stream);
+		(void)MemRead(&data->square.line_joint, sizeof(data->square.line_joint), 1, stream);
+		(void)MemRead(&data->square.left, sizeof(data->square.left), 1, stream);
+		(void)MemRead(&data->square.top, sizeof(data->square.top), 1, stream);
+		(void)MemRead(&data->square.width, sizeof(data->square.width), 1, stream);
+		(void)MemRead(&data->square.height, sizeof(data->square.height), 1, stream);
+		(void)MemRead(&data->square.rotate, sizeof(data->square.rotate), 1, stream);
+		(void)MemRead(&data->square.line_width, sizeof(data->square.line_width), 1, stream);
+		(void)MemRead(data->square.line_color, sizeof(data->square.line_color), 1, stream);
+		(void)MemRead(data->square.fill_color, sizeof(data->square.fill_color), 1, stream);
+	}
+	else if(vector_type == VECTOR_TYPE_RHOMBUS
+		|| vector_type == VECTOR_TYPE_ECLIPSE)
+	{
+		data->eclipse.base_data.vector_type = vector_type;
+		(void)MemRead(&data->eclipse.flags, sizeof(data->eclipse.flags), 1, stream);
+		(void)MemRead(&data->eclipse.line_joint, sizeof(data->eclipse.line_joint), 1, stream);
+		(void)MemRead(&data->eclipse.x, sizeof(data->eclipse.x), 1, stream);
+		(void)MemRead(&data->eclipse.y, sizeof(data->eclipse.y), 1, stream);
+		(void)MemRead(&data->eclipse.radius, sizeof(data->eclipse.radius), 1, stream);
+		(void)MemRead(&data->eclipse.ratio, sizeof(data->eclipse.ratio), 1, stream);
+		(void)MemRead(&data->eclipse.rotate, sizeof(data->eclipse.rotate), 1, stream);
+		(void)MemRead(&data->eclipse.line_width, sizeof(data->eclipse.line_width), 1, stream);
+		(void)MemRead(data->eclipse.line_color, sizeof(data->eclipse.line_color), 1, stream);
+		(void)MemRead(data->eclipse.fill_color, sizeof(data->eclipse.fill_color), 1, stream);
+	}
+}
+
+void WriteVectorShapeData(VECTOR_DATA* data, MEMORY_STREAM* stream)
+{
+	switch(data->line.base_data.vector_type)
+	{
+	case VECTOR_TYPE_SQUARE:
+		(void)MemWrite(&data->square.base_data.vector_type, sizeof(data->square.base_data.vector_type), 1, stream);
+		(void)MemWrite(&data->square.flags, sizeof(data->square.flags), 1, stream);
+		(void)MemWrite(&data->square.line_joint, sizeof(data->square.line_joint), 1, stream);
+		(void)MemWrite(&data->square.left, sizeof(data->square.left), 1, stream);
+		(void)MemWrite(&data->square.top, sizeof(data->square.top), 1, stream);
+		(void)MemWrite(&data->square.width, sizeof(data->square.width), 1, stream);
+		(void)MemWrite(&data->square.height, sizeof(data->square.height), 1, stream);
+		(void)MemWrite(&data->square.rotate, sizeof(data->square.rotate), 1, stream);
+		(void)MemWrite(&data->square.line_width, sizeof(data->square.line_width), 1, stream);
+		(void)MemWrite(data->square.line_color, sizeof(data->square.line_color), 1, stream);
+		(void)MemWrite(data->square.fill_color, sizeof(data->square.fill_color), 1, stream);
+		break;
+	case VECTOR_TYPE_RHOMBUS:
+	case VECTOR_TYPE_ECLIPSE:
+		(void)MemWrite(&data->eclipse.base_data.vector_type, sizeof(data->square.base_data.vector_type), 1, stream);
+		(void)MemWrite(&data->eclipse.flags, sizeof(data->eclipse.flags), 1, stream);
+		(void)MemWrite(&data->eclipse.line_joint, sizeof(data->eclipse.line_joint), 1, stream);
+		(void)MemWrite(&data->eclipse.x, sizeof(data->eclipse.x), 1, stream);
+		(void)MemWrite(&data->eclipse.y, sizeof(data->eclipse.y), 1, stream);
+		(void)MemWrite(&data->eclipse.radius, sizeof(data->eclipse.radius), 1, stream);
+		(void)MemWrite(&data->eclipse.ratio, sizeof(data->eclipse.ratio), 1, stream);
+		(void)MemWrite(&data->eclipse.rotate, sizeof(data->eclipse.rotate), 1, stream);
+		(void)MemWrite(&data->eclipse.line_width, sizeof(data->eclipse.line_width), 1, stream);
+		(void)MemWrite(data->eclipse.line_color, sizeof(data->eclipse.line_color), 1, stream);
+		(void)MemWrite(data->eclipse.fill_color, sizeof(data->eclipse.fill_color), 1, stream);
+		break;
+	}
+}
+
+void ReadVectorScriptData(VECTOR_SCRIPT* script, MEMORY_STREAM* stream)
+{
+	guint32 length;
+	(void)MemRead(&script->base_data.vector_type, sizeof(script->base_data.vector_type), 1, stream);
+	(void)MemRead(&length, sizeof(length), 1, stream);
+	script->script_data = (char*)MEM_ALLOC_FUNC(length);
+	(void)MemRead(script->script_data, 1, length, stream);
+}
+
+void WriteVectorScriptData(VECTOR_SCRIPT* script, MEMORY_STREAM* stream)
+{
+	guint32 length = (guint32)strlen(script->script_data);
+	(void)MemWrite(&script->base_data.vector_type, sizeof(script->base_data.vector_type), 1, stream);
+	(void)MemWrite(&length, sizeof(length), 1, stream);
+	(void)MemWrite(script->script_data, 1, length, stream);
 }
 
 void BlendVectorLineLayer(VECTOR_LINE_LAYER* src, VECTOR_LINE_LAYER* dst)
@@ -636,31 +1071,35 @@ VECTOR_LINE* CreateVectorLine(VECTOR_LINE* prev, VECTOR_LINE* next)
 
 	if(prev != NULL)
 	{
-		prev->next = ret;
+		prev->base_data.next = (void*)ret;
 	}
 	if(next != NULL)
 	{
-		next->prev = ret;
+		next->base_data.prev = (void*)ret;
 	}
-	ret->prev = prev;
-	ret->next = next;
+	ret->base_data.prev = (void*)prev;
+	ret->base_data.next = (void*)next;
 
 	return ret;
 }
 
 void DeleteVectorLine(VECTOR_LINE** line)
 {
-	if((*line)->prev != NULL)
+	if((*line)->base_data.prev != NULL)
 	{
-		(*line)->prev->next = (*line)->next;
+		((VECTOR_BASE_DATA*)(*line)->base_data.prev)->next = (*line)->base_data.next;
 	}
-	if((*line)->next != NULL)
+	if((*line)->base_data.next != NULL)
 	{
-		(*line)->next->prev = (*line)->prev;
+		((VECTOR_BASE_DATA*)(*line)->base_data.next)->prev = (*line)->base_data.prev;
 	}
 
-	DeleteVectorLineLayer(&(*line)->layer);
-	MEM_FREE_FUNC((*line)->points);
+	DeleteVectorLineLayer(&(*line)->base_data.layer);
+
+	if((*line)->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+	{
+		MEM_FREE_FUNC((*line)->points);
+	}
 	MEM_FREE_FUNC(*line);
 
 	*line = NULL;
@@ -669,16 +1108,124 @@ void DeleteVectorLine(VECTOR_LINE** line)
 void DeleteVectorLayer(VECTOR_LAYER** layer)
 {
 	VECTOR_LINE* delete_line, *next_delete;
-	delete_line = (*layer)->base;
+	delete_line = (VECTOR_LINE*)((*layer)->base);
 
 	while(delete_line != NULL)
 	{
-		next_delete = delete_line->next;
+		next_delete = (VECTOR_LINE*)delete_line->base_data.next;
 
-		DeleteVectorLine(&delete_line);
+		if(delete_line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+		{
+			DeleteVectorLine(&delete_line);
+		}
+		else if(delete_line->base_data.vector_type < VECTOR_SHAPE_END)
+		{
+			DeleteVectorShape((VECTOR_BASE_DATA**)&delete_line);
+		}
+		else
+		{
+			DeleteVectorScript((VECTOR_SCRIPT**)&delete_line);
+		}
 
 		delete_line = next_delete;
 	}
+}
+
+VECTOR_DATA* CreateVectorShape(VECTOR_BASE_DATA* prev, VECTOR_BASE_DATA* next, uint8 vector_type)
+{
+	VECTOR_DATA* ret;
+
+	switch(vector_type)
+	{
+	case VECTOR_TYPE_SQUARE:
+		ret = (VECTOR_DATA*)MEM_ALLOC_FUNC(sizeof(VECTOR_SQUARE));
+		(void)memset(ret, 0, sizeof(VECTOR_SQUARE));
+		break;
+	case VECTOR_TYPE_RHOMBUS:
+	case VECTOR_TYPE_ECLIPSE:
+		ret = (VECTOR_DATA*)MEM_ALLOC_FUNC(sizeof(VECTOR_ECLIPSE));
+		(void)memset(ret, 0, sizeof(VECTOR_ECLIPSE));
+		break;
+	default:
+		return NULL;
+	}
+
+	if(prev != NULL)
+	{
+		prev->next = (void*)ret;
+	}
+	if(next != NULL)
+	{
+		next->prev = (void*)ret;
+	}
+
+	((VECTOR_BASE_DATA*)ret)->vector_type = vector_type;
+	ret->line.base_data.prev = (void*)prev;
+	ret->line.base_data.next = (void*)next;
+
+	return ret;
+}
+
+VECTOR_DATA* CreateVectorScript(VECTOR_BASE_DATA* prev, VECTOR_BASE_DATA* next, const char* script)
+{
+	VECTOR_SCRIPT *ret = (VECTOR_SCRIPT*)MEM_ALLOC_FUNC(sizeof(*ret));
+	(void)memset(ret, 0, sizeof(*ret));
+
+	if(script != NULL)
+	{
+		ret->script_data = MEM_STRDUP_FUNC(script);
+	}
+
+	if(prev != NULL)
+	{
+		prev->next = (void*)ret;
+	}
+	if(next != NULL)
+	{
+		next->prev = (void*)ret;
+	}
+	ret->base_data.vector_type = VECTOR_TYPE_SCRIPT;
+	ret->base_data.prev = (void*)prev;
+	ret->base_data.next = (void*)next;
+
+	return (VECTOR_DATA*)ret;
+}
+
+void DeleteVectorShape(VECTOR_BASE_DATA** shape)
+{
+	if((*shape)->prev != NULL)
+	{
+		((VECTOR_BASE_DATA*)(*shape)->prev)->next = (*shape)->next;
+	}
+	if((*shape)->next != NULL)
+	{
+		((VECTOR_BASE_DATA*)(*shape)->next)->prev = (*shape)->prev;
+	}
+
+	DeleteVectorLineLayer(&(*shape)->layer);
+
+	MEM_FREE_FUNC(*shape);
+
+	*shape = NULL;
+}
+
+void DeleteVectorScript(VECTOR_SCRIPT** script)
+{
+	if((*script)->base_data.prev != NULL)
+	{
+		((VECTOR_BASE_DATA*)(*script)->base_data.prev)->next = (*script)->base_data.next;
+	}
+	if((*script)->base_data.next != NULL)
+	{
+		((VECTOR_BASE_DATA*)(*script)->base_data.next)->prev = (*script)->base_data.prev;
+	}
+
+	DeleteVectorLineLayer(&(*script)->base_data.layer);
+
+	MEM_FREE_FUNC((*script)->script_data);
+	MEM_FREE_FUNC(*script);
+
+	*script = NULL;
 }
 
 void RasterizeVectorLayer(
@@ -692,62 +1239,100 @@ void RasterizeVectorLayer(
 	cairo_set_operator(window->temp_layer->cairo_p, CAIRO_OPERATOR_OVER);
 
 	if((layer->flags & VECTOR_LAYER_RASTERIZE_TOP) != 0
-		&& layer->top_line != NULL && layer->top_line != layer->base)
+		&& layer->top_data != NULL && layer->top_data != layer->base)
 	{
 		(void)memcpy(target->pixels, layer->mix->pixels, window->pixel_buf_size);
 		(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
 
-		RasterizeVectorLine(window, layer, layer->top_line, &rect);
+		if(((VECTOR_BASE_DATA*)layer->top_data)->vector_type < NUM_VECTOR_LINE_TYPE)
+		{
+			RasterizeVectorLine(window, layer, (VECTOR_LINE*)layer->top_data, &rect);
+		}
+		else if(((VECTOR_BASE_DATA*)layer->top_data)->vector_type == VECTOR_TYPE_SQUARE)
+		{
+			RasterizeVectorSquare(window, (VECTOR_SQUARE*)layer->top_data, &rect);
+		}
+		else if(((VECTOR_BASE_DATA*)layer->top_data)->vector_type == VECTOR_TYPE_RHOMBUS)
+		{
+			RasterizeVectorRhombus(window, (VECTOR_ECLIPSE*)layer->top_data, &rect);
+		}
+		else if(((VECTOR_BASE_DATA*)layer->top_data)->vector_type == VECTOR_TYPE_ECLIPSE)
+		{
+			RasterizeVectorEclipse(window, (VECTOR_ECLIPSE*)layer->top_data, &rect);
+		}
+		else
+		{
+			RasterizeVectorScript(window, (VECTOR_SCRIPT*)layer->top_data, &rect);
+		}
 
 		window->layer_blend_functions[LAYER_BLEND_NORMAL](window->work_layer, window->active_layer);
 
 		if((layer->flags & VECTOR_LAYER_FIX_LINE) != 0)
 		{
-			layer->top_line->layer = CreateVectorLineLayer(window->work_layer, layer->top_line, &rect);
+			((VECTOR_BASE_DATA*)layer->top_data)->layer = CreateVectorLineLayer(window->work_layer, (VECTOR_LINE*)layer->top_data, &rect);
 			(void)memcpy(layer->mix->pixels, window->active_layer->pixels, window->pixel_buf_size);
-			layer->active_line = NULL;
+			layer->active_data = NULL;
 			(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
 		}
 	}
 	else if((layer->flags & VECTOR_LAYER_RASTERIZE_ACTIVE) != 0)
 	{
-		VECTOR_LINE* dst = layer->base;
-		VECTOR_LINE* src = layer->base->next;
+		VECTOR_LINE* dst = (VECTOR_LINE*)layer->base;
+		VECTOR_LINE* src = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->base)->next;
 
-		(void)memset(dst->layer->pixels, 0, dst->layer->stride*dst->layer->height);
+		(void)memset(dst->base_data.layer->pixels, 0, dst->base_data.layer->stride*dst->base_data.layer->height);
 		(void)memset(layer->mix->pixels, 0, window->active_layer->stride*window->active_layer->height);
 
 		while(src != NULL)
 		{
-			if(src == layer->active_line)
+			if((void*)src == layer->active_data)
 			{
 				(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
-				RasterizeVectorLine(window, layer, layer->active_line, &rect);
-
-				if((layer->flags & VECTOR_LAYER_FIX_LINE) != 0)
+				if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					DeleteVectorLineLayer(&src->layer);
-					src->layer = CreateVectorLineLayer(window->work_layer, layer->active_line, &rect);
-					BlendVectorLineLayer(src->layer, dst->layer);
+					RasterizeVectorLine(window, layer, (VECTOR_LINE*)layer->active_data, &rect);
+				}
+				else if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_SQUARE)
+				{
+					RasterizeVectorSquare(window, (VECTOR_SQUARE*)layer->active_data, &rect);
+				}
+				else if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_RHOMBUS)
+				{
+					RasterizeVectorRhombus(window, (VECTOR_ECLIPSE*)layer->active_data, &rect);
+				}
+				else if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_ECLIPSE)
+				{
+					RasterizeVectorEclipse(window, (VECTOR_ECLIPSE*)layer->active_data, &rect);
 				}
 				else
 				{
-					cairo_set_source_surface(dst->layer->cairo_p, window->work_layer->surface_p, 0, 0);
-					cairo_paint(dst->layer->cairo_p);
+					RasterizeVectorScript(window, (VECTOR_SCRIPT*)layer->active_data, &rect);
+				}
+
+				if((layer->flags & VECTOR_LAYER_FIX_LINE) != 0)
+				{
+					DeleteVectorLineLayer(&src->base_data.layer);
+					src->base_data.layer = CreateVectorLineLayer(window->work_layer, (VECTOR_LINE*)layer->active_data, &rect);
+					BlendVectorLineLayer(src->base_data.layer, dst->base_data.layer);
+				}
+				else
+				{
+					cairo_set_source_surface(dst->base_data.layer->cairo_p, window->work_layer->surface_p, 0, 0);
+					cairo_paint(dst->base_data.layer->cairo_p);
 				}
 			}
 			else
 			{
-				if(src->layer != NULL)
+				if(src->base_data.layer != NULL)
 				{
-					BlendVectorLineLayer(src->layer, dst->layer);
+					BlendVectorLineLayer(src->base_data.layer, dst->base_data.layer);
 				}
 			}
 
-			src = src->next;
+			src = (VECTOR_LINE*)src->base_data.next;
 		}
 
-		(void)memcpy(window->active_layer->pixels, dst->layer->pixels, window->pixel_buf_size);
+		(void)memcpy(window->active_layer->pixels, dst->base_data.layer->pixels, window->pixel_buf_size);
 		if((layer->flags & VECTOR_LAYER_FIX_LINE) != 0)
 		{
 			(void)memcpy(layer->mix->pixels, window->active_layer->pixels, window->pixel_buf_size);
@@ -755,10 +1340,10 @@ void RasterizeVectorLayer(
 	}
 	else if((layer->flags & VECTOR_LAYER_RASTERIZE_CHECKED) != 0)
 	{
-		VECTOR_LINE* dst = layer->base;
-		VECTOR_LINE* src = layer->base->next;
+		VECTOR_LINE* dst = (VECTOR_LINE*)layer->base;
+		VECTOR_LINE* src = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->base)->next;
 
-		(void)memset(dst->layer->pixels, 0, dst->layer->stride*dst->layer->height);
+		(void)memset(dst->base_data.layer->pixels, 0, dst->base_data.layer->stride*dst->base_data.layer->height);
 		(void)memset(layer->mix->pixels, 0, window->active_layer->stride*window->active_layer->height);
 
 		while(src != NULL)
@@ -766,27 +1351,46 @@ void RasterizeVectorLayer(
 			if((src->flags & VECTOR_LINE_FIX) != 0)
 			{
 				(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
-				RasterizeVectorLine(window, layer, src, &rect);
+				if(src->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+				{
+					RasterizeVectorLine(window, layer, src, &rect);
+				}
+				else if(src->base_data.vector_type == VECTOR_TYPE_SQUARE)
+				{
+					RasterizeVectorSquare(window, (VECTOR_SQUARE*)src, &rect);
+				}
+				else if(src->base_data.vector_type == VECTOR_TYPE_RHOMBUS)
+				{
+					RasterizeVectorRhombus(window, (VECTOR_ECLIPSE*)src, &rect);
+				}
+				else if(src->base_data.vector_type == VECTOR_TYPE_ECLIPSE)
+				{
+					RasterizeVectorEclipse(window, (VECTOR_ECLIPSE*)src, &rect);
+				}
+				else
+				{
+					RasterizeVectorScript(window, (VECTOR_SCRIPT*)src, &rect);
+				}
 
-				DeleteVectorLineLayer(&src->layer);
-				src->layer = CreateVectorLineLayer(window->work_layer, layer->active_line, &rect);
-				BlendVectorLineLayer(src->layer, dst->layer);
+				DeleteVectorLineLayer(&src->base_data.layer);
+				src->base_data.layer = CreateVectorLineLayer(window->work_layer, (VECTOR_LINE*)layer->active_data, &rect);
+				BlendVectorLineLayer(src->base_data.layer, dst->base_data.layer);
 				src->flags &= ~(VECTOR_LINE_FIX);
 			}
 			else
 			{
-				BlendVectorLineLayer(src->layer, dst->layer);
+				BlendVectorLineLayer(src->base_data.layer, dst->base_data.layer);
 			}
 
-			src = src->next;
+			src = (VECTOR_LINE*)src->base_data.next;
 		}
 
-		(void)memcpy(target->pixels, dst->layer->pixels, window->pixel_buf_size);
-		(void)memcpy(layer->mix->pixels, dst->layer->pixels, window->pixel_buf_size);
+		(void)memcpy(target->pixels, dst->base_data.layer->pixels, window->pixel_buf_size);
+		(void)memcpy(layer->mix->pixels, dst->base_data.layer->pixels, window->pixel_buf_size);
 	}
 	else if((layer->flags & VECTOR_LAYER_RASTERIZE_ALL) != 0)
 	{
-		VECTOR_LINE* rasterize = layer->base->next;
+		VECTOR_LINE* rasterize = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->base)->next;
 		(void)memset(layer->mix->pixels, 0, window->active_layer->stride*window->active_layer->height);
 		(void)memset(target->pixels, 0, target->stride*target->height);
 
@@ -795,31 +1399,65 @@ void RasterizeVectorLayer(
 			goto end;
 		}
 
-		while(rasterize->next != NULL)
+		while(rasterize->base_data.next != NULL)
 		{
 			(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
 
-			RasterizeVectorLine(window, layer, rasterize, &rect);
+			if(rasterize->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+			{
+				RasterizeVectorLine(window, layer, rasterize, &rect);
+			}
+			else if(rasterize->base_data.vector_type == VECTOR_TYPE_SQUARE)
+			{
+				RasterizeVectorSquare(window, (VECTOR_SQUARE*)rasterize, &rect);
+			}
+			else if(rasterize->base_data.vector_type == VECTOR_TYPE_RHOMBUS)
+			{
+				RasterizeVectorRhombus(window, (VECTOR_ECLIPSE*)rasterize, &rect);
+			}
+			else if(rasterize->base_data.vector_type == VECTOR_TYPE_ECLIPSE)
+			{
+				RasterizeVectorEclipse(window, (VECTOR_ECLIPSE*)rasterize, &rect);
+			}
+			else
+			{
+				RasterizeVectorScript(window, (VECTOR_SCRIPT*)rasterize, &rect);
+			}
 
 			if((layer->flags & VECTOR_LAYER_FIX_LINE) != 0)
 			{
-				DeleteVectorLineLayer(&rasterize->layer);
-				rasterize->layer = CreateVectorLineLayer(window->work_layer, layer->active_line, &rect);
+				DeleteVectorLineLayer(&rasterize->base_data.layer);
+				rasterize->base_data.layer = CreateVectorLineLayer(window->work_layer, (VECTOR_LINE*)layer->active_data, &rect);
 			}
 
 			window->layer_blend_functions[LAYER_BLEND_NORMAL](window->work_layer, target);
 
-			rasterize = rasterize->next;
+			rasterize = (VECTOR_LINE*)rasterize->base_data.next;
 		}
 
 		(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
 
-		RasterizeVectorLine(window, layer, rasterize, &rect);
+		if(rasterize->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+		{
+			RasterizeVectorLine(window, layer, rasterize, &rect);
+		}
+		else if(rasterize->base_data.vector_type == VECTOR_TYPE_SQUARE)
+		{
+			RasterizeVectorSquare(window, (VECTOR_SQUARE*)rasterize, &rect);
+		}
+		else if(rasterize->base_data.vector_type == VECTOR_TYPE_RHOMBUS)
+		{
+			RasterizeVectorRhombus(window, (VECTOR_ECLIPSE*)rasterize, &rect);
+		}
+		else if(rasterize->base_data.vector_type == VECTOR_TYPE_ECLIPSE)
+		{
+			RasterizeVectorEclipse(window, (VECTOR_ECLIPSE*)rasterize, &rect);
+		}
 
 		if((layer->flags & VECTOR_LAYER_FIX_LINE) != 0)
 		{
-			DeleteVectorLineLayer(&rasterize->layer);
-			rasterize->layer = CreateVectorLineLayer(window->work_layer, layer->active_line, &rect);
+			DeleteVectorLineLayer(&rasterize->base_data.layer);
+			rasterize->base_data.layer = CreateVectorLineLayer(window->work_layer, (VECTOR_LINE*)layer->active_data, &rect);
 		}
 
 		window->layer_blend_functions[LAYER_BLEND_NORMAL](window->work_layer, target);
@@ -904,40 +1542,59 @@ uint32 ReadVectorLineData(uint8* data, LAYER* target)
 	for(i=0; i<layer->num_lines; i++)
 	{
 		(void)MemRead(&line_base.vector_type, sizeof(line_base.vector_type), 1, data_stream);
-		(void)MemRead(&line_base.flags, sizeof(line_base.flags), 1, data_stream);
-		(void)MemRead(&line_base.num_points, sizeof(line_base.num_points), 1, data_stream);
-		(void)MemRead(&line_base.blur, sizeof(line_base.blur), 1, data_stream);
-		(void)MemRead(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, data_stream);
-		line = CreateVectorLine(layer->top_line, NULL);
-		line->vector_type = line_base.vector_type;
-		line->flags = line_base.flags;
-		line->num_points = line_base.num_points;
-		line->blur = line_base.blur;
-		line->outline_hardness = line_base.outline_hardness;
-		// 制御点情報の読み込み
-		line->buff_size =
-			((line_base.num_points / VECTOR_LINE_BUFFER_SIZE) + 1) * VECTOR_LINE_BUFFER_SIZE;
-		line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(*line->points)*line->buff_size);
-		(void)memset(line->points, 0, sizeof(*line->points)*line->buff_size);
-		for(j=0; j<line->num_points; j++)
+		if(line_base.vector_type < NUM_VECTOR_LINE_TYPE)
 		{
-			(void)MemRead(&line->points[j].vector_type, sizeof(line->points->vector_type), 1, data_stream);
-			(void)MemRead(&line->points[j].flags, sizeof(line->points->flags), 1, data_stream);
-			(void)MemRead(&line->points[j].color, sizeof(line->points->color), 1, data_stream);
-			(void)MemRead(&line->points[j].pressure, sizeof(line->points->pressure), 1, data_stream);
-			(void)MemRead(&line->points[j].size, sizeof(line->points->size), 1, data_stream);
-			(void)MemRead(&line->points[j].x, sizeof(line->points->x), 1, data_stream);
-			(void)MemRead(&line->points[j].y, sizeof(line->points->y), 1, data_stream);
-		}
+			(void)MemRead(&line_base.flags, sizeof(line_base.flags), 1, data_stream);
+			(void)MemRead(&line_base.num_points, sizeof(line_base.num_points), 1, data_stream);
+			(void)MemRead(&line_base.blur, sizeof(line_base.blur), 1, data_stream);
+			(void)MemRead(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, data_stream);
+			line = CreateVectorLine((VECTOR_LINE*)layer->top_data, NULL);
+			line->base_data.vector_type = line_base.vector_type;
+			line->flags = line_base.flags;
+			line->num_points = line_base.num_points;
+			line->blur = line_base.blur;
+			line->outline_hardness = line_base.outline_hardness;
+			// 制御点情報の読み込み
+			line->buff_size =
+				((line_base.num_points / VECTOR_LINE_BUFFER_SIZE) + 1) * VECTOR_LINE_BUFFER_SIZE;
+			line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(*line->points)*line->buff_size);
+			(void)memset(line->points, 0, sizeof(*line->points)*line->buff_size);
+			for(j=0; j<line->num_points; j++)
+			{
+				(void)MemRead(&line->points[j].vector_type, sizeof(line->points->vector_type), 1, data_stream);
+				(void)MemRead(&line->points[j].flags, sizeof(line->points->flags), 1, data_stream);
+				(void)MemRead(&line->points[j].color, sizeof(line->points->color), 1, data_stream);
+				(void)MemRead(&line->points[j].pressure, sizeof(line->points->pressure), 1, data_stream);
+				(void)MemRead(&line->points[j].size, sizeof(line->points->size), 1, data_stream);
+				(void)MemRead(&line->points[j].x, sizeof(line->points->x), 1, data_stream);
+				(void)MemRead(&line->points[j].y, sizeof(line->points->y), 1, data_stream);
+			}
 
-		if(line->points->size == 0.0)
+			if(line->points->size == 0.0)
+			{
+				DeleteVectorLine(&line);
+				layer->num_lines--;
+			}
+			else
+			{
+				layer->top_data = (void*)line;
+			}
+		}
+		else if(line_base.vector_type > VECTOR_TYPE_SHAPE
+			&& line_base.vector_type < VECTOR_SHAPE_END)
 		{
-			DeleteVectorLine(&line);
-			layer->num_lines--;
+			VECTOR_DATA *data = CreateVectorShape((VECTOR_BASE_DATA*)layer->top_data, NULL, line_base.vector_type);
+			data_stream->data_point--;
+			ReadVectorShapeData(data, data_stream);
+			layer->top_data = (void*)data;
 		}
 		else
 		{
-			layer->top_line = line;
+			VECTOR_SCRIPT *script =
+				(VECTOR_SCRIPT*)CreateVectorScript((VECTOR_BASE_DATA*)layer->top_data, NULL, NULL);
+			data_stream->data_point--;
+			ReadVectorScriptData(script, data_stream);
+			layer->top_data = (void*)script;
 		}
 	}
 
@@ -976,7 +1633,7 @@ void WriteVectorLineData(
 	// ラインの数
 	guint32 num_line = 0;
 	// ラインデータ書き出し用
-	VECTOR_LINE *line = target->layer_data.vector_layer_p->base->next;
+	VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)target->layer_data.vector_layer_p->base)->next;
 	// 4バイト書き出し用
 	guint32 data32;
 	// for文用のカウンタ
@@ -991,29 +1648,41 @@ void WriteVectorLineData(
 
 	while(line != NULL)
 	{
-		line_base.vector_type = line->vector_type;
-		line_base.flags = line->flags;
-		line_base.num_points = line->num_points;
-		line_base.blur = line->blur;
-		line_base.outline_hardness = line->outline_hardness;
-
-		(void)MemWrite(&line_base.vector_type, sizeof(line_base.vector_type), 1, data_stream);
-		(void)MemWrite(&line_base.flags, sizeof(line_base.flags), 1, data_stream);
-		(void)MemWrite(&line_base.num_points, sizeof(line_base.num_points), 1, data_stream);
-		(void)MemWrite(&line_base.blur, sizeof(line_base.blur), 1, data_stream);
-		(void)MemWrite(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, data_stream);
-		for(i=0; i<line->num_points; i++)
+		if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 		{
-			(void)MemWrite(&line->points[i].vector_type, sizeof(line->points->vector_type), 1, data_stream);
-			(void)MemWrite(&line->points[i].flags, sizeof(line->points->flags), 1, data_stream);
-			(void)MemWrite(&line->points[i].color, sizeof(line->points->color), 1, data_stream);
-			(void)MemWrite(&line->points[i].pressure, sizeof(line->points->pressure), 1, data_stream);
-			(void)MemWrite(&line->points[i].size, sizeof(line->points->size), 1, data_stream);
-			(void)MemWrite(&line->points[i].x, sizeof(line->points->x), 1, data_stream);
-			(void)MemWrite(&line->points[i].y, sizeof(line->points->y), 1, data_stream);
+			line_base.vector_type = line->base_data.vector_type;
+			line_base.flags = line->flags;
+			line_base.num_points = line->num_points;
+			line_base.blur = line->blur;
+			line_base.outline_hardness = line->outline_hardness;
+
+			(void)MemWrite(&line_base.vector_type, sizeof(line_base.vector_type), 1, data_stream);
+			(void)MemWrite(&line_base.flags, sizeof(line_base.flags), 1, data_stream);
+			(void)MemWrite(&line_base.num_points, sizeof(line_base.num_points), 1, data_stream);
+			(void)MemWrite(&line_base.blur, sizeof(line_base.blur), 1, data_stream);
+			(void)MemWrite(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, data_stream);
+			for(i=0; i<line->num_points; i++)
+			{
+				(void)MemWrite(&line->points[i].vector_type, sizeof(line->points->vector_type), 1, data_stream);
+				(void)MemWrite(&line->points[i].flags, sizeof(line->points->flags), 1, data_stream);
+				(void)MemWrite(&line->points[i].color, sizeof(line->points->color), 1, data_stream);
+				(void)MemWrite(&line->points[i].pressure, sizeof(line->points->pressure), 1, data_stream);
+				(void)MemWrite(&line->points[i].size, sizeof(line->points->size), 1, data_stream);
+				(void)MemWrite(&line->points[i].x, sizeof(line->points->x), 1, data_stream);
+				(void)MemWrite(&line->points[i].y, sizeof(line->points->y), 1, data_stream);
+			}
+		}
+		else if(line->base_data.vector_type > VECTOR_TYPE_SHAPE
+			&& line->base_data.vector_type < VECTOR_SHAPE_END)
+		{
+			WriteVectorShapeData((VECTOR_DATA*)line, data_stream);
+		}
+		else
+		{
+			WriteVectorScriptData((VECTOR_SCRIPT*)line, data_stream);
 		}
 
-		line = line->next;
+		line = (VECTOR_LINE*)line->base_data.next;
 		num_line++;
 	}
 
@@ -1107,7 +1776,7 @@ int IsVectorLineInSelectionArea(
 			y += dy;
 		}
 	}
-	else if(line->vector_type == VECTOR_LINE_STRAIGHT)
+	else if(line->base_data.vector_type == VECTOR_TYPE_STRAIGHT)
 	{
 		for(i=0; i<line->num_points-1; i++)
 		{
@@ -1156,7 +1825,7 @@ int IsVectorLineInSelectionArea(
 			y += dy;
 		}
 	}
-	else if(line->vector_type == VECTOR_LINE_BEZIER_OPEN)
+	else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_OPEN)
 	{
 		BEZIER_POINT calc[4], inter[2];
 		BEZIER_POINT check;
@@ -1263,7 +1932,7 @@ int IsVectorLineInSelectionArea(
 			}
 		}
 	}
-	else if(line->vector_type == VECTOR_LINE_STRAIGHT_CLOSE)
+	else if(line->base_data.vector_type == VECTOR_TYPE_STRAIGHT_CLOSE)
 	{
 		for(i=0; i<line->num_points-1; i++)
 		{
@@ -1290,7 +1959,7 @@ int IsVectorLineInSelectionArea(
 			}
 		}
 	}
-	else if(line->vector_type == VECTOR_LINE_BEZIER_OPEN)
+	else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_OPEN)
 	{
 		BEZIER_POINT calc[4], inter[2];
 		BEZIER_POINT check;
@@ -1479,10 +2148,10 @@ static void AddControlPointUndo(DRAW_WINDOW* window, void* p)
 	layer = SearchLayer(window->layer, history.layer_name);
 
 	// 制御点を削除するラインを探す
-	line = layer->layer_data.vector_layer_p->base;
+	line = (VECTOR_LINE*)layer->layer_data.vector_layer_p->base;
 	for(i=0; i<history.line_id; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
 
 	if(line->num_points > history.point_id)
@@ -1524,10 +2193,10 @@ static void AddControlPointRedo(DRAW_WINDOW* window, void* p)
 	layer = SearchLayer(window->layer, history.layer_name);
 
 	// 制御点を追加するラインを探す
-	line = layer->layer_data.vector_layer_p->base;
+	line = (VECTOR_LINE*)layer->layer_data.vector_layer_p->base;
 	for(i=0; i<history.line_id; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
 
 	(void)memmove(&line->points[history.point_id+1], &line->points[history.point_id],
@@ -1569,7 +2238,7 @@ void AddControlPointHistory(
 	// データコピー先のアドレス
 	uint8* buff;
 	// ラインのID計算用
-	VECTOR_LINE* comp_line = layer->layer_data.vector_layer_p->base;
+	VECTOR_LINE* comp_line = (VECTOR_LINE*)layer->layer_data.vector_layer_p->base;
 	// for文用のカウンタ
 	unsigned int i;
 
@@ -1590,7 +2259,7 @@ void AddControlPointHistory(
 	while(comp_line != line)
 	{
 		i++;
-		comp_line = comp_line->next;
+		comp_line = comp_line->base_data.next;
 	}
 	history->line_id = i;
 
@@ -1647,9 +2316,9 @@ static void AddTopLineControlPointUndo(DRAW_WINDOW* window, void* p)
 	// 制御点を追加するレイヤー
 	LAYER* layer;
 	// 制御点を追加するライン
-	VECTOR_LINE* line;
+	VECTOR_LINE *line;
 	// データをバイト単位で扱うためにキャスト
-	int8* buff = (int8*)p;
+	int8 *buff = (int8*)p;
 	// 変化したラインを固定するフラグ
 	int fix_flag = TRUE;
 	// 一番上のラインをフローティングするフラグ
@@ -1668,23 +2337,23 @@ static void AddTopLineControlPointUndo(DRAW_WINDOW* window, void* p)
 	// ライン追加の履歴であればライン削除
 	if(history.add_line_flag != FALSE)
 	{
-		line = layer->layer_data.vector_layer_p->top_line;
-		line_type = line->vector_type;
-		layer->layer_data.vector_layer_p->top_line =
-			layer->layer_data.vector_layer_p->top_line->prev;
+		line = (VECTOR_LINE*)layer->layer_data.vector_layer_p->top_data;
+		line_type = line->base_data.vector_type;
+		layer->layer_data.vector_layer_p->top_data =
+			((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
 		DeleteVectorLine(&line);
 		fix_flag = FALSE;
 	}
 	else
 	{	// 最後の点を削除
-		line = layer->layer_data.vector_layer_p->top_line;
-		line_type = line->vector_type;
+		line = (VECTOR_LINE*)layer->layer_data.vector_layer_p->top_data;
+		line_type = line->base_data.vector_type;
 		line->num_points--;
 	}
 
 	if(layer == window->active_layer)
 	{
-		if(line_type == VECTOR_LINE_STRAIGHT
+		if(line_type == VECTOR_TYPE_STRAIGHT
 			&& window->app->tool_window.active_vector_brush[window->app->input]->brush_type == TYPE_POLY_LINE_BRUSH)
 		{
 			POLY_LINE_BRUSH* brush = (POLY_LINE_BRUSH*)window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
@@ -1697,32 +2366,32 @@ static void AddTopLineControlPointUndo(DRAW_WINDOW* window, void* p)
 				}
 				else if(line != NULL)
 				{
-					if(line->layer != NULL)
+					if(line->base_data.layer != NULL)
 					{
 						layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_ACTIVE;
-						layer->layer_data.vector_layer_p->active_line = line;
+						layer->layer_data.vector_layer_p->active_data = (void*)line;
 						brush->flags |= POLY_LINE_START;
-						DeleteVectorLineLayer(&line->layer);
+						DeleteVectorLineLayer(&line->base_data.layer);
 					}
 				}
 				fix_flag = FALSE;
 			}
 			else if(line != NULL)
 			{
-				if(line->layer != NULL)
+				if(line->base_data.layer != NULL)
 				{
 					brush->flags |= POLY_LINE_START;
 					layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_ACTIVE;
-					layer->layer_data.vector_layer_p->active_line = line;
+					layer->layer_data.vector_layer_p->active_data = (void*)line;
 					brush->flags |= BEZIER_LINE_START;
-					DeleteVectorLineLayer(&line->layer);
+					DeleteVectorLineLayer(&line->base_data.layer);
 					line->num_points++;
 					float_top = TRUE;
 					//fix_flag = FALSE;
 				}
 			}
 		}
-		else if(line_type == VECTOR_LINE_BEZIER_OPEN
+		else if(line_type == VECTOR_TYPE_BEZIER_OPEN
 			&& window->app->tool_window.active_vector_brush[window->app->input]->brush_type == TYPE_BEZIER_LINE_BRUSH)
 		{
 			BEZIER_LINE_BRUSH* brush = (BEZIER_LINE_BRUSH*)window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
@@ -1737,13 +2406,13 @@ static void AddTopLineControlPointUndo(DRAW_WINDOW* window, void* p)
 			}
 			else if(line != NULL)
 			{
-				if(line->layer != NULL)
+				if(line->base_data.layer != NULL)
 				{
 					brush->flags |= BEZIER_LINE_START;
 					layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_ACTIVE;
-					layer->layer_data.vector_layer_p->active_line = line;
+					layer->layer_data.vector_layer_p->active_data = (void*)line;
 					brush->flags |= BEZIER_LINE_START;
-					DeleteVectorLineLayer(&line->layer);
+					DeleteVectorLineLayer(&line->base_data.layer);
 					line->num_points++;
 					float_top = TRUE;
 					// fix_flag = FALSE;
@@ -1767,9 +2436,9 @@ static void AddTopLineControlPointUndo(DRAW_WINDOW* window, void* p)
 		VECTOR_LINE *before_top = NULL;
 		if(float_top != FALSE)
 		{
-			before_top = layer->layer_data.vector_layer_p->top_line;
-			before_top->prev->next = NULL;
-			DeleteVectorLineLayer(&layer->layer_data.vector_layer_p->top_line->layer);
+			before_top = (VECTOR_LINE*)layer->layer_data.vector_layer_p->top_data;
+			((VECTOR_BASE_DATA*)before_top->base_data.prev)->next = NULL;
+			DeleteVectorLineLayer(&((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->layer);
 		}
 		if(fix_flag != FALSE)
 		{
@@ -1778,10 +2447,10 @@ static void AddTopLineControlPointUndo(DRAW_WINDOW* window, void* p)
 		RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
 		if(float_top != FALSE)
 		{
-			before_top->prev->next = before_top;
+			((VECTOR_BASE_DATA*)before_top->base_data.prev)->next = (void*)before_top;
 		}
 	}
-	layer->layer_data.vector_layer_p->active_line = NULL;
+	layer->layer_data.vector_layer_p->active_data = NULL;
 	(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
 
 	// 表示を更新
@@ -1828,12 +2497,12 @@ static void AddTopLineControlPointRedo(DRAW_WINDOW* window, void* p)
 	// ライン追加の履歴であればラインメモリ確保
 	if(history.add_line_flag == 0)
 	{
-		line = layer->layer_data.vector_layer_p->top_line;
+		line = (VECTOR_LINE*)layer->layer_data.vector_layer_p->top_data;
 	}
 	else
 	{	// ライン追加
-		line = CreateVectorLine(layer->layer_data.vector_layer_p->top_line,
-			layer->layer_data.vector_layer_p->top_line->next);
+		line = CreateVectorLine((VECTOR_LINE*)layer->layer_data.vector_layer_p->top_data,
+			(VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->next);
 		// 制御点バッファ作成
 		line->buff_size = VECTOR_LINE_BUFFER_SIZE;
 		line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(*line->points)*line->buff_size);
@@ -1844,8 +2513,8 @@ static void AddTopLineControlPointRedo(DRAW_WINDOW* window, void* p)
 		(void)memcpy(line->points->color, history.line_color, 4);
 		line->num_points = 1;
 		// 一番上のライン変更
-		layer->layer_data.vector_layer_p->top_line = line;
-		line->vector_type = history.vector_type;
+		layer->layer_data.vector_layer_p->top_data = (void*)line;
+		line->base_data.vector_type = history.vector_type;
 	}
 
 	line->points[line->num_points].x = history.x;
@@ -1856,14 +2525,14 @@ static void AddTopLineControlPointRedo(DRAW_WINDOW* window, void* p)
 
 	if(layer == window->active_layer)
 	{
-		if(line->vector_type == VECTOR_LINE_STRAIGHT
+		if(line->base_data.vector_type == VECTOR_TYPE_STRAIGHT
 			&& window->app->tool_window.active_vector_brush[window->app->input]->brush_type == TYPE_POLY_LINE_BRUSH)
 		{
 			POLY_LINE_BRUSH* brush = (POLY_LINE_BRUSH*)window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
 			brush->flags |= POLY_LINE_START;
 			fix_flag = FALSE;
 		}
-		else if(line->vector_type == VECTOR_LINE_BEZIER_OPEN
+		else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_OPEN
 			&& window->app->tool_window.active_vector_brush[window->app->input]->brush_type == TYPE_BEZIER_LINE_BRUSH)
 		{
 			BEZIER_LINE_BRUSH* brush = (BEZIER_LINE_BRUSH*)window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
@@ -1902,7 +2571,7 @@ static void AddTopLineControlPointRedo(DRAW_WINDOW* window, void* p)
 * line			: 制御点を追加したライン           *
 * point			: 追加した制御点                   *
 * tool_name		: 制御点を追加したツールの名前     *
-* add_line_flag	: ライン追加をしたといのフラグ     *
+* add_line_flag	: ライン追加をしたときのフラグ     *
 ***************************************************/
 void AddTopLineControlPointHistory(
 	DRAW_WINDOW* window,
@@ -1914,13 +2583,13 @@ void AddTopLineControlPointHistory(
 )
 {
 	// 履歴データ
-	ADD_TOP_LINE_CONTROL_POINT_HISTORY* history;
+	ADD_TOP_LINE_CONTROL_POINT_HISTORY *history;
 	// レイヤー名の長さ
 	uint16 name_length;
 	// 履歴データのサイズ
 	size_t data_size;
 	// データコピー先のアドレス
-	uint8* buff;
+	uint8 *buff;
 
 	// レイヤー名の長さを取得
 	name_length = (uint16)strlen(layer->name)+1;
@@ -1932,7 +2601,7 @@ void AddTopLineControlPointHistory(
 	history->pressure = point->pressure;
 	history->size = point->size;
 	history->add_line_flag = add_line_flag;
-	history->vector_type = line->vector_type;
+	history->vector_type = line->base_data.vector_type;
 	history->layer_name_length = name_length;
 	(void)memcpy(history->color, point->color, 3);
 	// ラインの開始位置の情報を履歴データにセット
@@ -1949,6 +2618,849 @@ void AddTopLineControlPointHistory(
 
 	AddHistory(&window->history, tool_name, history, (uint32)data_size,
 		AddTopLineControlPointUndo, AddTopLineControlPointRedo);
+}
+
+/*****************************************
+* ADD_TOP_SQUARE_HISTORY構造体           *
+* 形状作成ツールでの四角形追加履歴データ *
+*****************************************/
+typedef struct _ADD_TOP_SQUARE_HISTORY
+{
+	VECTOR_SQUARE square;
+	uint16 layer_name_length;	// 四角形を追加したレイヤーの名前の長さ
+	char* layer_name;			// 四角形を追加したレイヤーの名前
+} ADD_TOP_SQUARE_HISTORY;
+
+/*****************************
+* AddTopSquareUndo関数       *
+* 四角形追加を元に戻す       *
+* 引数                       *
+* window	: 描画領域の情報 *
+* p			: 履歴データ     *
+*****************************/
+static void AddTopSquareUndo(DRAW_WINDOW* window, void* p)
+{
+	// 履歴データ
+	ADD_TOP_SQUARE_HISTORY history;
+	// 四角形の削除用
+	VECTOR_SQUARE *square;
+	// 四角形を追加したレイヤー
+	LAYER *layer;
+	// データをバイト単位で扱うためにキャスト
+	int8 *buff = (int8*)p;
+
+	// データをコピー
+	(void)memcpy(&history, p, offsetof(ADD_TOP_SQUARE_HISTORY, layer_name));
+	buff += offsetof(ADD_TOP_SQUARE_HISTORY, layer_name);
+	history.layer_name = buff;
+
+	// レイヤーを名前で探す
+	layer = SearchLayer(window->layer, history.layer_name);
+
+	// 一番上の四角形を削除
+	square = (VECTOR_SQUARE*)layer->layer_data.vector_layer_p->top_data;
+	layer->layer_data.vector_layer_p->top_data = ((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
+	DeleteVectorShape(&((VECTOR_BASE_DATA*)square));
+
+	// 形状をラスタライズ
+	if(layer->layer_data.vector_layer_p->flags != VECTOR_LAYER_RASTERIZE_ACTIVE)
+	{
+		layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_TOP;
+		layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+		RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+	}
+	else
+	{
+		VECTOR_BASE_DATA *before_top = NULL;
+		before_top = (VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data;
+		layer->layer_data.vector_layer_p->top_data = ((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
+		((VECTOR_BASE_DATA*)before_top->prev)->next = NULL;
+		DeleteVectorLineLayer(&((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->layer);
+
+		layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+		RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+		((VECTOR_BASE_DATA*)before_top->prev)->next = (void*)before_top;
+	}
+	layer->layer_data.vector_layer_p->active_data = NULL;
+	(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
+
+	// 表示を更新
+	if(layer == window->active_layer)
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	}
+	else
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	}
+
+	layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_TOP;
+}
+
+/*****************************
+* AddTopSquareRedo関数       *
+* 長方形の追加をやり直す     *
+* 引数                       *
+* window	: 描画領域の情報 *
+* p			: 履歴データ     *
+*****************************/
+static void AddTopSquareRedo(DRAW_WINDOW* window, void* p)
+{
+	// 履歴データ
+	ADD_TOP_SQUARE_HISTORY history;
+	// 長方形を追加するレイヤー
+	LAYER *layer;
+	// 追加する長方形
+	VECTOR_SQUARE *square;
+	// 前後ベクトルデータの一時保存
+	VECTOR_BASE_DATA before_base;
+	// データをバイト単位で扱うためにキャスト
+	int8 *buff = (int8*)p;
+	// ベクトルデータを固定するフラグ
+	gboolean fix_flag = TRUE;
+
+	// データをコピー
+	(void)memcpy(&history, p, offsetof(ADD_TOP_SQUARE_HISTORY, layer_name));
+	buff += offsetof(ADD_TOP_SQUARE_HISTORY, layer_name);
+	history.layer_name = buff;
+
+	// レイヤーを名前で探す
+	layer = SearchLayer(window->layer, history.layer_name);
+
+	// 四角形追加
+	square = (VECTOR_SQUARE*)CreateVectorShape((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data,
+			(VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->next, VECTOR_TYPE_SQUARE);
+	before_base = square->base_data;
+	*square = history.square;
+	square->base_data = before_base;
+	// 一番上のベクトル変更
+	layer->layer_data.vector_layer_p->top_data = (void*)square;
+
+	if(layer == window->active_layer)
+	{
+		if(window->app->tool_window.active_vector_brush[window->app->input]->brush_type == TYPE_VECTOR_SHAPE_BRUSH)
+		{
+			//POLY_LINE_BRUSH* brush = (POLY_LINE_BRUSH*)window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
+			//brush->flags |= POLY_LINE_START;
+			fix_flag = FALSE;
+		}
+	}
+
+	// ベクトルデータをラスタライズ
+	layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_TOP;
+	if(fix_flag != FALSE)
+	{
+		layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+	}
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+
+	// 表示を更新
+	if(layer == window->active_layer)
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	}
+	else
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	}
+}
+
+/***********************************************
+* AddTopSquareHistory関数                      *
+* 四角形追加履歴を追加                         *
+* 引数                                         *
+* window		: 描画領域の情報               *
+* layer			: 四角形を追加したレイヤー     *
+* square		: 追加した四角形               *
+* tool_name		: 四角形を追加したツールの名前 *
+***********************************************/
+void AddTopSquareHistory(
+	DRAW_WINDOW* window,
+	LAYER* layer,
+	VECTOR_SQUARE* square,
+	const char* tool_name
+)
+{
+	// 履歴データ
+	ADD_TOP_SQUARE_HISTORY *history;
+	// レイヤー名の長さ
+	uint16 name_length;
+	// 履歴データのサイズ
+	size_t data_size;
+	// データコピー先のアドレス
+	uint8 *buff;
+
+	// レイヤー名の長さを取得
+	name_length = (uint16)strlen(layer->name)+1;
+	// 履歴データのバイト数を計算してメモリ確保
+	data_size = offsetof(ADD_TOP_SQUARE_HISTORY, layer_name) + name_length;
+	history = (ADD_TOP_SQUARE_HISTORY*)MEM_ALLOC_FUNC(data_size);
+	// 四角形の情報を履歴データにセット
+	history->square = *square;
+
+	// レイヤー名をコピー
+	buff = (uint8*)history;
+	buff += offsetof(ADD_TOP_SQUARE_HISTORY, layer_name);
+	(void)memcpy(buff, layer->name, name_length);
+
+	AddHistory(&window->history, tool_name, history, (uint32)data_size,
+		AddTopSquareUndo, AddTopSquareRedo);
+}
+
+/***************************************
+* ADD_TOP_ECLIPSE_HISTORY構造体        *
+* 形状作成ツールでの楕円追加履歴データ *
+***************************************/
+typedef struct _ADD_TOP_ECLIPSE_HISTORY
+{
+	VECTOR_ECLIPSE eclipse;
+	uint16 layer_name_length;	// 楕円を追加したレイヤーの名前の長さ
+	char* layer_name;			// 楕円を追加したレイヤーの名前
+} ADD_TOP_ECLIPSE_HISTORY;
+
+/*****************************
+* AddTopEclipseUndo関数      *
+* 楕円追加を元に戻す         *
+* 引数                       *
+* window	: 描画領域の情報 *
+* p			: 履歴データ     *
+*****************************/
+static void AddTopEclipseUndo(DRAW_WINDOW* window, void* p)
+{
+	// 履歴データ
+	ADD_TOP_SQUARE_HISTORY history;
+	// 楕円の削除用
+	VECTOR_SQUARE *square;
+	// 楕円を追加したレイヤー
+	LAYER *layer;
+	// データをバイト単位で扱うためにキャスト
+	int8 *buff = (int8*)p;
+
+	// データをコピー
+	(void)memcpy(&history, p, offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name));
+	buff += offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name);
+	history.layer_name = buff;
+
+	// レイヤーを名前で探す
+	layer = SearchLayer(window->layer, history.layer_name);
+
+	// 一番上の楕円を削除
+	square = (VECTOR_SQUARE*)layer->layer_data.vector_layer_p->top_data;
+	layer->layer_data.vector_layer_p->top_data = ((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
+	DeleteVectorShape(&((VECTOR_BASE_DATA*)square));
+
+	// 形状をラスタライズ
+	if(layer->layer_data.vector_layer_p->flags != VECTOR_LAYER_RASTERIZE_ACTIVE)
+	{
+		layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_TOP;
+		layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+		RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+	}
+	else
+	{
+		VECTOR_BASE_DATA *before_top = NULL;
+		before_top = (VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data;
+		layer->layer_data.vector_layer_p->top_data = ((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
+		((VECTOR_BASE_DATA*)before_top->prev)->next = NULL;
+		DeleteVectorLineLayer(&((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->layer);
+
+		layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+		RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+		((VECTOR_BASE_DATA*)before_top->prev)->next = (void*)before_top;
+	}
+	layer->layer_data.vector_layer_p->active_data = NULL;
+	(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
+
+	// 表示を更新
+	if(layer == window->active_layer)
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	}
+	else
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	}
+
+	layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_TOP;
+}
+
+/*****************************
+* AddTopEclipseRedo関数      *
+* 楕円の追加をやり直す       *
+* 引数                       *
+* window	: 描画領域の情報 *
+* p			: 履歴データ     *
+*****************************/
+static void AddTopEclipseRedo(DRAW_WINDOW* window, void* p)
+{
+	// 履歴データ
+	ADD_TOP_ECLIPSE_HISTORY history;
+	// 楕円を追加するレイヤー
+	LAYER *layer;
+	// 追加する楕円
+	VECTOR_ECLIPSE *eclipse;
+	// 前後ベクトルデータの一時保存
+	VECTOR_BASE_DATA before_base;
+	// データをバイト単位で扱うためにキャスト
+	int8 *buff = (int8*)p;
+	// ベクトルデータを固定するフラグ
+	gboolean fix_flag = TRUE;
+
+	// データをコピー
+	(void)memcpy(&history, p, offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name));
+	buff += offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name);
+	history.layer_name = buff;
+
+	// レイヤーを名前で探す
+	layer = SearchLayer(window->layer, history.layer_name);
+
+	// 楕円追加
+	eclipse = (VECTOR_ECLIPSE*)CreateVectorShape((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data,
+		(VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->next, history.eclipse.base_data.vector_type);
+	before_base = eclipse->base_data;
+	*eclipse = history.eclipse;
+	eclipse->base_data = before_base;
+	// 一番上のベクトル変更
+	layer->layer_data.vector_layer_p->top_data = (void*)eclipse;
+
+	if(layer == window->active_layer)
+	{
+		if(window->app->tool_window.active_vector_brush[window->app->input]->brush_type == TYPE_VECTOR_SHAPE_BRUSH)
+		{
+			//POLY_LINE_BRUSH* brush = (POLY_LINE_BRUSH*)window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
+			//brush->flags |= POLY_LINE_START;
+			fix_flag = FALSE;
+		}
+	}
+
+	// ベクトルデータをラスタライズ
+	layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_TOP;
+	if(fix_flag != FALSE)
+	{
+		layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+	}
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+
+	// 表示を更新
+	if(layer == window->active_layer)
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	}
+	else
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	}
+}
+
+
+/*********************************************
+* AddTopEclipseHistory関数                   *
+* 楕円追加履歴を追加                         *
+* 引数                                       *
+* window		: 描画領域の情報             *
+* layer			: 楕円を追加したレイヤー     *
+* eclipse		: 追加した楕円               *
+* tool_name		: 楕円を追加したツールの名前 *
+*********************************************/
+void AddTopEclipseHistory(
+	DRAW_WINDOW* window,
+	LAYER* layer,
+	VECTOR_ECLIPSE* eclipse,
+	const char* tool_name
+)
+{
+	// 履歴データ
+	ADD_TOP_ECLIPSE_HISTORY *history;
+	// レイヤー名の長さ
+	uint16 name_length;
+	// 履歴データのサイズ
+	size_t data_size;
+	// データコピー先のアドレス
+	uint8 *buff;
+
+	// レイヤー名の長さを取得
+	name_length = (uint16)strlen(layer->name)+1;
+	// 履歴データのバイト数を計算してメモリ確保
+	data_size = offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name) + name_length;
+	history = (ADD_TOP_ECLIPSE_HISTORY*)MEM_ALLOC_FUNC(data_size);
+	// 楕円の情報を履歴データにセット
+	history->eclipse = *eclipse;
+
+	// レイヤー名をコピー
+	buff = (uint8*)history;
+	buff += offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name);
+	(void)memcpy(buff, layer->name, name_length);
+
+	AddHistory(&window->history, tool_name, history, (uint32)data_size,
+		AddTopEclipseUndo, AddTopEclipseRedo);
+}
+
+/*********************************************
+* ADD_TOP_SCRIPT_HISTORY構造体               *
+* 形状作成ツールでのスクリプト追加履歴データ *
+*********************************************/
+typedef struct _ADD_TOP_SCRIPT_HISTORY
+{
+	uint32 script_length;		// スクリプトデータの長さ
+	uint16 layer_name_length;	// スクリプトを追加したレイヤーの名前の長さ
+	char *layer_name;			// スクリプトを追加したレイヤーの名前
+	char *script_data;			// スクリプトデータ
+} ADD_TOP_SCRIPT_HISTORY;
+
+/*************************************
+* AddTopScriptUndo関数               *
+* スクリプトのベクトル追加を元に戻す *
+* 引数                               *
+* window	: 描画領域の情報         *
+* p			: 履歴データ             *
+*************************************/
+static void AddTopScriptUndo(DRAW_WINDOW* window, void* p)
+{
+	// 履歴データ
+	ADD_TOP_SCRIPT_HISTORY history;
+	// スクリプトの削除用
+	VECTOR_SCRIPT *script;
+	// スクリプトを追加したレイヤー
+	LAYER *layer;
+	// データをバイト単位で扱うためにキャスト
+	int8 *buff = (int8*)p;
+
+	// データをコピー
+	(void)memcpy(&history, p, offsetof(ADD_TOP_SCRIPT_HISTORY, layer_name));
+	buff += offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name);
+	history.layer_name = buff;
+	history.script_data = buff + history.layer_name_length;
+
+	// レイヤーを名前で探す
+	layer = SearchLayer(window->layer, history.layer_name);
+
+	// 一番上のスクリプトを削除
+	script = (VECTOR_SCRIPT*)layer->layer_data.vector_layer_p->top_data;
+	layer->layer_data.vector_layer_p->top_data = ((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
+	DeleteVectorScript(&script);
+
+	// 形状をラスタライズ
+	if(layer->layer_data.vector_layer_p->flags != VECTOR_LAYER_RASTERIZE_ACTIVE)
+	{
+		layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_TOP;
+		layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+		RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+	}
+	else
+	{
+		VECTOR_BASE_DATA *before_top = NULL;
+		before_top = (VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data;
+		layer->layer_data.vector_layer_p->top_data = ((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
+		((VECTOR_BASE_DATA*)before_top->prev)->next = NULL;
+		DeleteVectorLineLayer(&((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->layer);
+
+		layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+		RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+		((VECTOR_BASE_DATA*)before_top->prev)->next = (void*)before_top;
+	}
+	layer->layer_data.vector_layer_p->active_data = NULL;
+	(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
+
+	// 表示を更新
+	if(layer == window->active_layer)
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	}
+	else
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	}
+
+	layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_TOP;
+}
+
+/*************************************
+* AddTopScriptRedo関数               *
+* スクリプトのベクトル追加をやり直す *
+* 引数                               *
+* window	: 描画領域の情報         *
+* p			: 履歴データ             *
+*************************************/
+static void AddTopScriptRedo(DRAW_WINDOW* window, void* p)
+{
+	// 履歴データ
+	ADD_TOP_SCRIPT_HISTORY history;
+	// 長方形を追加するレイヤー
+	LAYER *layer;
+	// 追加する楕円
+	VECTOR_SCRIPT *script;
+	// データをバイト単位で扱うためにキャスト
+	int8 *buff = (int8*)p;
+	// ベクトルデータを固定するフラグ
+	gboolean fix_flag = TRUE;
+
+	// データをコピー
+	(void)memcpy(&history, p, offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name));
+	buff += offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name);
+	history.layer_name = buff;
+	history.script_data = buff + history.layer_name_length;
+
+	// レイヤーを名前で探す
+	layer = SearchLayer(window->layer, history.layer_name);
+
+	// スクリプト追加
+	script = (VECTOR_SCRIPT*)CreateVectorScript((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data,
+			(VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->next, history.script_data);
+	// 一番上のベクトル変更
+	layer->layer_data.vector_layer_p->top_data = (void*)script;
+
+	if(layer == window->active_layer)
+	{
+		if(window->app->tool_window.active_vector_brush[window->app->input]->brush_type == TYPE_VECTOR_SHAPE_BRUSH)
+		{
+			//POLY_LINE_BRUSH* brush = (POLY_LINE_BRUSH*)window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
+			//brush->flags |= POLY_LINE_START;
+			fix_flag = FALSE;
+		}
+	}
+
+	// ベクトルデータをラスタライズ
+	layer->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_TOP;
+	if(fix_flag != FALSE)
+	{
+		layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
+	}
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+
+	// 表示を更新
+	if(layer == window->active_layer)
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	}
+	else
+	{
+		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	}
+}
+
+
+/*********************************************
+* AddTopScriptHistory関数                    *
+* スクリプトのいベクトル追加履歴を追加       *
+* 引数                                       *
+* window		: 描画領域の情報             *
+* layer			: 楕円を追加したレイヤー     *
+* eclipse		: 追加した楕円               *
+* tool_name		: 楕円を追加したツールの名前 *
+*********************************************/
+void AddTopScriptHistory(
+	DRAW_WINDOW* window,
+	LAYER* layer,
+	VECTOR_SCRIPT* script,
+	const char* tool_name
+)
+{
+	// 履歴データ
+	ADD_TOP_SCRIPT_HISTORY *history;
+	// レイヤー名の長さ
+	uint16 name_length;
+	// スクリプトデータの長さ
+	uint32 script_length = 0;
+	// 履歴データのサイズ
+	size_t data_size;
+	// データコピー先のアドレス
+	uint8 *buff;
+
+	// レイヤー名の長さを取得
+	name_length = (uint16)strlen(layer->name)+1;
+	// スクリプトデータの長さを取得
+	if(script->script_data != NULL)
+	{
+		script_length = (uint32)strlen(script->script_data)+1;
+	}
+	// 履歴データのバイト数を計算してメモリ確保
+	data_size = offsetof(ADD_TOP_SCRIPT_HISTORY, layer_name) + name_length + script_length;
+	history = (ADD_TOP_SCRIPT_HISTORY*)MEM_ALLOC_FUNC(data_size);
+
+	// レイヤー名をコピー
+	buff = (uint8*)history;
+	buff += offsetof(ADD_TOP_SCRIPT_HISTORY, layer_name);
+	(void)memcpy(buff, layer->name, name_length);
+	// スクリプトデータをコピー
+	buff += name_length;
+	(void)memcpy(buff, script->script_data, script_length);
+
+	AddHistory(&window->history, tool_name, history, (uint32)data_size,
+		AddTopScriptUndo, AddTopScriptRedo);
+}
+
+typedef struct _VECTOR_SHAPE_DELETE_HISTORY
+{
+	VECTOR_DATA vector_data;
+	int32 vector_index;
+	uint16 layer_name_length;
+	char *layer_name;
+} VECTOR_SHAPE_DELETE_HISTORY;
+
+static void DeleteVectorShapeUndo(DRAW_WINDOW* window, void* p)
+{
+	VECTOR_SHAPE_DELETE_HISTORY *history_data =
+		(VECTOR_SHAPE_DELETE_HISTORY*)p;
+	LAYER *layer = window->layer;
+	VECTOR_BASE_DATA *shape;
+	char *name = &(((char*)history_data)[offsetof(VECTOR_SHAPE_DELETE_HISTORY, layer_name)]);
+	int i;
+
+	while(strcmp(layer->name, name) != 0)
+	{
+		layer = layer->next;
+	}
+
+	shape = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base);
+	for(i=0; i<history_data->vector_index; i++)
+	{
+		shape = shape->next;
+	}
+
+	if(history_data->vector_data.line.base_data.vector_type == VECTOR_TYPE_SQUARE)
+	{
+		VECTOR_SQUARE *square = (VECTOR_SQUARE*)CreateVectorShape(shape, (VECTOR_BASE_DATA*)shape->next,
+			history_data->vector_data.line.base_data.vector_type);
+		VECTOR_BASE_DATA before_base = square->base_data;
+
+		*square = history_data->vector_data.square;
+		square->base_data = before_base;
+		shape = (VECTOR_BASE_DATA*)square;
+	}
+	else if(history_data->vector_data.line.base_data.vector_type == VECTOR_TYPE_RHOMBUS
+		|| history_data->vector_data.line.base_data.vector_type == VECTOR_TYPE_ECLIPSE)
+	{
+		VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)CreateVectorShape(shape, (VECTOR_BASE_DATA*)shape->next,
+			history_data->vector_data.line.base_data.vector_type);
+		VECTOR_BASE_DATA before_base = eclipse->base_data;
+
+		*eclipse = history_data->vector_data.eclipse;
+		eclipse->base_data = before_base;
+		shape = (VECTOR_BASE_DATA*)eclipse;
+	}
+
+	layer->layer_data.vector_layer_p->active_data = (void*)shape;
+	if(shape->next == NULL)
+	{
+		layer->layer_data.vector_layer_p->top_data = (void*)shape;
+	}
+	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
+
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+
+	layer->layer_data.vector_layer_p->active_data = (void*)NULL;
+}
+
+static void DeleteVectorShapeRedo(DRAW_WINDOW* window, void* p)
+{
+	VECTOR_SHAPE_DELETE_HISTORY *history_data =
+		(VECTOR_SHAPE_DELETE_HISTORY*)p;
+	LAYER *layer = window->layer;
+	VECTOR_BASE_DATA *shape;
+	char *name = &(((char*)history_data)[offsetof(VECTOR_SHAPE_DELETE_HISTORY, layer_name)]);
+	int i;
+
+	while(strcmp(layer->name, name) != 0)
+	{
+		layer = layer->next;
+	}
+
+	shape = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base);
+	for(i=0; i<history_data->vector_index; i++)
+	{
+		shape = shape->next;
+	}
+
+	if(shape->next == NULL)
+	{
+		layer->layer_data.vector_layer_p->top_data = shape->prev;
+	}
+	DeleteVectorShape(&shape);
+
+	layer->layer_data.vector_layer_p->active_data = (void*)NULL;
+	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+}
+
+/*************************************************
+* AddDeleteVectorShapeHistory関数                *
+* 四角形, 楕円削除の履歴を追加                   *
+* 引数                                           *
+* window		: 描画領域の情報                 *
+* layer			: ベクトルを削除したレイヤー     *
+* delete_shape	: 削除したベクトルデータ         *
+* tool_name		: ベクトルデータを削除したツール *
+*************************************************/
+void AddDeleteVectorShapeHistory(
+	DRAW_WINDOW* window,
+	LAYER* layer,
+	VECTOR_BASE_DATA* delete_shape,
+	const char* tool_name
+)
+{
+	uint8 *byte_data;
+	uint16 layer_name_length = (uint16)strlen(window->active_layer->name);
+	VECTOR_SHAPE_DELETE_HISTORY *history_data =
+		(VECTOR_SHAPE_DELETE_HISTORY*)MEM_ALLOC_FUNC(
+			offsetof(VECTOR_SHAPE_DELETE_HISTORY, layer_name) + layer_name_length + 4);
+	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
+	VECTOR_BASE_DATA *shape = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer_data->base)->next;
+	int shape_index = 0;
+
+	while(shape != delete_shape)
+	{
+		shape = shape->next;
+		shape_index++;
+	}
+
+	if(shape->vector_type == VECTOR_TYPE_SQUARE)
+	{
+		history_data->vector_data.square = *((VECTOR_SQUARE*)delete_shape);
+	}
+	else if(shape->vector_type == VECTOR_TYPE_RHOMBUS
+		|| shape->vector_type == VECTOR_TYPE_ECLIPSE)
+	{
+		history_data->vector_data.eclipse = *((VECTOR_ECLIPSE*)delete_shape);
+	}
+
+	history_data->vector_index = (int32)shape_index;
+	history_data->layer_name_length = layer_name_length;
+	byte_data = (uint8*)history_data;
+	(void)memcpy(&byte_data[offsetof(VECTOR_SHAPE_DELETE_HISTORY, layer_name)],
+		window->active_layer->name, layer_name_length + 1);
+
+	AddHistory(&window->history, tool_name,
+		(void*)history_data, offsetof(VECTOR_SHAPE_DELETE_HISTORY, layer_name) + layer_name_length + 4,
+			DeleteVectorShapeUndo, DeleteVectorShapeRedo
+	);
+}
+
+typedef struct _VECTOR_SCRIPT_DELETE_HISTORY
+{
+	uint32 script_length;
+	int32 vector_index;
+	uint16 layer_name_length;
+	char *layer_name;
+	char *script_data;
+} VECTOR_SCRIPT_DELETE_HISTORY;
+
+static void DeleteVectorScriptUndo(DRAW_WINDOW* window, void* p)
+{
+	VECTOR_SCRIPT_DELETE_HISTORY *history_data =
+		(VECTOR_SCRIPT_DELETE_HISTORY*)p;
+	LAYER *layer = window->layer;
+	VECTOR_BASE_DATA *script;
+	char *name = &(((char*)history_data)[offsetof(VECTOR_SCRIPT_DELETE_HISTORY, layer_name)]);
+	char *script_data = &(((char*)history_data)[offsetof(VECTOR_SCRIPT_DELETE_HISTORY, layer_name)
+		+ history_data->layer_name_length]);
+	int i;
+
+	while(strcmp(layer->name, name) != 0)
+	{
+		layer = layer->next;
+	}
+
+	script = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base);
+	for(i=0; i<history_data->vector_index; i++)
+	{
+		script = script->next;
+	}
+
+	{
+		VECTOR_SCRIPT *add = (VECTOR_SCRIPT*)CreateVectorScript(script, (VECTOR_BASE_DATA*)script->next,
+			script_data);
+		layer->layer_data.vector_layer_p->active_data = (void*)add;
+		script = &add->base_data;
+	}
+
+	layer->layer_data.vector_layer_p->active_data = (void*)script;
+	if(script->next == NULL)
+	{
+		layer->layer_data.vector_layer_p->top_data = (void*)script;
+	}
+	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
+
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+
+	layer->layer_data.vector_layer_p->active_data = (void*)NULL;
+}
+
+static void DeleteVectorScriptRedo(DRAW_WINDOW* window, void* p)
+{
+	VECTOR_SCRIPT_DELETE_HISTORY *history_data =
+		(VECTOR_SCRIPT_DELETE_HISTORY*)p;
+	LAYER *layer = window->layer;
+	VECTOR_BASE_DATA *script;
+	char *name = &(((char*)history_data)[offsetof(VECTOR_SHAPE_DELETE_HISTORY, layer_name)]);
+	int i;
+
+	while(strcmp(layer->name, name) != 0)
+	{
+		layer = layer->next;
+	}
+
+	script = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base);
+	for(i=0; i<history_data->vector_index; i++)
+	{
+		script = script->next;
+	}
+
+	if(script->next == NULL)
+	{
+		layer->layer_data.vector_layer_p->top_data = script->prev;
+	}
+	DeleteVectorScript((VECTOR_SCRIPT**)&script);
+
+	layer->layer_data.vector_layer_p->active_data = (void*)NULL;
+	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+}
+
+/*************************************************
+* AddDeleteVectorScriptHistory関数               *
+* スクリプトのベクトル削除の履歴を追加           *
+* 引数                                           *
+* window		: 描画領域の情報                 *
+* layer			: ベクトルを削除したレイヤー     *
+* delete_script	: 削除したベクトルデータ         *
+* tool_name		: ベクトルデータを削除したツール *
+*************************************************/
+void AddDeleteVectorScriptHistory(
+	DRAW_WINDOW* window,
+	LAYER* layer,
+	VECTOR_SCRIPT* delete_script,
+	const char* tool_name
+)
+{
+	uint8 *byte_data;
+	uint16 layer_name_length = (uint16)strlen(window->active_layer->name)+1;
+	uint32 script_length = (uint32)strlen(delete_script->script_data)+1;
+	VECTOR_SCRIPT_DELETE_HISTORY *history_data =
+		(VECTOR_SCRIPT_DELETE_HISTORY*)MEM_ALLOC_FUNC(
+			offsetof(VECTOR_SCRIPT_DELETE_HISTORY, layer_name) + layer_name_length + 4);
+	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
+	VECTOR_BASE_DATA *script = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer_data->base)->next;
+	int script_index = 0;
+
+	while(script != &delete_script->base_data)
+	{
+		script = script->next;
+		script_index++;
+	}
+
+	history_data->vector_index = (int32)script_index;
+	history_data->layer_name_length = layer_name_length;
+	history_data->script_length = script_length;
+	byte_data = (uint8*)history_data;
+	(void)memcpy(&byte_data[offsetof(VECTOR_SHAPE_DELETE_HISTORY, layer_name)],
+		window->active_layer->name, layer_name_length);
+	(void)memcpy(&byte_data[offsetof(VECTOR_SHAPE_DELETE_HISTORY, layer_name)+layer_name_length],
+		delete_script->script_data, script_length);
+
+	AddHistory(&window->history, tool_name,
+		(void*)history_data, offsetof(VECTOR_SHAPE_DELETE_HISTORY, layer_name) + layer_name_length + 4,
+			DeleteVectorScriptUndo, DeleteVectorScriptRedo
+	);
 }
 
 void DivideLinesUndo(DRAW_WINDOW* window, void* p)
@@ -1985,12 +3497,12 @@ void DivideLinesUndo(DRAW_WINDOW* window, void* p)
 		target = target->next;
 	}
 
-	line = layer->base->next;
+	line = ((VECTOR_BASE_DATA*)layer->base)->next;
 	while(line != NULL && num_delete < data.num_add)
 	{
 		while(data.add->index == line_index)
 		{
-			VECTOR_LINE *next_line = line->next;
+			VECTOR_LINE *next_line = (VECTOR_LINE*)line->base_data.next;
 			uint8 *byte_p = (uint8*)data.add;
 			DeleteVectorLine(&line);
 			data.add = (DIVIDE_LINE_ADD_DATA*)&byte_p[data.add->data_size];
@@ -2000,20 +3512,20 @@ void DivideLinesUndo(DRAW_WINDOW* window, void* p)
 
 		if(line != NULL)
 		{
-			line = line->next;
+			line = (VECTOR_LINE*)line->base_data.next;
 		}
 		line_index++;
 	}
 
 	line_index = 0;
-	line = layer->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->base)->next;
 	while(line != NULL && num_change < data.num_change)
 	{
 		if(data.change->index == line_index)
 		{
 			uint8 *byte_p = (uint8*)data.change;
 			line->flags |= VECTOR_LINE_FIX;
-			line->vector_type = data.change->line_type;
+			line->base_data.vector_type = data.change->line_type;
 			line->num_points = data.change->before_num_points;
 			byte_p = &byte_p[offsetof(DIVIDE_LINE_CHANGE_DATA, before)];
 			(void)memcpy(line->points, byte_p, sizeof(*line->points)*data.change->before_num_points);
@@ -2022,7 +3534,7 @@ void DivideLinesUndo(DRAW_WINDOW* window, void* p)
 			num_change++;
 		}
 
-		line = line->next;
+		line = (VECTOR_LINE*)line->base_data.next;
 		line_index++;
 	}
 
@@ -2067,7 +3579,7 @@ void DivideLinesRedo(DRAW_WINDOW* window, void* p)
 		target = target->next;
 	}
 
-	line = layer->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->base)->next;
 	while(line != NULL && num_change < data.num_change)
 	{
 		while(data.add->index == line_index)
@@ -2083,20 +3595,20 @@ void DivideLinesRedo(DRAW_WINDOW* window, void* p)
 			num_change++;
 		}
 
-		line = line->next;
+		line = (VECTOR_LINE*)line->base_data.next;
 		line_index++;
 	}
 
 	line_index = 0;
-	line = layer->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->base)->next;
 	while(line != NULL && num_add < data.num_add)
 	{
 		while(data.change->index == line_index)
 		{
 			uint8 *byte_p = (uint8*)data.add;
-			line = CreateVectorLine(line, line->next);
+			line = CreateVectorLine(line, (VECTOR_LINE*)line->base_data.next);
 			line->flags = VECTOR_LINE_FIX;
-			line->vector_type = data.add->line_type;
+			line->base_data.vector_type = data.add->line_type;
 			line->num_points = data.add->num_points;
 			
 			line->buff_size =
@@ -2111,7 +3623,7 @@ void DivideLinesRedo(DRAW_WINDOW* window, void* p)
 			num_add++;
 		}
 
-		line = line->next;
+		line = (VECTOR_LINE*)line->base_data.next;
 		line_index++;
 	}
 
@@ -2166,18 +3678,18 @@ static void DeleteLinesUndo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base;
+	line = (VECTOR_LINE*)layer->layer_data.vector_layer_p->base;
 	i = 0;
 	while(line != NULL)
 	{
 		if(i == data.indexes[exec_lines])
 		{
-			ressurect_line = CreateVectorLine(line, line->next);
-			if(line == layer->layer_data.vector_layer_p->top_line)
+			ressurect_line = CreateVectorLine(line, (VECTOR_LINE*)line->base_data.next);
+			if((void*)line == layer->layer_data.vector_layer_p->top_data)
 			{
-				layer->layer_data.vector_layer_p->top_line = line;
+				layer->layer_data.vector_layer_p->top_data = (void*)line;
 			}
-			ressurect_line->vector_type = data.lines[exec_lines].vector_type;
+			ressurect_line->base_data.vector_type = data.lines[exec_lines].base_data.vector_type;
 			ressurect_line->flags |= VECTOR_LINE_FIX;
 			ressurect_line->num_points = data.lines[exec_lines].num_points;
 			ressurect_line->buff_size = data.lines[exec_lines].buff_size;
@@ -2199,7 +3711,7 @@ static void DeleteLinesUndo(DRAW_WINDOW* window, void* p)
 			}
 		}
 
-		line = line->next;
+		line = (VECTOR_LINE*)line->base_data.next;
 		i++;
 	}
 
@@ -2240,13 +3752,13 @@ static void DeleteLinesRedo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	i = 0;
 	while(line != NULL)
 	{
 		if(i == data.indexes[exec_lines])
 		{
-			VECTOR_LINE *prev_line = line->prev;
+			VECTOR_LINE *prev_line = (VECTOR_LINE*)line->base_data.prev;
 			DeleteVectorLine(&line);
 			line = prev_line;
 
@@ -2257,7 +3769,7 @@ static void DeleteLinesRedo(DRAW_WINDOW* window, void* p)
 			}
 		}
 
-		line = line->next;
+		line = (VECTOR_LINE*)line->base_data.next;
 		i++;
 	}
 

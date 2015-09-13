@@ -2,6 +2,7 @@
 	// 警告が出ないようにする
 #if defined _MSC_VER && _MSC_VER >= 1400
 # define _CRT_SECURE_NO_DEPRECATE
+# define _CRT_NONSTDC_NO_DEPRECATE
 #endif
 
 #include <stdio.h>
@@ -63,11 +64,12 @@ static void PolyLinePressCallBack(
 			pressure = 0.5;
 		}
 
-		if(((GdkEventButton*)state)->type == GDK_2BUTTON_PRESS
-			&& (line->flags & POLY_LINE_START) != 0 && layer->top_line->num_points > 3)
+		if(((GdkEventButton*)state)->type == GDK_2BUTTON_PRESS && ((VECTOR_BASE_DATA*)layer->top_data)->vector_type < NUM_VECTOR_LINE_TYPE
+			&& (line->flags & POLY_LINE_START) != 0 && ((VECTOR_LINE*)layer->top_data)->num_points > 3)
 		{
-			layer->top_line->num_points -= 2;
-			layer->top_line->points[layer->top_line->num_points-1].pressure =
+			VECTOR_LINE *top_line = (VECTOR_LINE*)layer->top_data;
+			top_line->num_points -= 2;
+			top_line->points[top_line->num_points-1].pressure =
 				line->before_pressure * 200 * line->last_pressure * 0.01;
 			line->flags &= ~(POLY_LINE_START);
 			layer->flags |= (VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE);
@@ -76,42 +78,43 @@ static void PolyLinePressCallBack(
 		{
 			if((line->flags & POLY_LINE_START) == 0)
 			{
+				VECTOR_LINE *top_line;
 				layer->flags |= VECTOR_LAYER_RASTERIZE_TOP;
-				layer->top_line = CreateVectorLine(layer->top_line, NULL);
+				layer->top_data = (void*)(top_line = CreateVectorLine((VECTOR_LINE*)layer->top_data, NULL));
 				if((line->flags & POLY_LINE_ANTI_ALIAS) != 0)
 				{
-					layer->top_line->flags |= VECTOR_LINE_ANTI_ALIAS;
+					top_line->flags |= VECTOR_LINE_ANTI_ALIAS;
 				}
 				line->flags |= POLY_LINE_START;
-				layer->top_line->vector_type = line->line_type;
-				layer->top_line->blur = line->blur;
-				layer->top_line->outline_hardness = line->outline_hardness;
-				layer->top_line->points =
+				top_line->base_data.vector_type = line->line_type;
+				top_line->blur = line->blur;
+				top_line->outline_hardness = line->outline_hardness;
+				top_line->points =
 					(VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(VECTOR_POINT)*VECTOR_LINE_BUFFER_SIZE);
-				(void)memset(layer->top_line->points, 0,
+				(void)memset(top_line->points, 0,
 						sizeof(VECTOR_POINT)*VECTOR_LINE_BUFFER_SIZE);
-				layer->top_line->buff_size = VECTOR_LINE_BUFFER_SIZE;
-				layer->top_line->points->x = x;
-				layer->top_line->points->y = y;
-				layer->top_line->points->size = line->r;
-				layer->top_line->points->pressure = pressure * 200 * line->first_pressure * 0.01;
-				(void)memcpy(layer->top_line->points->color,
+				top_line->buff_size = VECTOR_LINE_BUFFER_SIZE;
+				top_line->points->x = x;
+				top_line->points->y = y;
+				top_line->points->size = line->r;
+				top_line->points->pressure = pressure * 200 * line->first_pressure * 0.01;
+				(void)memcpy(top_line->points->color,
 					window->app->tool_window.color_chooser->rgb, 3);
-				layer->top_line->points->color[3] = line->flow;
-				layer->top_line->points[1].x = x;
-				layer->top_line->points[1].y = y;
-				layer->top_line->points[1].size = line->r;
-				layer->top_line->points[1].pressure = pressure * 200;
-				(void)memcpy(layer->top_line->points[1].color,
+				top_line->points->color[3] = line->flow;
+				top_line->points[1].x = x;
+				top_line->points[1].y = y;
+				top_line->points[1].size = line->r;
+				top_line->points[1].pressure = pressure * 200;
+				(void)memcpy(top_line->points[1].color,
 					window->app->tool_window.color_chooser->rgb, 3);
-				layer->top_line->points[1].color[3] = line->flow;
-				layer->top_line->num_points = 2;
+				top_line->points[1].color[3] = line->flow;
+				top_line->num_points = 2;
 				layer->num_lines++;
 
 				g_timer_start(line->timer);
 
-				AddTopLineControlPointHistory(window, window->active_layer, layer->top_line,
-					&layer->top_line->points[1], core->name, TRUE);
+				AddTopLineControlPointHistory(window, window->active_layer, top_line,
+					&top_line->points[1], core->name, TRUE);
 			}
 			else
 			{
@@ -123,36 +126,37 @@ static void PolyLinePressCallBack(
 					&& gdk_device_get_source(((GdkEventButton*)state)->device) != GDK_SOURCE_MOUSE)
 #endif
 				{
-					layer->top_line->num_points--;
+					((VECTOR_LINE*)layer->top_data)->num_points--;
 					line->flags &= ~(POLY_LINE_START);
 					layer->flags |= (VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE);
 				}
 				else
 				{
-					layer->top_line->points[layer->top_line->num_points].x = x;
-					layer->top_line->points[layer->top_line->num_points].y = y;
-					layer->top_line->points[layer->top_line->num_points].size = line->r;
-					layer->top_line->points[layer->top_line->num_points].pressure = pressure * 200 * line->last_pressure * 0.01;
-					(void)memcpy(layer->top_line->points[layer->top_line->num_points].color,
+					VECTOR_LINE *top_line = (VECTOR_LINE*)layer->top_data;
+					top_line->points[top_line->num_points].x = x;
+					top_line->points[top_line->num_points].y = y;
+					top_line->points[top_line->num_points].size = line->r;
+					top_line->points[top_line->num_points].pressure = pressure * 200 * line->last_pressure * 0.01;
+					(void)memcpy(top_line->points[top_line->num_points].color,
 						window->app->tool_window.color_chooser->rgb, 3);
-					layer->top_line->points[layer->top_line->num_points].color[3] = line->flow;
+					top_line->points[top_line->num_points].color[3] = line->flow;
 
-					if(layer->top_line->num_points > 1)
+					if(top_line->num_points > 1)
 					{
-						layer->top_line->points[layer->top_line->num_points-1].pressure = line->before_pressure * 200;
+						top_line->points[top_line->num_points-1].pressure = line->before_pressure * 200;
 					}
 
 					AddTopLineControlPointHistory(window, window->active_layer,
-						layer->top_line, &layer->top_line->points[layer->top_line->num_points], core->name, FALSE);
+						top_line, &top_line->points[top_line->num_points], core->name, FALSE);
 
-					layer->top_line->num_points++;
-					layer->top_line->points[layer->top_line->num_points].pressure = pressure * 200;
+					top_line->num_points++;
+					top_line->points[top_line->num_points].pressure = pressure * 200;
 
-					if(layer->top_line->num_points >= layer->top_line->buff_size-1)
+					if(top_line->num_points >= top_line->buff_size-1)
 					{
-						layer->top_line->buff_size += VECTOR_LINE_BUFFER_SIZE;
-						layer->top_line->points = (VECTOR_POINT*)MEM_REALLOC_FUNC(
-							layer->top_line->points, layer->top_line->buff_size*sizeof(VECTOR_POINT));
+						top_line->buff_size += VECTOR_LINE_BUFFER_SIZE;
+						top_line->points = (VECTOR_POINT*)MEM_REALLOC_FUNC(
+							top_line->points, top_line->buff_size*sizeof(VECTOR_POINT));
 					}
 
 					window->work_layer->layer_mode = LAYER_BLEND_OVER;
@@ -167,11 +171,12 @@ static void PolyLinePressCallBack(
 	{
 		POLY_LINE_BRUSH* line = (POLY_LINE_BRUSH*)core->brush_data;
 		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+		VECTOR_LINE *top_line = (VECTOR_LINE*)layer->top_data;
 
-		if((line->flags & POLY_LINE_START) != 0 && layer->top_line->num_points > 2)
+		if((line->flags & POLY_LINE_START) != 0 && top_line->num_points > 2)
 		{
-			layer->top_line->num_points -= 1;
-			layer->top_line->points[layer->top_line->num_points-1].pressure =
+			top_line->num_points -= 1;
+			top_line->points[top_line->num_points-1].pressure =
 				line->before_pressure * 200 * line->last_pressure * 0.01;
 			layer->flags |= (VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE);
 			line->flags &= ~(POLY_LINE_START);
@@ -195,11 +200,12 @@ static void PolyLineMotionCallBack(
 
 	if((line->flags & POLY_LINE_START) != 0)
 	{
-		VECTOR_LAYER* layer = window->active_layer->layer_data.vector_layer_p;
+		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+		VECTOR_LINE *top_line = (VECTOR_LINE*)layer->top_data;
 		layer->flags |= VECTOR_LAYER_RASTERIZE_TOP;
 		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
-		layer->top_line->points[layer->top_line->num_points-1].x = x;
-		layer->top_line->points[layer->top_line->num_points-1].y = y;
+		top_line->points[top_line->num_points-1].x = x;
+		top_line->points[top_line->num_points-1].y = y;
 	}
 }
 
@@ -213,9 +219,10 @@ static void PolyLineKeyPressCallBack(DRAW_WINDOW *window, GdkEventKey* key, void
 		POLY_LINE_BRUSH* line = (POLY_LINE_BRUSH*)data;
 		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
 
-		if((line->flags & POLY_LINE_START) != 0 && layer->top_line->num_points > 2)
+		if((line->flags & POLY_LINE_START) != 0 && ((VECTOR_BASE_DATA*)layer->top_data)->vector_type < NUM_VECTOR_LINE_TYPE
+			&& ((VECTOR_LINE*)layer->top_data)->num_points > 2)
 		{
-			layer->top_line->num_points -= 1;
+			((VECTOR_LINE*)layer->top_data)->num_points -= 1;
 			layer->flags |= (VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE);
 			line->flags &= ~(POLY_LINE_START);
 			layer->num_lines++;
@@ -452,11 +459,11 @@ static GtkWidget* CreatePolyLineDetailUI(APPLICATION* app, void* data)
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
 
 	buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.open_path);
-	g_object_set_data(G_OBJECT(buttons[0]), "line_type", GINT_TO_POINTER(VECTOR_LINE_STRAIGHT));
+	g_object_set_data(G_OBJECT(buttons[0]), "line_type", GINT_TO_POINTER(VECTOR_TYPE_STRAIGHT));
 	buttons[1] = gtk_radio_button_new_with_label(
 		gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])), app->labels->tool_box.close_path);
-	g_object_set_data(G_OBJECT(buttons[1]), "line_type", GINT_TO_POINTER(VECTOR_LINE_STRAIGHT_CLOSE));
-	if(line->line_type == VECTOR_LINE_STRAIGHT)
+	g_object_set_data(G_OBJECT(buttons[1]), "line_type", GINT_TO_POINTER(VECTOR_TYPE_STRAIGHT_CLOSE));
+	if(line->line_type == VECTOR_TYPE_STRAIGHT)
 	{
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[0]), TRUE);
 	}
@@ -498,10 +505,10 @@ static void BezierLinePressCallBack(
 		}
 
 		if(((GdkEventButton*)state)->type == GDK_2BUTTON_PRESS
-			&& (line->flags & BEZIER_LINE_START) != 0 && layer->top_line->num_points > 3)
+			&& (line->flags & BEZIER_LINE_START) != 0 && ((VECTOR_LINE*)layer->top_data)->num_points > 3)
 		{
-			layer->top_line->num_points -= 2;
-			layer->top_line->points[layer->top_line->num_points-1].pressure =
+			((VECTOR_LINE*)layer->top_data)->num_points -= 2;
+			((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].pressure =
 				line->before_pressure * 200 * line->last_pressure * 0.01;
 			layer->flags |= (VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE);
 			line->flags &= ~(BEZIER_LINE_START);
@@ -511,39 +518,39 @@ static void BezierLinePressCallBack(
 			if((line->flags & BEZIER_LINE_START) == 0)
 			{
 				layer->flags |= VECTOR_LAYER_RASTERIZE_TOP;
-				layer->top_line = CreateVectorLine(layer->top_line, NULL);
+				layer->top_data = (void*)CreateVectorLine((VECTOR_LINE*)layer->top_data, NULL);
 				if((line->flags & BEZIER_LINE_ANTI_ALIAS) != 0)
 				{
-					layer->top_line->flags |= VECTOR_LINE_ANTI_ALIAS;
+					((VECTOR_LINE*)layer->top_data)->flags |= VECTOR_LINE_ANTI_ALIAS;
 				}
 				line->flags |= BEZIER_LINE_START;
-				layer->top_line->vector_type = line->line_type;
-				layer->top_line->blur = line->blur;
-				layer->top_line->outline_hardness = line->outline_hardness;
-				layer->top_line->points =
+				((VECTOR_LINE*)layer->top_data)->base_data.vector_type = line->line_type;
+				((VECTOR_LINE*)layer->top_data)->blur = line->blur;
+				((VECTOR_LINE*)layer->top_data)->outline_hardness = line->outline_hardness;
+				((VECTOR_LINE*)layer->top_data)->points =
 					(VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(VECTOR_POINT)*VECTOR_LINE_BUFFER_SIZE);
-				layer->top_line->buff_size = VECTOR_LINE_BUFFER_SIZE;
-				(void)memset(layer->top_line->points, 0,
+				((VECTOR_LINE*)layer->top_data)->buff_size = VECTOR_LINE_BUFFER_SIZE;
+				(void)memset(((VECTOR_LINE*)layer->top_data)->points, 0,
 						sizeof(VECTOR_POINT)*VECTOR_LINE_BUFFER_SIZE);
-				layer->top_line->points->x = x;
-				layer->top_line->points->y = y;
-				layer->top_line->points->size = line->r;
-				layer->top_line->points->pressure = pressure * 200 * line->first_pressure * 0.01;
-				(void)memcpy(layer->top_line->points->color,
+				((VECTOR_LINE*)layer->top_data)->points->x = x;
+				((VECTOR_LINE*)layer->top_data)->points->y = y;
+				((VECTOR_LINE*)layer->top_data)->points->size = line->r;
+				((VECTOR_LINE*)layer->top_data)->points->pressure = pressure * 200 * line->first_pressure * 0.01;
+				(void)memcpy(((VECTOR_LINE*)layer->top_data)->points->color,
 					window->app->tool_window.color_chooser->rgb, 3);
-				layer->top_line->points->color[3] = line->flow;
-				layer->top_line->points[1].x = x;
-				layer->top_line->points[1].y = y;
-				layer->top_line->points[1].size = line->r;
-				layer->top_line->points[1].pressure = pressure * 200;
-				(void)memcpy(layer->top_line->points[1].color,
+				((VECTOR_LINE*)layer->top_data)->points->color[3] = line->flow;
+				((VECTOR_LINE*)layer->top_data)->points[1].x = x;
+				((VECTOR_LINE*)layer->top_data)->points[1].y = y;
+				((VECTOR_LINE*)layer->top_data)->points[1].size = line->r;
+				((VECTOR_LINE*)layer->top_data)->points[1].pressure = pressure * 200;
+				(void)memcpy(((VECTOR_LINE*)layer->top_data)->points[1].color,
 					window->app->tool_window.color_chooser->rgb, 3);
-				layer->top_line->points[1].color[3] = line->flow;
-				layer->top_line->num_points = 2;
+				((VECTOR_LINE*)layer->top_data)->points[1].color[3] = line->flow;
+				((VECTOR_LINE*)layer->top_data)->num_points = 2;
 				layer->num_lines++;
 
-				AddTopLineControlPointHistory(window, window->active_layer, layer->top_line,
-					&layer->top_line->points[1], core->name, TRUE);
+				AddTopLineControlPointHistory(window, window->active_layer, (VECTOR_LINE*)layer->top_data,
+					&((VECTOR_LINE*)layer->top_data)->points[1], core->name, TRUE);
 
 				g_timer_start(line->timer);
 			}
@@ -557,37 +564,37 @@ static void BezierLinePressCallBack(
 					&& gdk_device_get_source(((GdkEventButton*)state)->device) != GDK_SOURCE_MOUSE)
 #endif
 				{
-					layer->top_line->num_points--;
+					((VECTOR_LINE*)layer->top_data)->num_points--;
 					layer->flags |= (VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE);
 					line->flags &= ~(BEZIER_LINE_START);
 				}
 				else
 				{
-					layer->top_line->points[layer->top_line->num_points].x = x;
-					layer->top_line->points[layer->top_line->num_points].y = y;
-					layer->top_line->points[layer->top_line->num_points].size = line->r;
-					layer->top_line->points[layer->top_line->num_points].pressure = pressure * 200 * line->last_pressure * 0.01;
-					(void)memcpy(layer->top_line->points[layer->top_line->num_points].color,
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].x = x;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].y = y;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].size = line->r;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].pressure = pressure * 200 * line->last_pressure * 0.01;
+					(void)memcpy(((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color,
 						window->app->tool_window.color_chooser->rgb, 3);
-					layer->top_line->points[layer->top_line->num_points].color[3] = line->flow;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color[3] = line->flow;
 
-					if(layer->top_line->num_points > 1)
+					if(((VECTOR_LINE*)layer->top_data)->num_points > 1)
 					{
-						layer->top_line->points[layer->top_line->num_points-1].pressure = line->before_pressure * 200;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].pressure = line->before_pressure * 200;
 					}
 
 					AddTopLineControlPointHistory(window, window->active_layer,
-						layer->top_line, &layer->top_line->points[layer->top_line->num_points], core->name, FALSE);
+						(VECTOR_LINE*)layer->top_data, &((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points], core->name, FALSE);
 
-					layer->top_line->num_points++;
-					layer->top_line->points[layer->top_line->num_points].size = line->r;
-					layer->top_line->points[layer->top_line->num_points].pressure = pressure * 200 * line->last_pressure * 0.01;
+					((VECTOR_LINE*)layer->top_data)->num_points++;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].size = line->r;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].pressure = pressure * 200 * line->last_pressure * 0.01;
 
-					if(layer->top_line->num_points >= layer->top_line->buff_size-1)
+					if(((VECTOR_LINE*)layer->top_data)->num_points >= ((VECTOR_LINE*)layer->top_data)->buff_size-1)
 					{
-						layer->top_line->buff_size += VECTOR_LINE_BUFFER_SIZE;
-						layer->top_line->points = (VECTOR_POINT*)MEM_REALLOC_FUNC(
-							layer->top_line->points, layer->top_line->buff_size*sizeof(VECTOR_POINT));
+						((VECTOR_LINE*)layer->top_data)->buff_size += VECTOR_LINE_BUFFER_SIZE;
+						((VECTOR_LINE*)layer->top_data)->points = (VECTOR_POINT*)MEM_REALLOC_FUNC(
+							((VECTOR_LINE*)layer->top_data)->points, ((VECTOR_LINE*)layer->top_data)->buff_size*sizeof(VECTOR_POINT));
 					}
 
 					g_timer_start(line->timer);
@@ -604,10 +611,10 @@ static void BezierLinePressCallBack(
 		BEZIER_LINE_BRUSH* line = (BEZIER_LINE_BRUSH*)core->brush_data;
 		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
 
-		if((line->flags & BEZIER_LINE_START) != 0 && layer->top_line->num_points > 2)
+		if((line->flags & BEZIER_LINE_START) != 0 && ((VECTOR_LINE*)layer->top_data)->num_points > 2)
 		{
-			layer->top_line->num_points -= 1;
-			layer->top_line->points[layer->top_line->num_points-1].pressure =
+			((VECTOR_LINE*)layer->top_data)->num_points -= 1;
+			((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].pressure =
 				line->before_pressure * 200 * line->last_pressure * 0.01;
 			layer->flags |= (VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE);
 			line->flags &= ~(BEZIER_LINE_START);
@@ -635,8 +642,8 @@ static void BezierLineMotionCallBack(
 		VECTOR_LAYER* layer = window->active_layer->layer_data.vector_layer_p;
 		layer->flags |= VECTOR_LAYER_RASTERIZE_TOP;
 		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
-		layer->top_line->points[layer->top_line->num_points-1].x = x;
-		layer->top_line->points[layer->top_line->num_points-1].y = y;
+		((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].x = x;
+		((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].y = y;
 	}
 }
 
@@ -650,9 +657,9 @@ static void BezierLineKeyPressCallBack(DRAW_WINDOW *window, GdkEventKey* key, vo
 		BEZIER_LINE_BRUSH* line = (BEZIER_LINE_BRUSH*)data;
 		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
 
-		if((line->flags & BEZIER_LINE_START) != 0 && layer->top_line->num_points > 2)
+		if((line->flags & BEZIER_LINE_START) != 0 && ((VECTOR_LINE*)layer->top_data)->num_points > 2)
 		{
-			layer->top_line->num_points -= 1;
+			((VECTOR_LINE*)layer->top_data)->num_points -= 1;
 			layer->flags |= (VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE);
 			line->flags &= ~(BEZIER_LINE_START);
 			layer->num_lines++;
@@ -889,11 +896,11 @@ static GtkWidget* CreateBezierLineDetailUI(APPLICATION* app, void* data)
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
 
 	buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.open_path);
-	g_object_set_data(G_OBJECT(buttons[0]), "line_type", GINT_TO_POINTER(VECTOR_LINE_BEZIER_OPEN));
+	g_object_set_data(G_OBJECT(buttons[0]), "line_type", GINT_TO_POINTER(VECTOR_TYPE_BEZIER_OPEN));
 	buttons[1] = gtk_radio_button_new_with_label(
 		gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])), app->labels->tool_box.close_path);
-	g_object_set_data(G_OBJECT(buttons[1]), "line_type", GINT_TO_POINTER(VECTOR_LINE_BEZIER_CLOSE));
-	if(line->line_type == VECTOR_LINE_BEZIER_OPEN)
+	g_object_set_data(G_OBJECT(buttons[1]), "line_type", GINT_TO_POINTER(VECTOR_TYPE_BEZIER_CLOSE));
+	if(line->line_type == VECTOR_TYPE_BEZIER_OPEN)
 	{
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[0]), TRUE);
 	}
@@ -964,26 +971,26 @@ static void FreeHandPressCallBack(
 		alpha = free_hand->flow * DIV_PIXEL;
 		//alpha = free_hand->flow * DIV_PIXEL * pressure;
 
-		layer->top_line = CreateVectorLine(layer->top_line, NULL);
-		layer->top_line->vector_type = free_hand->line_type;
+		layer->top_data = (void*)CreateVectorLine((VECTOR_LINE*)layer->top_data, NULL);
+		((VECTOR_LINE*)layer->top_data)->base_data.vector_type = free_hand->line_type;
 		if((free_hand->flags & FREE_HAND_ANTI_ALIAS) != 0)
 		{
-			layer->top_line->flags |= VECTOR_LINE_ANTI_ALIAS;
+			((VECTOR_LINE*)layer->top_data)->flags |= VECTOR_LINE_ANTI_ALIAS;
 		}
-		layer->top_line->points =
+		((VECTOR_LINE*)layer->top_data)->points =
 			(VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(VECTOR_POINT)*VECTOR_LINE_BUFFER_SIZE);
-		(void)memset(layer->top_line->points, 0,
+		(void)memset(((VECTOR_LINE*)layer->top_data)->points, 0,
 			sizeof(VECTOR_POINT)*VECTOR_LINE_BUFFER_SIZE);
-		layer->top_line->buff_size = VECTOR_LINE_BUFFER_SIZE;
-		layer->top_line->points->x = x;
-		layer->top_line->points->y = y;
-		layer->top_line->points->size = free_hand->r;
-		layer->top_line->points->pressure = pressure * 200;
-		layer->top_line->blur = free_hand->blur;
-		layer->top_line->outline_hardness = free_hand->outline_hardness;
-		(void)memcpy(layer->top_line->points->color, *core->color, 3);
-		layer->top_line->points->color[3] = free_hand->flow;
-		layer->top_line->num_points++;
+		((VECTOR_LINE*)layer->top_data)->buff_size = VECTOR_LINE_BUFFER_SIZE;
+		((VECTOR_LINE*)layer->top_data)->points->x = x;
+		((VECTOR_LINE*)layer->top_data)->points->y = y;
+		((VECTOR_LINE*)layer->top_data)->points->size = free_hand->r;
+		((VECTOR_LINE*)layer->top_data)->points->pressure = pressure * 200;
+		((VECTOR_LINE*)layer->top_data)->blur = free_hand->blur;
+		((VECTOR_LINE*)layer->top_data)->outline_hardness = free_hand->outline_hardness;
+		(void)memcpy(((VECTOR_LINE*)layer->top_data)->points->color, *core->color, 3);
+		((VECTOR_LINE*)layer->top_data)->points->color[3] = free_hand->flow;
+		((VECTOR_LINE*)layer->top_data)->num_points++;
 
 		free_hand->draw_before_x = free_hand->before_x = x;
 		free_hand->draw_before_y = free_hand->before_y = y;
@@ -1061,38 +1068,38 @@ static void FreeHandMotionCallBack(
 		{
 			if(d >= free_hand->min_distance)
 			{
-				if(layer->top_line->num_points == 1)
+				if(((VECTOR_LINE*)layer->top_data)->num_points == 1)
 				{
 					free_hand->before_arg = arg;
-					layer->top_line->points[layer->top_line->num_points].x = x;
-					layer->top_line->points[layer->top_line->num_points].y = y;
-					layer->top_line->points[layer->top_line->num_points].pressure = pressure*200;
-					layer->top_line->points[layer->top_line->num_points].size = free_hand->r;
-					(void)memcpy(layer->top_line->points[layer->top_line->num_points].color,
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].x = x;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].y = y;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].pressure = pressure*200;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].size = free_hand->r;
+					(void)memcpy(((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color,
 						color, 3);
-					layer->top_line->points[layer->top_line->num_points].color[3] = free_hand->flow;
-					layer->top_line->num_points++;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color[3] = free_hand->flow;
+					((VECTOR_LINE*)layer->top_data)->num_points++;
 				}
 				else
 				{
 					if(fabs(free_hand->before_arg-arg) >= free_hand->min_arg)
 					{
-						layer->top_line->points[layer->top_line->num_points].x = x;
-						layer->top_line->points[layer->top_line->num_points].y = y;
-						(void)memcpy(layer->top_line->points[layer->top_line->num_points].color,
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].x = x;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].y = y;
+						(void)memcpy(((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color,
 							core->color, 3);
-						layer->top_line->points[layer->top_line->num_points].pressure = pressure * 200;
-						layer->top_line->points[layer->top_line->num_points].size = free_hand->r;
-						(void)memcpy(layer->top_line->points[layer->top_line->num_points].color,
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].pressure = pressure * 200;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].size = free_hand->r;
+						(void)memcpy(((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color,
 							color, 3);
-						layer->top_line->points[layer->top_line->num_points].color[3] = free_hand->flow;
-						layer->top_line->num_points++;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color[3] = free_hand->flow;
+						((VECTOR_LINE*)layer->top_data)->num_points++;
 
-						if(layer->top_line->num_points >= layer->top_line->buff_size-1)
+						if(((VECTOR_LINE*)layer->top_data)->num_points >= ((VECTOR_LINE*)layer->top_data)->buff_size-1)
 						{
-							layer->top_line->buff_size += VECTOR_LINE_BUFFER_SIZE;
-							layer->top_line->points = (VECTOR_POINT*)MEM_REALLOC_FUNC(
-								layer->top_line->points, layer->top_line->buff_size*sizeof(VECTOR_POINT));
+							((VECTOR_LINE*)layer->top_data)->buff_size += VECTOR_LINE_BUFFER_SIZE;
+							((VECTOR_LINE*)layer->top_data)->points = (VECTOR_POINT*)MEM_REALLOC_FUNC(
+								((VECTOR_LINE*)layer->top_data)->points, ((VECTOR_LINE*)layer->top_data)->buff_size*sizeof(VECTOR_POINT));
 						}
 
 						free_hand->before_x = x;
@@ -1101,27 +1108,27 @@ static void FreeHandMotionCallBack(
 					}
 					else
 					{
-						layer->top_line->points[layer->top_line->num_points-1].x = x;
-						layer->top_line->points[layer->top_line->num_points-1].y = y;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].x = x;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].y = y;
 					}
 				}
 			}
 		}
 		else
 		{
-			if(layer->top_line->num_points < 2)
+			if(((VECTOR_LINE*)layer->top_data)->num_points < 2)
 			{
 				if(d >= free_hand->min_distance)
 				{
 					free_hand->before_arg = arg;
-					layer->top_line->points[layer->top_line->num_points].x = x;
-					layer->top_line->points[layer->top_line->num_points].y = y;
-					layer->top_line->points[layer->top_line->num_points].pressure = pressure*200;
-					layer->top_line->points[layer->top_line->num_points].size = free_hand->r;
-					(void)memcpy(layer->top_line->points[layer->top_line->num_points].color,
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].x = x;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].y = y;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].pressure = pressure*200;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].size = free_hand->r;
+					(void)memcpy(((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color,
 						color, 3);
-					layer->top_line->points[layer->top_line->num_points].color[3] = free_hand->flow;
-					layer->top_line->num_points++;
+					((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color[3] = free_hand->flow;
+					((VECTOR_LINE*)layer->top_data)->num_points++;
 					free_hand->before_x = x;
 					free_hand->before_y = y;
 				}
@@ -1130,28 +1137,28 @@ static void FreeHandMotionCallBack(
 			{
 				if(d >= FREE_HAND_MINIMUM_DISTANCE)
 				{
-					dx = free_hand->before_x - layer->top_line->points[layer->top_line->num_points-2].x;
-					dy = free_hand->before_y - layer->top_line->points[layer->top_line->num_points-2].y;
+					dx = free_hand->before_x - ((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-2].x;
+					dy = free_hand->before_y - ((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-2].y;
 					arg2 = atan2(dy, dx);
 
 					if(fabs(arg - arg2) > free_hand->min_arg)
 					{
-						layer->top_line->points[layer->top_line->num_points].x = x;
-						layer->top_line->points[layer->top_line->num_points].y = y;
-						(void)memcpy(layer->top_line->points[layer->top_line->num_points].color,
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].x = x;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].y = y;
+						(void)memcpy(((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color,
 							core->color, 3);
-						layer->top_line->points[layer->top_line->num_points].pressure = pressure * 200;
-						layer->top_line->points[layer->top_line->num_points].size = free_hand->r;
-						(void)memcpy(layer->top_line->points[layer->top_line->num_points].color,
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].pressure = pressure * 200;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].size = free_hand->r;
+						(void)memcpy(((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color,
 							color, 3);
-						layer->top_line->points[layer->top_line->num_points].color[3] = free_hand->flow;
-						layer->top_line->num_points++;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color[3] = free_hand->flow;
+						((VECTOR_LINE*)layer->top_data)->num_points++;
 
-						if(layer->top_line->num_points >= layer->top_line->buff_size-1)
+						if(((VECTOR_LINE*)layer->top_data)->num_points >= ((VECTOR_LINE*)layer->top_data)->buff_size-1)
 						{
-							layer->top_line->buff_size += VECTOR_LINE_BUFFER_SIZE;
-							layer->top_line->points = (VECTOR_POINT*)MEM_REALLOC_FUNC(
-								layer->top_line->points, layer->top_line->buff_size*sizeof(VECTOR_POINT));
+							((VECTOR_LINE*)layer->top_data)->buff_size += VECTOR_LINE_BUFFER_SIZE;
+							((VECTOR_LINE*)layer->top_data)->points = (VECTOR_POINT*)MEM_REALLOC_FUNC(
+								((VECTOR_LINE*)layer->top_data)->points, ((VECTOR_LINE*)layer->top_data)->buff_size*sizeof(VECTOR_POINT));
 						}
 
 						free_hand->before_x = x;
@@ -1160,8 +1167,8 @@ static void FreeHandMotionCallBack(
 					}
 					else
 					{
-						layer->top_line->points[layer->top_line->num_points-1].x = x;
-						layer->top_line->points[layer->top_line->num_points-1].y = y;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].x = x;
+						((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].y = y;
 						free_hand->before_x = x;
 						free_hand->before_y = y;
 					}
@@ -1285,7 +1292,7 @@ static void FreeHandUndo(DRAW_WINDOW* window, void* p)
 {
 	FREE_HAND_HISTORY_DATA data;
 	LAYER *layer = window->layer;
-	VECTOR_LINE *next_top;
+	VECTOR_BASE_DATA *next_top;
 	uint8 *byte_data = (uint8*)p;
 	(void)memcpy(&data.line_data, p, sizeof(data.line_data));
 	byte_data += sizeof(data.line_data);
@@ -1298,9 +1305,9 @@ static void FreeHandUndo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	next_top = layer->layer_data.vector_layer_p->top_line->prev;
-	DeleteVectorLine(&layer->layer_data.vector_layer_p->top_line);
-	layer->layer_data.vector_layer_p->top_line = next_top;
+	next_top = ((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
+	DeleteVectorLine(&((VECTOR_LINE*)layer->layer_data.vector_layer_p->top_data));
+	layer->layer_data.vector_layer_p->top_data = (void*)next_top;
 
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
 	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
@@ -1329,9 +1336,9 @@ static void FreeHandRedo(DRAW_WINDOW* window, void* p)
 	(void)memcpy(&data.line_data, byte_data, sizeof(data.line_data));
 	byte_data += sizeof(data.line_data);
 
-	add_line = layer->layer_data.vector_layer_p->top_line =
-		CreateVectorLine(layer->layer_data.vector_layer_p->top_line, NULL);
-	add_line->vector_type = data.line_data.vector_type;
+	add_line = (VECTOR_LINE*)(layer->layer_data.vector_layer_p->top_data =
+		(void*)CreateVectorLine((VECTOR_LINE*)layer->layer_data.vector_layer_p->top_data, NULL));
+	add_line->base_data.vector_type = data.line_data.base_data.vector_type;
 	add_line->flags = data.line_data.flags;
 	add_line->num_points = data.line_data.num_points;
 	add_line->buff_size = data.line_data.buff_size;
@@ -1399,51 +1406,51 @@ static void FreeHandReleaseCallBack(
 			return;
 		}
 
-		if(((free_hand->flags & FREE_HAND_PRIOR_ARG) == 0) || layer->top_line->num_points == 1)
+		if(((free_hand->flags & FREE_HAND_PRIOR_ARG) == 0) || ((VECTOR_LINE*)layer->top_data)->num_points == 1)
 		{
 			if((free_hand->flags & FREE_HAND_SIZE_WITH_PRESSURE) == 0)
 			{
 				pressure = 0.5;
 			}
 
-			layer->top_line->points[layer->top_line->num_points].x = x;
-			layer->top_line->points[layer->top_line->num_points].y = y;
-			(void)memcpy(layer->top_line->points[layer->top_line->num_points].color,
+			((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].x = x;
+			((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].y = y;
+			(void)memcpy(((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color,
 				core->color, 3);
-			layer->top_line->points[layer->top_line->num_points].color[3] = free_hand->flow;
-			layer->top_line->points[layer->top_line->num_points].pressure = pressure * 200;
-			layer->top_line->points[layer->top_line->num_points].size = free_hand->r;
-			(void)memcpy(layer->top_line->points[layer->top_line->num_points].color,
+			((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color[3] = free_hand->flow;
+			((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].pressure = pressure * 200;
+			((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].size = free_hand->r;
+			(void)memcpy(((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color,
 				color, 3);
-			layer->top_line->points[layer->top_line->num_points].color[3] = free_hand->flow;
-			layer->top_line->num_points++;
+			((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points].color[3] = free_hand->flow;
+			((VECTOR_LINE*)layer->top_data)->num_points++;
 
-			if(layer->top_line->num_points >= layer->top_line->buff_size-1)
+			if(((VECTOR_LINE*)layer->top_data)->num_points >= ((VECTOR_LINE*)layer->top_data)->buff_size-1)
 			{
-				layer->top_line->buff_size += VECTOR_LINE_BUFFER_SIZE;
-				layer->top_line->points = (VECTOR_POINT*)MEM_REALLOC_FUNC(
-					layer->top_line->points, layer->top_line->buff_size*sizeof(VECTOR_POINT));
+				((VECTOR_LINE*)layer->top_data)->buff_size += VECTOR_LINE_BUFFER_SIZE;
+				((VECTOR_LINE*)layer->top_data)->points = (VECTOR_POINT*)MEM_REALLOC_FUNC(
+					((VECTOR_LINE*)layer->top_data)->points, ((VECTOR_LINE*)layer->top_data)->buff_size*sizeof(VECTOR_POINT));
 			}
 
-			for(i=0; i<layer->top_line->num_points-1 && layer->top_line->num_points > 2; i++)
+			for(i=0; i<((VECTOR_LINE*)layer->top_data)->num_points-1 && ((VECTOR_LINE*)layer->top_data)->num_points > 2; i++)
 			{
-				if((layer->top_line->points[i].x-layer->top_line->points[i+1].x)*(layer->top_line->points[i].x-layer->top_line->points[i+1].x)
-					+ (layer->top_line->points[i].y-layer->top_line->points[i+1].y)*(layer->top_line->points[i].y-layer->top_line->points[i+1].y)
+				if((((VECTOR_LINE*)layer->top_data)->points[i].x-((VECTOR_LINE*)layer->top_data)->points[i+1].x)*(((VECTOR_LINE*)layer->top_data)->points[i].x-((VECTOR_LINE*)layer->top_data)->points[i+1].x)
+					+ (((VECTOR_LINE*)layer->top_data)->points[i].y-((VECTOR_LINE*)layer->top_data)->points[i+1].y)*(((VECTOR_LINE*)layer->top_data)->points[i].y-((VECTOR_LINE*)layer->top_data)->points[i+1].y)
 					<= free_hand->min_distance*free_hand->min_distance)
 				{
-					(void)memmove(&layer->top_line->points[i+1], &layer->top_line->points[i+2],
-						sizeof(VECTOR_POINT)*(layer->top_line->num_points-i-1));
-					layer->top_line->num_points--;
+					(void)memmove(&((VECTOR_LINE*)layer->top_data)->points[i+1], &((VECTOR_LINE*)layer->top_data)->points[i+2],
+						sizeof(VECTOR_POINT)*(((VECTOR_LINE*)layer->top_data)->num_points-i-1));
+					((VECTOR_LINE*)layer->top_data)->num_points--;
 				}
 			}
 		}
 		else
 		{
-			layer->top_line->points[layer->top_line->num_points-1].x = x;
-			layer->top_line->points[layer->top_line->num_points-1].y = y;
+			((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].x = x;
+			((VECTOR_LINE*)layer->top_data)->points[((VECTOR_LINE*)layer->top_data)->num_points-1].y = y;
 		}
 
-		AddFreeHandHistory(window, window->active_layer, layer->top_line, core->name);
+		AddFreeHandHistory(window, window->active_layer, (VECTOR_LINE*)layer->top_data, core->name);
 		layer->flags |= VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE;
 		window->work_layer->layer_mode = LAYER_BLEND_NORMAL;
 		window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
@@ -1462,7 +1469,7 @@ static void FreeHandDrawCursor(
 	void* data
 )
 {
-	FREE_HAND_BRUSH* free_hand = (FREE_HAND_BRUSH*)data;
+	FREE_HAND_BRUSH *free_hand = (FREE_HAND_BRUSH*)data;
 	gdouble r = free_hand->r * window->zoom_rate;
 	cairo_set_line_width(window->disp_temp->cairo_p, 1.0);
 	cairo_set_source_rgb(window->disp_temp->cairo_p, 1, 1, 1);
@@ -1690,11 +1697,11 @@ static GtkWidget* CreateFreeHandDetailUI(APPLICATION* app, void* data)
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
 
 	buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.open_path);
-	g_object_set_data(G_OBJECT(buttons[0]), "line_type", GINT_TO_POINTER(VECTOR_LINE_BEZIER_OPEN));
+	g_object_set_data(G_OBJECT(buttons[0]), "line_type", GINT_TO_POINTER(VECTOR_TYPE_BEZIER_OPEN));
 	buttons[1] = gtk_radio_button_new_with_label(
 		gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])), app->labels->tool_box.close_path);
-	g_object_set_data(G_OBJECT(buttons[1]), "line_type", GINT_TO_POINTER(VECTOR_LINE_BEZIER_CLOSE));
-	if(free_hand->line_type == VECTOR_LINE_BEZIER_OPEN)
+	g_object_set_data(G_OBJECT(buttons[1]), "line_type", GINT_TO_POINTER(VECTOR_TYPE_BEZIER_CLOSE));
+	if(free_hand->line_type == VECTOR_TYPE_BEZIER_OPEN)
 	{
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[0]), TRUE);
 	}
@@ -1739,12 +1746,12 @@ static void ControlPointMoveUndo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	if(history_data->add_flag == 0)
@@ -1777,12 +1784,12 @@ static void ControlPointMoveRedo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	if(history_data->add_flag == 0)
@@ -1816,13 +1823,13 @@ static void AddControlPointMoveHistory(
 		(CONTROL_POINT_MOVE_DELETE_HISTORY*)MEM_ALLOC_FUNC(
 			offsetof(CONTROL_POINT_MOVE_DELETE_HISTORY, layer_name) + layer_name_length + 4);
 	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
-	VECTOR_LINE *line = layer_data->base->next;
+	VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer_data->base)->next;
 	int line_index = 0;
 	int point_index;
 
 	while(line != change_line)
 	{
-		line = line->next;
+		line = line->base_data.next;
 		line_index++;
 	}
 
@@ -1864,12 +1871,12 @@ static void ControlPointDeleteUndo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	if(history_data->add_flag == 1)
@@ -1883,11 +1890,11 @@ static void ControlPointDeleteUndo(DRAW_WINDOW* window, void* p)
 	}
 	else
 	{
-		line = CreateVectorLine(line->prev, line);
+		line = CreateVectorLine((VECTOR_LINE*)line->base_data.prev, line);
 		line->num_points = 2;
 		line->points[0] = history_data->before_point_data;
 		line->points[1] = history_data->change_data;
-		line->vector_type = history_data->add_flag-2;
+		line->base_data.vector_type = history_data->add_flag-2;
 	}
 
 	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
@@ -1907,13 +1914,13 @@ static void AddControlPointDeleteHistory(
 		(CONTROL_POINT_MOVE_DELETE_HISTORY*)MEM_ALLOC_FUNC(
 			offsetof(CONTROL_POINT_MOVE_DELETE_HISTORY, layer_name) + layer_name_length + 4);
 	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
-	VECTOR_LINE *line = layer_data->base->next;
+	VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer_data->base)->next;
 	int line_index = 0;
 	int point_index;
 
 	while(line != change_line)
 	{
-		line = line->next;
+		line = line->base_data.next;
 		line_index++;
 	}
 
@@ -1964,12 +1971,12 @@ static void StrokeMoveUndoRedo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	diff_x = history_data->move_x - line->points[0].x;
@@ -1999,12 +2006,12 @@ static void AddStrokeMoveHistory(
 		(STROKE_MOVE_HISTORY*)MEM_ALLOC_FUNC(
 			offsetof(STROKE_MOVE_HISTORY, layer_name) + layer_name_length + 4);
 	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
-	VECTOR_LINE *line = layer_data->base->next;
+	VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer_data->base)->next;
 	int line_index = 0;
 
 	while(line != change_line)
 	{
-		line = line->next;
+		line = line->base_data.next;
 		line_index++;
 	}
 
@@ -2046,12 +2053,12 @@ static void ControlPointPressureUndo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	line->points[history_data->point_index].pressure = history_data->before_pressure;
@@ -2073,12 +2080,12 @@ static void ControlPointPressureRedo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	line->points[history_data->point_index].pressure = history_data->change_pressure;
@@ -2099,13 +2106,13 @@ static void AddControlPointPressureHistory(
 		(CONTROL_POINT_PRESSURE_HISTORY*)MEM_ALLOC_FUNC(
 			offsetof(CONTROL_POINT_PRESSURE_HISTORY, layer_name) + layer_name_length + 4);
 	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
-	VECTOR_LINE *line = layer_data->base->next;
+	VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer_data->base)->next;
 	int line_index = 0;
 	int point_index;
 
 	while(line != change_line)
 	{
-		line = line->next;
+		line = line->base_data.next;
 		line_index++;
 	}
 
@@ -2146,7 +2153,7 @@ static void ControlPointToolPressCallBack
 )
 {
 	CONTROL_POINT_TOOL* control = (CONTROL_POINT_TOOL*)core->brush_data;
-	VECTOR_LINE* base = window->active_layer->layer_data.vector_layer_p->base;
+	VECTOR_LINE* base = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->base;
 	VECTOR_LINE* line;
 	double distance;
 	int end_flag = 0;
@@ -2176,17 +2183,17 @@ static void ControlPointToolPressCallBack
 
 					if((control->flags & CONTROL_POINT_TOOL_HAS_LOCK) == 0)
 					{
-						line = base->next;
-						window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+						line = base->base_data.next;
+						window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 						window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 						while(line != NULL && end_flag == 0)
 						{
-							if(line->layer != NULL)
+							if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 							{
-								if(x > line->layer->x && x < line->layer->x+line->layer->width
-									&& y > line->layer->y && y < line->layer->y+line->layer->height)
+								if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+									&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 								{
-									layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+									layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 				
 									for(i=0; i<line->num_points; i++)
 									{
@@ -2197,8 +2204,8 @@ static void ControlPointToolPressCallBack
 												&line->points[i];
 											window->active_layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
 											control->flags |= CONTROL_POINT_TOOL_HAS_POINT;
-											window->active_layer->layer_data.vector_layer_p->active_line = line;
-		
+											window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
+
 											if(distance < 4)
 											{
 												break;
@@ -2206,7 +2213,7 @@ static void ControlPointToolPressCallBack
 										}
 									}
 
-									if(window->active_layer->layer_data.vector_layer_p->active_line != NULL)
+									if(window->active_layer->layer_data.vector_layer_p->active_data != NULL)
 									{
 										break;
 									}
@@ -2218,18 +2225,18 @@ static void ControlPointToolPressCallBack
 									{
 										start_x = 0;
 									}
-									else if(end_x >= line->layer->width)
+									else if(end_x >= line->base_data.layer->width)
 									{
-										end_x = line->layer->width - 1;
+										end_x = line->base_data.layer->width - 1;
 									}
 
 									if(start_y < 0)
 									{
 										start_y = 0;
 									}
-									else if(end_y >= line->layer->height)
+									else if(end_y >= line->base_data.layer->height)
 									{
-										end_y = line->layer->height - 1;
+										end_y = line->base_data.layer->height - 1;
 									}
 
 									hit = 0;
@@ -2237,7 +2244,7 @@ static void ControlPointToolPressCallBack
 									{
 										for(j=start_x; j<end_x; j++)
 										{
-											if(line->layer->pixels[i*line->layer->stride+j*4+3] != 0)
+											if(line->base_data.layer->pixels[i*line->base_data.layer->stride+j*4+3] != 0)
 											{
 												add_point_line = line;
 												hit++;
@@ -2252,9 +2259,9 @@ static void ControlPointToolPressCallBack
 									}
 
 									if(hit != 0
-										&& window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+										&& window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 									{
-										window->active_layer->layer_data.vector_layer_p->active_line = add_point_line;
+										window->active_layer->layer_data.vector_layer_p->active_data = (void*)add_point_line;
 
 										if(window->active_layer->layer_data.vector_layer_p->active_point == NULL
 											&& control->mode == CONTROL_POINT_MOVE)
@@ -2312,12 +2319,12 @@ static void ControlPointToolPressCallBack
 								}
 							}
 
-							line = line->next;
+							line = line->base_data.next;
 						}
 					}	// if((control->flags & CONTROL_POINT_TOOL_HAS_LOCK) == 0)
 					else
 					{
-						line = window->active_layer->layer_data.vector_layer_p->active_line;
+						line = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data;
 						if(control->mode == CONTROL_POINT_MOVE)
 						{
 							gdouble min_x, min_y, max_x, max_y;
@@ -2379,17 +2386,17 @@ static void ControlPointToolPressCallBack
 			{
 				if((control->flags & CONTROL_POINT_TOOL_HAS_LOCK) == 0)
 				{
-					line = base->next;
-					window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+					line = base->base_data.next;
+					window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 					window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 					while(line != NULL && end_flag == 0)
 					{
-						if(line->layer != NULL)
+						if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 						{
-							if(x > line->layer->x && x < line->layer->x+line->layer->width
-								&& y > line->layer->y && y < line->layer->y+line->layer->height)
+							if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+								&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 							{
-								layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+								layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 
 								for(i=0; i<line->num_points; i++)
 								{
@@ -2404,21 +2411,21 @@ static void ControlPointToolPressCallBack
 										line->num_points--;
 										if(line->num_points < 2)
 										{
-											if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+											if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 											{
-												window->active_layer->layer_data.vector_layer_p->top_line =
-													line->prev;
+												window->active_layer->layer_data.vector_layer_p->top_data =
+													line->base_data.prev;
 											}
 
-											AddControlPointDeleteHistory(window, line, &line->points[0], &line->points[1], line->vector_type+2);
+											AddControlPointDeleteHistory(window, line, &line->points[0], &line->points[1], line->base_data.vector_type+2);
 											DeleteVectorLine(&line);
-											window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+											window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 										}
 										else
 										{
 											AddControlPointDeleteHistory(window, line, &line->points[i], &control->change_point_data, 1);
 											window->active_layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
-											window->active_layer->layer_data.vector_layer_p->active_line = line;
+											window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 										}
 										window->active_layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
 										end_flag++;
@@ -2429,12 +2436,12 @@ static void ControlPointToolPressCallBack
 							}
 						}
 
-						line = line->next;
+						line = line->base_data.next;
 					}
 				}
 				else
 				{
-					line = window->active_layer->layer_data.vector_layer_p->active_line;
+					line = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data;
 					for(i=0; i<line->num_points; i++)
 					{
 						if(&line->points[i] == window->active_layer->layer_data.vector_layer_p->active_point)
@@ -2447,21 +2454,21 @@ static void ControlPointToolPressCallBack
 							line->num_points--;
 							if(line->num_points < 2)
 							{
-								if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+								if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 								{
-									window->active_layer->layer_data.vector_layer_p->top_line =
-										line->prev;
+									window->active_layer->layer_data.vector_layer_p->top_data =
+										(void*)line->base_data.prev;
 								}
 
-								AddControlPointDeleteHistory(window, line, &line->points[0], &line->points[1], line->vector_type+2);
+								AddControlPointDeleteHistory(window, line, &line->points[0], &line->points[1], line->base_data.vector_type+2);
 								DeleteVectorLine(&line);
-								window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+								window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 							}
 							else
 							{
 								AddControlPointDeleteHistory(window, line, &line->points[i], &control->change_point_data, 1);
 								window->active_layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE;
-								window->active_layer->layer_data.vector_layer_p->active_line = line;
+								window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 							}
 						}
 					}
@@ -2471,17 +2478,17 @@ static void ControlPointToolPressCallBack
 		case CONTROL_STROKE_MOVE:
 			if((control->flags & CONTROL_POINT_TOOL_HAS_STROKE) == 0)
 			{
-				line = base->next;
-				window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+				line = base->base_data.next;
+				window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 				window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 				while(line != NULL)
 				{
-					if(line->layer != NULL)
+					if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 					{
-						if(x > line->layer->x && x < line->layer->x+line->layer->width
-							&& y > line->layer->y && y < line->layer->y+line->layer->height)
+						if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+							&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 						{
-							layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+							layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 
 							for(i=0; i<line->num_points; i++)
 							{
@@ -2493,12 +2500,12 @@ static void ControlPointToolPressCallBack
 									control->change_point_data = line->points[0];
 									window->active_layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
 									control->flags |= CONTROL_POINT_TOOL_HAS_POINT;
-									window->active_layer->layer_data.vector_layer_p->active_line = line;
+									window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 									break;
 								}
 							}
 
-							if(window->active_layer->layer_data.vector_layer_p->active_line != NULL)
+							if(window->active_layer->layer_data.vector_layer_p->active_data != NULL)
 							{
 								break;
 							}
@@ -2510,18 +2517,18 @@ static void ControlPointToolPressCallBack
 							{
 								start_x = 0;
 							}
-							else if(end_x >= line->layer->width)
+							else if(end_x >= line->base_data.layer->width)
 							{
-								end_x = line->layer->width - 1;
+								end_x = line->base_data.layer->width - 1;
 							}
 
 							if(start_y < 0)
 							{
 								start_y = 0;
 							}
-							else if(end_y >= line->layer->height)
+							else if(end_y >= line->base_data.layer->height)
 							{
-								end_y = line->layer->height - 1;
+								end_y = line->base_data.layer->height - 1;
 							}
 
 							hit = 0;
@@ -2529,7 +2536,7 @@ static void ControlPointToolPressCallBack
 							{
 								for(j=start_x; j<end_x; j++)
 								{
-									if(line->layer->pixels[i*line->layer->stride+j*4+3] != 0)
+									if(line->base_data.layer->pixels[i*line->base_data.layer->stride+j*4+3] != 0)
 									{
 										hit++;
 										break;
@@ -2538,18 +2545,18 @@ static void ControlPointToolPressCallBack
 							}
 
 							if(hit != 0
-								&& window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+								&& window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 							{
-								window->active_layer->layer_data.vector_layer_p->active_line = line;
+								window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 								control->change_point_data = line->points[0];
 							}
 						}
 					}
 
-					line = line->next;
+					line = line->base_data.next;
 				}
 
-				if(window->active_layer->layer_data.vector_layer_p->active_line != NULL)
+				if(window->active_layer->layer_data.vector_layer_p->active_data != NULL)
 				{
 					control->flags |= CONTROL_POINT_TOOL_HAS_STROKE;
 					control->before_x = x;
@@ -2563,7 +2570,7 @@ static void ControlPointToolPressCallBack
 		// 制御点操作ツールの詳細データにキャスト
 		CONTROL_POINT_TOOL *control = (CONTROL_POINT_TOOL*)core->brush_data;
 		// 一番下のライン
-		VECTOR_LINE *base = window->active_layer->layer_data.vector_layer_p->base;
+		VECTOR_LINE *base = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->base;
 		// 当たり判定っぽいことをするラインへのポインタ
 		VECTOR_LINE *line;
 		// 2週目のフラグ
@@ -2588,7 +2595,7 @@ static void ControlPointToolPressCallBack
 				VECTOR_POINT *before_active = window->active_layer->layer_data.vector_layer_p->active_point;
 
 				// ラインレイヤーのピクセルα値が0でなければ当たり
-				line = window->active_layer->layer_data.vector_layer_p->active_line->next;
+				line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)window->active_layer->layer_data.vector_layer_p->active_data)->next;
 				// 右クリックで選択された場合は一定距離マウスが移動するまで選択ラインを変更しない
 				control->flags |= CONTROL_POINT_TOOL_HAS_LOCK;
 				// マウスの座標を記憶
@@ -2596,22 +2603,22 @@ static void ControlPointToolPressCallBack
 
 				while(hit == 0)
 				{
-					if(line != NULL && line->layer != NULL)
+					if(line != NULL && line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 					{
-						if(line->layer != NULL)
+						if(line->base_data.layer != NULL)
 						{
-							if(x > line->layer->x && x < line->layer->x+line->layer->width
-								&& y > line->layer->y && y < line->layer->y+line->layer->height)
+							if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+								&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 							{
 								for(i=0; i<line->num_points; i++)
 								{	// マウスカーソル付近に
 									if((x-line->points[i].x)*(x-line->points[i].x)+(y-line->points[i].y)*(y-line->points[i].y)
 										<= POINT_SELECT_DISTANCE)
 									{
-										window->active_layer->layer_data.vector_layer_p->active_line = line;
+										window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 										(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
-										cairo_set_source_surface(window->work_layer->cairo_p, line->layer->surface_p,
-											line->layer->x, line->layer->y);
+										cairo_set_source_surface(window->work_layer->cairo_p, line->base_data.layer->surface_p,
+											line->base_data.layer->x, line->base_data.layer->y);
 										cairo_paint(window->work_layer->cairo_p);
 										window->active_layer->layer_data.vector_layer_p->active_point = &line->points[i];
 										hit++;
@@ -2621,13 +2628,13 @@ static void ControlPointToolPressCallBack
 							}
 						}
 
-						line = line->next;
+						line = line->base_data.next;
 					}
 					else
 					{
 						if(second_loop == 0)
 						{
-							line = base->next;
+							line = base->base_data.next;
 							second_loop++;
 						}
 						else
@@ -2649,7 +2656,7 @@ static void ControlPointToolPressCallBack
 				VECTOR_POINT *before_active = window->active_layer->layer_data.vector_layer_p->active_point;
 
 				// ラインレイヤーのピクセルα値が0でなければ当たり
-				line = window->active_layer->layer_data.vector_layer_p->active_line->next;
+				line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)window->active_layer->layer_data.vector_layer_p->active_data)->next;
 				// 右クリックで選択された場合は一定距離マウスが移動するまで選択ラインを変更しない
 				control->flags |= CONTROL_POINT_TOOL_HAS_LOCK;
 				// マウスの座標を記憶
@@ -2657,22 +2664,22 @@ static void ControlPointToolPressCallBack
 
 				while(hit == 0)
 				{
-					if(line != NULL && line->layer != NULL)
+					if(line != NULL && line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 					{
-						if(line->layer != NULL)
+						if(line->base_data.layer != NULL)
 						{
-							if(x > line->layer->x && x < line->layer->x+line->layer->width
-								&& y > line->layer->y && y < line->layer->y+line->layer->height)
+							if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+								&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 							{
 								for(i=0; i<line->num_points; i++)
 								{	// マウスカーソル付近に
 									if((x-line->points[i].x)*(x-line->points[i].x)+(y-line->points[i].y)*(y-line->points[i].y)
 										<= POINT_SELECT_DISTANCE)
 									{
-										window->active_layer->layer_data.vector_layer_p->active_line = line;
+										window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 										(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
-										cairo_set_source_surface(window->work_layer->cairo_p, line->layer->surface_p,
-											line->layer->x, line->layer->y);
+										cairo_set_source_surface(window->work_layer->cairo_p, line->base_data.layer->surface_p,
+											line->base_data.layer->x, line->base_data.layer->y);
 										cairo_paint(window->work_layer->cairo_p);
 										window->active_layer->layer_data.vector_layer_p->active_point = &line->points[i];
 										hit++;
@@ -2682,13 +2689,13 @@ static void ControlPointToolPressCallBack
 							}
 						}
 
-						line = line->next;
+						line = line->base_data.next;
 					}
 					else
 					{
 						if(second_loop == 0)
 						{
-							line = base->next;
+							line = base->base_data.next;
 							second_loop++;
 						}
 						else
@@ -2703,12 +2710,12 @@ static void ControlPointToolPressCallBack
 					window->active_layer->layer_data.vector_layer_p->active_point = before_active;
 				}
 			}
-			else if(window->active_layer->layer_data.vector_layer_p->active_line != NULL)
+			else if(window->active_layer->layer_data.vector_layer_p->active_data != NULL)
 			{
-				VECTOR_LINE *before_active = window->active_layer->layer_data.vector_layer_p->active_line;
+				VECTOR_LINE *before_active = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data;
 
 				// ラインレイヤーのピクセルα値が0でなければ当たり
-				line = window->active_layer->layer_data.vector_layer_p->active_line->next;
+				line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)window->active_layer->layer_data.vector_layer_p->active_data)->next;
 				// 右クリックで選択された場合は一定距離マウスが移動するまで選択ラインを変更しない
 				control->flags |= CONTROL_POINT_TOOL_HAS_LOCK;
 				// マウスの座標を記憶
@@ -2716,12 +2723,12 @@ static void ControlPointToolPressCallBack
 
 				while(hit == 0)
 				{	// 各レイヤー持ちのラインに対して処理実行
-					if(line != NULL && line->layer != NULL)
+					if(line != NULL && line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 					{
-						if(x > line->layer->x && x < line->layer->x+line->layer->width
-							&& y > line->layer->y && y < line->layer->y+line->layer->height)
+						if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+							&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 						{
-							layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+							layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 
 							start_x = layer_x - STROKE_SELECT_DISTANCE, start_y = layer_y - STROKE_SELECT_DISTANCE;
 							end_x = layer_x + STROKE_SELECT_DISTANCE, end_y = layer_y + STROKE_SELECT_DISTANCE;
@@ -2730,18 +2737,18 @@ static void ControlPointToolPressCallBack
 							{
 								start_x = 0;
 							}
-							else if(end_x >= line->layer->width)
+							else if(end_x >= line->base_data.layer->width)
 							{
-								end_x = line->layer->width - 1;
+								end_x = line->base_data.layer->width - 1;
 							}
 
 							if(start_y < 0)
 							{
 								start_y = 0;
 							}
-							else if(end_y >= line->layer->height)
+							else if(end_y >= line->base_data.layer->height)
 							{
-								end_y = line->layer->height - 1;
+								end_y = line->base_data.layer->height - 1;
 							}
 
 							hit = 0, j = 0;
@@ -2749,12 +2756,12 @@ static void ControlPointToolPressCallBack
 							{
 								for(j=start_x; j<end_x; j++)
 								{
-									if(line->layer->pixels[i*line->layer->stride+j*4+3] != 0)
+									if(line->base_data.layer->pixels[i*line->base_data.layer->stride+j*4+3] != 0)
 									{
-										window->active_layer->layer_data.vector_layer_p->active_line = line;
+										window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 										(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
-										cairo_set_source_surface(window->work_layer->cairo_p, line->layer->surface_p,
-											line->layer->x, line->layer->y);
+										cairo_set_source_surface(window->work_layer->cairo_p, line->base_data.layer->surface_p,
+											line->base_data.layer->x, line->base_data.layer->y);
 										cairo_paint(window->work_layer->cairo_p);
 										hit++;
 
@@ -2773,13 +2780,13 @@ static void ControlPointToolPressCallBack
 							}
 						}
 
-						line = line->next;
+						line = line->base_data.next;
 					}
 					else
 					{
 						if(second_loop == 0)
 						{
-							line = base->next;
+							line = base->base_data.next;
 							second_loop++;
 						}
 						else
@@ -2789,22 +2796,22 @@ static void ControlPointToolPressCallBack
 					}
 				}
 
-				if(window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+				if(window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 				{
-					window->active_layer->layer_data.vector_layer_p->active_line =
-						before_active;
+					window->active_layer->layer_data.vector_layer_p->active_data =
+						(void*)before_active;
 				}
 			}
 			break;
 		case CONTROL_STROKE_MOVE:
 		case CONTROL_STROKE_COPY_MOVE:
 		case CONTROL_STROKE_JOINT:
-			if(window->active_layer->layer_data.vector_layer_p->active_line != NULL)
+			if(window->active_layer->layer_data.vector_layer_p->active_data != NULL)
 			{
-				VECTOR_LINE *before_active = window->active_layer->layer_data.vector_layer_p->active_line;
+				VECTOR_LINE *before_active = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data;
 
 				// ラインレイヤーのピクセルα値が0でなければ当たり
-				line = window->active_layer->layer_data.vector_layer_p->active_line->next;
+				line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)window->active_layer->layer_data.vector_layer_p->active_data)->next;
 				// 右クリックで選択された場合は一定距離マウスが移動するまで選択ラインを変更しない
 				control->flags |= CONTROL_POINT_TOOL_HAS_LOCK;
 				// マウスの座標を記憶
@@ -2812,12 +2819,12 @@ static void ControlPointToolPressCallBack
 
 				while(hit == 0)
 				{	// 各レイヤー持ちのラインに対して処理実行
-					if(line != NULL && line->layer != NULL)
+					if(line != NULL && line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 					{
-						if(x > line->layer->x && x < line->layer->x+line->layer->width
-							&& y > line->layer->y && y < line->layer->y+line->layer->height)
+						if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+							&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 						{
-							layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+							layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 
 							start_x = layer_x - STROKE_SELECT_DISTANCE, start_y = layer_y - STROKE_SELECT_DISTANCE;
 							end_x = layer_x + STROKE_SELECT_DISTANCE, end_y = layer_y + STROKE_SELECT_DISTANCE;
@@ -2826,18 +2833,18 @@ static void ControlPointToolPressCallBack
 							{
 								start_x = 0;
 							}
-							else if(end_x >= line->layer->width)
+							else if(end_x >= line->base_data.layer->width)
 							{
-								end_x = line->layer->width - 1;
+								end_x = line->base_data.layer->width - 1;
 							}
 
 							if(start_y < 0)
 							{
 								start_y = 0;
 							}
-							else if(end_y >= line->layer->height)
+							else if(end_y >= line->base_data.layer->height)
 							{
-								end_y = line->layer->height - 1;
+								end_y = line->base_data.layer->height - 1;
 							}
 
 							hit = 0, j = 0;
@@ -2845,12 +2852,12 @@ static void ControlPointToolPressCallBack
 							{
 								for(j=start_x; j<end_x; j++)
 								{
-									if(line->layer->pixels[i*line->layer->stride+j*4+3] != 0)
+									if(line->base_data.layer->pixels[i*line->base_data.layer->stride+j*4+3] != 0)
 									{
-										window->active_layer->layer_data.vector_layer_p->active_line = line;
+										window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 										(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
-										cairo_set_source_surface(window->work_layer->cairo_p, line->layer->surface_p,
-											line->layer->x, line->layer->y);
+										cairo_set_source_surface(window->work_layer->cairo_p, line->base_data.layer->surface_p,
+											line->base_data.layer->x, line->base_data.layer->y);
 										cairo_paint(window->work_layer->cairo_p);
 										hit++;
 
@@ -2869,13 +2876,13 @@ static void ControlPointToolPressCallBack
 							}
 						}
 
-						line = line->next;
+						line = line->base_data.next;
 					}
 					else
 					{
 						if(second_loop == 0)
 						{
-							line = base->next;
+							line = base->base_data.next;
 							second_loop++;
 						}
 						else
@@ -2885,10 +2892,10 @@ static void ControlPointToolPressCallBack
 					}
 				}
 
-				if(window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+				if(window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 				{
-					window->active_layer->layer_data.vector_layer_p->active_line =
-						before_active;
+					window->active_layer->layer_data.vector_layer_p->active_data =
+						(void*)before_active;
 				}
 			}
 			break;
@@ -2907,7 +2914,7 @@ static void ControlPointToolMotionCallBack(
 {
 #define CHANGE_LINE_DISTANCE 20
 	CONTROL_POINT_TOOL* control = (CONTROL_POINT_TOOL*)core->brush_data;
-	VECTOR_LINE* base = window->active_layer->layer_data.vector_layer_p->base;
+	VECTOR_LINE* base = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->base;
 	VECTOR_LINE* line;
 	double distance;
 	int layer_x, layer_y;
@@ -2931,17 +2938,17 @@ static void ControlPointToolMotionCallBack(
 		{
 			double distance;
 
-			line = base->next;
-			window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+			line = base->base_data.next;
+			window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 			window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 			while(line != NULL)
 			{
-				if(line->layer != NULL)
+				if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					if(x > line->layer->x && x < line->layer->x+line->layer->width
-						&& y > line->layer->y && y < line->layer->y+line->layer->height)
+					if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+						&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 					{
-						layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+						layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 						
 						for(i=0; i<line->num_points; i++)
 						{
@@ -2950,7 +2957,7 @@ static void ControlPointToolMotionCallBack(
 							{
 								window->active_layer->layer_data.vector_layer_p->active_point =
 									&line->points[i];
-								window->active_layer->layer_data.vector_layer_p->active_line = line;
+								window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 								
 								if(distance < 4)
 								{
@@ -2959,20 +2966,20 @@ static void ControlPointToolMotionCallBack(
 							}
 						}
 
-						if(line->layer->pixels[layer_y*line->layer->stride+layer_x*4+3] != 0
-							&& window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+						if(line->base_data.layer->pixels[layer_y*line->base_data.layer->stride+layer_x*4+3] != 0
+							&& window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 						{
-							window->active_layer->layer_data.vector_layer_p->active_line = line;
+							window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 							(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
-							cairo_set_source_surface(window->work_layer->cairo_p, line->layer->surface_p,
-								line->layer->x, line->layer->y);
+							cairo_set_source_surface(window->work_layer->cairo_p, line->base_data.layer->surface_p,
+								line->base_data.layer->x, line->base_data.layer->y);
 							cairo_paint(window->work_layer->cairo_p);
 							break;
 						}
 					}
 				}
 
-				line = line->next;
+				line = line->base_data.next;
 			}
 		}
 		else
@@ -2990,17 +2997,17 @@ static void ControlPointToolMotionCallBack(
 		if((control->flags & CONTROL_POINT_TOOL_HAS_POINT) == 0
 			&& (window->active_layer->layer_data.vector_layer_p->flags & VECTOR_LAYER_FIX_LINE) == 0)
 		{
-			line = base->next;
-			window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+			line = base->base_data.next;
+			window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 			window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 			while(line != NULL)
 			{
-				if(line->layer != NULL)
+				if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					if(x > line->layer->x && x < line->layer->x+line->layer->width
-						&& y > line->layer->y && y < line->layer->y+line->layer->height)
+					if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+						&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 					{
-						layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+						layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 						
 						for(i=0; i<line->num_points; i++)
 						{
@@ -3009,7 +3016,7 @@ static void ControlPointToolMotionCallBack(
 							{
 								window->active_layer->layer_data.vector_layer_p->active_point =
 									&line->points[i];
-								window->active_layer->layer_data.vector_layer_p->active_line = line;
+								window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 
 								if(distance < 4)
 								{
@@ -3018,20 +3025,20 @@ static void ControlPointToolMotionCallBack(
 							}
 						}
 
-						if(line->layer->pixels[layer_y*line->layer->stride+layer_x*4+3] != 0
-							&& window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+						if(line->base_data.layer->pixels[layer_y*line->base_data.layer->stride+layer_x*4+3] != 0
+							&& window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 						{
-							window->active_layer->layer_data.vector_layer_p->active_line = line;
+							window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 							(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
-							cairo_set_source_surface(window->work_layer->cairo_p, line->layer->surface_p,
-								line->layer->x, line->layer->y);
+							cairo_set_source_surface(window->work_layer->cairo_p, line->base_data.layer->surface_p,
+								line->base_data.layer->x, line->base_data.layer->y);
 							cairo_paint(window->work_layer->cairo_p);
 							break;
 						}
 					}
 				}
 
-				line = line->next;
+				line = line->base_data.next;
 			}
 		}
 		else
@@ -3051,17 +3058,17 @@ static void ControlPointToolMotionCallBack(
 
 		break;
 	case CONTROL_POINT_DELETE:
-		line = base->next;
-		window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+		line = base->base_data.next;
+		window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 		window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 		while(line != NULL)
 		{
-			if(line->layer != NULL)
+			if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 			{
-				if(x > line->layer->x && x < line->layer->x+line->layer->width
-					&& y > line->layer->y && y < line->layer->y+line->layer->height)
+				if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+					&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 				{
-					layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+					layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 					
 					for(i=0; i<line->num_points; i++)
 					{
@@ -3070,37 +3077,37 @@ static void ControlPointToolMotionCallBack(
 						{
 							window->active_layer->layer_data.vector_layer_p->active_point =
 								&line->points[i];
-							window->active_layer->layer_data.vector_layer_p->active_line = line;
+							window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 							break;
 						}
 					}
 
-					if(line->layer->pixels[layer_y*line->layer->stride+layer_x*4+3] != 0
-						&& window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+					if(line->base_data.layer->pixels[layer_y*line->base_data.layer->stride+layer_x*4+3] != 0
+						&& window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 					{
-						window->active_layer->layer_data.vector_layer_p->active_line = line;
+						window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 						break;
 					}
 				}
 			}
 
-			line = line->next;
+			line = line->base_data.next;
 		}
 		break;
 	case CONTROL_STROKE_MOVE:
 		if((control->flags & CONTROL_POINT_TOOL_HAS_STROKE) == 0)
 		{
-			line = base->next;
-			window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+			line = base->base_data.next;
+			window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 			window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 			while(line != NULL)
 			{
-				if(line->layer != NULL)
+				if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					if(x > line->layer->x && x < line->layer->x+line->layer->width
-						&& y > line->layer->y && y < line->layer->y+line->layer->height)
+					if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+						&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 					{
-						layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+						layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 						
 						for(i=0; i<line->num_points; i++)
 						{
@@ -3109,30 +3116,30 @@ static void ControlPointToolMotionCallBack(
 							{
 								window->active_layer->layer_data.vector_layer_p->active_point =
 									&line->points[i];
-								window->active_layer->layer_data.vector_layer_p->active_line = line;
+								window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 								break;
 							}
 						}
 
-						if(line->layer->pixels[layer_y*line->layer->stride+layer_x*4+3] != 0
-							&& window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+						if(line->base_data.layer->pixels[layer_y*line->base_data.layer->stride+layer_x*4+3] != 0
+							&& window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 						{
-							window->active_layer->layer_data.vector_layer_p->active_line = line;
+							window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 							(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
-							cairo_set_source_surface(window->work_layer->cairo_p, line->layer->surface_p,
-								line->layer->x, line->layer->y);
+							cairo_set_source_surface(window->work_layer->cairo_p, line->base_data.layer->surface_p,
+								line->base_data.layer->x, line->base_data.layer->y);
 							cairo_paint(window->work_layer->cairo_p);
 							break;
 						}
 					}
 				}
 
-				line = line->next;
+				line = line->base_data.next;
 			}
 		}
 		else
 		{
-			VECTOR_LINE* line = window->active_layer->layer_data.vector_layer_p->active_line;
+			VECTOR_LINE* line = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data;
 			gdouble dx = x - control->before_x;
 			gdouble dy = y - control->before_y;
 
@@ -3160,8 +3167,8 @@ static void ControlPointToolReleaseCallBack(
 	void *state
 )
 {
-	CONTROL_POINT_TOOL* control = (CONTROL_POINT_TOOL*)core->brush_data;
-	VECTOR_LINE* base = window->active_layer->layer_data.vector_layer_p->base;
+	CONTROL_POINT_TOOL *control = (CONTROL_POINT_TOOL*)core->brush_data;
+	VECTOR_LINE *base = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->base;
 	//VECTOR_LINE* line;
 
 	if(((GdkEventButton*)state)->button == 1)
@@ -3173,7 +3180,7 @@ static void ControlPointToolReleaseCallBack(
 			{
 				window->active_layer->layer_data.vector_layer_p->flags |=
 					VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
-				AddControlPointMoveHistory(window, window->active_layer->layer_data.vector_layer_p->active_line,
+				AddControlPointMoveHistory(window, (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data,
 					window->active_layer->layer_data.vector_layer_p->active_point, &control->change_point_data,
 					(uint16)control->add_flag
 				);
@@ -3184,7 +3191,7 @@ static void ControlPointToolReleaseCallBack(
 			{
 				window->active_layer->layer_data.vector_layer_p->flags |=
 					VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
-				AddControlPointPressureHistory(window, window->active_layer->layer_data.vector_layer_p->active_line,
+				AddControlPointPressureHistory(window, (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data,
 					window->active_layer->layer_data.vector_layer_p->active_point, control->change_point_data.pressure);
 			}
 			break;
@@ -3193,7 +3200,7 @@ static void ControlPointToolReleaseCallBack(
 			{
 				window->active_layer->layer_data.vector_layer_p->flags |=
 					VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
-				AddStrokeMoveHistory(window, window->active_layer->layer_data.vector_layer_p->active_line,
+				AddStrokeMoveHistory(window, (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data,
 					&control->change_point_data);
 			}
 			break;
@@ -3216,17 +3223,23 @@ static void ControlPointToolDrawCursor(
 	char str[8];
 	unsigned int i;
 
-	CONTROL_POINT_TOOL* control = (CONTROL_POINT_TOOL*)data;
-	VECTOR_LAYER* layer = window->active_layer->layer_data.vector_layer_p;
-	VECTOR_LINE* line = layer->base->next;
+	CONTROL_POINT_TOOL *control = (CONTROL_POINT_TOOL*)data;
+	VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+	VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->base)->next;
+	VECTOR_LINE *active_line = (VECTOR_LINE*)layer->active_data;
 	gdouble rev_zoom = window->rev_zoom;
+
+	if(active_line != NULL && active_line->base_data.vector_type >= NUM_VECTOR_LINE_TYPE)
+	{
+		active_line = NULL;
+	}
 
 	cairo_save(window->disp_temp->cairo_p);
 	ClipUpdateArea(window, window->disp_layer->cairo_p);
 	ClipUpdateArea(window, window->disp_temp->cairo_p);
 
 	cairo_set_operator(window->disp_layer->cairo_p, CAIRO_OPERATOR_OVER);
-	if(layer->active_line != NULL && layer->active_line->layer != NULL)
+	if(active_line != NULL && active_line->base_data.layer != NULL)
 	{	
 #if !defined(USE_BGR_COLOR_SPACE) || USE_BGR_COLOR_SPACE == 0
 		cairo_set_source_rgb(window->disp_layer->cairo_p, 1, 0, 0);
@@ -3237,8 +3250,8 @@ static void ControlPointToolDrawCursor(
 		cairo_set_source_surface(window->disp_temp->cairo_p, window->work_layer->surface_p,
 			0, 0);
 		cairo_paint(window->disp_temp->cairo_p);
-		cairo_rectangle(window->disp_layer->cairo_p, layer->active_line->layer->x,
-			layer->active_line->layer->y, layer->active_line->layer->width, layer->active_line->layer->height);
+		cairo_rectangle(window->disp_layer->cairo_p, active_line->base_data.layer->x,
+			active_line->base_data.layer->y, active_line->base_data.layer->width, active_line->base_data.layer->height);
 		cairo_mask_surface(window->disp_layer->cairo_p, window->disp_temp->surface_p, 0, 0);
 		cairo_scale(window->disp_temp->cairo_p, rev_zoom, rev_zoom);
 		(void)memset(window->disp_temp->pixels, 0, window->disp_temp->stride*window->disp_temp->height);
@@ -3247,29 +3260,32 @@ static void ControlPointToolDrawCursor(
 
 	while(line != NULL)
 	{
-		cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 0);
-		cairo_arc(window->disp_layer->cairo_p, line->points->x*window->zoom_rate,
-			line->points->y*window->zoom_rate, DRAW_POINT_RADIUS, 0, 2*G_PI);
-		cairo_fill(window->disp_layer->cairo_p);
+		if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+		{
+			cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 0);
+			cairo_arc(window->disp_layer->cairo_p, line->points->x*window->zoom_rate,
+				line->points->y*window->zoom_rate, DRAW_POINT_RADIUS, 0, 2*G_PI);
+			cairo_fill(window->disp_layer->cairo_p);
 
 #if !defined(USE_BGR_COLOR_SPACE) || USE_BGR_COLOR_SPACE == 0
-		cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 1);
+			cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 1);
 #else
-		cairo_set_source_rgb(window->disp_layer->cairo_p, 1, 1, 0);
+			cairo_set_source_rgb(window->disp_layer->cairo_p, 1, 1, 0);
 #endif
-		for(i=1; i<(unsigned int)(line->num_points-1); i++)
-		{
+			for(i=1; i<(unsigned int)(line->num_points-1); i++)
+			{
+				cairo_arc(window->disp_layer->cairo_p, line->points[i].x*window->zoom_rate,
+					line->points[i].y*window->zoom_rate, DRAW_POINT_RADIUS, 0, 2*G_PI);
+				cairo_fill(window->disp_layer->cairo_p);
+			}
+
+			cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 0);
 			cairo_arc(window->disp_layer->cairo_p, line->points[i].x*window->zoom_rate,
 				line->points[i].y*window->zoom_rate, DRAW_POINT_RADIUS, 0, 2*G_PI);
 			cairo_fill(window->disp_layer->cairo_p);
 		}
 
-		cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 0);
-		cairo_arc(window->disp_layer->cairo_p, line->points[i].x*window->zoom_rate,
-			line->points[i].y*window->zoom_rate, DRAW_POINT_RADIUS, 0, 2*G_PI);
-		cairo_fill(window->disp_layer->cairo_p);
-
-		line = line->next;
+		line = line->base_data.next;
 	}
 
 	if(layer->active_point != NULL)
@@ -3362,12 +3378,12 @@ static void ChangeLineColorUndo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	for(i=0; i<line->num_points; i++)
@@ -3392,12 +3408,12 @@ static void ChangeLineColorRedo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	for(i=0; i<line->num_points; i++)
@@ -3423,13 +3439,13 @@ static void AddChangeLineColorHistory(
 	CONTROL_POINT_CHANGE_COLOR_HISTORY *history_data =
 		(CONTROL_POINT_CHANGE_COLOR_HISTORY*)MEM_ALLOC_FUNC(data_size);
 	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
-	VECTOR_LINE *line = layer_data->base->next;
+	VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer_data->base)->next;
 	int line_index = 0;
 	int i;
 
 	while(line != change_line)
 	{
-		line = line->next;
+		line = line->base_data.next;
 		line_index++;
 	}
 
@@ -3466,12 +3482,12 @@ static void ChangePointColorUndo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	(void)memcpy(line->points[history_data->point_index].color, *before_color, 4);
@@ -3495,12 +3511,12 @@ static void ChangePointColorRedo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	(void)memcpy(line->points[history_data->point_index].color, history_data->change_color, 4);
@@ -3524,13 +3540,13 @@ static void AddChangePointColorHistory(
 	CONTROL_POINT_CHANGE_COLOR_HISTORY *history_data =
 		(CONTROL_POINT_CHANGE_COLOR_HISTORY*)MEM_ALLOC_FUNC(data_size);
 	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
-	VECTOR_LINE *line = layer_data->base->next;
+	VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer_data->base)->next;
 	int line_index = 0;
 	int point_index;
 
 	while(line != change_line)
 	{
-		line = line->next;
+		line = line->base_data.next;
 		line_index++;
 	}
 
@@ -3582,11 +3598,11 @@ static void LineColorChangeBrushPressCallBack(
 	{	// ライン上なら色変更
 
 		// ライン色変更ツールの詳細データにキャスト
-		CHANGE_LINE_COLOR_TOOL* tool = (CHANGE_LINE_COLOR_TOOL*)core->brush_data;
+		CHANGE_LINE_COLOR_TOOL *tool = (CHANGE_LINE_COLOR_TOOL*)core->brush_data;
 		// 一番下のライン
-		VECTOR_LINE* base = window->active_layer->layer_data.vector_layer_p->base;
+		VECTOR_LINE *base = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->base;
 		// 当たり判定っぽいことをするラインへのポインタ
-		VECTOR_LINE* line;
+		VECTOR_LINE *line;
 		// ラインレイヤーの座標
 		int layer_x, layer_y;
 		// 当たり判定の開始・終了座標
@@ -3599,8 +3615,8 @@ static void LineColorChangeBrushPressCallBack(
 		int hit;
 
 		// ラインレイヤーのピクセルα値が0でなければ当たり
-		line = base->next;
-		window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+		line = base->base_data.next;
+		window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 		window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 		
 		switch(tool->mode)
@@ -3609,14 +3625,14 @@ static void LineColorChangeBrushPressCallBack(
 			while(line != NULL)
 			{	// 各レイヤー持ちのラインに対して処理実行
 
-				if(window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+				if(window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 				{
-					if(line->layer != NULL)
+					if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 					{
-						if(x > line->layer->x && x < line->layer->x+line->layer->width
-							&& y > line->layer->y && y < line->layer->y+line->layer->height)
+						if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+							&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 						{
-							layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+							layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 
 							start_x = layer_x - STROKE_SELECT_DISTANCE, start_y = layer_y - STROKE_SELECT_DISTANCE;
 							end_x = layer_x + STROKE_SELECT_DISTANCE, end_y = layer_y + STROKE_SELECT_DISTANCE;
@@ -3625,18 +3641,18 @@ static void LineColorChangeBrushPressCallBack(
 							{
 								start_x = 0;
 							}
-							else if(end_x >= line->layer->width)
+							else if(end_x >= line->base_data.layer->width)
 							{
-								end_x = line->layer->width - 1;
+								end_x = line->base_data.layer->width - 1;
 							}
 
 							if(start_y < 0)
 							{
 								start_y = 0;
 							}
-							else if(end_y >= line->layer->height)
+							else if(end_y >= line->base_data.layer->height)
 							{
-								end_y = line->layer->height - 1;
+								end_y = line->base_data.layer->height - 1;
 							}
 
 							hit = 0, j = 0;
@@ -3644,10 +3660,10 @@ static void LineColorChangeBrushPressCallBack(
 							{
 								for(j=start_x; j<end_x; j++)
 								{
-									if(line->layer->pixels[i*line->layer->stride+j*4+3] != 0
+									if(line->base_data.layer->pixels[i*line->base_data.layer->stride+j*4+3] != 0
 										&& (memcmp(line->points->color, *core->color, 3) != 0 || line->points->color[3] != tool->flow))
 									{
-										window->active_layer->layer_data.vector_layer_p->active_line = line;
+										window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 										hit++;
 
 										if(i*i+j*j < 4)
@@ -3662,7 +3678,7 @@ static void LineColorChangeBrushPressCallBack(
 							if(hit != 0)
 							{
 								uint8 change_color[4] = {(*core->color)[0], (*core->color)[1], (*core->color)[2], tool->flow};
-								window->active_layer->layer_data.vector_layer_p->active_line = line;
+								window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 
 								// 履歴データを追加
 								AddChangeLineColorHistory(window, line, change_color, core->name);
@@ -3684,13 +3700,13 @@ static void LineColorChangeBrushPressCallBack(
 							}
 						}
 
-						line = line->next;
+						line = line->base_data.next;
 					}
 				}
 				else
 				{
 					uint8 change_color[4] = {(*core->color)[0], (*core->color)[1], (*core->color)[2], tool->flow};
-					line = window->active_layer->layer_data.vector_layer_p->active_line;
+					line = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data;
 
 					// 履歴データを追加
 					AddChangeLineColorHistory(window, line, change_color, core->name);
@@ -3715,10 +3731,10 @@ static void LineColorChangeBrushPressCallBack(
 		case CHANGE_POINT_COLOR_MODE:	// 制御点色変更
 			while(line != NULL && end_flag == 0)
 			{	// 各レイヤー持ちのラインに対して処理実行
-				if(line->layer != NULL)
+				if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					if(x > line->layer->x && x < line->layer->x+line->layer->width
-						&& y > line->layer->y && y < line->layer->y+line->layer->height)
+					if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+						&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 					{
 						for(i=0; i<line->num_points; i++)
 						{	// マウスカーソルの位置に制御点があれば色変更
@@ -3734,7 +3750,7 @@ static void LineColorChangeBrushPressCallBack(
 								line->points[i].color[2] = (*core->color)[2];
 								line->points[i].color[3] = tool->flow;
 
-								window->active_layer->layer_data.vector_layer_p->active_line = line;
+								window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 								// ラインレイヤーの作り直し
 								window->active_layer->layer_data.vector_layer_p->flags |=
 									VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
@@ -3747,7 +3763,7 @@ static void LineColorChangeBrushPressCallBack(
 					}
 				}
 
-				line = line->next;
+				line = line->base_data.next;
 			}
 			break;
 		}
@@ -3757,7 +3773,7 @@ static void LineColorChangeBrushPressCallBack(
 		// ライン色変更ツールの詳細データにキャスト
 		CHANGE_LINE_COLOR_TOOL* tool = (CHANGE_LINE_COLOR_TOOL*)core->brush_data;
 		// 一番下のライン
-		VECTOR_LINE* base = window->active_layer->layer_data.vector_layer_p->base;
+		VECTOR_LINE* base = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->base;
 		// 当たり判定っぽいことをするラインへのポインタ
 		VECTOR_LINE* line;
 		// 2週目のフラグ
@@ -3776,12 +3792,12 @@ static void LineColorChangeBrushPressCallBack(
 		switch(tool->mode)
 		{
 		case CHANGE_LINE_COLOR_MODE:	// ライン色変更
-			if(window->active_layer->layer_data.vector_layer_p->active_line != NULL)
+			if(window->active_layer->layer_data.vector_layer_p->active_data != NULL)
 			{
-				VECTOR_LINE *before_active = window->active_layer->layer_data.vector_layer_p->active_line;
+				VECTOR_LINE *before_active = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data;
 
 				// ラインレイヤーのピクセルα値が0でなければ当たり
-				line = window->active_layer->layer_data.vector_layer_p->active_line->next;
+				line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)window->active_layer->layer_data.vector_layer_p->active_data)->next;
 				// 右クリックで選択された場合は一定距離マウスが移動するまで選択ラインを変更しない
 				tool->flags |= CONTROL_POINT_TOOL_HAS_LOCK;
 				// マウスの座標を記憶
@@ -3789,12 +3805,12 @@ static void LineColorChangeBrushPressCallBack(
 
 				while(hit == 0)
 				{	// 各レイヤー持ちのラインに対して処理実行
-					if(line != NULL && line->layer != NULL)
+					if(line != NULL && line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 					{
-						if(x > line->layer->x && x < line->layer->x+line->layer->width
-							&& y > line->layer->y && y < line->layer->y+line->layer->height)
+						if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+							&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 						{
-							layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+							layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 
 							start_x = layer_x - STROKE_SELECT_DISTANCE, start_y = layer_y - STROKE_SELECT_DISTANCE;
 							end_x = layer_x + STROKE_SELECT_DISTANCE, end_y = layer_y + STROKE_SELECT_DISTANCE;
@@ -3803,18 +3819,18 @@ static void LineColorChangeBrushPressCallBack(
 							{
 								start_x = 0;
 							}
-							else if(end_x >= line->layer->width)
+							else if(end_x >= line->base_data.layer->width)
 							{
-								end_x = line->layer->width - 1;
+								end_x = line->base_data.layer->width - 1;
 							}
 
 							if(start_y < 0)
 							{
 								start_y = 0;
 							}
-							else if(end_y >= line->layer->height)
+							else if(end_y >= line->base_data.layer->height)
 							{
-								end_y = line->layer->height - 1;
+								end_y = line->base_data.layer->height - 1;
 							}
 
 							hit = 0, j = 0;
@@ -3822,10 +3838,10 @@ static void LineColorChangeBrushPressCallBack(
 							{
 								for(j=start_x; j<end_x; j++)
 								{
-									if(line->layer->pixels[i*line->layer->stride+j*4+3] != 0
+									if(line->base_data.layer->pixels[i*line->base_data.layer->stride+j*4+3] != 0
 										&& memcmp(line->points->color, *core->color, 3) != 0)
 									{
-										window->active_layer->layer_data.vector_layer_p->active_line = line;
+										window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 										hit++;
 
 										if(i*i+j*j < 4)
@@ -3843,13 +3859,13 @@ static void LineColorChangeBrushPressCallBack(
 							}
 						}
 
-						line = line->next;
+						line = line->base_data.next;
 					}
 					else
 					{
 						if(second_loop == 0)
 						{
-							line = base->next;
+							line = base->base_data.next;
 							second_loop++;
 						}
 						else
@@ -3859,10 +3875,10 @@ static void LineColorChangeBrushPressCallBack(
 					}
 				}
 
-				if(window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+				if(window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 				{
-					window->active_layer->layer_data.vector_layer_p->active_line =
-						before_active;
+					window->active_layer->layer_data.vector_layer_p->active_data =
+						(void*)before_active;
 				}
 			}
 			break;
@@ -3883,7 +3899,7 @@ static void LineColorChangeBrushMotionCallBack(
 	// ライン色変更ツールの詳細データにキャスト
 	CHANGE_LINE_COLOR_TOOL* tool = (CHANGE_LINE_COLOR_TOOL*)core->brush_data;
 	// 一番下のライン
-	VECTOR_LINE* base = window->active_layer->layer_data.vector_layer_p->base;
+	VECTOR_LINE* base = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->base;
 	// 当たり判定っぽいことをするラインへのポインタ
 	VECTOR_LINE* line;
 	// ループ終了のフラグ
@@ -3898,8 +3914,8 @@ static void LineColorChangeBrushMotionCallBack(
 	}
 
 	// 制御点からの距離が一定以下なら当たり
-	line = base->next;
-	window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+	line = base->base_data.next;
+	window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 	window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 
 	if(tool->mode == CHANGE_LINE_COLOR_MODE)
@@ -3924,12 +3940,12 @@ static void LineColorChangeBrushMotionCallBack(
 			while(line != NULL && end_flag == 0)
 			{
 				// 各レイヤー持ちのラインに対して処理実行
-				if(line->layer != NULL)
+				if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					if(x > line->layer->x && x < line->layer->x+line->layer->width
-						&& y > line->layer->y && y < line->layer->y+line->layer->height)
+					if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+						&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 					{
-						layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+						layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 
 						start_x = layer_x - STROKE_SELECT_DISTANCE, start_y = layer_y - STROKE_SELECT_DISTANCE;
 						end_x = layer_x + STROKE_SELECT_DISTANCE, end_y = layer_y + STROKE_SELECT_DISTANCE;
@@ -3938,18 +3954,18 @@ static void LineColorChangeBrushMotionCallBack(
 						{
 							start_x = 0;
 						}
-						else if(end_x >= line->layer->width)
+						else if(end_x >= line->base_data.layer->width)
 						{
-							end_x = line->layer->width - 1;
+							end_x = line->base_data.layer->width - 1;
 						}
 
 						if(start_y < 0)
 						{
 							start_y = 0;
 						}
-						else if(end_y >= line->layer->height)
+						else if(end_y >= line->base_data.layer->height)
 						{
-							end_y = line->layer->height - 1;
+							end_y = line->base_data.layer->height - 1;
 						}
 
 						hit = 0, j = 0;
@@ -3957,13 +3973,13 @@ static void LineColorChangeBrushMotionCallBack(
 						{
 							for(j=start_x; j<end_x; j++)
 							{
-								index = i*line->layer->stride+j*4+3;
-								if(index < line->layer->stride*line->layer->height)
+								index = i*line->base_data.layer->stride+j*4+3;
+								if(index < line->base_data.layer->stride*line->base_data.layer->height)
 								{
-									if(line->layer->pixels[index] != 0
+									if(line->base_data.layer->pixels[index] != 0
 										&& (memcmp(line->points->color, *core->color, 3) != 0 || line->points->color[3] != tool->flow))
 									{
-										window->active_layer->layer_data.vector_layer_p->active_line = line;
+										window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 										hit++;
 
 										if(i*i+j*j < 4)
@@ -3978,7 +3994,7 @@ static void LineColorChangeBrushMotionCallBack(
 					}
 				}	// 各レイヤー持ちのラインに対して処理実行
 					// if(line->layer != NULL)
-				line = line->next;
+				line = line->base_data.next;
 			}	// while(line != NULL && end_flag == 0)
 		}
 	}
@@ -3986,10 +4002,10 @@ static void LineColorChangeBrushMotionCallBack(
 	{
 		while(line != NULL && end_flag == 0)
 		{	// 各レイヤー持ちのラインに対して処理実行
-			if(line->layer != NULL)
+			if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 			{
-				if(x > line->layer->x && x < line->layer->x+line->layer->width
-					&& y > line->layer->y && y < line->layer->y+line->layer->height)
+				if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+					&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 				{
 					for(i=0; i<line->num_points; i++)
 					{	// マウスカーソルの位置に制御点があれば強調
@@ -4005,7 +4021,7 @@ static void LineColorChangeBrushMotionCallBack(
 				}
 			}
 
-			line = line->next;
+			line = line->base_data.next;
 		}
 	}
 #undef CHANGE_LINE_DISTANCE
@@ -4021,7 +4037,7 @@ static void LineColorChangeBrushDrawCursor(
 )
 {
 #define DRAW_POINT_RADIUS 2
-	CHANGE_LINE_COLOR_TOOL* color = (CHANGE_LINE_COLOR_TOOL*)data;
+	CHANGE_LINE_COLOR_TOOL *color = (CHANGE_LINE_COLOR_TOOL*)data;
 
 	cairo_save(window->disp_temp->cairo_p);
 	ClipUpdateArea(window, window->disp_layer->cairo_p);
@@ -4029,11 +4045,17 @@ static void LineColorChangeBrushDrawCursor(
 
 	if(color->mode == CHANGE_LINE_COLOR_MODE)
 	{
-		VECTOR_LAYER* layer = window->active_layer->layer_data.vector_layer_p;
-		VECTOR_LINE* line = layer->base->next;
+		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+		VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->base)->next;
+		VECTOR_LINE *active_line = (VECTOR_LINE*)layer->active_data;
 		gdouble rev_zoom = 1.0 / (window->zoom * 0.01);
 
-		if(layer->active_line != NULL)
+		if(active_line != NULL && active_line->base_data.vector_type >= NUM_VECTOR_LINE_TYPE)
+		{
+			active_line = NULL;
+		}
+
+		if(active_line != NULL)
 		{	
 #if !defined(USE_BGR_COLOR_SPACE) || USE_BGR_COLOR_SPACE == 0
 			cairo_set_source_rgb(window->disp_layer->cairo_p, 1, 0, 0);
@@ -4042,10 +4064,10 @@ static void LineColorChangeBrushDrawCursor(
 #endif
 			cairo_scale(window->disp_temp->cairo_p, window->zoom*0.01, window->zoom*0.01);
 			cairo_set_source_surface(window->disp_temp->cairo_p,
-				layer->active_line->layer->surface_p, layer->active_line->layer->x, layer->active_line->layer->y);
+				active_line->base_data.layer->surface_p, active_line->base_data.layer->x, active_line->base_data.layer->y);
 			cairo_paint(window->disp_temp->cairo_p);
-			cairo_rectangle(window->disp_layer->cairo_p, layer->active_line->layer->x,
-				layer->active_line->layer->y, layer->active_line->layer->width, layer->active_line->layer->height);
+			cairo_rectangle(window->disp_layer->cairo_p, active_line->base_data.layer->x,
+				active_line->base_data.layer->y, active_line->base_data.layer->width, active_line->base_data.layer->height);
 			cairo_mask_surface(window->disp_layer->cairo_p, window->disp_temp->surface_p, 0, 0);
 			cairo_scale(window->disp_temp->cairo_p, rev_zoom, rev_zoom);
 			(void)memset(window->disp_temp->pixels, 0, window->disp_temp->stride*window->disp_temp->height);
@@ -4056,35 +4078,38 @@ static void LineColorChangeBrushDrawCursor(
 	{
 		unsigned int i;
 
-		VECTOR_LAYER* layer = window->active_layer->layer_data.vector_layer_p;
-		VECTOR_LINE* line = layer->base->next;
+		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+		VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->base)->next;
 		gdouble rev_zoom = 1.0 / (window->zoom * 0.01);
 
 		while(line != NULL)
 		{
-			cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 0);
-			cairo_arc(window->disp_layer->cairo_p, line->points->x*(window->zoom)*0.01f,
-				line->points->y*(window->zoom)*0.01f, DRAW_POINT_RADIUS, 0, 2*G_PI);
-			cairo_fill(window->disp_layer->cairo_p);
+			if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+			{
+				cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 0);
+				cairo_arc(window->disp_layer->cairo_p, line->points->x*(window->zoom)*0.01f,
+					line->points->y*(window->zoom)*0.01f, DRAW_POINT_RADIUS, 0, 2*G_PI);
+				cairo_fill(window->disp_layer->cairo_p);
 
 #if !defined(USE_BGR_COLOR_SPACE) || USE_BGR_COLOR_SPACE == 0
-			cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 1);
+				cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 1);
 #else
-			cairo_set_source_rgb(window->disp_layer->cairo_p, 1, 1, 0);
+				cairo_set_source_rgb(window->disp_layer->cairo_p, 1, 1, 0);
 #endif
-			for(i=1; i<(unsigned int)(line->num_points-1); i++)
-			{
+				for(i=1; i<(unsigned int)(line->num_points-1); i++)
+				{
+					cairo_arc(window->disp_layer->cairo_p, line->points[i].x*(window->zoom)*0.01f,
+						line->points[i].y*(window->zoom)*0.01f, DRAW_POINT_RADIUS, 0, 2*G_PI);
+					cairo_fill(window->disp_layer->cairo_p);
+				}
+
+				cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 0);
 				cairo_arc(window->disp_layer->cairo_p, line->points[i].x*(window->zoom)*0.01f,
 					line->points[i].y*(window->zoom)*0.01f, DRAW_POINT_RADIUS, 0, 2*G_PI);
 				cairo_fill(window->disp_layer->cairo_p);
 			}
 
-			cairo_set_source_rgb(window->disp_layer->cairo_p, 0, 1, 0);
-			cairo_arc(window->disp_layer->cairo_p, line->points[i].x*(window->zoom)*0.01f,
-				line->points[i].y*(window->zoom)*0.01f, DRAW_POINT_RADIUS, 0, 2*G_PI);
-			cairo_fill(window->disp_layer->cairo_p);
-
-			line = line->next;
+			line = line->base_data.next;
 		}
 
 		if(layer->active_point != NULL)
@@ -4118,19 +4143,19 @@ static GtkWidget* CreateLineColorChangeBrushDetailUI(APPLICATION* app, void* dat
 {
 #define UI_FONT_SIZE 8.0
 	// ツールの詳細データにキャスト
-	CHANGE_LINE_COLOR_TOOL* color = (CHANGE_LINE_COLOR_TOOL*)data;
+	CHANGE_LINE_COLOR_TOOL *color = (CHANGE_LINE_COLOR_TOOL*)data;
 	// 詳細設定ウィジェットを入れるパッキングボックス
-	GtkWidget* vbox = gtk_vbox_new(FALSE, 2);
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 2);
 	// スライダ
-	GtkWidget* scale;
+	GtkWidget *scale;
 	// ウィジェット整列用のテーブル
-	GtkWidget* table;
+	GtkWidget *table;
 	// ラベル
-	GtkWidget* label;
+	GtkWidget *label;
 	// ラジオボタン
-	GtkWidget* radio_buttons[2];
+	GtkWidget *radio_buttons[2];
 	// スライダに設定するアジャスタ
-	GtkAdjustment* scale_adjustment;
+	GtkAdjustment *scale_adjustment;
 	// ラベルのフォントサイズ変更用のマークアップバッファ
 	char mark_up_buff[256];
 
@@ -4183,7 +4208,7 @@ static void ChangeLineSizeUndoRedo(DRAW_WINDOW* window, void* p)
 	CHANGE_LINE_SIZE_HISTORY *history_data =
 		(CHANGE_LINE_SIZE_HISTORY*)p;
 	LAYER *layer = window->layer;
-	char* name = &(((char*)history_data)[offsetof(CHANGE_LINE_SIZE_HISTORY, layer_name)]);
+	char *name = &(((char*)history_data)[offsetof(CHANGE_LINE_SIZE_HISTORY, layer_name)]);
 	VECTOR_LINE *line;
 	uint8 *buff = (uint8*)history_data;
 	gdouble *before_size, temp_size;
@@ -4195,12 +4220,12 @@ static void ChangeLineSizeUndoRedo(DRAW_WINDOW* window, void* p)
 		layer = layer->next;
 	}
 
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	for(i=0; i<history_data->line_index; i++)
 	{
-		line = line->next;
+		line = line->base_data.next;
 	}
-	layer->layer_data.vector_layer_p->active_line = line;
+	layer->layer_data.vector_layer_p->active_data = (void*)line;
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
 
 	before_flow = &buff[offsetof(CHANGE_LINE_SIZE_HISTORY, layer_name) + history_data->layer_name_length + 1];
@@ -4232,7 +4257,7 @@ static void AddChangeLineSizeHistory(
 	CHANGE_LINE_SIZE_HISTORY *history_data =
 		(CHANGE_LINE_SIZE_HISTORY*)MEM_ALLOC_FUNC(data_size);
 	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
-	VECTOR_LINE *line = layer_data->base->next;
+	VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer_data->base)->next;
 	uint8 *buff = (uint8*)history_data;
 	uint8 *before_flow;
 	gdouble *before_size;
@@ -4244,7 +4269,7 @@ static void AddChangeLineSizeHistory(
 
 	while(line != change_line)
 	{
-		line = line->next;
+		line = line->base_data.next;
 		line_index++;
 	}
 
@@ -4289,11 +4314,11 @@ static void LineSizeChangeBrushPressCallBack(
 	{	// ライン上ならサイズ変更
 
 		// 設定するラインのサイズ情報
-		CHANGE_LINE_SIZE_TOOL* size = (CHANGE_LINE_SIZE_TOOL*)core->brush_data;
+		CHANGE_LINE_SIZE_TOOL *size = (CHANGE_LINE_SIZE_TOOL*)core->brush_data;
 		// 一番下のライン
-		VECTOR_LINE* base = window->active_layer->layer_data.vector_layer_p->base;
+		VECTOR_LINE *base = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->base;
 		// 当たり判定っぽいことをするラインへのポインタ
-		VECTOR_LINE* line;
+		VECTOR_LINE *line;
 		// ラインレイヤーの座標
 		int layer_x, layer_y;
 		// 当たり判定の開始・終了座標
@@ -4304,22 +4329,22 @@ static void LineSizeChangeBrushPressCallBack(
 		int i, j;
 
 		// ラインレイヤーのピクセルα値が0でなければ当たり
-		if(window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+		if(window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 		{
-			line = base->next;
-			window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+			line = base->base_data.next;
+			window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 			window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 
 			while(line != NULL)
 			{	// 各レイヤー持ちのラインに対して処理実行
-				if(window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+				if(window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 				{
-					if(line->layer != NULL)
+					if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 					{
-						if(x > line->layer->x && x < line->layer->x+line->layer->width
-							&& y > line->layer->y && y < line->layer->y+line->layer->height)
+						if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+							&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 						{
-							layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+							layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 
 							start_x = layer_x - STROKE_SELECT_DISTANCE, start_y = layer_y - STROKE_SELECT_DISTANCE;
 							end_x = layer_x + STROKE_SELECT_DISTANCE, end_y = layer_y + STROKE_SELECT_DISTANCE;
@@ -4328,18 +4353,18 @@ static void LineSizeChangeBrushPressCallBack(
 							{
 								start_x = 0;
 							}
-							else if(end_x >= line->layer->width)
+							else if(end_x >= line->base_data.layer->width)
 							{
-								end_x = line->layer->width - 1;
+								end_x = line->base_data.layer->width - 1;
 							}
 
 							if(start_y < 0)
 							{
 								start_y = 0;
 							}
-							else if(end_y >= line->layer->height)
+							else if(end_y >= line->base_data.layer->height)
 							{
-								end_y = line->layer->height - 1;
+								end_y = line->base_data.layer->height - 1;
 							}
 
 							hit = 0, j = 0;
@@ -4347,9 +4372,9 @@ static void LineSizeChangeBrushPressCallBack(
 							{
 								for(j=start_x; j<end_x; j++)
 								{
-									if(line->layer->pixels[i*line->layer->stride+j*4+3] != 0)
+									if(line->base_data.layer->pixels[i*line->base_data.layer->stride+j*4+3] != 0)
 									{
-										window->active_layer->layer_data.vector_layer_p->active_line = line;
+										window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 										hit++;
 
 										if(i*i+j*j < 4)
@@ -4363,7 +4388,7 @@ static void LineSizeChangeBrushPressCallBack(
 
 							if(hit != 0)
 							{
-								window->active_layer->layer_data.vector_layer_p->active_line = line;
+								window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 
 								// 履歴データを追加
 								AddChangeLineSizeHistory(window, line, core->name);
@@ -4386,12 +4411,12 @@ static void LineSizeChangeBrushPressCallBack(
 						}
 					}
 
-					line = line->next;
+					line = line->base_data.next;
 				}
 				else
 				{
 					// 履歴データを追加
-					line = window->active_layer->layer_data.vector_layer_p->active_line;
+					line = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data;
 					AddChangeLineSizeHistory(window, line, core->name);
 
 					// サイズ変更
@@ -4411,7 +4436,7 @@ static void LineSizeChangeBrushPressCallBack(
 		}
 		else
 		{
-			line = window->active_layer->layer_data.vector_layer_p->active_line;
+			line = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data;
 
 			// 履歴データを追加
 			AddChangeLineSizeHistory(window, line, core->name);
@@ -4435,11 +4460,11 @@ static void LineSizeChangeBrushPressCallBack(
 	else if(((GdkEventButton*)state)->button == 3)
 	{	// 右クリックなら
 		// ライン色変更ツールの詳細データにキャスト
-		CHANGE_LINE_SIZE_TOOL* size = (CHANGE_LINE_SIZE_TOOL*)core->brush_data;
+		CHANGE_LINE_SIZE_TOOL *size = (CHANGE_LINE_SIZE_TOOL*)core->brush_data;
 		// 一番下のライン
-		VECTOR_LINE* base = window->active_layer->layer_data.vector_layer_p->base;
+		VECTOR_LINE *base = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->base;
 		// 当たり判定っぽいことをするラインへのポインタ
-		VECTOR_LINE* line;
+		VECTOR_LINE *line;
 		// 2週目のフラグ
 		int second_loop = 0;
 		// ラインレイヤーの座標
@@ -4453,12 +4478,12 @@ static void LineSizeChangeBrushPressCallBack(
 		// 当たり判定のフラグ
 		int hit = 0;
 
-		if(window->active_layer->layer_data.vector_layer_p->active_line != NULL)
+		if(window->active_layer->layer_data.vector_layer_p->active_data != NULL)
 		{
-			VECTOR_LINE *before_active = window->active_layer->layer_data.vector_layer_p->active_line;
+			VECTOR_LINE *before_active = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->active_data;
 
 			// ラインレイヤーのピクセルα値が0でなければ当たり
-			line = window->active_layer->layer_data.vector_layer_p->active_line->next;
+			line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)window->active_layer->layer_data.vector_layer_p->active_data)->next;
 			// 右クリックで選択された場合は一定距離マウスが移動するまで選択ラインを変更しない
 			size->flags |= CONTROL_POINT_TOOL_HAS_LOCK;
 			// マウスの座標を記憶
@@ -4466,12 +4491,12 @@ static void LineSizeChangeBrushPressCallBack(
 
 			while(hit == 0)
 			{	// 各レイヤー持ちのラインに対して処理実行
-				if(line != NULL && line->layer != NULL)
+				if(line != NULL && line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					if(x > line->layer->x && x < line->layer->x+line->layer->width
-						&& y > line->layer->y && y < line->layer->y+line->layer->height)
+					if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+						&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 					{
-						layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+						layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 
 						start_x = layer_x - STROKE_SELECT_DISTANCE, start_y = layer_y - STROKE_SELECT_DISTANCE;
 						end_x = layer_x + STROKE_SELECT_DISTANCE, end_y = layer_y + STROKE_SELECT_DISTANCE;
@@ -4480,18 +4505,18 @@ static void LineSizeChangeBrushPressCallBack(
 						{
 							start_x = 0;
 						}
-						else if(end_x >= line->layer->width)
+						else if(end_x >= line->base_data.layer->width)
 						{
-							end_x = line->layer->width - 1;
+							end_x = line->base_data.layer->width - 1;
 						}
 
 						if(start_y < 0)
 						{
 							start_y = 0;
 						}
-						else if(end_y >= line->layer->height)
+						else if(end_y >= line->base_data.layer->height)
 						{
-							end_y = line->layer->height - 1;
+							end_y = line->base_data.layer->height - 1;
 						}
 
 						hit = 0, j = 0;
@@ -4499,10 +4524,10 @@ static void LineSizeChangeBrushPressCallBack(
 						{
 							for(j=start_x; j<end_x; j++)
 							{
-								if(line->layer->pixels[i*line->layer->stride+j*4+3] != 0
+								if(line->base_data.layer->pixels[i*line->base_data.layer->stride+j*4+3] != 0
 									&& memcmp(line->points->color, *core->color, 3) != 0)
 								{
-									window->active_layer->layer_data.vector_layer_p->active_line = line;
+									window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 									hit++;
 
 									if(i*i+j*j < 4)
@@ -4520,13 +4545,13 @@ static void LineSizeChangeBrushPressCallBack(
 						}
 					}
 
-					line = line->next;
+					line = line->base_data.next;
 				}
 				else
 				{
 					if(second_loop == 0)
 					{
-						line = base->next;
+						line = base->base_data.next;
 						second_loop++;
 					}
 					else
@@ -4536,10 +4561,10 @@ static void LineSizeChangeBrushPressCallBack(
 				}
 			}
 
-			if(window->active_layer->layer_data.vector_layer_p->active_line == NULL)
+			if(window->active_layer->layer_data.vector_layer_p->active_data == NULL)
 			{
-				window->active_layer->layer_data.vector_layer_p->active_line =
-					before_active;
+				window->active_layer->layer_data.vector_layer_p->active_data =
+					(void*)before_active;
 			}
 		}
 	}
@@ -4556,11 +4581,11 @@ static void LineSizeChangeBrushMotionCallBack(
 {
 #define CHANGE_LINE_DISTANCE 20
 	// ライン色変更ツールの詳細データにキャスト
-	CHANGE_LINE_SIZE_TOOL* size = (CHANGE_LINE_SIZE_TOOL*)core->brush_data;
+	CHANGE_LINE_SIZE_TOOL *size = (CHANGE_LINE_SIZE_TOOL*)core->brush_data;
 	// 一番下のライン
-	VECTOR_LINE* base = window->active_layer->layer_data.vector_layer_p->base;
+	VECTOR_LINE *base = (VECTOR_LINE*)window->active_layer->layer_data.vector_layer_p->base;
 	// 当たり判定っぽいことをするラインへのポインタ
-	VECTOR_LINE* line;
+	VECTOR_LINE *line;
 	// ループ終了のフラグ
 	int end_flag = 0;
 
@@ -4571,8 +4596,8 @@ static void LineSizeChangeBrushMotionCallBack(
 	}
 
 	// 制御点からの距離が一定以下なら当たり
-	line = base->next;
-	window->active_layer->layer_data.vector_layer_p->active_line = NULL;
+	line = base->base_data.next;
+	window->active_layer->layer_data.vector_layer_p->active_data = NULL;
 	window->active_layer->layer_data.vector_layer_p->active_point = NULL;
 
 	{
@@ -4594,12 +4619,12 @@ static void LineSizeChangeBrushMotionCallBack(
 			while(line != NULL && end_flag == 0)
 			{
 				// 各レイヤー持ちのラインに対して処理実行
-				if(line->layer != NULL)
+				if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					if(x > line->layer->x && x < line->layer->x+line->layer->width
-						&& y > line->layer->y && y < line->layer->y+line->layer->height)
+					if(x > line->base_data.layer->x && x < line->base_data.layer->x+line->base_data.layer->width
+						&& y > line->base_data.layer->y && y < line->base_data.layer->y+line->base_data.layer->height)
 					{
-						layer_x = (int)(x - line->layer->x), layer_y = (int)(y - line->layer->y);
+						layer_x = (int)(x - line->base_data.layer->x), layer_y = (int)(y - line->base_data.layer->y);
 
 						start_x = layer_x - STROKE_SELECT_DISTANCE, start_y = layer_y - STROKE_SELECT_DISTANCE;
 						end_x = layer_x + STROKE_SELECT_DISTANCE, end_y = layer_y + STROKE_SELECT_DISTANCE;
@@ -4608,18 +4633,18 @@ static void LineSizeChangeBrushMotionCallBack(
 						{
 							start_x = 0;
 						}
-						else if(end_x >= line->layer->width)
+						else if(end_x >= line->base_data.layer->width)
 						{
-							end_x = line->layer->width - 1;
+							end_x = line->base_data.layer->width - 1;
 						}
 
 						if(start_y < 0)
 						{
 							start_y = 0;
 						}
-						if(end_y + start_y >= line->layer->height)
+						if(end_y + start_y >= line->base_data.layer->height)
 						{
-							end_y = line->layer->height - start_y - 1;
+							end_y = line->base_data.layer->height - start_y - 1;
 						}
 
 						hit = 0, j = 0;
@@ -4627,9 +4652,9 @@ static void LineSizeChangeBrushMotionCallBack(
 						{
 							for(j=start_x; j<end_x; j++)
 							{
-								if(line->layer->pixels[i*line->layer->stride+j*4+3] != 0)
+								if(line->base_data.layer->pixels[i*line->base_data.layer->stride+j*4+3] != 0)
 								{
-									window->active_layer->layer_data.vector_layer_p->active_line = line;
+									window->active_layer->layer_data.vector_layer_p->active_data = (void*)line;
 									hit++;
 
 									if(i*i+j*j < 4)
@@ -4643,7 +4668,7 @@ static void LineSizeChangeBrushMotionCallBack(
 					}
 				}	// 各レイヤー持ちのラインに対して処理実行
 					// if(line->layer != NULL)
-				line = line->next;
+				line = line->base_data.next;
 			}	// while(line != NULL && end_flag == 0)
 		}
 	}
@@ -4659,11 +4684,17 @@ static void LineSizeChangeBrushDrawCursor(
 	void* data
 )
 {
-	VECTOR_LAYER* layer = window->active_layer->layer_data.vector_layer_p;
-	VECTOR_LINE* line = layer->base->next;
+	VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+	VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->base)->next;
+	VECTOR_LINE *active_line = (VECTOR_LINE*)layer->active_data;
 	gdouble rev_zoom = 1.0 / (window->zoom * 0.01);
 
-	if(layer->active_line != NULL)
+	if(active_line != NULL && active_line->base_data.vector_type >= NUM_VECTOR_LINE_TYPE)
+	{
+		active_line = NULL;
+	}
+
+	if(active_line != NULL)
 	{	
 #if !defined(USE_BGR_COLOR_SPACE) || USE_BGR_COLOR_SPACE == 0
 		cairo_set_source_rgb(window->disp_layer->cairo_p, 1, 0, 0);
@@ -4672,10 +4703,10 @@ static void LineSizeChangeBrushDrawCursor(
 #endif
 		cairo_scale(window->disp_temp->cairo_p, window->zoom*0.01, window->zoom*0.01);
 		cairo_set_source_surface(window->disp_temp->cairo_p,
-			layer->active_line->layer->surface_p, layer->active_line->layer->x, layer->active_line->layer->y);
+			active_line->base_data.layer->surface_p, active_line->base_data.layer->x, active_line->base_data.layer->y);
 		cairo_paint(window->disp_temp->cairo_p);
-		cairo_rectangle(window->disp_layer->cairo_p, layer->active_line->layer->x,
-			layer->active_line->layer->y, layer->active_line->layer->width, layer->active_line->layer->height);
+		cairo_rectangle(window->disp_layer->cairo_p, active_line->base_data.layer->x,
+			active_line->base_data.layer->y, active_line->base_data.layer->width, active_line->base_data.layer->height);
 		cairo_mask_surface(window->disp_layer->cairo_p, window->disp_temp->surface_p, 0, 0);
 		cairo_scale(window->disp_temp->cairo_p, rev_zoom, rev_zoom);
 		(void)memset(window->disp_temp->pixels, 0, window->disp_temp->stride*window->disp_temp->height);
@@ -4754,15 +4785,15 @@ static GtkWidget* CreateChangeLineSizeDetailUI(APPLICATION* app, void* data)
 {
 #define UI_FONT_SIZE 8.0
 	// 詳細データをキャスト
-	CHANGE_LINE_SIZE_TOOL* size = (CHANGE_LINE_SIZE_TOOL*)data;
+	CHANGE_LINE_SIZE_TOOL *size = (CHANGE_LINE_SIZE_TOOL*)data;
 	// ウィジェットを並べるパッキングボックス
-	GtkWidget* vbox = gtk_vbox_new(FALSE, 0);
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
 	// スライダ
-	GtkWidget* scale;
+	GtkWidget *scale;
 	// ウィジェット並べるテーブル
-	GtkWidget* table;
+	GtkWidget *table;
 	// スライダに適用するアジャスタ
-	GtkAdjustment* scale_adjustment;
+	GtkAdjustment *scale_adjustment;
 
 	// サイズ変更ウィジェット
 	scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(size->r*2, 1, 100, 1, 1, 0));
@@ -5060,7 +5091,8 @@ static void VectorEraserReleaseCallBack(
 		// ベジェ曲線の座標
 		BEZIER_POINT check_point;
 		// ベクトルレイヤー中のライン
-		VECTOR_LINE *line = window->active_layer->layer_data.vector_layer_p->base->next;
+		VECTOR_LINE *line =
+			(VECTOR_LINE*)((VECTOR_BASE_DATA*)window->active_layer->layer_data.vector_layer_p->base)->next;
 		// 分割により新たに作成されたライン
 		VECTOR_LINE *new_line = NULL;
 		// 1つのラインに対して追加されたラインの数
@@ -5126,10 +5158,11 @@ static void VectorEraserReleaseCallBack(
 		while(line != NULL)
 		{
 			// 領域がラインと重なるかをチェック
-			if(line->layer != NULL && line->layer->x <= eraser->max_x
-				&& line->layer->x + line->layer->width >= eraser->min_x
-				&& line->layer->y <= eraser->max_y
-				&& line->layer->y + line->layer->height >= eraser->min_y
+			if(line->base_data.layer != NULL && line->base_data.layer->x <= eraser->max_x
+				&& line->base_data.layer->x + line->base_data.layer->width >= eraser->min_x
+				&& line->base_data.layer->y <= eraser->max_y
+				&& line->base_data.layer->y + line->base_data.layer->height >= eraser->min_y
+				&& line->base_data.vector_type < NUM_VECTOR_LINE_TYPE
 			)
 			{
 				// ベクトル消しゴムのモードで処理切り替え
@@ -5147,7 +5180,7 @@ static void VectorEraserReleaseCallBack(
 						sizeof(*line->points)*line->num_points, src_points_stream);
 					src_points = (VECTOR_POINT*)src_points_stream->buff_ptr;
 
-					if(line->vector_type == VECTOR_LINE_STRAIGHT
+					if(line->base_data.vector_type == VECTOR_TYPE_STRAIGHT
 						|| line->num_points == 2)
 					{	// 直線
 						for(i=0; i<before_num_points-1; i++)
@@ -5182,7 +5215,7 @@ static void VectorEraserReleaseCallBack(
 											divide_line.before_num_points = line->num_points;
 											divide_line.after_num_points = i + 2;
 											divide_line.index = line_index;
-											divide_line.line_type = line->vector_type;
+											divide_line.line_type = line->base_data.vector_type;
 											(void)MemWrite(&divide_line, 1, offsetof(DIVIDE_LINE_CHANGE_DATA, before), divide_change);
 											(void)MemWrite(line->points, 1, sizeof(*line->points)*line->num_points, divide_change);
 
@@ -5206,7 +5239,7 @@ static void VectorEraserReleaseCallBack(
 											new_line->points[new_line->num_points-1].x = check_x;
 											new_line->points[new_line->num_points-1].y = check_y;
 											add_line.index = line_index;
-											add_line.line_type = new_line->vector_type;
+											add_line.line_type = new_line->base_data.vector_type;
 											add_line.num_points = new_line->num_points;
 											(void)MemWrite(&add_line, 1, offsetof(DIVIDE_LINE_ADD_DATA, after), divide_add);
 											(void)MemWrite(new_line->points, 1, sizeof(*line->points)*line->num_points, divide_add);
@@ -5221,8 +5254,8 @@ static void VectorEraserReleaseCallBack(
 									else if(window->brush_buffer[int_y*window->width+int_x] < 0x08 && in_devide % 2 != 0)
 									{
 										// 現在の座標を始点にして新たなライン作成
-										new_line = CreateVectorLine(line, line->next);
-										new_line->vector_type = line->vector_type;
+										new_line = CreateVectorLine(line, (VECTOR_LINE*)line->base_data.next);
+										new_line->base_data.vector_type = line->base_data.vector_type;
 										new_line->num_points = before_num_points - i;
 										new_line->buff_size = (new_line->num_points / VECTOR_LINE_BUFFER_SIZE + 1)
 											* VECTOR_LINE_BUFFER_SIZE;
@@ -5233,7 +5266,7 @@ static void VectorEraserReleaseCallBack(
 										new_line->points->pressure = src_points[i].pressure;
 										new_line->points->size = src_points[i].size;
 										(void)memcpy(new_line->points->color, src_points[i].color, 4);
-										new_line->vector_type = line->vector_type;
+										new_line->base_data.vector_type = line->base_data.vector_type;
 										new_line->points[1] = before_point;
 										this_add++;
 
@@ -5265,7 +5298,7 @@ static void VectorEraserReleaseCallBack(
 								new_line->points[new_line->num_points-1].x = check_x;
 								new_line->points[new_line->num_points-1].y = check_y;
 								add_line.index = line_index;
-								add_line.line_type = new_line->vector_type;
+								add_line.line_type = new_line->base_data.vector_type;
 								add_line.num_points = new_line->num_points;
 								(void)MemWrite(&add_line, 1, offsetof(DIVIDE_LINE_ADD_DATA, after), divide_add);
 								(void)MemWrite(new_line->points, 1, sizeof(*line->points)*line->num_points, divide_add);
@@ -5274,7 +5307,7 @@ static void VectorEraserReleaseCallBack(
 							}
 						}
 					}
-					else if(0)//line->vector_type == VECTOR_LINE_BEZIER_OPEN && line->num_points == 3)
+					else if(0)//line->vector_type == VECTOR_TYPE_BEZIER_OPEN && line->num_points == 3)
 					{	// ベジェ曲線
 						dx = src_points[0].x-src_points[1].x;
 						dy = src_points[0].y-src_points[1].y;
@@ -5323,7 +5356,7 @@ static void VectorEraserReleaseCallBack(
 										divide_line.before_num_points = line->num_points;
 										divide_line.after_num_points = i + 2;
 										divide_line.index = line_index;
-										divide_line.line_type = line->vector_type;
+										divide_line.line_type = line->base_data.vector_type;
 										(void)MemWrite(&divide_line, 1, offsetof(DIVIDE_LINE_CHANGE_DATA, before), divide_change);
 										(void)MemWrite(line->points, 1, sizeof(*line->points)*line->num_points, divide_change);
 
@@ -5344,7 +5377,7 @@ static void VectorEraserReleaseCallBack(
 										new_line->points[new_line->num_points-1].x = check_x;
 										new_line->points[new_line->num_points-1].y = check_y;
 										add_line.index = line_index;
-										add_line.line_type = new_line->vector_type;
+										add_line.line_type = new_line->base_data.vector_type;
 										add_line.num_points = new_line->num_points;
 										(void)MemWrite(&add_line, 1, offsetof(DIVIDE_LINE_ADD_DATA, after), divide_add);
 										(void)MemWrite(new_line->points, 1, sizeof(*line->points)*line->num_points, divide_add);
@@ -5360,8 +5393,8 @@ static void VectorEraserReleaseCallBack(
 								{
 									// 現在の座標を始点にして新たなライン作成
 									int point_index = (int)(t + 1.5);
-									new_line = CreateVectorLine(line, line->next);
-									new_line->vector_type = line->vector_type;
+									new_line = CreateVectorLine(line, (VECTOR_LINE*)line->base_data.next);
+									new_line->base_data.vector_type = line->base_data.vector_type;
 									new_line->num_points = 4 - point_index;
 									new_line->buff_size = (new_line->num_points / VECTOR_LINE_BUFFER_SIZE + 1)
 										* VECTOR_LINE_BUFFER_SIZE;
@@ -5398,7 +5431,7 @@ static void VectorEraserReleaseCallBack(
 							new_line->points[new_line->num_points-1].x = check_x;
 							new_line->points[new_line->num_points-1].y = check_y;
 							add_line.index = line_index;
-							add_line.line_type = new_line->vector_type;
+							add_line.line_type = new_line->base_data.vector_type;
 							add_line.num_points = new_line->num_points;
 							(void)MemWrite(&add_line, 1, offsetof(DIVIDE_LINE_ADD_DATA, after), divide_add);
 							(void)MemWrite(new_line->points, 1, sizeof(*line->points)*line->num_points, divide_add);
@@ -5406,7 +5439,7 @@ static void VectorEraserReleaseCallBack(
 							new_line = NULL;
 						}
 					}
-					else if(line->vector_type == VECTOR_LINE_BEZIER_OPEN)
+					else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_OPEN)
 					{
 						// 暫定的な距離計算
 						dx = src_points[0].x-src_points[1].x;
@@ -5452,7 +5485,7 @@ static void VectorEraserReleaseCallBack(
 										divide_line.before_num_points = line->num_points;
 										divide_line.after_num_points = 2;
 										divide_line.index = line_index;
-										divide_line.line_type = line->vector_type;
+										divide_line.line_type = line->base_data.vector_type;
 										(void)MemWrite(&divide_line, 1, offsetof(DIVIDE_LINE_CHANGE_DATA, before), divide_change);
 										(void)MemWrite(line->points, 1, sizeof(*line->points)*line->num_points, divide_change);
 
@@ -5476,7 +5509,7 @@ static void VectorEraserReleaseCallBack(
 										new_line->points[new_line->num_points-1].x = check_x;
 										new_line->points[new_line->num_points-1].y = check_y;
 										add_line.index = line_index;
-										add_line.line_type = new_line->vector_type;
+										add_line.line_type = new_line->base_data.vector_type;
 										add_line.num_points = new_line->num_points;
 										(void)MemWrite(&add_line, 1, offsetof(DIVIDE_LINE_ADD_DATA, after), divide_add);
 										(void)MemWrite(new_line->points, 1, sizeof(*line->points)*line->num_points, divide_add);
@@ -5491,8 +5524,8 @@ static void VectorEraserReleaseCallBack(
 									&& in_devide % 2 != 0)
 								{
 									// 現在の座標を始点にして新たなライン作成
-									new_line = CreateVectorLine(line, line->next);
-									new_line->vector_type = line->vector_type;
+									new_line = CreateVectorLine(line, (VECTOR_LINE*)line->base_data.next);
+									new_line->base_data.vector_type = line->base_data.vector_type;
 									new_line->num_points = before_num_points;
 									new_line->buff_size = (new_line->num_points / VECTOR_LINE_BUFFER_SIZE + 1)
 										* VECTOR_LINE_BUFFER_SIZE;
@@ -5573,7 +5606,7 @@ static void VectorEraserReleaseCallBack(
 											divide_line.before_num_points = line->num_points;
 											divide_line.after_num_points = i+3;
 											divide_line.index = line_index;
-											divide_line.line_type = line->vector_type;
+											divide_line.line_type = line->base_data.vector_type;
 											(void)MemWrite(&divide_line, 1, offsetof(DIVIDE_LINE_CHANGE_DATA, before), divide_change);
 											(void)MemWrite(line->points, 1, sizeof(*line->points)*line->num_points, divide_change);
 
@@ -5595,7 +5628,7 @@ static void VectorEraserReleaseCallBack(
 											new_line->points[new_line->num_points-1].x = check_x;
 											new_line->points[new_line->num_points-1].y = check_y;
 											add_line.index = line_index;
-											add_line.line_type = new_line->vector_type;
+											add_line.line_type = new_line->base_data.vector_type;
 											add_line.num_points = new_line->num_points;
 											(void)MemWrite(&add_line, 1, offsetof(DIVIDE_LINE_ADD_DATA, after), divide_add);
 											(void)MemWrite(new_line->points, 1, sizeof(*line->points)*line->num_points, divide_add);
@@ -5610,8 +5643,8 @@ static void VectorEraserReleaseCallBack(
 									else if(window->brush_buffer[int_y*window->width+int_x] < 0x08 && in_devide % 2 != 0)
 									{
 										// 現在の座標を始点にして新たなライン作成
-										new_line = CreateVectorLine(line, line->next);
-										new_line->vector_type = line->vector_type;
+										new_line = CreateVectorLine(line, (VECTOR_LINE*)line->base_data.next);
+										new_line->base_data.vector_type = line->base_data.vector_type;
 										new_line->num_points = before_num_points - i - 1;
 										new_line->buff_size = (new_line->num_points / VECTOR_LINE_BUFFER_SIZE + 1)
 											* VECTOR_LINE_BUFFER_SIZE;
@@ -5690,7 +5723,7 @@ static void VectorEraserReleaseCallBack(
 										divide_line.before_num_points = line->num_points;
 										divide_line.after_num_points = i+3;
 										divide_line.index = line_index;
-										divide_line.line_type = line->vector_type;
+										divide_line.line_type = line->base_data.vector_type;
 										(void)MemWrite(&divide_line, 1, offsetof(DIVIDE_LINE_CHANGE_DATA, before), divide_change);
 										(void)MemWrite(line->points, 1, sizeof(*line->points)*line->num_points, divide_change);
 
@@ -5712,7 +5745,7 @@ static void VectorEraserReleaseCallBack(
 										new_line->points[new_line->num_points-1].x = check_x;
 										new_line->points[new_line->num_points-1].y = check_y;
 										add_line.index = line_index;
-										add_line.line_type = new_line->vector_type;
+										add_line.line_type = new_line->base_data.vector_type;
 										add_line.num_points = new_line->num_points;
 										(void)MemWrite(&add_line, 1, offsetof(DIVIDE_LINE_ADD_DATA, after), divide_add);
 										(void)MemWrite(new_line->points, 1, sizeof(*line->points)*line->num_points, divide_add);
@@ -5727,8 +5760,8 @@ static void VectorEraserReleaseCallBack(
 								else if(window->brush_buffer[int_y*window->width+int_x] < 0x08 && in_devide % 2 != 0)
 								{
 									// 現在の座標を始点にして新たなライン作成
-									new_line = CreateVectorLine(line, line->next);
-									new_line->vector_type = line->vector_type;
+									new_line = CreateVectorLine(line, (VECTOR_LINE*)line->base_data.next);
+									new_line->base_data.vector_type = line->base_data.vector_type;
 									new_line->num_points = 2;
 									new_line->buff_size = (new_line->num_points / VECTOR_LINE_BUFFER_SIZE + 1)
 										* VECTOR_LINE_BUFFER_SIZE;
@@ -5764,7 +5797,7 @@ static void VectorEraserReleaseCallBack(
 							add_line.data_size = offsetof(DIVIDE_LINE_ADD_DATA, after)
 								+ sizeof(*line->points)*(new_line->num_points) - sizeof(add_line.data_size);
 							add_line.index = line_index;
-							add_line.line_type = new_line->vector_type;
+							add_line.line_type = new_line->base_data.vector_type;
 							add_line.num_points = new_line->num_points;
 							(void)MemWrite(&add_line, 1, offsetof(DIVIDE_LINE_ADD_DATA, after), divide_add);
 							(void)MemWrite(new_line->points, 1, sizeof(*line->points)*line->num_points, divide_add);
@@ -5775,13 +5808,13 @@ static void VectorEraserReleaseCallBack(
 
 					for(j=0; j<this_add; j++)
 					{
-						line = line->next;
+						line = line->base_data.next;
 					}
 
 					break;
 				case VECTOR_ERASER_STROKE_DELETE:
 					// ラインをストロークして消した領域と重なったらライン消し
-					if(line->vector_type == VECTOR_LINE_STRAIGHT
+					if(line->base_data.vector_type == VECTOR_TYPE_STRAIGHT
 						|| line->num_points == 2)
 					{	// 直線
 						end_flag = 0;
@@ -5803,7 +5836,7 @@ static void VectorEraserReleaseCallBack(
 								// 消した領域と重なったのでライン削除
 								if(window->brush_buffer[int_y*window->width+int_x] >= 0xf8)
 								{
-									VECTOR_LINE* prev_line = line->prev;
+									VECTOR_LINE* prev_line = line->base_data.prev;
 									change_lines[num_change_line] = *line;
 									change_line_indexes[num_change_line] = line_index;
 									change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -5822,9 +5855,9 @@ static void VectorEraserReleaseCallBack(
 											change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 									}
 
-									if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+									if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 									{
-										window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+										window->active_layer->layer_data.vector_layer_p->top_data = line->base_data.prev;
 									}
 
 									DeleteVectorLine(&line);
@@ -5837,7 +5870,7 @@ static void VectorEraserReleaseCallBack(
 							} while(t < d);
 						}
 					}
-					else if(line->vector_type == VECTOR_LINE_BEZIER_OPEN && line->num_points == 3)
+					else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_OPEN && line->num_points == 3)
 					{	// 2次ベジェ曲線
 						dx = line->points[0].x-line->points[1].x;
 						dy = line->points[0].y-line->points[1].y;
@@ -5874,7 +5907,7 @@ static void VectorEraserReleaseCallBack(
 								// 重なったのでライン削除
 								if(window->brush_buffer[int_y*window->width+int_x] >= 0xf8)
 								{
-									VECTOR_LINE* prev_line = line->prev;
+									VECTOR_LINE* prev_line = (VECTOR_LINE*)line->base_data.prev;
 									change_lines[num_change_line] = *line;
 									change_line_indexes[num_change_line] = line_index;
 									change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -5893,9 +5926,9 @@ static void VectorEraserReleaseCallBack(
 											change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 									}
 
-									if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+									if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 									{
-										window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+										window->active_layer->layer_data.vector_layer_p->top_data = line->base_data.prev;
 									}
 									DeleteVectorLine(&line);
 									line = prev_line;
@@ -5906,7 +5939,7 @@ static void VectorEraserReleaseCallBack(
 							t += d;
 						}
 					}
-					else if(line->vector_type == VECTOR_LINE_BEZIER_OPEN)
+					else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_OPEN)
 					{	// 2次と3次ベジェ曲線の混合
 							// 始点から2点目までは2次ベジェ曲線
 						// 暫定的な距離計算
@@ -5941,7 +5974,7 @@ static void VectorEraserReleaseCallBack(
 								// 消した領域と重なったのでライン削除
 								if(window->brush_buffer[int_y*window->width+int_x] >= 0xf8)
 								{
-									VECTOR_LINE* prev_line = line->prev;
+									VECTOR_LINE* prev_line = (VECTOR_LINE*)line->base_data.prev;
 									change_lines[num_change_line] = *line;
 									change_line_indexes[num_change_line] = num_change_line;
 									change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -5960,9 +5993,9 @@ static void VectorEraserReleaseCallBack(
 											change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 									}
 
-									if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+									if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 									{
-										window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+										window->active_layer->layer_data.vector_layer_p->top_data = line->base_data.prev;
 									}
 									DeleteVectorLine(&line);
 									line = prev_line;
@@ -6013,7 +6046,7 @@ static void VectorEraserReleaseCallBack(
 									// 消した領域と重なったのでライン削除
 									if(window->brush_buffer[int_y*window->width+int_x] >= 0xf8)
 									{
-										VECTOR_LINE* prev_line = line->prev;
+										VECTOR_LINE *prev_line = (VECTOR_LINE*)line->base_data.prev;
 										change_lines[num_change_line] = *line;
 										change_line_indexes[num_change_line] = line_index;
 										change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -6032,9 +6065,9 @@ static void VectorEraserReleaseCallBack(
 												change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 										}
 
-										if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+										if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 										{
-											window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+											window->active_layer->layer_data.vector_layer_p->top_data = line->base_data.prev;
 										}
 										DeleteVectorLine(&line);
 										line = prev_line;
@@ -6079,7 +6112,7 @@ static void VectorEraserReleaseCallBack(
 							if(index >= 0 && index < window->width * window->height
 								&& window->brush_buffer[index] >= 0xf8)
 							{
-								VECTOR_LINE* prev_line = line->prev;
+								VECTOR_LINE *prev_line = (VECTOR_LINE*)line->base_data.prev;
 								change_lines[num_change_line] = *line;
 								change_line_indexes[num_change_line] = line_index;
 								change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -6098,9 +6131,9 @@ static void VectorEraserReleaseCallBack(
 										change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 								}
 
-								if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+								if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 								{
-									window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+									window->active_layer->layer_data.vector_layer_p->top_data = line->base_data.prev;
 								}
 								DeleteVectorLine(&line);
 								line = prev_line;
@@ -6111,7 +6144,7 @@ static void VectorEraserReleaseCallBack(
 							t += d;
 						}
 					}
-					else if(line->vector_type == VECTOR_LINE_STRAIGHT_CLOSE)
+					else if(line->base_data.vector_type == VECTOR_TYPE_STRAIGHT_CLOSE)
 					{	// 閉じた直線
 						end_flag = 0;
 						for(i=0; i<line->num_points-1 && end_flag == 0; i++)
@@ -6132,7 +6165,7 @@ static void VectorEraserReleaseCallBack(
 								// 消した領域と重なったのでライン削除
 								if(window->brush_buffer[int_y*window->width+int_x] >= 0xf8)
 								{
-									VECTOR_LINE* prev_line = line->prev;
+									VECTOR_LINE *prev_line = (VECTOR_LINE*)line->base_data.prev;
 									change_lines[num_change_line] = *line;
 									change_line_indexes[num_change_line] = line_index;
 									change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -6151,9 +6184,9 @@ static void VectorEraserReleaseCallBack(
 											change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 									}
 
-									if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+									if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 									{
-										window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+										window->active_layer->layer_data.vector_layer_p->top_data = line->base_data.prev;
 									}
 
 									DeleteVectorLine(&line);
@@ -6183,7 +6216,7 @@ static void VectorEraserReleaseCallBack(
 								// 消した領域と重なったのでライン削除
 								if(window->brush_buffer[int_y*window->width+int_x] >= 0xf8)
 								{
-									VECTOR_LINE* prev_line = line->prev;
+									VECTOR_LINE *prev_line = line->base_data.prev;
 									change_lines[num_change_line] = *line;
 									change_line_indexes[num_change_line] = line_index;
 									change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -6202,9 +6235,9 @@ static void VectorEraserReleaseCallBack(
 											change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 									}
 
-									if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+									if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 									{
-										window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+										window->active_layer->layer_data.vector_layer_p->top_data = line->base_data.prev;
 									}
 
 									DeleteVectorLine(&line);
@@ -6217,7 +6250,7 @@ static void VectorEraserReleaseCallBack(
 							} while(t < d);
 						}
 					}
-					else if(line->vector_type == VECTOR_LINE_BEZIER_CLOSE)
+					else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_CLOSE)
 					{	// 2次と3次ベジェ曲線の混合
 							// 始点から2点目までは2次ベジェ曲線
 						// 暫定的な距離計算
@@ -6254,7 +6287,7 @@ static void VectorEraserReleaseCallBack(
 								// 消した領域と重なったのでライン削除
 								if(window->brush_buffer[int_y*window->width+int_x] >= 0xf8)
 								{
-									VECTOR_LINE* prev_line = line->prev;
+									VECTOR_LINE *prev_line = line->base_data.prev;
 									change_lines[num_change_line] = *line;
 									change_line_indexes[num_change_line] = line_index;
 									change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -6273,9 +6306,9 @@ static void VectorEraserReleaseCallBack(
 											change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 									}
 
-									if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+									if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 									{
-										window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+										window->active_layer->layer_data.vector_layer_p->top_data = line->base_data.prev;
 									}
 									DeleteVectorLine(&line);
 									line = prev_line;
@@ -6326,7 +6359,7 @@ static void VectorEraserReleaseCallBack(
 									// 消した領域と重なったのでライン削除
 									if(window->brush_buffer[int_y*window->width+int_x] >= 0xf8)
 									{
-										VECTOR_LINE* prev_line = line->prev;
+										VECTOR_LINE *prev_line = line->base_data.prev;
 										change_lines[num_change_line] = *line;
 										change_line_indexes[num_change_line] = line_index;
 										change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -6345,9 +6378,9 @@ static void VectorEraserReleaseCallBack(
 												change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 										}
 
-										if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+										if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 										{
-											window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+											window->active_layer->layer_data.vector_layer_p->top_data = line->base_data.prev;
 										}
 										DeleteVectorLine(&line);
 										line = prev_line;
@@ -6392,7 +6425,7 @@ static void VectorEraserReleaseCallBack(
 							// 消した領域と重なったのでライン削除
 							if(window->brush_buffer[int_y*window->width+int_x] >= 0xf8)
 							{
-								VECTOR_LINE* prev_line = line->prev;
+								VECTOR_LINE *prev_line = line->base_data.prev;
 								change_lines[num_change_line] = *line;
 								change_line_indexes[num_change_line] = line_index;
 								change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -6411,9 +6444,9 @@ static void VectorEraserReleaseCallBack(
 										change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 								}
 
-								if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+								if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 								{
-									window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+									window->active_layer->layer_data.vector_layer_p->top_data = line->base_data.prev;
 								}
 								DeleteVectorLine(&line);
 								line = prev_line;
@@ -6453,7 +6486,7 @@ static void VectorEraserReleaseCallBack(
 							// 消した領域と重なったのでライン削除
 							if(window->brush_buffer[int_y*window->width+int_x] >= 0xf8)
 							{
-								VECTOR_LINE* prev_line = line->prev;
+								VECTOR_LINE *prev_line = line->base_data.prev;
 								change_lines[num_change_line] = *line;
 								change_line_indexes[num_change_line] = line_index;
 								change_lines[num_change_line].points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
@@ -6472,9 +6505,9 @@ static void VectorEraserReleaseCallBack(
 										change_line_indexes, sizeof(*change_line_indexes)*buffer_size);
 								}
 
-								if(line == window->active_layer->layer_data.vector_layer_p->top_line)
+								if((void*)line == window->active_layer->layer_data.vector_layer_p->top_data)
 								{
-									window->active_layer->layer_data.vector_layer_p->top_line = line->prev;
+									window->active_layer->layer_data.vector_layer_p->top_data = (void*)line->base_data.prev;
 								}
 								DeleteVectorLine(&line);
 								line = prev_line;
@@ -6492,7 +6525,7 @@ static void VectorEraserReleaseCallBack(
 next_line:
 			if(line != NULL)
 			{
-				line = line->next;
+				line = line->base_data.next;
 			}
 
 			line_index++;
@@ -6681,6 +6714,2097 @@ static GtkWidget* CreateVectorEraserDetailUI(APPLICATION* app, void* data)
 
 	return vbox;
 #undef UI_FONT_SIZE
+}
+
+#define HIT_RANGE 15
+#define SHAPE_ROTATE 10
+#define SHAPE_NEW 11
+
+static void VectorShapeSetPoints(VECTOR_BASE_DATA* data, VECTOR_SHAPE_BRUSH* shape)
+{
+	if(data->vector_type == VECTOR_TYPE_SQUARE)
+	{
+		VECTOR_SQUARE *square = (VECTOR_SQUARE*)data;
+		FLOAT_T sin_value = sin(square->rotate);
+		FLOAT_T cos_value = cos(square->rotate);
+		FLOAT_T half_width = square->width * 0.5;
+		FLOAT_T half_height = square->height * 0.5;
+
+		shape->shape_points[8][0] = square->left + half_width;
+		shape->shape_points[8][1] = square->top + half_height;
+		shape->shape_points[0][0] = shape->shape_points[8][0] - half_width * cos_value + half_height * sin_value;
+		shape->shape_points[0][1] = shape->shape_points[8][1] - half_width * sin_value - half_height * cos_value;
+		shape->shape_points[1][0] = shape->shape_points[8][0] - half_width * cos_value;
+		shape->shape_points[1][1] = shape->shape_points[8][1] - half_width * sin_value;
+		shape->shape_points[2][0] = shape->shape_points[1][0] + (shape->shape_points[1][0] - shape->shape_points[0][0]);
+		shape->shape_points[2][1] = shape->shape_points[1][1] + (shape->shape_points[1][1] - shape->shape_points[0][1]);
+		shape->shape_points[3][0] = shape->shape_points[8][0] - half_height * sin_value;
+		shape->shape_points[3][1] = shape->shape_points[8][1] + half_height * cos_value;
+		shape->shape_points[4][0] = shape->shape_points[3][0] + (shape->shape_points[3][0] - shape->shape_points[2][0]);
+		shape->shape_points[4][1] = shape->shape_points[3][1] + (shape->shape_points[3][1] - shape->shape_points[2][1]);
+		shape->shape_points[5][0] = shape->shape_points[8][0] + half_width * cos_value;
+		shape->shape_points[5][1] = shape->shape_points[8][1] + half_width * sin_value;
+		shape->shape_points[6][0] = shape->shape_points[5][0] + (shape->shape_points[5][0] - shape->shape_points[4][0]);
+		shape->shape_points[6][1] = shape->shape_points[5][1] + (shape->shape_points[5][1] - shape->shape_points[4][1]);
+		shape->shape_points[7][0] = (shape->shape_points[0][0] + shape->shape_points[6][0]) * 0.5;
+		shape->shape_points[7][1] = (shape->shape_points[0][1] + shape->shape_points[6][1]) * 0.5;
+	}
+	else if(data->vector_type == VECTOR_TYPE_RHOMBUS
+		|| data->vector_type == VECTOR_TYPE_ECLIPSE)
+	{
+		VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)data;
+		FLOAT_T sin_value = sin(eclipse->rotate);
+		FLOAT_T cos_value = cos(eclipse->rotate);
+		FLOAT_T half_width, half_height;
+		if(eclipse->ratio >= 1.0)
+		{
+			half_width = eclipse->radius * eclipse->ratio;
+			half_height = eclipse->radius;
+		}
+		else
+		{
+			half_width = eclipse->radius;
+			half_height = eclipse->radius * (1.0 / eclipse->ratio);
+		}
+
+		shape->shape_points[8][0] = eclipse->x;
+		shape->shape_points[8][1] = eclipse->y;
+		shape->shape_points[0][0] = shape->shape_points[8][0] - half_width * cos_value + half_height * sin_value;
+		shape->shape_points[0][1] = shape->shape_points[8][1] - half_width * sin_value - half_height * cos_value;
+		shape->shape_points[1][0] = shape->shape_points[8][0] - half_width * cos_value;
+		shape->shape_points[1][1] = shape->shape_points[8][1] - half_width * sin_value;
+		shape->shape_points[2][0] = shape->shape_points[1][0] + (shape->shape_points[1][0] - shape->shape_points[0][0]);
+		shape->shape_points[2][1] = shape->shape_points[1][1] + (shape->shape_points[1][1] - shape->shape_points[0][1]);
+		shape->shape_points[3][0] = shape->shape_points[8][0] - half_height * sin_value;
+		shape->shape_points[3][1] = shape->shape_points[8][1] + half_height * cos_value;
+		shape->shape_points[4][0] = shape->shape_points[3][0] + (shape->shape_points[3][0] - shape->shape_points[2][0]);
+		shape->shape_points[4][1] = shape->shape_points[3][1] + (shape->shape_points[3][1] - shape->shape_points[2][1]);
+		shape->shape_points[5][0] = shape->shape_points[8][0] + half_width * cos_value;
+		shape->shape_points[5][1] = shape->shape_points[8][1] + half_width * sin_value;
+		shape->shape_points[6][0] = shape->shape_points[5][0] + (shape->shape_points[5][0] - shape->shape_points[4][0]);
+		shape->shape_points[6][1] = shape->shape_points[5][1] + (shape->shape_points[5][1] - shape->shape_points[4][1]);
+		shape->shape_points[7][0] = (shape->shape_points[0][0] + shape->shape_points[6][0]) * 0.5;
+		shape->shape_points[7][1] = (shape->shape_points[0][1] + shape->shape_points[6][1]) * 0.5;
+	}
+}
+
+typedef struct _VECTOR_SHAPE_CHANGE_HISTORY
+{
+	VECTOR_DATA vector_data;
+	int32 vector_index;
+	uint16 layer_name_length;
+	char *layer_name;
+} VECTOR_SHAPE_CHANGE_HISTORY;
+
+static void VectorShapeChangeUndoRedo(DRAW_WINDOW* window, void* p)
+{
+	VECTOR_SHAPE_CHANGE_HISTORY *history_data =
+		(VECTOR_SHAPE_CHANGE_HISTORY*)p;
+	LAYER *layer = window->layer;
+	VECTOR_BASE_DATA *shape;
+	char *name = &(((char*)history_data)[offsetof(VECTOR_SHAPE_CHANGE_HISTORY, layer_name)]);
+	int i;
+
+	while(strcmp(layer->name, name) != 0)
+	{
+		layer = layer->next;
+	}
+
+	shape = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
+	for(i=0; i<history_data->vector_index; i++)
+	{
+		shape = shape->next;
+	}
+
+	if(history_data->vector_data.line.base_data.vector_type == VECTOR_TYPE_SQUARE)
+	{
+		VECTOR_SQUARE *square = (VECTOR_SQUARE*)shape;
+		VECTOR_BASE_DATA before_base = square->base_data;
+		VECTOR_SQUARE before_data = *square;
+
+		*square = history_data->vector_data.square;
+		square->base_data = before_base;
+		history_data->vector_data.square = before_data;
+	}
+	else if(history_data->vector_data.line.base_data.vector_type == VECTOR_TYPE_RHOMBUS
+		|| history_data->vector_data.line.base_data.vector_type == VECTOR_TYPE_ECLIPSE)
+	{
+		VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)shape;
+		VECTOR_BASE_DATA before_base = eclipse->base_data;
+		VECTOR_ECLIPSE before_data = *eclipse;
+
+		*eclipse = history_data->vector_data.eclipse;
+		eclipse->base_data = before_base;
+		history_data->vector_data.eclipse = before_data;
+	}
+
+	layer->layer_data.vector_layer_p->active_data = (void*)shape;
+	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
+
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+
+	if(layer == window->active_layer)
+	{
+		if(window->app->tool_window.active_vector_brush[window->app->input]->brush_type == TYPE_VECTOR_SHAPE_BRUSH)
+		{
+			VectorShapeSetPoints(shape,
+				(VECTOR_SHAPE_BRUSH*)window->app->tool_window.active_vector_brush[window->app->input]->brush_data);
+		}
+	}
+}
+
+static void AddChangeVectorShapeHistory(
+	DRAW_WINDOW* window,
+	VECTOR_BASE_DATA* change_shape,
+	VECTOR_BASE_DATA* before_shape,
+	const char* tool_name
+)
+{
+	uint8 *byte_data;
+	uint16 layer_name_length = (uint16)strlen(window->active_layer->name);
+	VECTOR_SHAPE_CHANGE_HISTORY *history_data =
+		(VECTOR_SHAPE_CHANGE_HISTORY*)MEM_ALLOC_FUNC(
+			offsetof(VECTOR_SHAPE_CHANGE_HISTORY, layer_name) + layer_name_length + 4);
+	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
+	VECTOR_BASE_DATA *shape = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer_data->base)->next;
+	int shape_index = 0;
+
+	while(shape != change_shape)
+	{
+		shape = shape->next;
+		shape_index++;
+	}
+
+	if(shape->vector_type == VECTOR_TYPE_SQUARE)
+	{
+		history_data->vector_data.square = *((VECTOR_SQUARE*)before_shape);
+	}
+	else if(shape->vector_type == VECTOR_TYPE_RHOMBUS
+		|| shape->vector_type == VECTOR_TYPE_ECLIPSE)
+	{
+		history_data->vector_data.eclipse = *((VECTOR_ECLIPSE*)before_shape);
+	}
+	else
+	{
+		MEM_FREE_FUNC(history_data);
+		return;
+	}
+
+	history_data->vector_index = (int32)shape_index;
+	history_data->layer_name_length = layer_name_length;
+	byte_data = (uint8*)history_data;
+	(void)memcpy(&byte_data[offsetof(VECTOR_SHAPE_CHANGE_HISTORY, layer_name)],
+		window->active_layer->name, layer_name_length + 1);
+
+	AddHistory(&window->history, tool_name,
+		(void*)history_data, offsetof(VECTOR_SHAPE_CHANGE_HISTORY, layer_name) + layer_name_length + 4,
+			VectorShapeChangeUndoRedo, VectorShapeChangeUndoRedo
+	);
+}
+
+typedef struct _VECTOR_SCRIPT_CHANGE_HISTORY
+{
+	size_t buffer_length;
+	int32 vector_index;
+	uint16 layer_name_length;
+	char *layer_name;
+} VECTOR_SCRIPT_CHANGE_HISTORY;
+
+static void VectorScriptChangeUndoRedo(DRAW_WINDOW* window, void* p)
+{
+	VECTOR_SCRIPT_CHANGE_HISTORY *history_data =
+		(VECTOR_SCRIPT_CHANGE_HISTORY*)p;
+	LAYER *layer = window->layer;
+	VECTOR_SCRIPT *target;
+	VECTOR_BASE_DATA *script;
+	char *name = &(((char*)history_data)[offsetof(VECTOR_SCRIPT_CHANGE_HISTORY, layer_name)]);
+	char *script_data;
+	char *temp;
+	int i;
+
+	while(strcmp(layer->name, name) != 0)
+	{
+		layer = layer->next;
+	}
+
+	script = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
+	for(i=0; i<history_data->vector_index; i++)
+	{
+		script = script->next;
+	}
+
+	temp = (char*)MEM_ALLOC_FUNC(history_data->buffer_length);
+
+	target = (VECTOR_SCRIPT*)script;
+	(void)strcpy(temp, target->script_data);
+	script_data = name + history_data->layer_name_length;
+	MEM_FREE_FUNC(target->script_data);
+	target->script_data = MEM_STRDUP_FUNC(script_data);
+	(void)strcpy(script_data, temp);
+
+	MEM_FREE_FUNC(temp);
+
+	layer->layer_data.vector_layer_p->active_data = (void*)script;
+	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ACTIVE;
+
+	RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+}
+
+static void AddChangeVectorScriptHistory(
+	DRAW_WINDOW* window,
+	VECTOR_SCRIPT* change_script,
+	const char* before_script_data,
+	const char* tool_name
+)
+{
+	uint8 *byte_data;
+	uint16 layer_name_length = (uint16)strlen(window->active_layer->name) + 1;
+	size_t buffer_length;
+	size_t before_length = strlen(before_script_data)+1,
+		after_length = strlen(change_script->script_data)+1;
+	VECTOR_SCRIPT_CHANGE_HISTORY *history_data;
+	VECTOR_LAYER *layer_data = window->active_layer->layer_data.vector_layer_p;
+	VECTOR_BASE_DATA *script = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer_data->base)->next;
+	int script_index = 0;
+
+	buffer_length = (before_length > after_length) ? before_length : after_length;
+	history_data  =
+		(VECTOR_SCRIPT_CHANGE_HISTORY*)MEM_ALLOC_FUNC(
+			offsetof(VECTOR_SHAPE_CHANGE_HISTORY, layer_name) + layer_name_length + buffer_length);
+
+	while(script != &change_script->base_data)
+	{
+		script = script->next;
+		script_index++;
+	}
+
+	history_data->vector_index = (int32)script_index;
+	history_data->layer_name_length = layer_name_length;
+	byte_data = (uint8*)history_data;
+	(void)memcpy(&byte_data[offsetof(VECTOR_SHAPE_CHANGE_HISTORY, layer_name)],
+		window->active_layer->name, layer_name_length + 1);
+	byte_data += layer_name_length;
+	(void)strcpy((char*)byte_data, before_script_data);
+
+	AddHistory(&window->history, tool_name,
+		(void*)history_data, offsetof(VECTOR_SCRIPT_CHANGE_HISTORY, layer_name) + layer_name_length + buffer_length,
+			VectorScriptChangeUndoRedo, VectorScriptChangeUndoRedo
+	);
+}
+
+static void VectorShapeEditScript(
+	DRAW_WINDOW* window,
+	VECTOR_SHAPE_BRUSH* shape,
+	LAYER* target_layer,
+	VECTOR_SCRIPT* target
+)
+{
+	VECTOR_LAYER *layer = target_layer->layer_data.vector_layer_p;
+	VECTOR_SCRIPT *script = target;
+	GtkWidget *dialog;
+	GtkWidget *vbox;
+	GtkWidget *text_edit;
+	GtkWidget *scroll;
+	GtkAllocation allocation;
+	gint result;
+	char *before_script_data = NULL;
+
+	dialog = gtk_dialog_new_with_buttons(
+		window->app->labels->menu.script,
+		GTK_WINDOW(window->app->window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		"Open", GTK_RESPONSE_YES,
+		GTK_STOCK_APPLY, GTK_RESPONSE_APPLY,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		NULL
+	);
+	gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
+
+	vbox = gtk_vbox_new(FALSE, 0);
+	text_edit = gtk_text_view_new();
+	scroll = gtk_scrolled_window_new(NULL, NULL);
+	gtk_widget_set_size_request(scroll, shape->text_field_size[0], shape->text_field_size[1]);
+	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(scroll), text_edit);
+	gtk_box_pack_start(GTK_BOX(vbox), scroll, TRUE, TRUE, 0);
+
+	if(target != NULL && target->script_data != NULL)
+	{
+		gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_edit)),
+			target->script_data, -1);
+		before_script_data = MEM_STRDUP_FUNC(target->script_data);
+	}
+
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		vbox, TRUE, TRUE, 3);
+
+	gtk_widget_show_all(dialog);
+	do
+	{
+		result = gtk_dialog_run(GTK_DIALOG(dialog));
+		switch(result)
+		{
+		case GTK_RESPONSE_YES:
+			{
+				GtkWidget *chooser = gtk_file_chooser_dialog_new(
+					window->app->labels->menu.open,
+					GTK_WINDOW(window->app->window),
+					GTK_FILE_CHOOSER_ACTION_OPEN,
+					GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+					GTK_STOCK_OK, GTK_RESPONSE_OK,
+					NULL
+				);
+				GtkFileFilter *filter;
+
+				filter = gtk_file_filter_new();
+				gtk_file_filter_set_name(filter, "Lua Script File");
+				gtk_file_filter_add_pattern(filter, "*.lua");
+				gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(chooser), filter);
+
+				if(shape->before_script_directory != NULL)
+				{
+					(void)gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(chooser), shape->before_script_directory);
+				}
+				else
+				{
+					(void)gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(chooser), window->app->current_path);
+				}
+
+				if(gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_OK)
+				{
+					char *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+					char *system_path = g_locale_from_utf8(path, -1, NULL, NULL, NULL);
+					FILE *fp = fopen(system_path, "rb");
+					long file_size;
+					char *data;
+					char *p;
+					int i;
+
+					(void)fseek(fp, SEEK_END, 0);
+					file_size = ftell(fp);
+					rewind(fp);
+
+					data = (char*)MEM_ALLOC_FUNC(file_size);
+					(void)fread(data, 1, file_size, fp);
+					(void)fclose(fp);
+
+					for(i=0; i<file_size; i++)
+					{
+						if(data[i] == '\0')
+						{
+							break;
+						}
+					}
+					if(i == file_size)
+					{
+						if(script == NULL)
+						{
+							script = 
+								(VECTOR_SCRIPT*)CreateVectorScript((VECTOR_BASE_DATA*)layer->top_data, NULL, NULL);
+							layer->top_data = (void*)script;
+						}
+						MEM_FREE_FUNC(script->script_data);
+						script->script_data = MEM_STRDUP_FUNC(data);
+					}
+					MEM_FREE_FUNC(data);
+
+					p = g_path_get_dirname(path);
+					shape->before_script_directory = MEM_STRDUP_FUNC(p);
+					g_free(p);
+
+					g_free(path);
+					g_free(system_path);
+				}
+
+				gtk_widget_destroy(chooser);
+
+				layer->active_data = (void*)script;
+				layer->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+				window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+				gtk_widget_queue_draw(window->window);
+			}
+			break;
+		case GTK_RESPONSE_APPLY:
+			{
+				GtkTextIter start, end;
+				GtkTextBuffer *buffer;
+				char *p;
+				if(script == NULL)
+				{
+					script = (VECTOR_SCRIPT*)CreateVectorScript((VECTOR_BASE_DATA*)layer->top_data, NULL, NULL);
+					layer->top_data = (void*)script;
+				}
+				MEM_FREE_FUNC(script->script_data);
+				buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_edit));
+				gtk_text_buffer_get_start_iter(buffer, &start);
+				gtk_text_buffer_get_end_iter(buffer, &end);
+				script->script_data = MEM_STRDUP_FUNC(
+					p = gtk_text_buffer_get_text(buffer, &start, &end, FALSE));
+				g_free(p);
+
+				layer->active_data = (void*)script;
+				layer->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+				window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+				gtk_widget_queue_draw(window->window);
+			}
+			break;
+		case GTK_RESPONSE_OK:
+			{
+				GtkTextIter start, end;
+				GtkTextBuffer *buffer;
+				char *p;
+				if(script == NULL)
+				{
+					script = (VECTOR_SCRIPT*)CreateVectorScript((VECTOR_BASE_DATA*)layer->top_data, NULL, NULL);
+					layer->top_data = (void*)script;
+				}
+				MEM_FREE_FUNC(script->script_data);
+				buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_edit));
+				gtk_text_buffer_get_start_iter(buffer, &start);
+				gtk_text_buffer_get_end_iter(buffer, &end);
+				script->script_data = MEM_STRDUP_FUNC(
+					p = gtk_text_buffer_get_text(buffer, &start, &end, FALSE));
+				g_free(p);
+
+				layer->active_data = (void*)script;
+				layer->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+				window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+				gtk_widget_queue_draw(window->window);
+
+				if(target == NULL)
+				{
+					AddTopScriptHistory(window, window->active_layer,
+						script, shape->brush_name);
+				}
+				else
+				{
+					AddChangeVectorScriptHistory(window, script,
+						before_script_data, shape->brush_name);
+				}
+			}
+			break;
+		case GTK_RESPONSE_CANCEL:
+			if(target == NULL)
+			{
+				if(script != NULL)
+				{
+					layer->top_data = ((VECTOR_BASE_DATA*)layer->top_data)->prev;
+					DeleteVectorScript(&script);
+				}
+			}
+			layer->active_data = NULL;
+			layer->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+			window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+			gtk_widget_queue_draw(window->window);
+			break;
+		}
+	} while(result == GTK_RESPONSE_YES || result == GTK_RESPONSE_APPLY);
+
+	gtk_widget_get_allocation(scroll, &allocation);
+	shape->text_field_size[0] = allocation.width;
+	shape->text_field_size[1] = allocation.height;
+
+	MEM_FREE_FUNC(before_script_data);
+	gtk_widget_destroy(dialog);
+}
+
+static void VectorShapeChangeFloatValue(GtkWidget* spin_button, FLOAT_T* value)
+{
+	DRAW_WINDOW *window = (DRAW_WINDOW*)g_object_get_data(G_OBJECT(spin_button), "draw_window");
+	*value = gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin_button));
+	window->active_layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	gtk_widget_queue_draw(window->window);
+}
+
+static void VectorShapeChangeRotate(GtkWidget* spin_button, FLOAT_T* value)
+{
+	DRAW_WINDOW *window = (DRAW_WINDOW*)g_object_get_data(G_OBJECT(spin_button), "draw_window");
+	*value = gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin_button)) * G_PI / 180;
+	window->active_layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	gtk_widget_queue_draw(window->window);
+}
+
+static void VectorShapeChangeColor(GtkWidget* color_button, uint8* color)
+{
+	DRAW_WINDOW *window = (DRAW_WINDOW*)g_object_get_data(G_OBJECT(color_button), "draw_window");
+	GdkColor color_value;
+	gtk_color_button_get_color(GTK_COLOR_BUTTON(color_button), &color_value);
+	color[0] = color_value.red >> 8;
+	color[1] = color_value.green >> 8;
+	color[2] = color_value.blue >> 8;
+	color[3] = gtk_color_button_get_alpha(GTK_COLOR_BUTTON(color_button)) >> 8;
+	window->active_layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	gtk_widget_queue_draw(window->window);
+}
+
+static void VectorShapeManuallySetDialog(
+	DRAW_WINDOW* window,
+	VECTOR_SHAPE_BRUSH* shape,
+	VECTOR_BASE_DATA* target
+)
+{
+#define UI_FONT_SIZE 8.0
+	APPLICATION *app = window->app;
+	VECTOR_DATA before_data;
+	VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+	GtkWidget *dialog;
+	GtkWidget *vbox;
+	GtkWidget *label;
+	GtkWidget *layout;
+	GtkWidget *x, *y;
+	GtkWidget *size[2];
+	GtkWidget *rotate;
+	GtkWidget *line_width;
+	GtkWidget *line_color;
+	GtkWidget *fill_color;
+	GdkColor color;
+	char str[128];
+
+	uint8 shape_type = (target != NULL) ? target->vector_type : shape->shape_type;
+
+	if(shape_type == VECTOR_TYPE_SCRIPT)
+	{
+		VectorShapeEditScript(window, shape, window->active_layer, (VECTOR_SCRIPT*)target);
+		return;
+	}
+
+	dialog = gtk_dialog_new_with_buttons(
+		"",
+		GTK_WINDOW(app->window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		NULL
+	);
+	vbox = gtk_vbox_new(FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), vbox, FALSE, FALSE, 0);
+	gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
+
+	if(shape_type == VECTOR_TYPE_SQUARE)
+	{
+		VECTOR_SQUARE *square = (VECTOR_SQUARE*)target;
+
+		if(target != NULL)
+		{
+			before_data.square = *square;
+		}
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">X : </span>", UI_FONT_SIZE);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		x = gtk_spin_button_new_with_range(- window->width, window->width * 2, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(x), (target != NULL) ? square->left : 0);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(x), 1);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), x, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+		
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">Y : </span>", UI_FONT_SIZE);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		y = gtk_spin_button_new_with_range(- window->height, window->height * 2, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(y), (target != NULL) ? square->top : 0);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(y), 1);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), y, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->make_new.width);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		size[0] = gtk_spin_button_new_with_range(0.1, window->width * 2, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(size[0]), (target != NULL) ? square->width : window->width * 0.1);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(size[0]), 1);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), size[0], FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->make_new.height);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		size[1] = gtk_spin_button_new_with_range(0.1, window->width * 2, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(size[1]), (target != NULL) ? square->height : window->height * 0.1);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(size[1]), 1);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), size[1], FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->menu.rotate);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		rotate = gtk_spin_button_new_with_range(0, 360, 1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(rotate), (target != NULL) ? square->rotate * 180 / G_PI : 0);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(rotate), 0);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), rotate, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->tool_box.line_width);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		line_width = gtk_spin_button_new_with_range(0.1, window->width * 2, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(line_width), (target != NULL) ? square->line_width : 1);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(line_width), 1);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), line_width, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->tool_box.line_color);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		if(target != NULL)
+		{
+			color.red = square->line_color[0] | (square->line_color[0] << 8);
+			color.green = square->line_color[1] | (square->line_color[1] << 8);
+			color.blue = square->line_color[2] | (square->line_color[2] << 8);
+		}
+		else
+		{
+			color.red = shape->line_color[0] | (shape->line_color[0] << 8);
+			color.green = shape->line_color[1] | (shape->line_color[1] << 8);
+			color.blue = shape->line_color[2] | (shape->line_color[2] << 8);
+		}
+		line_color = gtk_color_button_new_with_color(&color);
+		gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(line_color), TRUE);
+		gtk_color_button_set_alpha(GTK_COLOR_BUTTON(line_color),
+			(target != NULL) ? (square->line_color[3] | (square->line_color[3] << 8)) : (shape->line_color[3] | (shape->line_color[3] << 8)));
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), line_color, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->tool_box.fill_color);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		if(target != NULL)
+		{
+			color.red = square->fill_color[0] | (square->fill_color[0] << 8);
+			color.green = square->fill_color[1] | (square->fill_color[1] << 8);
+			color.blue = square->fill_color[2] | (square->fill_color[2] << 8);
+		}
+		else
+		{
+			color.red = shape->fill_color[0] | (shape->fill_color[0] << 8);
+			color.green = shape->fill_color[1] | (shape->fill_color[1] << 8);
+			color.blue = shape->fill_color[2] | (shape->fill_color[2] << 8);
+		}
+		fill_color = gtk_color_button_new_with_color(&color);
+		gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(fill_color), TRUE);
+		gtk_color_button_set_alpha(GTK_COLOR_BUTTON(fill_color),
+			(target != NULL) ? (square->fill_color[3] | (square->fill_color[3] << 8)) : (shape->fill_color[3] | (shape->fill_color[3] << 8)));
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), fill_color, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		if(target != NULL)
+		{
+			g_object_set_data(G_OBJECT(x), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(x), "changed", G_CALLBACK(VectorShapeChangeFloatValue), &square->left);
+
+			g_object_set_data(G_OBJECT(y), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(y), "changed", G_CALLBACK(VectorShapeChangeFloatValue), &square->top);
+
+			g_object_set_data(G_OBJECT(size[0]), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(size[0]), "changed", G_CALLBACK(VectorShapeChangeFloatValue), &square->width);
+
+			g_object_set_data(G_OBJECT(size[1]), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(size[1]), "changed", G_CALLBACK(VectorShapeChangeFloatValue), &square->height);
+
+			g_object_set_data(G_OBJECT(rotate), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(rotate), "changed", G_CALLBACK(VectorShapeChangeRotate), &square->rotate);
+
+			g_object_set_data(G_OBJECT(line_width), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(line_width), "changed", G_CALLBACK(VectorShapeChangeFloatValue), &square->line_width);
+
+			g_object_set_data(G_OBJECT(line_color), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(line_color), "color-set", G_CALLBACK(VectorShapeChangeColor), square->line_color);
+
+			g_object_set_data(G_OBJECT(fill_color), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(fill_color), "color-set", G_CALLBACK(VectorShapeChangeColor), square->fill_color);
+		}
+	}
+	else if(shape_type == VECTOR_TYPE_RHOMBUS
+		|| shape_type == VECTOR_TYPE_ECLIPSE)
+	{
+		VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)target;
+
+		if(target != NULL)
+		{
+			before_data.eclipse = *eclipse;
+		}
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">X : </span>", UI_FONT_SIZE);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		x = gtk_spin_button_new_with_range(- window->width, window->width * 2, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(x), (target != NULL) ? eclipse->x : window->width * 0.5);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(x), 1);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), x, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+		
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">Y : </span>", UI_FONT_SIZE);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		y = gtk_spin_button_new_with_range(- window->height, window->height * 2, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(y), (target != NULL) ? eclipse->y : window->height * 0.5);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(y), 1);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), y, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->tool_box.scale);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		size[0] = gtk_spin_button_new_with_range(0.1, window->width * 2, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(size[0]), (target != NULL) ? eclipse->radius : window->width * 0.1);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(size[0]), 1);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), size[0], FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->tool_box.aspect_ratio);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		size[1] = gtk_spin_button_new_with_range(0.1, 10, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(size[1]), (target != NULL) ? eclipse->ratio : window->width / (FLOAT_T)window->height);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(size[1]), 1);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), size[1], FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->menu.rotate);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		rotate = gtk_spin_button_new_with_range(0, 360, 1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(rotate), (target != NULL) ? eclipse->rotate * 180 / G_PI : 0);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(rotate), 0);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), rotate, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->tool_box.line_width);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		line_width = gtk_spin_button_new_with_range(0.1, window->width * 2, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(line_width), (target != NULL) ? eclipse->line_width : 1);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(line_width), 1);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), line_width, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->tool_box.line_color);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		if(target != NULL)
+		{
+			color.red = eclipse->line_color[0] | (eclipse->line_color[0] << 8);
+			color.green = eclipse->line_color[1] | (eclipse->line_color[1] << 8);
+			color.blue = eclipse->line_color[2] | (eclipse->line_color[2] << 8);
+		}
+		else
+		{
+			color.red = shape->line_color[0] | (shape->line_color[0] << 8);
+			color.green = shape->line_color[1] | (shape->line_color[1] << 8);
+			color.blue = shape->line_color[2] | (shape->line_color[2] << 8);
+		}
+		line_color = gtk_color_button_new_with_color(&color);
+		gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(line_color), TRUE);
+		gtk_color_button_set_alpha(GTK_COLOR_BUTTON(line_color),
+			(target != NULL) ? (eclipse->line_color[3] | (eclipse->line_color[3] << 8)) : (shape->line_color[3] | (shape->line_color[3] << 8)));
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), line_color, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>", UI_FONT_SIZE, app->labels->tool_box.fill_color);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		if(target != NULL)
+		{
+			color.red = eclipse->fill_color[0] | (eclipse->fill_color[0] << 8);
+			color.green = eclipse->fill_color[1] | (eclipse->fill_color[1] << 8);
+			color.blue = eclipse->fill_color[2] | (eclipse->fill_color[2] << 8);
+		}
+		else
+		{
+			color.red = shape->fill_color[0] | (shape->fill_color[0] << 8);
+			color.green = shape->fill_color[1] | (shape->fill_color[1] << 8);
+			color.blue = shape->fill_color[2] | (shape->fill_color[2] << 8);
+		}
+		fill_color = gtk_color_button_new_with_color(&color);
+		gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(fill_color), TRUE);
+		gtk_color_button_set_alpha(GTK_COLOR_BUTTON(fill_color),
+			(target != NULL) ? (eclipse->fill_color[3] | (eclipse->fill_color[3] << 8)) : (shape->fill_color[3] | (shape->fill_color[3] << 8)));
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), fill_color, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		if(target != NULL)
+		{
+			g_object_set_data(G_OBJECT(x), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(x), "changed", G_CALLBACK(VectorShapeChangeFloatValue), &eclipse->x);
+
+			g_object_set_data(G_OBJECT(y), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(y), "changed", G_CALLBACK(VectorShapeChangeFloatValue), &eclipse->y);
+
+			g_object_set_data(G_OBJECT(size[0]), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(size[0]), "changed", G_CALLBACK(VectorShapeChangeFloatValue), &eclipse->radius);
+
+			g_object_set_data(G_OBJECT(size[1]), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(size[1]), "changed", G_CALLBACK(VectorShapeChangeFloatValue), &eclipse->ratio);
+
+			g_object_set_data(G_OBJECT(rotate), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(rotate), "changed", G_CALLBACK(VectorShapeChangeRotate), &eclipse->rotate);
+
+			g_object_set_data(G_OBJECT(line_width), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(line_width), "changed", G_CALLBACK(VectorShapeChangeFloatValue), &eclipse->line_width);
+
+			g_object_set_data(G_OBJECT(line_color), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(line_color), "color-set", G_CALLBACK(VectorShapeChangeColor), eclipse->line_color);
+
+			g_object_set_data(G_OBJECT(fill_color), "draw_window", window);
+			(void)g_signal_connect(G_OBJECT(fill_color), "color-set", G_CALLBACK(VectorShapeChangeColor), eclipse->fill_color);
+		}
+	}
+	else
+	{
+		gtk_widget_destroy(dialog);
+		return;
+	}
+
+	gtk_widget_show_all(dialog);
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{
+		if(target == NULL)
+		{
+			if(shape_type == VECTOR_TYPE_SQUARE)
+			{
+				VECTOR_SQUARE *square = (VECTOR_SQUARE*)(
+					layer->top_data = (void*)CreateVectorShape((VECTOR_BASE_DATA*)layer->top_data, NULL, shape->shape_type));
+				square->left = gtk_spin_button_get_value(GTK_SPIN_BUTTON(x));
+				square->top = gtk_spin_button_get_value(GTK_SPIN_BUTTON(y));
+				square->width = gtk_spin_button_get_value(GTK_SPIN_BUTTON(size[0]));
+				square->height = gtk_spin_button_get_value(GTK_SPIN_BUTTON(size[1]));
+				square->rotate = gtk_spin_button_get_value(GTK_SPIN_BUTTON(rotate));
+				square->line_width = gtk_spin_button_get_value(GTK_SPIN_BUTTON(line_width));
+				gtk_color_button_get_color(GTK_COLOR_BUTTON(line_color), &color);
+				square->line_color[0] = (uint8)(color.red >> 8);
+				square->line_color[1] = (uint8)(color.green >> 8);
+				square->line_color[2] = (uint8)(color.blue >> 8);
+				square->line_color[3] = (uint8)(gtk_color_button_get_alpha(GTK_COLOR_BUTTON(line_color)) >> 8);
+				gtk_color_button_get_color(GTK_COLOR_BUTTON(fill_color), &color);
+				square->fill_color[0] = (uint8)(color.red >> 8);
+				square->fill_color[1] = (uint8)(color.green >> 8);
+				square->fill_color[2] = (uint8)(color.blue >> 8);
+				square->fill_color[3] = (uint8)(gtk_color_button_get_alpha(GTK_COLOR_BUTTON(fill_color)) >> 8);
+			}
+			else if(shape_type == VECTOR_TYPE_RHOMBUS
+				|| shape_type == VECTOR_TYPE_ECLIPSE)
+			{
+				VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)(
+					layer->top_data = (void*)CreateVectorShape((VECTOR_BASE_DATA*)layer->top_data, NULL, shape->shape_type));
+				eclipse->x = gtk_spin_button_get_value(GTK_SPIN_BUTTON(x));
+				eclipse->y = gtk_spin_button_get_value(GTK_SPIN_BUTTON(y));
+				eclipse->radius = gtk_spin_button_get_value(GTK_SPIN_BUTTON(size[0]));
+				eclipse->ratio = gtk_spin_button_get_value(GTK_SPIN_BUTTON(size[1]));
+				eclipse->rotate = gtk_spin_button_get_value(GTK_SPIN_BUTTON(rotate));
+				eclipse->line_width = gtk_spin_button_get_value(GTK_SPIN_BUTTON(line_width));
+				gtk_color_button_get_color(GTK_COLOR_BUTTON(line_color), &color);
+				eclipse->line_color[0] = (uint8)(color.red >> 8);
+				eclipse->line_color[1] = (uint8)(color.green >> 8);
+				eclipse->line_color[2] = (uint8)(color.blue >> 8);
+				eclipse->line_color[3] = (uint8)(gtk_color_button_get_alpha(GTK_COLOR_BUTTON(line_color)) >> 8);
+				gtk_color_button_get_color(GTK_COLOR_BUTTON(fill_color), &color);
+				eclipse->fill_color[0] = (uint8)(color.red >> 8);
+				eclipse->fill_color[1] = (uint8)(color.green >> 8);
+				eclipse->fill_color[2] = (uint8)(color.blue >> 8);
+				eclipse->fill_color[3] = (uint8)(gtk_color_button_get_alpha(GTK_COLOR_BUTTON(fill_color)) >> 8);
+			}
+
+			layer->flags |= (VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE);
+			layer->active_data = layer->top_data;
+			window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+			gtk_widget_queue_draw(window->window);
+		}
+		else
+		{
+			AddChangeVectorShapeHistory(window, (VECTOR_BASE_DATA*)layer->active_data,
+				(VECTOR_BASE_DATA*)&before_data, shape->brush_name);
+			layer->flags |= (VECTOR_LAYER_RASTERIZE_ACTIVE | VECTOR_LAYER_FIX_LINE);
+			layer->active_data = layer->top_data;
+			window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+			gtk_widget_queue_draw(window->window);
+		}
+	}
+	else
+	{
+		if(target != NULL)
+		{
+			if(shape_type == VECTOR_TYPE_SQUARE)
+			{
+				VECTOR_SQUARE *square = (VECTOR_SQUARE*)target;
+				*square = before_data.square;
+			}
+			else if(shape_type == VECTOR_TYPE_RHOMBUS
+				|| shape_type == VECTOR_TYPE_ECLIPSE)
+			{
+				VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)target;
+				*eclipse = before_data.eclipse;
+			}
+			layer->flags |= (VECTOR_LAYER_RASTERIZE_ACTIVE | VECTOR_LAYER_FIX_LINE);
+			layer->active_data = layer->top_data;
+			window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+			gtk_widget_queue_draw(window->window);
+		}
+	}
+
+	gtk_widget_destroy(dialog);
+
+#undef UI_FONT_SIZE
+}
+
+static void VectorShapePressCallBack(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	gdouble pressure,
+	VECTOR_BRUSH_CORE* core,
+	void *state
+)
+{
+	if(((GdkEventButton*)state)->button == 1)
+	{
+		VECTOR_SHAPE_BRUSH *shape = (VECTOR_SHAPE_BRUSH*)core->brush_data;
+		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+		int i;
+		window->work_layer->layer_mode = LAYER_BLEND_NORMAL;
+		shape->add_vector = FALSE;
+		shape->changing_shape = FALSE;
+
+		switch(shape->mode)
+		{
+		case VECTOR_SHAPE_BRUSH_MODE_ADD:
+			shape->add_vector = TRUE;
+			break;
+		case VECTOR_SHAPE_BRUSH_MODE_TRANSFORM:
+			if(layer->active_data != NULL)
+			{
+				if(shape->manually_set == FALSE)
+				{
+					shape->changing_shape = TRUE;
+				}
+				else
+				{
+					VectorShapeManuallySetDialog(window, shape,
+						(VECTOR_BASE_DATA*)layer->active_data);
+				}
+			}
+			break;
+		case VECTOR_SHAPE_BRUSH_MODE_CHANGE_COLOR:
+			if(layer->active_data != NULL)
+			{
+				if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_SQUARE)
+				{
+					VECTOR_SQUARE *square = (VECTOR_SQUARE*)layer->active_data;
+					square->line_color[0] = shape->line_color[0];
+					square->line_color[1] = shape->line_color[1];
+					square->line_color[2] = shape->line_color[2];
+					square->line_color[3] = shape->line_color[3];
+					square->fill_color[0] = shape->fill_color[0];
+					square->fill_color[1] = shape->fill_color[1];
+					square->fill_color[2] = shape->fill_color[2];
+					square->fill_color[3] = shape->fill_color[3];
+				}
+				else if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_RHOMBUS
+					|| ((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_ECLIPSE)
+				{
+					VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)layer->active_data;
+					eclipse->line_color[0] = shape->line_color[0];
+					eclipse->line_color[1] = shape->line_color[1];
+					eclipse->line_color[2] = shape->line_color[2];
+					eclipse->line_color[3] = shape->line_color[3];
+					eclipse->fill_color[0] = shape->fill_color[0];
+					eclipse->fill_color[1] = shape->fill_color[1];
+					eclipse->fill_color[2] = shape->fill_color[2];
+					eclipse->fill_color[3] = shape->fill_color[3];
+				}
+				layer->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE | VECTOR_LAYER_FIX_LINE;
+			}
+			break;
+		case VECTOR_SHAPE_BRUSH_MODE_DELETE:
+			if(layer->active_data != NULL)
+			{
+				if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type > VECTOR_TYPE_SHAPE
+					&& ((VECTOR_BASE_DATA*)layer->active_data)->vector_type > VECTOR_SHAPE_END)
+				{
+					AddDeleteVectorShapeHistory(window, window->active_layer,
+						(VECTOR_BASE_DATA*)layer->active_data, core->name);
+					DeleteVectorShape(&((VECTOR_BASE_DATA*)layer->active_data));
+				}
+
+				layer->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+			}
+			break;
+		}
+
+		if(shape->add_vector != FALSE)
+		{
+			shape->add_vector = TRUE;
+
+			switch(shape->shape_type)
+			{
+			case VECTOR_TYPE_SQUARE:
+				{
+					VECTOR_SQUARE *square = (VECTOR_SQUARE*)(
+						layer->top_data = (void*)CreateVectorShape((VECTOR_BASE_DATA*)layer->top_data, NULL, shape->shape_type));
+					layer->active_data = layer->top_data;
+					square->left = x;
+					square->top = y;
+					square->width = 0;
+					square->height = 0;
+					square->rotate = 0;
+					square->line_width = shape->line_width;
+					(void)memcpy(square->line_color, shape->line_color, sizeof(shape->line_color));
+					(void)memcpy(square->fill_color, shape->fill_color, sizeof(shape->fill_color));
+				}
+				break;
+			case VECTOR_TYPE_RHOMBUS:
+			case VECTOR_TYPE_ECLIPSE:
+				{
+					VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)(
+						layer->top_data = (void*)CreateVectorShape((VECTOR_BASE_DATA*)layer->top_data, NULL, shape->shape_type));
+					layer->active_data = layer->top_data;
+					eclipse->x = x;
+					eclipse->y = y;
+					eclipse->radius = 0;
+					eclipse->ratio = 1;
+					eclipse->rotate = 0;
+					eclipse->line_width = shape->line_width;
+					(void)memcpy(eclipse->line_color, shape->line_color, sizeof(shape->line_color));
+					(void)memcpy(eclipse->fill_color, shape->fill_color, sizeof(shape->fill_color));
+				}
+				break;
+			}
+
+			for(i=0; i<9; i++)
+			{
+				shape->shape_points[i][0] = x;
+				shape->shape_points[i][1] = y;
+			}
+			shape->control_point = SHAPE_NEW;
+			shape->changing_shape = TRUE;
+		}
+		else if(shape->changing_shape != FALSE)
+		{
+			DeleteVectorLineLayer(&((VECTOR_BASE_DATA*)layer->active_data)->layer);
+			layer->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+			RasterizeVectorLayer(window, window->active_layer, layer);
+			(void)memcpy(layer->mix->pixels, window->active_layer->pixels, window->pixel_buf_size);
+		}
+
+		layer->flags |= VECTOR_LAYER_RASTERIZE_TOP;
+	}
+
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+}
+
+static void VectorShapeMotionCallBack(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	gdouble pressure,
+	VECTOR_BRUSH_CORE* core,
+	void *state
+)
+{
+	VECTOR_SHAPE_BRUSH* shape = (VECTOR_SHAPE_BRUSH*)core->brush_data;
+	VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+	FLOAT_T width, height;
+	FLOAT_T before_rotate[2][2];
+	FLOAT_T sin_value = 0, cos_value = 1;
+	int i;
+
+	if(layer->active_data != NULL)
+	{
+		if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_SQUARE)
+		{
+			sin_value = sin(((VECTOR_SQUARE*)layer->active_data)->rotate);
+			cos_value = cos(((VECTOR_SQUARE*)layer->active_data)->rotate);
+		}
+		else if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_RHOMBUS
+			|| ((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_ECLIPSE)
+		{
+			sin_value = sin(((VECTOR_ECLIPSE*)layer->active_data)->rotate);
+			cos_value = cos(((VECTOR_ECLIPSE*)layer->active_data)->rotate);
+		}
+	}
+
+	if(shape->changing_shape != FALSE)
+	{
+		FLOAT_T x_min, x_max;
+		FLOAT_T y_min, y_max;
+
+		switch(shape->control_point-1)
+		{
+		case 0:
+			shape->shape_points[0][0] = x;
+			shape->shape_points[0][1] = y;
+			shape->shape_points[8][0] = (shape->shape_points[0][0] + shape->shape_points[4][0]) * 0.5;
+			shape->shape_points[8][1] = (shape->shape_points[0][1] + shape->shape_points[4][1]) * 0.5;
+			before_rotate[0][0] = (shape->shape_points[0][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[0][1] - shape->shape_points[8][1]) * sin_value;
+			before_rotate[0][1] = (shape->shape_points[0][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[0][0] - shape->shape_points[8][0]) * sin_value;
+			before_rotate[1][0] = (shape->shape_points[4][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[4][1] - shape->shape_points[8][1]) * sin_value;
+			before_rotate[1][1] = (shape->shape_points[4][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[4][0] - shape->shape_points[8][0]) * sin_value;
+			width = fabs(before_rotate[1][0] - before_rotate[0][0]);
+			height = fabs(before_rotate[1][1] - before_rotate[0][1]);
+			shape->shape_points[1][0] = shape->shape_points[8][0] - width * 0.5 * cos_value;
+			shape->shape_points[1][1] = shape->shape_points[8][1] - width * 0.5 * sin_value;
+			shape->shape_points[2][0] = shape->shape_points[1][0] + (shape->shape_points[1][0] - shape->shape_points[0][0]);
+			shape->shape_points[2][1] = shape->shape_points[1][1] + (shape->shape_points[1][1] - shape->shape_points[0][1]);
+			shape->shape_points[3][0] = shape->shape_points[8][0] - height * 0.5 * sin_value;
+			shape->shape_points[3][1] = shape->shape_points[8][1] + height * 0.5 * cos_value;
+			shape->shape_points[5][0] = shape->shape_points[8][0] + width * 0.5 * cos_value;
+			shape->shape_points[5][1] = shape->shape_points[8][1] + width * 0.5 * sin_value;
+			shape->shape_points[7][0] = shape->shape_points[8][0] + height * 0.5 * sin_value;
+			shape->shape_points[7][1] = shape->shape_points[8][1] - height * 0.5 * cos_value;
+			shape->shape_points[6][0] = shape->shape_points[7][0] + (shape->shape_points[7][0] - shape->shape_points[0][0]);
+			shape->shape_points[6][1] = shape->shape_points[7][1] + (shape->shape_points[7][1] - shape->shape_points[0][1]);
+			break;
+		case 1:
+			width = fabs((x - shape->shape_points[5][0]) * cos_value
+				+ (y - shape->shape_points[5][1]) * sin_value);
+			before_rotate[0][1] = (shape->shape_points[0][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[0][0] - shape->shape_points[8][0]) * sin_value;
+			before_rotate[1][1] = (shape->shape_points[4][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[4][0] - shape->shape_points[8][0]) * sin_value;
+			height = fabs(before_rotate[1][1] - before_rotate[0][1]);
+			shape->shape_points[1][0] = shape->shape_points[5][0] - width * cos_value;
+			shape->shape_points[1][1] = shape->shape_points[5][1] - width * sin_value;
+			shape->shape_points[8][0] = (shape->shape_points[1][0] + shape->shape_points[5][0]) * 0.5;
+			shape->shape_points[8][1] = (shape->shape_points[1][1] + shape->shape_points[5][1]) * 0.5;
+			shape->shape_points[0][0] = shape->shape_points[8][0] - width * 0.5 * cos_value + height * 0.5 * sin_value;
+			shape->shape_points[0][1] = shape->shape_points[8][1] - height * 0.5 * cos_value - width * 0.5 * sin_value;
+			shape->shape_points[2][0] = shape->shape_points[1][0] + (shape->shape_points[1][0] - shape->shape_points[0][0]);
+			shape->shape_points[2][1] = shape->shape_points[1][1] + (shape->shape_points[1][1] - shape->shape_points[0][1]);
+			shape->shape_points[3][0] = (shape->shape_points[2][0] + shape->shape_points[4][0]) * 0.5;
+			shape->shape_points[3][1] = (shape->shape_points[2][1] + shape->shape_points[4][1]) * 0.5;
+			shape->shape_points[7][0] = (shape->shape_points[0][0] + shape->shape_points[6][0]) * 0.5;
+			shape->shape_points[7][1] = (shape->shape_points[0][1] + shape->shape_points[6][1]) * 0.5;
+			break;
+		case 2:
+			shape->shape_points[2][0] = x;
+			shape->shape_points[2][1] = y;
+			shape->shape_points[8][0] = (shape->shape_points[2][0] + shape->shape_points[6][0]) * 0.5;
+			shape->shape_points[8][1] = (shape->shape_points[2][1] + shape->shape_points[6][1]) * 0.5;
+			before_rotate[0][0] = (shape->shape_points[2][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[2][1] - shape->shape_points[8][1]) * sin_value;
+			before_rotate[0][1] = (shape->shape_points[2][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[2][0] - shape->shape_points[8][0]) * sin_value;
+			before_rotate[1][0] = (shape->shape_points[6][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[6][1] - shape->shape_points[8][1]) * sin_value;
+			before_rotate[1][1] = (shape->shape_points[6][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[6][0] - shape->shape_points[8][0]) * sin_value;
+			width = fabs(before_rotate[1][0] - before_rotate[0][0]);
+			height = fabs(before_rotate[1][1] - before_rotate[0][1]);
+			shape->shape_points[1][0] = shape->shape_points[8][0] - width * 0.5 * cos_value;
+			shape->shape_points[1][1] = shape->shape_points[8][1] - width * 0.5 * sin_value;
+			shape->shape_points[0][0] = shape->shape_points[1][0] + (shape->shape_points[1][0] - shape->shape_points[2][0]);
+			shape->shape_points[0][1] = shape->shape_points[1][1] + (shape->shape_points[1][1] - shape->shape_points[2][1]);
+			shape->shape_points[3][0] = shape->shape_points[8][0] - height * 0.5 * sin_value;
+			shape->shape_points[3][1] = shape->shape_points[8][1] + height * 0.5 * cos_value;
+			shape->shape_points[4][0] = shape->shape_points[3][0] + (shape->shape_points[3][0] - shape->shape_points[2][0]);
+			shape->shape_points[4][1] = shape->shape_points[3][1] + (shape->shape_points[3][1] - shape->shape_points[2][1]);
+			shape->shape_points[5][0] = shape->shape_points[8][0] + width * 0.5 * cos_value;
+			shape->shape_points[5][1] = shape->shape_points[8][1] + width * 0.5 * sin_value;
+			shape->shape_points[7][0] = (shape->shape_points[0][0] + shape->shape_points[6][0]) * 0.5;
+			shape->shape_points[7][1] = (shape->shape_points[0][1] + shape->shape_points[6][1]) * 0.5;
+			break;
+		case 3:
+			before_rotate[0][0] = (shape->shape_points[0][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[0][1] - shape->shape_points[8][1]) * sin_value;
+			before_rotate[1][0] = (shape->shape_points[6][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[6][1] - shape->shape_points[8][1]) * sin_value;
+			width = fabs(before_rotate[0][0] - before_rotate[1][0]);
+			height = fabs((y - shape->shape_points[7][1] * cos_value
+				- (x - shape->shape_points[7][0]) * sin_value));
+			shape->shape_points[3][0] = shape->shape_points[7][0] - height * sin_value;
+			shape->shape_points[3][1] = shape->shape_points[7][1] + height * cos_value;
+			shape->shape_points[8][0] = (shape->shape_points[3][0] + shape->shape_points[7][0]) * 0.5;
+			shape->shape_points[8][1] = (shape->shape_points[3][1] + shape->shape_points[7][1]) * 0.5;
+			shape->shape_points[1][0] = shape->shape_points[8][0] - width * 0.5 * cos_value;
+			shape->shape_points[1][1] = shape->shape_points[8][1] - width * 0.5 * sin_value;
+			shape->shape_points[2][0] = shape->shape_points[1][0] + (shape->shape_points[1][0] - shape->shape_points[0][0]);
+			shape->shape_points[2][1] = shape->shape_points[1][1] + (shape->shape_points[1][1] - shape->shape_points[0][1]);
+			shape->shape_points[5][0] = shape->shape_points[8][0] + width * 0.5 * cos_value;
+			shape->shape_points[5][1] = shape->shape_points[8][1] + width * 0.5 * sin_value;
+			shape->shape_points[4][0] = shape->shape_points[5][0] + (shape->shape_points[5][0] - shape->shape_points[6][0]);
+			shape->shape_points[4][1] = shape->shape_points[5][1] + (shape->shape_points[5][1] - shape->shape_points[6][1]);
+			break;
+		case 4:
+			shape->shape_points[4][0] = x;
+			shape->shape_points[4][1] = y;
+			shape->shape_points[8][0] = (shape->shape_points[0][0] + shape->shape_points[4][0]) * 0.5;
+			shape->shape_points[8][1] = (shape->shape_points[0][1] + shape->shape_points[4][1]) * 0.5;
+			before_rotate[0][0] = (shape->shape_points[0][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[0][1] - shape->shape_points[8][1]) * sin_value;
+			before_rotate[0][1] = (shape->shape_points[0][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[0][0] - shape->shape_points[8][0]) * sin_value;
+			before_rotate[1][0] = (shape->shape_points[4][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[4][1] - shape->shape_points[8][1]) * sin_value;
+			before_rotate[1][1] = (shape->shape_points[4][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[4][0] - shape->shape_points[8][0]) * sin_value;
+			width = fabs(before_rotate[1][0] - before_rotate[0][0]);
+			height = fabs(before_rotate[1][1] - before_rotate[0][1]);
+			shape->shape_points[1][0] = shape->shape_points[8][0] - width * 0.5 * cos_value;
+			shape->shape_points[1][1] = shape->shape_points[8][1] - width * 0.5 * sin_value;
+			shape->shape_points[2][0] = shape->shape_points[1][0] + (shape->shape_points[1][0] - shape->shape_points[0][0]);
+			shape->shape_points[2][1] = shape->shape_points[1][1] + (shape->shape_points[1][1] - shape->shape_points[0][1]);
+			shape->shape_points[3][0] = shape->shape_points[8][0] - height * 0.5 * sin_value;
+			shape->shape_points[3][1] = shape->shape_points[8][1] + height * 0.5 * cos_value;
+			shape->shape_points[5][0] = shape->shape_points[8][0] + width * 0.5 * cos_value;
+			shape->shape_points[5][1] = shape->shape_points[8][1] + width * 0.5 * sin_value;
+			shape->shape_points[7][0] = shape->shape_points[8][0] + height * 0.5 * sin_value;
+			shape->shape_points[7][1] = shape->shape_points[8][1] - height * 0.5 * cos_value;
+			shape->shape_points[6][0] = shape->shape_points[7][0] + (shape->shape_points[7][0] - shape->shape_points[0][0]);
+			shape->shape_points[6][1] = shape->shape_points[7][1] + (shape->shape_points[7][1] - shape->shape_points[0][1]);
+			break;
+		case 5:
+			width = fabs((x - shape->shape_points[1][0]) * cos_value
+				+ (y - shape->shape_points[1][1]) * sin_value);
+			before_rotate[0][1] = (shape->shape_points[0][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[0][0] - shape->shape_points[8][0]) * sin_value;
+			before_rotate[1][1] = (shape->shape_points[2][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[2][0] - shape->shape_points[8][0]) * sin_value;
+			height = fabs(before_rotate[1][1] - before_rotate[0][1]);
+			shape->shape_points[5][0] = shape->shape_points[1][0] + width * cos_value;
+			shape->shape_points[5][1] = shape->shape_points[1][1] + width * sin_value;
+			shape->shape_points[8][0] = (shape->shape_points[1][0] + shape->shape_points[5][0]) * 0.5;
+			shape->shape_points[8][1] = (shape->shape_points[1][1] + shape->shape_points[5][1]) * 0.5;
+			shape->shape_points[3][0] = shape->shape_points[8][0] - height * 0.5 * sin_value;
+			shape->shape_points[3][1] = shape->shape_points[8][1] + height * 0.5 * cos_value;
+			shape->shape_points[4][0] = shape->shape_points[3][0] + (shape->shape_points[3][0] - shape->shape_points[2][0]);
+			shape->shape_points[4][1] = shape->shape_points[3][1] + (shape->shape_points[3][1] - shape->shape_points[2][1]);
+			shape->shape_points[7][0] = shape->shape_points[8][0] + height * 0.5 * sin_value;
+			shape->shape_points[7][1] = shape->shape_points[8][1] - height * 0.5 * cos_value;
+			shape->shape_points[6][0] = shape->shape_points[7][0] + (shape->shape_points[7][0] - shape->shape_points[0][0]);
+			shape->shape_points[6][1] = shape->shape_points[7][1] + (shape->shape_points[7][1] - shape->shape_points[0][1]);
+			break;
+		case 6:
+			shape->shape_points[6][0] = x;
+			shape->shape_points[6][1] = y;
+			shape->shape_points[8][0] = (shape->shape_points[2][0] + shape->shape_points[6][0]) * 0.5;
+			shape->shape_points[8][1] = (shape->shape_points[2][1] + shape->shape_points[6][1]) * 0.5;
+			before_rotate[0][0] = (shape->shape_points[2][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[2][1] - shape->shape_points[8][1]) * sin_value;
+			before_rotate[0][1] = (shape->shape_points[2][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[2][0] - shape->shape_points[8][0]) * sin_value;
+			before_rotate[1][0] = (shape->shape_points[6][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[6][1] - shape->shape_points[8][1]) * sin_value;
+			before_rotate[1][1] = (shape->shape_points[6][1] - shape->shape_points[8][1]) * cos_value
+				- (shape->shape_points[6][0] - shape->shape_points[8][0]) * sin_value;
+			width = fabs(before_rotate[1][0] - before_rotate[0][0]);
+			height = fabs(before_rotate[1][1] - before_rotate[0][1]);
+			shape->shape_points[1][0] = shape->shape_points[8][0] - width * 0.5 * cos_value;
+			shape->shape_points[1][1] = shape->shape_points[8][1] - width * 0.5 * sin_value;
+			shape->shape_points[0][0] = shape->shape_points[1][0] + (shape->shape_points[1][0] - shape->shape_points[2][0]);
+			shape->shape_points[0][1] = shape->shape_points[1][1] + (shape->shape_points[1][1] - shape->shape_points[2][1]);
+			shape->shape_points[3][0] = shape->shape_points[8][0] - height * 0.5 * sin_value;
+			shape->shape_points[3][1] = shape->shape_points[8][1] + height * 0.5 * cos_value;
+			shape->shape_points[4][0] = shape->shape_points[3][0] + (shape->shape_points[3][0] - shape->shape_points[2][0]);
+			shape->shape_points[4][1] = shape->shape_points[3][1] + (shape->shape_points[3][1] - shape->shape_points[2][1]);
+			shape->shape_points[5][0] = (shape->shape_points[4][0] + shape->shape_points[6][0]) * 0.5;
+			shape->shape_points[5][1] = (shape->shape_points[4][1] + shape->shape_points[6][1]) * 0.5;
+			shape->shape_points[7][0] = (shape->shape_points[0][0] + shape->shape_points[6][0]) * 0.5;
+			shape->shape_points[7][1] = (shape->shape_points[0][1] + shape->shape_points[6][1]) * 0.5;
+			break;
+		case 7:
+			before_rotate[0][0] = (shape->shape_points[2][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[2][1] - shape->shape_points[8][1]) * sin_value;
+			before_rotate[1][0] = (shape->shape_points[4][0] - shape->shape_points[8][0]) * cos_value
+				+ (shape->shape_points[4][1] - shape->shape_points[8][1]) * sin_value;
+			width = fabs(before_rotate[0][0] - before_rotate[1][0]);
+			height = fabs((y - shape->shape_points[3][1] * cos_value
+				- (x - shape->shape_points[3][0]) * sin_value));
+			shape->shape_points[7][0] = shape->shape_points[3][0] + height * sin_value;
+			shape->shape_points[7][1] = shape->shape_points[3][1] - height * cos_value;
+			shape->shape_points[8][0] = (shape->shape_points[3][0] + shape->shape_points[7][0]) * 0.5;
+			shape->shape_points[8][1] = (shape->shape_points[3][1] + shape->shape_points[7][1]) * 0.5;
+			shape->shape_points[1][0] = shape->shape_points[8][0] - width * 0.5 * cos_value;
+			shape->shape_points[1][1] = shape->shape_points[8][1] - width * 0.5 * sin_value;
+			shape->shape_points[0][0] = shape->shape_points[1][0] + (shape->shape_points[1][0] - shape->shape_points[2][0]);
+			shape->shape_points[0][1] = shape->shape_points[1][1] + (shape->shape_points[1][1] - shape->shape_points[2][1]);
+			shape->shape_points[5][0] = shape->shape_points[8][0] + width * 0.5 * cos_value;
+			shape->shape_points[5][1] = shape->shape_points[8][1] + width * 0.5 * sin_value;
+			shape->shape_points[6][0] = shape->shape_points[7][0] + (shape->shape_points[7][0] - shape->shape_points[0][0]);
+			shape->shape_points[6][1] = shape->shape_points[7][1] + (shape->shape_points[7][1] - shape->shape_points[0][1]);
+			break;
+		case 8:
+			{
+				FLOAT_T diff[2] = {x-shape->shape_points[8][0], y-shape->shape_points[8][1]};
+				for(i=0; i<8; i++)
+				{
+					shape->shape_points[i][0] += diff[0];
+					shape->shape_points[i][1] += diff[1];
+				}
+				shape->shape_points[8][0] = (shape->shape_points[0][0] + shape->shape_points[4][0]) * 0.5;
+				shape->shape_points[8][1] = (shape->shape_points[0][1] + shape->shape_points[4][1]) * 0.5;
+			}
+			break;
+		}
+
+		if(shape->control_point < 8)
+		{
+			shape->shape_points[8][0] = (shape->shape_points[0][0] + shape->shape_points[4][0]) * 0.5;
+			shape->shape_points[8][1] = (shape->shape_points[0][1] + shape->shape_points[4][1]) * 0.5;
+		}
+		else if(shape->control_point == SHAPE_ROTATE)
+		{
+			if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_SQUARE)
+			{
+				((VECTOR_SQUARE*)layer->active_data)->rotate = - shape->before_shape.square.rotate
+					+ atan2(y - shape->shape_points[8][1], x - shape->shape_points[8][0]);
+			}
+			else if(((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_RHOMBUS
+				|| ((VECTOR_BASE_DATA*)layer->active_data)->vector_type == VECTOR_TYPE_ECLIPSE)
+			{
+				((VECTOR_ECLIPSE*)layer->active_data)->rotate = - shape->before_shape.eclipse.rotate
+					+ atan2(y - shape->shape_points[8][1], x - shape->shape_points[8][0]);
+			}
+
+			VectorShapeSetPoints((VECTOR_BASE_DATA*)layer->active_data, shape);
+		}
+		else if(shape->control_point == SHAPE_NEW)
+		{
+			shape->shape_points[0][0] = x;
+			shape->shape_points[0][1] = y;
+		}
+
+		x_min = shape->shape_points[0][0], x_max = shape->shape_points[0][0];
+		y_min = shape->shape_points[0][1], y_max = shape->shape_points[0][1];
+		for(i=1; i<8; i++)
+		{
+			if(x_min > shape->shape_points[i][0])
+			{
+				x_min = shape->shape_points[i][0];
+			}
+			if(x_max < shape->shape_points[i][0])
+			{
+				x_max = shape->shape_points[i][0];
+			}
+			if(y_min > shape->shape_points[i][1])
+			{
+				y_min = shape->shape_points[i][1];
+			}
+			if(y_max < shape->shape_points[i][1])
+			{
+				y_max = shape->shape_points[i][1];
+			}
+		}
+
+		switch(((VECTOR_BASE_DATA*)layer->active_data)->vector_type)
+		{
+		case VECTOR_TYPE_SQUARE:
+			{
+				VECTOR_SQUARE *square = (VECTOR_SQUARE*)layer->active_data;
+
+				if(shape->control_point == SHAPE_NEW)
+				{
+					square->left = x_min;
+					square->top = y_min;
+					square->width = x_max - x_min;
+					square->height = y_max - y_min;
+				}
+				else if(shape->control_point != SHAPE_ROTATE)
+				{
+					square->width = sqrt((shape->shape_points[0][0]-shape->shape_points[6][0])*(shape->shape_points[0][0]-shape->shape_points[6][0])
+						+ (shape->shape_points[0][1]-shape->shape_points[6][1])*(shape->shape_points[0][1]-shape->shape_points[6][1]));
+					square->height = sqrt((shape->shape_points[0][0]-shape->shape_points[2][0])*(shape->shape_points[0][0]-shape->shape_points[2][0])
+						+ (shape->shape_points[0][1]-shape->shape_points[2][1])*(shape->shape_points[0][1]-shape->shape_points[2][1]));
+					square->left = shape->shape_points[8][0] - square->width * 0.5;
+					square->top = shape->shape_points[8][1] - square->height * 0.5;
+				}
+			}
+			break;
+		case VECTOR_TYPE_RHOMBUS:
+		case VECTOR_TYPE_ECLIPSE:
+			{
+				VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)layer->active_data;
+
+				if(shape->control_point == SHAPE_NEW)
+				{
+					width = x_max - x_min;
+					height = y_max - y_min;
+
+					eclipse->x = (x_max + x_min) * 0.5;
+					eclipse->y = (y_max + y_min) * 0.5;
+					eclipse->ratio = width / height;
+					if(width >= height)
+					{
+						eclipse->radius = height * 0.5;
+					}
+					else
+					{
+						eclipse->radius = width * 0.5;
+					}
+				}
+				else if(shape->control_point != SHAPE_ROTATE)
+				{
+					eclipse->x = (x_max + x_min) * 0.5;
+					eclipse->y = (y_max + y_min) * 0.5;
+
+					width = sqrt((shape->shape_points[0][0]-shape->shape_points[6][0])*(shape->shape_points[0][0]-shape->shape_points[6][0])
+						+ (shape->shape_points[0][1]-shape->shape_points[6][1])*(shape->shape_points[0][1]-shape->shape_points[6][1]));
+					height = sqrt((shape->shape_points[0][0]-shape->shape_points[2][0])*(shape->shape_points[0][0]-shape->shape_points[2][0])
+						+ (shape->shape_points[0][1]-shape->shape_points[2][1])*(shape->shape_points[0][1]-shape->shape_points[2][1]));
+					eclipse->ratio = width / height;
+					if(width >= height)
+					{
+						eclipse->radius = height * 0.5;
+					}
+					else
+					{
+						eclipse->radius = width * 0.5;
+					}
+				}
+			}
+			break;
+		}
+
+		if(shape->control_point == SHAPE_NEW)
+		{
+			layer->flags |= VECTOR_LAYER_RASTERIZE_TOP;
+		}
+		else
+		{
+			layer->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
+		}
+	}
+	else
+	{
+		VECTOR_BASE_DATA *vector = (VECTOR_BASE_DATA*)((VECTOR_BASE_DATA*)layer->base)->next;
+		layer->active_data = NULL;
+
+		while(vector != NULL && layer->active_data == NULL)
+		{
+			if(vector->vector_type > VECTOR_TYPE_SHAPE
+				&& vector->vector_type < VECTOR_SHAPE_END)
+			{
+				VectorShapeSetPoints(vector, shape);
+
+				switch(vector->vector_type)
+				{
+				case VECTOR_TYPE_SQUARE:
+					{
+						VECTOR_SQUARE *square = (VECTOR_SQUARE*)vector;
+
+						for(i=0; i<9; i++)
+						{
+							if((shape->shape_points[i][0] - x) * (shape->shape_points[i][0] - x) + (shape->shape_points[i][1] - y) * (shape->shape_points[i][1] - y)
+								<= (HIT_RANGE * HIT_RANGE) * window->rev_zoom)
+							{
+								layer->active_data = (void*)vector;
+								shape->control_point = (uint8)(i+1);
+								break;
+							}
+						}
+
+						if(layer->active_data == NULL)
+						{
+							FLOAT_T check[2] = {x, y};
+							if(IsPointInTriangle(check, shape->shape_points[0], shape->shape_points[8], shape->shape_points[6]) != FALSE)
+							{
+								layer->active_data = (void*)vector;
+								shape->control_point = SHAPE_ROTATE;
+							}
+							if(layer->active_data == NULL && IsPointInTriangle(check, shape->shape_points[0], shape->shape_points[8], shape->shape_points[2]) != FALSE)
+							{
+								layer->active_data = (void*)vector;
+								shape->control_point = SHAPE_ROTATE;
+							}
+							if(layer->active_data == NULL && IsPointInTriangle(check, shape->shape_points[2], shape->shape_points[8], shape->shape_points[4]) != FALSE)
+							{
+								layer->active_data = (void*)vector;
+								shape->control_point = SHAPE_ROTATE;
+							}
+							if(layer->active_data == NULL && IsPointInTriangle(check, shape->shape_points[4], shape->shape_points[8], shape->shape_points[6]) != FALSE)
+							{
+								layer->active_data = (void*)vector;
+								shape->control_point = SHAPE_ROTATE;
+							}
+						}
+
+						if(layer->active_data != NULL)
+						{
+							shape->before_shape.square = *square;
+							shape->before_shape.square.rotate += atan2(y - shape->shape_points[8][1], x - shape->shape_points[8][0]);
+						}
+					}
+					break;
+				case VECTOR_TYPE_RHOMBUS:
+				case VECTOR_TYPE_ECLIPSE:
+					{
+						VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)vector;
+
+						if(eclipse->ratio > 1.0)
+						{
+							for(i=0; i<9; i++)
+							{
+								if((shape->shape_points[i][0] - x) * (shape->shape_points[i][0] - x) + (shape->shape_points[i][1] - y) * (shape->shape_points[i][1] - y)
+									<= (HIT_RANGE * HIT_RANGE) * window->rev_zoom)
+								{
+									layer->active_data = (void*)vector;
+									shape->control_point = (uint8)(i+1);
+									break;
+								}
+							}
+
+							if(layer->active_data == NULL)
+							{
+								if(fabs(x - eclipse->x) <= eclipse->radius * eclipse->ratio
+									&& fabs(y - eclipse->y) <= eclipse->radius)
+								{
+									layer->active_data = (void*)vector;
+									shape->control_point = SHAPE_ROTATE;
+								}
+							}
+						}
+						else
+						{
+							FLOAT_T ratio = 1.0 / eclipse->ratio;
+
+							for(i=0; i<9; i++)
+							{
+								if((shape->shape_points[i][0] - x) * (shape->shape_points[i][0] - x) + (shape->shape_points[i][1] - y) * (shape->shape_points[i][1] - y)
+									<= (HIT_RANGE * HIT_RANGE) * window->rev_zoom)
+								{
+									layer->active_data = (void*)vector;
+									shape->control_point = (uint8)(i+1);
+									break;
+								}
+							}
+
+							if(layer->active_data == NULL)
+							{
+								if(fabs(x - eclipse->x) <= eclipse->radius
+									&& fabs(y - eclipse->y) <= eclipse->radius * ratio)
+								{
+									layer->active_data = (void*)vector;
+									shape->control_point = SHAPE_ROTATE;
+								}
+							}
+						}
+
+						if(layer->active_data != NULL)
+						{
+							shape->before_shape.eclipse = *eclipse;
+						}
+					}
+					break;
+				}
+			}
+			else if(vector->vector_type == VECTOR_TYPE_SCRIPT)
+			{
+				if(vector->layer != NULL)
+				{
+					if(x >= vector->layer->x && x < vector->layer->x + vector->layer->width
+						&& y >= vector->layer->y && y < vector->layer->y + vector->layer->height)
+					{
+						if(vector->layer->pixels[(int)(y - vector->layer->y)*vector->layer->stride
+							+ (int)(x - vector->layer->x)*4 + 3] > 0)
+						{
+							layer->active_data = (void*)vector;
+						}
+					}
+				}
+			}
+
+			vector = (VECTOR_BASE_DATA*)vector->next;
+		}
+	}
+}
+
+static void VectorShapeReleaseCallBack(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	gdouble pressure,
+	VECTOR_BRUSH_CORE* core,
+	void *state
+)
+{
+	if(((GdkEventButton*)state)->button == 1)
+	{
+		VECTOR_SHAPE_BRUSH *shape = (VECTOR_SHAPE_BRUSH*)core->brush_data;
+		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+
+		if(shape->add_vector != FALSE)
+		{
+			layer->flags |= (VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_FIX_LINE);
+			shape->add_vector = FALSE;
+
+			if(shape->shape_type == VECTOR_TYPE_SQUARE)
+			{
+				VECTOR_SQUARE *square = (VECTOR_SQUARE*)layer->top_data;
+				AddTopSquareHistory(window, window->active_layer,
+					square, core->name);
+
+				shape->shape_points[0][0] = square->left;
+				shape->shape_points[0][1] = square->top;
+				shape->shape_points[1][0] = square->left;
+				shape->shape_points[1][1] = square->top + square->height * 0.5;
+				shape->shape_points[2][0] = square->left;
+				shape->shape_points[2][1] = square->top + square->height;
+				shape->shape_points[3][0] = square->left + square->width * 0.5;
+				shape->shape_points[3][1] = square->top + square->height;
+				shape->shape_points[4][0] = square->left + square->width;
+				shape->shape_points[4][1] = square->top + square->height;
+				shape->shape_points[5][0] = square->left + square->width;
+				shape->shape_points[5][1] = square->top + square->height * 0.5;
+				shape->shape_points[6][0] = square->left + square->width;
+				shape->shape_points[6][1] = square->top;
+				shape->shape_points[7][0] = square->left + square->width * 0.5;
+				shape->shape_points[7][1] = square->top;
+				shape->shape_points[8][0] = shape->shape_points[3][0];
+				shape->shape_points[8][1] = shape->shape_points[1][1];
+			}
+			else
+			{
+				VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)layer->top_data;
+				AddTopEclipseHistory(window, window->active_layer,
+					eclipse, core->name);
+
+				shape->shape_points[0][0] = eclipse->x - eclipse->radius * eclipse->ratio;
+				shape->shape_points[0][1] = eclipse->y - eclipse->radius;
+				shape->shape_points[1][0] = eclipse->x - eclipse->radius * eclipse->ratio;
+				shape->shape_points[1][1] = eclipse->y;
+				shape->shape_points[2][0] = eclipse->x - eclipse->radius * eclipse->ratio;
+				shape->shape_points[2][1] = eclipse->y + eclipse->radius;
+				shape->shape_points[3][0] = eclipse->x;
+				shape->shape_points[3][1] = eclipse->y + eclipse->radius;
+				shape->shape_points[4][0] = eclipse->x + eclipse->radius * eclipse->ratio;
+				shape->shape_points[4][1] = eclipse->y + eclipse->radius;
+				shape->shape_points[5][0] = eclipse->x + eclipse->radius * eclipse->ratio;
+				shape->shape_points[5][1] = eclipse->y;
+				shape->shape_points[6][0] = eclipse->x + eclipse->radius * eclipse->ratio;
+				shape->shape_points[6][1] = eclipse->y - eclipse->radius;
+				shape->shape_points[7][0] = eclipse->x;
+				shape->shape_points[7][1] = eclipse->y - eclipse->radius;
+				shape->shape_points[8][0] = eclipse->x;
+				shape->shape_points[8][1] = eclipse->y;
+			}
+		}
+		else if(shape->changing_shape != FALSE)
+		{
+			AddChangeVectorShapeHistory(window, (VECTOR_BASE_DATA*)layer->active_data,
+				(VECTOR_BASE_DATA*)&shape->before_shape, core->name);
+			layer->flags |= (VECTOR_LAYER_RASTERIZE_ACTIVE | VECTOR_LAYER_FIX_LINE);
+		}
+
+		shape->changing_shape = FALSE;
+	}
+}
+
+static void VectorShapeDrawCursor(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	void* data
+)
+{
+	VECTOR_SHAPE_BRUSH *shape = (VECTOR_SHAPE_BRUSH*)data;
+	VECTOR_BASE_DATA *base_data = (VECTOR_BASE_DATA*)window->active_layer->layer_data.vector_layer_p->top_data;
+	VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
+
+	if(shape->mode != VECTOR_SHAPE_BRUSH_MODE_ADD)
+	{
+		if(layer->active_data != NULL
+			&& ((VECTOR_BASE_DATA*)layer->active_data)->vector_type > VECTOR_TYPE_SHAPE
+			&& ((VECTOR_BASE_DATA*)layer->active_data)->vector_type < VECTOR_SHAPE_END
+		)
+		{
+			FLOAT_T x_min, x_max, y_min, y_max;
+			int i;
+
+			cairo_set_line_width(window->disp_temp->cairo_p, 1.0);
+			cairo_set_source_rgb(window->disp_temp->cairo_p, 1, 1, 1);
+
+			x_min = shape->shape_points[0][0] - HIT_RANGE;
+			y_min = shape->shape_points[0][1] - HIT_RANGE;
+			x_max = shape->shape_points[0][0] + HIT_RANGE;
+			y_max = shape->shape_points[0][1] + HIT_RANGE;
+			cairo_arc(window->disp_temp->cairo_p,
+				shape->shape_points[0][0] * window->zoom_rate, shape->shape_points[0][1] * window->zoom_rate, HIT_RANGE, 0, 2*G_PI);
+			cairo_stroke(window->disp_temp->cairo_p);
+
+			for(i=1; i<9; i++)
+			{
+				if(x_min > shape->shape_points[i][0] - HIT_RANGE)
+				{
+					x_min = shape->shape_points[i][0] - HIT_RANGE;
+				}
+				if(x_max < shape->shape_points[i][0] + HIT_RANGE)
+				{
+					x_max = shape->shape_points[i][0] + HIT_RANGE;
+				}
+				if(y_min > shape->shape_points[i][1] - HIT_RANGE)
+				{
+					y_min = shape->shape_points[i][1] - HIT_RANGE;
+				}
+				if(y_max < shape->shape_points[i][1] + HIT_RANGE)
+				{
+					y_max = shape->shape_points[i][1] + HIT_RANGE;
+				}
+				cairo_arc(window->disp_temp->cairo_p,
+					shape->shape_points[i][0] * window->zoom_rate, shape->shape_points[i][1] * window->zoom_rate, HIT_RANGE, 0, 2*G_PI);
+				cairo_stroke(window->disp_temp->cairo_p);
+			}
+
+			cairo_rectangle(window->disp_layer->cairo_p, x_min, y_min, x_max - x_min, y_max - y_min);
+			cairo_clip(window->disp_layer->cairo_p);
+		}
+	}
+}
+
+static void VectorShapeChangeType(GtkWidget* combo, VECTOR_SHAPE_BRUSH* shape)
+{
+	shape->shape_type = (uint8)(gtk_combo_box_get_active(GTK_COMBO_BOX(combo)) + VECTOR_TYPE_SHAPE + 1);
+}
+
+static void VectorShapeChangeLineJointType(GtkWidget* combo, VECTOR_SHAPE_BRUSH* shape)
+{
+	shape->line_joint = (uint8)(gtk_combo_box_get_active(GTK_COMBO_BOX(combo)));
+}
+
+static void VectorShapeChangeLineWidth(GtkAdjustment* slider, VECTOR_SHAPE_BRUSH* shape)
+{
+	shape->line_width = gtk_adjustment_get_value(slider);
+}
+
+static void VectorShapeSetLineColor(GtkWidget* color_chooser, VECTOR_SHAPE_BRUSH* shape)
+{
+	GdkColor color;
+
+	gtk_color_button_get_color(GTK_COLOR_BUTTON(color_chooser), &color);
+	shape->line_color[0] = (uint8)(color.red >> 8);
+	shape->line_color[1] = (uint8)(color.green >> 8);
+	shape->line_color[2] = (uint8)(color.blue >> 8);
+	shape->line_color[3] = (uint8)(gtk_color_button_get_alpha(GTK_COLOR_BUTTON(color_chooser)) >> 8);
+}
+
+static void VectorShapeSetFillColor(GtkWidget* color_chooser, VECTOR_SHAPE_BRUSH* shape)
+{
+	GdkColor color;
+
+	gtk_color_button_get_color(GTK_COLOR_BUTTON(color_chooser), &color);
+	shape->fill_color[0] = (uint8)(color.red >> 8);
+	shape->fill_color[1] = (uint8)(color.green >> 8);
+	shape->fill_color[2] = (uint8)(color.blue >> 8);
+	shape->fill_color[3] = (uint8)(gtk_color_button_get_alpha(GTK_COLOR_BUTTON(color_chooser)) >> 8);
+}
+
+static void VectorShapeSetChangeLineWidthMode(GtkWidget* button, VECTOR_SHAPE_BRUSH* shape)
+{
+	shape->change_line_width = (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE) ? 1 : 0;
+}
+
+static void VectorShapeSetManuallySetMode(GtkWidget* button, VECTOR_SHAPE_BRUSH* shape)
+{
+	shape->manually_set = (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE) ? 1 : 0;
+}
+
+static void VectorShapeManuallySetButtonClicked(GtkWidget* button, VECTOR_SHAPE_BRUSH* shape)
+{
+	APPLICATION *app = g_object_get_data(G_OBJECT(button), "app");
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	if(window == NULL)
+	{
+		return;
+	}
+	VectorShapeManuallySetDialog(window, shape, NULL);
+}
+
+static GtkWidget* CreateVectorShapeModeDetailUI(APPLICATION* app, VECTOR_SHAPE_BRUSH* shape, int mode)
+{
+#define UI_FONT_SIZE 8.0
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	GtkAdjustment *adjustment;
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
+	GtkWidget *layout;
+	GtkWidget *control;
+	GtkWidget *label;
+	GdkColor color;
+	char str[128];
+
+	switch(mode)
+	{
+	case VECTOR_SHAPE_BRUSH_MODE_ADD:
+#if GTK_MAJOR_VERSION <= 2
+		control = gtk_combo_box_new_text();
+		gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.shape.square);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.shape.rhombus);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.shape.eclipse);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->menu.script);
+#else
+		control = gtk_combo_box_text_new();
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.shape.square);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.shape.rhombus);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.shape.eclipse);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->menu.script);
+#endif
+		gtk_combo_box_set_active(GTK_COMBO_BOX(control), shape->shape_type - VECTOR_TYPE_SHAPE - 1);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(VectorShapeChangeType), shape);
+
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(shape->line_width, 0.1, 100, 1, 1, 0));
+		control = SpinScaleNew(adjustment, app->labels->tool_box.line_width, 1);
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+			G_CALLBACK(VectorShapeChangeLineWidth), shape);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+
+#if GTK_MAJOR_VERSION <= 2
+		control = gtk_combo_box_new_text();
+		gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.bevel);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.round);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.miter);
+#else
+		control = gtk_combo_box_text_new();
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.bevel);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.round);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.miter);
+#endif
+		gtk_combo_box_set_active(GTK_COMBO_BOX(control), shape->line_joint);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(VectorShapeChangeLineJointType), shape);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>",
+			UI_FONT_SIZE, app->labels->tool_box.line_color);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		color.red = app->tool_window.color_chooser->rgb[0]
+			| (app->tool_window.color_chooser->rgb[0] << 8);
+		color.green = app->tool_window.color_chooser->rgb[1]
+			| (app->tool_window.color_chooser->rgb[1] << 8);
+		color.blue = app->tool_window.color_chooser->rgb[2]
+			| (app->tool_window.color_chooser->rgb[2] << 8);
+		control = gtk_color_button_new_with_color(&color);
+		gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(control), TRUE);
+		gtk_color_button_set_alpha(GTK_COLOR_BUTTON(control),
+			(shape->line_color[3] << 8) | shape->line_color[3]);
+		(void)g_signal_connect(G_OBJECT(control), "color-set",
+			G_CALLBACK(VectorShapeSetLineColor), shape);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), control, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>",
+			UI_FONT_SIZE, app->labels->tool_box.fill_color);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		color.red = app->tool_window.color_chooser->back_rgb[0]
+			| (app->tool_window.color_chooser->back_rgb[0] << 8);
+		color.green = app->tool_window.color_chooser->back_rgb[1]
+			| (app->tool_window.color_chooser->back_rgb[1] << 8);
+		color.blue = app->tool_window.color_chooser->back_rgb[2]
+			| (app->tool_window.color_chooser->back_rgb[2] << 8);
+		control = gtk_color_button_new_with_color(&color);
+		gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(control), TRUE);
+		gtk_color_button_set_alpha(GTK_COLOR_BUTTON(control),
+			(shape->fill_color[3] << 8) | shape->fill_color[3]);
+		(void)g_signal_connect(G_OBJECT(control), "color-set",
+			G_CALLBACK(VectorShapeSetFillColor), shape);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), control, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		control = gtk_button_new_with_label(app->labels->tool_box.manually_set);
+		g_object_set_data(G_OBJECT(control), "app", app);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 2);
+		(void)g_signal_connect(G_OBJECT(control), "clicked",
+			G_CALLBACK(VectorShapeManuallySetButtonClicked), shape);
+
+		break;
+	case VECTOR_SHAPE_BRUSH_MODE_TRANSFORM:
+		control = gtk_check_button_new_with_label(app->labels->tool_box.change_line_width);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control), shape->change_line_width);
+		(void)g_signal_connect(G_OBJECT(control), "toggled",
+			G_CALLBACK(VectorShapeSetChangeLineWidthMode), shape);
+
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(shape->line_width, 0.1, 100, 1, 1, 0));
+		control = SpinScaleNew(adjustment, app->labels->tool_box.line_width, 1);
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+			G_CALLBACK(VectorShapeChangeLineWidth), shape);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+
+#if GTK_MAJOR_VERSION <= 2
+		control = gtk_combo_box_new_text();
+		gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.bevel);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.round);
+		gtk_combo_box_append_text(GTK_COMBO_BOX(control), app->labels->tool_box.miter);
+#else
+		control = gtk_combo_box_text_new();
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.bevel);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.round);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control), app->labels->tool_box.miter);
+#endif
+		gtk_combo_box_set_active(GTK_COMBO_BOX(control), shape->line_joint);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(VectorShapeChangeLineJointType), shape);
+
+		control = gtk_check_button_new_with_label(app->labels->tool_box.manually_set);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control), shape->manually_set);
+		(void)g_signal_connect(G_OBJECT(control), "toggled",
+			G_CALLBACK(VectorShapeSetManuallySetMode), shape);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+
+		break;
+	case VECTOR_SHAPE_BRUSH_MODE_CHANGE_COLOR:
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>",
+			UI_FONT_SIZE, app->labels->tool_box.line_color);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		color.red = app->tool_window.color_chooser->rgb[0]
+			| (app->tool_window.color_chooser->rgb[0] << 8);
+		color.green = app->tool_window.color_chooser->rgb[1]
+			| (app->tool_window.color_chooser->rgb[1] << 8);
+		color.blue = app->tool_window.color_chooser->rgb[2]
+			| (app->tool_window.color_chooser->rgb[2] << 8);
+		control = gtk_color_button_new_with_color(&color);
+		gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(control), TRUE);
+		gtk_color_button_set_alpha(GTK_COLOR_BUTTON(control),
+			(shape->line_color[3] << 8) | shape->line_color[3]);
+		(void)g_signal_connect(G_OBJECT(control), "color-set",
+			G_CALLBACK(VectorShapeSetLineColor), shape);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), control, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		label = gtk_label_new("");
+		(void)sprintf(str, "<span font_desc=\"%f\">%s : </span>",
+			UI_FONT_SIZE, app->labels->tool_box.fill_color);
+		gtk_label_set_markup(GTK_LABEL(label), str);
+		color.red = app->tool_window.color_chooser->back_rgb[0]
+			| (app->tool_window.color_chooser->back_rgb[0] << 8);
+		color.green = app->tool_window.color_chooser->back_rgb[1]
+			| (app->tool_window.color_chooser->back_rgb[1] << 8);
+		color.blue = app->tool_window.color_chooser->back_rgb[2]
+			| (app->tool_window.color_chooser->back_rgb[2] << 8);
+		control = gtk_color_button_new_with_color(&color);
+		gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(control), TRUE);
+		gtk_color_button_set_alpha(GTK_COLOR_BUTTON(control),
+			(shape->fill_color[3] << 8) | shape->fill_color[3]);
+		(void)g_signal_connect(G_OBJECT(control), "color-set",
+			G_CALLBACK(VectorShapeSetFillColor), shape);
+		layout = gtk_hbox_new(FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(layout), control, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		break;
+	}
+
+	return vbox;
+#undef UI_FONT_SIZE
+}
+
+static void VectorShapeSetMode(GtkWidget* button, VECTOR_SHAPE_BRUSH* shape)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
+	{
+		shape->mode = (uint8)GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "mode"));
+		gtk_widget_destroy(shape->detail_widget);
+		shape->detail_widget = CreateVectorShapeModeDetailUI(
+			(APPLICATION*)g_object_get_data(G_OBJECT(button), "app"), shape, shape->mode);
+		gtk_container_add(GTK_CONTAINER(shape->detail_frame), shape->detail_widget);
+		gtk_widget_show_all(shape->detail_widget);
+	}
+}
+
+static GtkWidget* CreateVectorShapeDetailUI(APPLICATION* app, void* data)
+{
+	VECTOR_SHAPE_BRUSH *shape = (VECTOR_SHAPE_BRUSH*)data;
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
+	GtkWidget *buttons[4];
+
+	buttons[VECTOR_SHAPE_BRUSH_MODE_ADD] = gtk_radio_button_new_with_label(
+		NULL, app->labels->unit.add);
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[VECTOR_SHAPE_BRUSH_MODE_ADD], FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_ADD]), "mode", GINT_TO_POINTER(VECTOR_SHAPE_BRUSH_MODE_ADD));
+	g_object_set_data(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_ADD]), "app", app);
+	buttons[VECTOR_SHAPE_BRUSH_MODE_TRANSFORM] = gtk_radio_button_new_with_label(
+		gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[VECTOR_SHAPE_BRUSH_MODE_ADD])), app->fractal_labels->transform);
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[VECTOR_SHAPE_BRUSH_MODE_TRANSFORM], FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_TRANSFORM]), "mode", GINT_TO_POINTER(VECTOR_SHAPE_BRUSH_MODE_TRANSFORM));
+	g_object_set_data(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_TRANSFORM]), "app", app);
+	buttons[VECTOR_SHAPE_BRUSH_MODE_CHANGE_COLOR] = gtk_radio_button_new_with_label(
+		gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[VECTOR_SHAPE_BRUSH_MODE_ADD])),
+			app->labels->layer_window.blend_modes[LAYER_BLEND_HSL_COLOR]);
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[VECTOR_SHAPE_BRUSH_MODE_CHANGE_COLOR], FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_CHANGE_COLOR]), "mode", GINT_TO_POINTER(VECTOR_SHAPE_BRUSH_MODE_CHANGE_COLOR));
+	g_object_set_data(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_CHANGE_COLOR]), "app", app);
+	buttons[VECTOR_SHAPE_BRUSH_MODE_DELETE] = gtk_radio_button_new_with_label(
+		gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[VECTOR_SHAPE_BRUSH_MODE_ADD])), app->labels->unit._delete);
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[VECTOR_SHAPE_BRUSH_MODE_DELETE], FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_DELETE]), "mode", GINT_TO_POINTER(VECTOR_SHAPE_BRUSH_MODE_DELETE));
+	g_object_set_data(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_DELETE]), "app", app);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[shape->mode]), TRUE);
+	(void)g_signal_connect(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_ADD]), "toggled",
+		G_CALLBACK(VectorShapeSetMode), shape);
+	(void)g_signal_connect(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_TRANSFORM]), "toggled",
+		G_CALLBACK(VectorShapeSetMode), shape);
+	(void)g_signal_connect(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_CHANGE_COLOR]), "toggled",
+		G_CALLBACK(VectorShapeSetMode), shape);
+	(void)g_signal_connect(G_OBJECT(buttons[VECTOR_SHAPE_BRUSH_MODE_DELETE]), "toggled",
+		G_CALLBACK(VectorShapeSetMode), shape);
+
+	shape->line_color[0] = app->tool_window.color_chooser->rgb[0];
+	shape->line_color[1] = app->tool_window.color_chooser->rgb[1];
+	shape->line_color[2] = app->tool_window.color_chooser->rgb[2];
+
+	shape->fill_color[0] = app->tool_window.color_chooser->back_rgb[0];
+	shape->fill_color[1] = app->tool_window.color_chooser->back_rgb[1];
+	shape->fill_color[2] = app->tool_window.color_chooser->back_rgb[2];
+
+	shape->detail_frame = gtk_frame_new(app->labels->unit.detail);
+	shape->detail_widget = CreateVectorShapeModeDetailUI(app, shape, shape->mode);
+	gtk_box_pack_start(GTK_BOX(vbox), shape->detail_frame, FALSE, FALSE, 3);
+	gtk_container_add(GTK_CONTAINER(shape->detail_frame), shape->detail_widget);
+
+	if(window->active_layer->layer_data.vector_layer_p != NULL)
+	{
+		VectorShapeSetPoints((VECTOR_BASE_DATA*)window->active_layer->layer_data.vector_layer_p->top_data, shape);
+	}
+
+	return vbox;
 }
 
 void LoadVectorBrushDetailData(
@@ -6890,6 +9014,36 @@ void LoadVectorBrushDetailData(
 		core->create_detail_ui = CreateVectorEraserDetailUI;
 
 		core->brush_type = TYPE_VECTOR_ERASER;
+	}
+	else if(StringCompareIgnoreCase(brush_type, "VECTOR_SHAPE") == 0)
+	{
+		VECTOR_SHAPE_BRUSH *shape;
+		core->brush_data = MEM_ALLOC_FUNC(sizeof(*shape));
+		(void)memset(core->brush_data, 0, sizeof(*shape));
+		shape = (VECTOR_SHAPE_BRUSH*)core->brush_data;
+		core->detail_data_size = sizeof(*shape);
+
+		shape->shape_type = (uint8)IniFileGetInteger(file, section_name, "SHAPE_TYPE");
+		shape->line_width = IniFileGetDouble(file, section_name, "LINE_WIDTH");
+		shape->line_color[3] = (uint8)IniFileGetInteger(file, section_name, "LINE_FLOW");
+		shape->fill_color[3] = (uint8)IniFileGetInteger(file, section_name, "FILL_FLOW");
+		shape->line_joint = (uint8)IniFileGetInteger(file, section_name, "LINE_JOINT");
+		shape->text_field_size[0] = IniFileGetInteger(file, section_name, "EDITOR_WIDTH");
+		shape->text_field_size[1] = IniFileGetInteger(file, section_name, "EDITOR_HEIGHT");
+		shape->brush_name = core->name;
+
+		if(shape->shape_type < VECTOR_TYPE_SHAPE)
+		{
+			shape->shape_type = VECTOR_TYPE_SQUARE;
+		}
+
+		core->press_func = VectorShapePressCallBack;
+		core->motion_func = VectorShapeMotionCallBack;
+		core->release_func = VectorShapeReleaseCallBack;
+		core->draw_cursor = VectorShapeDrawCursor;
+		core->create_detail_ui = CreateVectorShapeDetailUI;
+
+		core->brush_type = TYPE_VECTOR_SHAPE_BRUSH;
 	}
 
 	if(core->button_update == NULL)
@@ -7105,6 +9259,20 @@ int WriteVectorBrushData(
 						(void)IniFileAddInteger(file, brush_section_name, "SIZE",
 							(int)(eraser->r * 2), 10);
 						(void)IniFileAddInteger(file, brush_section_name, "MODE", eraser->mode, 10);
+					}
+					break;
+				case TYPE_VECTOR_SHAPE_BRUSH:
+					{
+						VECTOR_SHAPE_BRUSH *shape =
+							(VECTOR_SHAPE_BRUSH*)window->vector_brushes[y][x].brush_data;
+						(void)IniFileAddString(file, brush_section_name, "TYPE", "VECTOR_SHAPE");
+						(void)IniFileAddInteger(file, brush_section_name, "SHAPE_TYPE", shape->shape_type, 10);
+						(void)IniFileAddDouble(file, brush_section_name, "LINE_WIDTH", shape->line_width, 1);
+						(void)IniFileAddInteger(file, brush_section_name, "LINE_FLOW", shape->line_color[3], 10);
+						(void)IniFileAddInteger(file, brush_section_name, "FILL_FLOW", shape->fill_color[3], 10);
+						(void)IniFileAddInteger(file, brush_section_name, "LINE_JOINT", shape->line_joint, 10);
+						(void)IniFileAddInteger(file, brush_section_name, "EDITOR_WIDTH", shape->text_field_size[0], 10);
+						(void)IniFileAddInteger(file, brush_section_name, "EDITOR_HEIGHT", shape->text_field_size[1], 10);
 					}
 					break;
 				}

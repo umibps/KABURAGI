@@ -667,6 +667,42 @@ void Normalize3DVector(float* vector)
 	vector[2] /= length;
 }
 
+void CalculateNormalVector(
+	VECTOR3 point1,
+	VECTOR3 point2,
+	VECTOR3 point3,
+	VECTOR3 normal
+)
+{
+	VECTOR3 temp1;
+	VECTOR3 temp2;
+	VECTOR3 cross;
+	float length;
+
+	temp1[0] = point1[0] - point2[0];
+	temp1[1] = point1[1] - point2[1];
+	temp1[2] = point1[2] - point2[2];
+
+	temp2[0] = point3[0] - point2[0];
+	temp2[1] = point3[1] - point2[1];
+	temp2[2] = point3[2] - point2[2];
+
+	Cross3DVector(cross, temp2, temp1);
+
+	length = Length3DVector(cross);
+
+	if(FuzzyZero(length) != FALSE)
+	{
+		normal[0] = 0;
+		normal[1] = 0;
+		normal[2] = 0;
+	}
+
+	Normalize3DVector(cross);
+
+	COPY_VECTOR3(normal, cross);
+}
+
 void Absolute3DVector(const float* vector, float* result)
 {
 	result[0] = fabsf(vector[0]);
@@ -1093,24 +1129,6 @@ char** SplitString(char* str, const char* delim, int* num_strings)
 	ret = (char**)str_array->buffer;
 	MEM_FREE_FUNC(str_array);
 	return ret;
-}
-
-ght_uint32_t GetStringHash(ght_hash_key_t* key)
-{
-	static const unsigned int initial_fnv = 2166136261u;
-	static const unsigned int fnv_multiple = 16777619u;
-
-	unsigned int hash = initial_fnv;
-	const char *str = (const char*)key->p_key;
-	unsigned int i;
-
-	for(i=0; i<key->i_size; i++)
-	{
-		hash = hash ^ (str[i]);
-		hash = hash * fnv_multiple;
-	}
-
-	return (ght_uint32_t)hash;
 }
 
 void HashTableReleaseAll(ght_hash_table_t* table, void (*destroy_func)(void*))

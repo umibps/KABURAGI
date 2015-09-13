@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <time.h>
 #include <zlib.h>
+#include <gdk/gdk.h>
 #include "configure.h"
 #include "application.h"
 #include "memory_stream.h"
@@ -4193,7 +4194,6 @@ static gboolean DisplayHistgram(GtkWidget* widget, GdkEventExpose* event_info, E
 		return TRUE;
 	}
 
-
 	width = gdk_window_get_width(gtk_widget_get_window(widget));
 	height = gdk_window_get_height(gtk_widget_get_window(widget));
 	bottom = height - CONTROL_SIZE;
@@ -6847,14 +6847,14 @@ void AddVectorLinePath(
 
 	if(reverse == FALSE)
 	{
-		if(line->num_points == 2 || line->vector_type == VECTOR_LINE_STRAIGHT)
+		if(line->num_points == 2 || line->base_data.vector_type == VECTOR_TYPE_STRAIGHT)
 		{
 			for(i=0; i<line->num_points; i++)
 			{
 				cairo_line_to(cairo_p, line->points[i].x, line->points[i].y);
 			}
 		}
-		else if(line->vector_type == VECTOR_LINE_BEZIER_OPEN)
+		else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_OPEN)
 		{
 			BEZIER_POINT calc[4], inter[2];
 			int j;
@@ -6893,7 +6893,7 @@ void AddVectorLinePath(
 			cairo_curve_to(cairo_p, inter[1].x, inter[1].y,
 				line->points[i+2].x, line->points[i+2].y, line->points[i+2].x, line->points[i+2].y);
 		}
-		else if(line->vector_type == VECTOR_LINE_STRAIGHT_CLOSE)
+		else if(line->base_data.vector_type == VECTOR_TYPE_STRAIGHT_CLOSE)
 		{
 			for(i=0; i<line->num_points; i++)
 			{
@@ -6901,7 +6901,7 @@ void AddVectorLinePath(
 			}
 			cairo_line_to(cairo_p, line->points[0].x, line->points[0].y);
 		}
-		else if(line->vector_type == VECTOR_LINE_BEZIER_CLOSE)
+		else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_CLOSE)
 		{
 			BEZIER_POINT calc[4], inter[2];
 			int j;
@@ -6955,7 +6955,7 @@ void AddVectorLinePath(
 	}
 	else
 	{
-		if(line->num_points == 2 || line->vector_type == VECTOR_LINE_STRAIGHT)
+		if(line->num_points == 2 || line->base_data.vector_type == VECTOR_TYPE_STRAIGHT)
 		{
 			for(i=0; i<line->num_points; i++)
 			{
@@ -6963,7 +6963,7 @@ void AddVectorLinePath(
 					line->points[line->num_points-i-1].x, line->points[line->num_points-i-1].y);
 			}
 		}
-		else if(line->vector_type == VECTOR_LINE_BEZIER_OPEN)
+		else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_OPEN)
 		{
 			BEZIER_POINT calc[4], inter[2];
 			int j;
@@ -7003,7 +7003,7 @@ void AddVectorLinePath(
 			cairo_curve_to(cairo_p, inter[1].x, inter[1].y,
 				line->points[0].x, line->points[0].y, line->points[0].x, line->points[0].y);
 		}
-		else if(line->vector_type == VECTOR_LINE_STRAIGHT_CLOSE)
+		else if(line->base_data.vector_type == VECTOR_TYPE_STRAIGHT_CLOSE)
 		{
 			for(i=0; i<line->num_points; i++)
 			{
@@ -7011,7 +7011,7 @@ void AddVectorLinePath(
 			}
 			cairo_line_to(cairo_p, line->points[0].x, line->points[0].y);
 		}
-		else if(line->vector_type == VECTOR_LINE_BEZIER_CLOSE)
+		else if(line->base_data.vector_type == VECTOR_TYPE_BEZIER_CLOSE)
 		{
 			BEZIER_POINT calc[4], inter[2];
 			int j;
@@ -7103,13 +7103,16 @@ void FillWithVectorLineFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 
 	for(i=0; i<num_layer-1; i++)
 	{
-		line = layers[i]->layer_data.vector_layer_p->base->next;
+		line = ((VECTOR_LINE*)(layers[i]->layer_data.vector_layer_p->base))->base_data.next;
 		if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0)
 		{
 			while(line != NULL)
 			{
-				line->flags |= VECTOR_LINE_MARKED;
-				line = line->next;
+				if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+				{
+					line->flags |= VECTOR_LINE_MARKED;
+				}
+				line = (VECTOR_LINE*)line->base_data.next;
 				num_lines++;
 			}
 		}
@@ -7117,12 +7120,12 @@ void FillWithVectorLineFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 		{
 			while(line != NULL)
 			{
-				if(line->layer != NULL)
+				if(line->base_data.layer != NULL && line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					if(window->selection_area.max_x >= line->layer->x
-						&& window->selection_area.max_y >= line->layer->y
-						&& window->selection_area.min_x <= line->layer->x + line->layer->width
-						&& window->selection_area.min_y <= line->layer->y + line->layer->height
+					if(window->selection_area.max_x >= line->base_data.layer->x
+						&& window->selection_area.max_y >= line->base_data.layer->y
+						&& window->selection_area.min_x <= line->base_data.layer->x + line->base_data.layer->width
+						&& window->selection_area.min_y <= line->base_data.layer->y + line->base_data.layer->height
 					)
 					{
 						if(IsVectorLineInSelectionArea(window,
@@ -7134,7 +7137,7 @@ void FillWithVectorLineFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 					}
 				}
 
-				line = line->next;
+				line = (VECTOR_LINE*)line->base_data.next;
 			}
 		}
 	}
@@ -7143,12 +7146,15 @@ void FillWithVectorLineFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 	{
 		for(i=0; i<num_layer; i++)
 		{
-			line = layers[i]->layer_data.vector_layer_p->base->next;
+			line = ((VECTOR_LINE*)(layers[i]->layer_data.vector_layer_p->base))->base_data.next;
 
 			while(line != NULL)
 			{
-				line->flags &= ~(VECTOR_LINE_MARKED);
-				line = line->next;
+				if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+				{
+					line->flags &= ~(VECTOR_LINE_MARKED);
+				}
+				line = line->base_data.next;
 			}
 		}
 	}
@@ -7159,10 +7165,10 @@ void FillWithVectorLineFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 	end_flag = 0;
 	for(i=0; i<num_layer-1 && end_flag == 0; i++)
 	{
-		line = layers[i]->layer_data.vector_layer_p->base->next;
-		while(line != NULL &&(line->flags & VECTOR_LINE_MARKED) == 0)
+		line = ((VECTOR_LINE*)(layers[i]->layer_data.vector_layer_p->base))->base_data.next;
+		while(line != NULL && (line->base_data.vector_type >= VECTOR_TYPE_SHAPE || (line->flags & VECTOR_LINE_MARKED) == 0))
 		{
-			line = line->next;
+			line = (VECTOR_LINE*)line->base_data.next;
 		}
 		if(line != NULL)
 		{
@@ -7180,10 +7186,10 @@ void FillWithVectorLineFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 		end_flag = 0;
 		for(i=0; i<num_layer-1 && end_flag == 0; i++)
 		{
-			neighbour = layers[i]->layer_data.vector_layer_p->base->next;
-			while(neighbour != NULL && (neighbour->flags & VECTOR_LINE_MARKED) == 0)
+			neighbour = ((VECTOR_LINE*)layers[i]->layer_data.vector_layer_p->base)->base_data.next;
+			while(neighbour != NULL && (neighbour->base_data.vector_type >= VECTOR_TYPE_SHAPE || (neighbour->flags & VECTOR_LINE_MARKED) == 0))
 			{
-				neighbour = neighbour->next;
+				neighbour = neighbour->base_data.next;
 			}
 			if(neighbour != NULL)
 			{
@@ -7193,7 +7199,7 @@ void FillWithVectorLineFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 			{
 				if(layers[i+1]->layer_type == TYPE_VECTOR_LAYER)
 				{
-					neighbour = layers[i+1]->layer_data.vector_layer_p->base->next;
+					neighbour = ((VECTOR_LINE*)layers[i+1]->layer_data.vector_layer_p->base)->base_data.next;
 				}
 			}
 		}
@@ -7214,10 +7220,10 @@ void FillWithVectorLineFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 
 		for(i=0; i<num_layer-1; i++)
 		{
-			line = layers[i]->layer_data.vector_layer_p->base->next;
+			line = ((VECTOR_LINE*)layers[i]->layer_data.vector_layer_p->base)->base_data.next;
 			while(line != NULL)
 			{
-				if(line != neighbour && (line->flags & VECTOR_LINE_MARKED) != 0)
+				if(line != neighbour && (neighbour->base_data.vector_type >= VECTOR_TYPE_SHAPE || (neighbour->flags & VECTOR_LINE_MARKED) != 0))
 				{
 					dx = line->points[0].x - target.x;
 					dy = line->points[0].y - target.y;
@@ -7240,7 +7246,7 @@ void FillWithVectorLineFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 					}
 				}
 
-				line = line->next;
+				line = line->base_data.next;
 			}
 		}
 

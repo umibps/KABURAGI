@@ -2,6 +2,7 @@
 #define _INCLUDED_UTILS_H_
 
 #include "types.h"
+#include "ght_hash_table.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,6 +39,14 @@ typedef struct _UINT32_ARRAY
 	size_t buffer_size;
 	size_t block_size;
 } UINT32_ARRAY;
+
+typedef struct _FLOAT_ARRAY
+{
+	FLOAT_T *buffer;
+	size_t num_data;
+	size_t buffer_size;
+	size_t block_size;
+} FLOAT_ARRAY;
 
 typedef struct _POINTER_ARRAY
 {
@@ -101,6 +110,11 @@ EXTERN UINT32_ARRAY* Uint32ArrayNew(size_t block_size);
 EXTERN void Uint32ArrayAppend(UINT32_ARRAY* uarray, uint32 data);
 EXTERN void Uint32ArrayDestroy(UINT32_ARRAY** uarray);
 EXTERN void Uint32ArrayResize(UINT32_ARRAY* uint32_array, size_t new_size);
+
+EXTERN FLOAT_ARRAY* FloatArrayNew(size_t block_size);
+EXTERN void FloatArrayAppend(FLOAT_ARRAY* farray, FLOAT_T data);
+EXTERN void FloatArrayDestroy(FLOAT_ARRAY** farray);
+EXTERN void FloatArrayResize(FLOAT_ARRAY* float_array, size_t new_size);
 
 EXTERN POINTER_ARRAY* PointerArrayNew(size_t block_size);
 EXTERN void PointerArrayRelease(
@@ -235,6 +249,19 @@ EXTERN long FileSeekTell(void* stream);
 ***********************************************/
 EXTERN void InvertMatrix(FLOAT_T **a, int n);
 
+/*****************************************
+* IsPointInTriangle関数                  *
+* 三角形内に座標があるか調べる           *
+* 引数                                   *
+* check		: 調べる座標                 *
+* triangle1	: 三角形の頂点その1          *
+* triangle2	: 三角形の頂点その2          *
+* triangle3	: 三角形の頂点その3          *
+* 返り値                                 *
+*	三角形内にある:TRUE	三角形の外:FALSE *
+*****************************************/
+EXTERN int IsPointInTriangle(FLOAT_T check[2], FLOAT_T triangle1[2], FLOAT_T triangle2[2], FLOAT_T triangle3[2]);
+
 /*********************************
 * FLAG_CHECKマクロ関数           *
 * フラグのON/OFFを判定する       *
@@ -325,6 +352,26 @@ EXTERN int DeflateData(
 );
 
 EXTERN void UpdateWidget(GtkWidget* widget);
+
+/*****************************************
+* GetStringHash関数                      *
+* 文字列からハッシュ値を計算する         *
+* 引数                                   *
+* key	: ハッシュテーブル検索キーデータ *
+* 返り値                                 *
+*	ハッシュ値                           *
+*****************************************/
+EXTERN ght_uint32_t GetStringHash(ght_hash_key_t* key);
+
+/***************************************************
+* GetStringHashIgnoreCase関数                      *
+* 文字列からハッシュ値を計算する(大文字小文字無視) *
+* 引数                                             *
+* key	: ハッシュテーブル検索キーデータ           *
+* 返り値                                           *
+*	ハッシュ値                                     *
+***************************************************/
+EXTERN ght_uint32_t GetStringHashIgnoreCase(ght_hash_key_t* key);
 
 #ifdef __cplusplus
 }

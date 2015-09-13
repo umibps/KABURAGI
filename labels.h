@@ -28,7 +28,7 @@ typedef struct _CONTROL_POINT_LABELS
 
 typedef struct _SHAPE_LABELS
 {
-	gchar *circle, *triangle, *square, *hexagon,
+	gchar *circle, *eclipse, *triangle, *square, *rhombus, *hexagon,
 		*star, *pattern, *image;
 } SHAPE_LABELS;
 
@@ -38,17 +38,17 @@ typedef struct _APPLICATON_LABELS
 
 	struct
 	{
-		gchar *ok, *apply, *cancel, *close, *normal, *reverse, *edit_selection,
-			*window, *close_window, *place_left, *place_right, *fullscreen, *reference,
+		gchar *ok, *apply, *cancel, *normal, *reverse, *edit_selection, *window,
+			*close_window, *place_left, *place_right, *fullscreen, *reference,
 			*move_top_left, *hot_key, *loading, *saving;
 	} window;
 
 	struct
 	{
-		gchar* pixel, *length, *angle, *bg, *repeat, *preview, *interval, *minute,
+		gchar *pixel, *length, *angle, *bg, *repeat, *preview, *interval, *minute,
 			*detail, *target, *clip_board, *name, *type, *resolution, *center,
 			*straight, *extend, *mode, *red, *green, *blue, *cyan, *magenta, *yellow,
-			*key_plate;
+			*key_plate, *add, *_delete;
 	} unit;
 
 	struct
@@ -79,7 +79,8 @@ typedef struct _APPLICATON_LABELS
 
 	struct
 	{
-		gchar *title, *name, *width, *height, *second_bg_color, *adopt_icc_profile;
+		gchar *title, *name, *width, *height, *second_bg_color, *adopt_icc_profile,
+			*preset, *add_preset, *swap_height_and_width;
 	} make_new;
 
 	struct
@@ -90,26 +91,28 @@ typedef struct _APPLICATON_LABELS
 			*outline_hardness, *color_extend, *select_move_start, *anti_alias,
 			*change_text_color, *text_horizonal, *text_vertical, *text_style,
 			*text_normal, *text_bold, *text_italic, *text_oblique,
-			*has_balloon, *balloon_has_edge, *line_color, *line_width,
+			*has_balloon, *balloon_has_edge, *line_color, *fill_color, *line_width,
+			*change_line_width, *manually_set, *aspect_ratio,
 			*centering_horizontally, *centering_vertically, *adjust_range_to_text,
 			*num_edge, *edge_size, *random_edge_size, *random_edge_distance,
 			*num_children, *start_child_size, *end_child_size, *reverse,
 			*reverse_horizontally, *reverse_vertically, *blend_mode, *hue,
-			*saturation, *brightness, *contrast,*distance, *rotate_start,
+			*saturation, *brightness, *contrast, *distance, *rotate_start,
 			*rotate_speed, *random_rotate, *rotate_to_brush_direction, *size_range,
-			*rotate_range, *randoam_size, *clockwise, *counter_clockwise,
-			*both_direction, *min_degree, *min_distance, *min_pressure, *enter, *out,
-			*enter_out, *mix, *gradation_reverse, *devide_stroke, *delete_stroke,
-			*target, *stroke, *prior_angle, *control_point, *transform_free,
-			*transform_scale, *transform_free_shape, *transform_rotate, *preference,
-			*name, *copy_brush, *change_brush, *delete_brush, *texture,
-			*texture_strength, *no_texture, *pallete_add, *pallete_delete,
-			*load_pallete, *load_pallete_after, *write_pallete, *clear_pallete,
-			*pick_mode, *single_pixels, *average_color, *open_path, *close_path,
-			*update, *frequency, *cloud_color, *persistence, *rand_seed, *use_random,
-			*update_immediately, *num_octaves, *linear, *cosine, *cubic, *colorize,
-			*start_edit_3d, *end_edit_3d, *scatter, *scatter_size, *scatter_range,
-			*scatter_random_size, *scatter_random_flow, *normal_brush;
+			*rotate_range, *random_size, *clockwise, *counter_clockwise,
+			*both_direction, *min_degree, *min_distance, *min_pressure, *enter,
+			*out, *enter_out, *mix, *gradation_reverse, *devide_stroke,
+			*delete_stroke, *target, *stroke, *prior_angle, *control_point,
+			*transform_free, *transform_scale, *transform_free_shape,
+			*transform_rotate, *preference, *name, *copy_brush, *change_brush,
+			*delete_brush, *texture, *texture_strength, *no_texture, *pallete_add,
+			*pallete_delete, *load_pallete, *load_pallete_after, *write_pallete,
+			*clear_pallete, *pick_mode, *single_pixels, *average_color, *open_path,
+			*close_path, *update, *frequency, *cloud_color, *persistence,
+			*rand_seed, *use_random, *update_immediately, *num_octaves, *linear,
+			*cosine, *cubic, *colorize, *start_edit_3d, *end_edit_3d, *scatter,
+			*scatter_size, *scatter_range, *scatter_random_size,
+			*scatter_random_flow, *bevel, *round, *miter, *normal_brush;
 		gchar *brush_default_names[NUM_BRUSH_TYPE];
 		SELECT_TARGET_LABELS select;
 		CONTROL_POINT_LABELS control;

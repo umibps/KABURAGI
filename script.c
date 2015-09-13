@@ -211,10 +211,10 @@ static void ScriptUpdateVectorUndo(DRAW_WINDOW* window, uint8* data, size_t data
 	layer = SearchLayer(window->layer, layer_name);
 
 	// 線情報をクリア
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	while(line != NULL)
 	{
-		next_line = line->next;
+		next_line = (VECTOR_LINE*)line->base_data.next;
 		DeleteVectorLine(&line);
 		line = next_line;
 	}
@@ -244,10 +244,10 @@ static void ScriptUpdateVectorRedo(DRAW_WINDOW* window, uint8* data, size_t data
 	layer = SearchLayer(window->layer, layer_name);
 
 	// 線情報をクリア
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 	while(line != NULL)
 	{
-		next_line = line->next;
+		next_line = (VECTOR_LINE*)line->base_data.next;
 		DeleteVectorLine(&line);
 		line = next_line;
 	}
@@ -674,14 +674,14 @@ static void ScriptReturnLayer(lua_State* lua, LAYER* layer)
 		break;
 	case TYPE_VECTOR_LAYER:
 		{
-			VECTOR_LINE *line = layer->layer_data.vector_layer_p->base->next;
+			VECTOR_LINE *line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 			VECTOR_LINE *for_count = line;
 			unsigned int num_lines = 0;
 
 			while(for_count != NULL)
 			{
 				num_lines++;
-				for_count = for_count->next;
+				for_count = for_count->base_data.next;
 			}
 
 			lua_pushunsigned(lua, num_lines);
@@ -691,43 +691,46 @@ static void ScriptReturnLayer(lua_State* lua, LAYER* layer)
 			{
 				lua_pushunsigned(lua, i+1);
 				lua_createtable(lua, 0, 6);
-				lua_pushinteger(lua, line->vector_type);
+				lua_pushinteger(lua, line->base_data.vector_type);
 				lua_setfield(lua, -2, "vector_type");
-				lua_pushinteger(lua, line->flags);
-				lua_setfield(lua, -2, "flags");
-				lua_pushinteger(lua, line->num_points);
-				lua_setfield(lua, -2, "num_points");
-				lua_pushnumber(lua, line->blur);
-				lua_setfield(lua, -2, "blur");
-				lua_pushnumber(lua, line->outline_hardness);
-				lua_setfield(lua, -2, "outline_hardness");
-				lua_createtable(lua, 0, line->num_points);
-				for(j=0; j<line->num_points; j++)
+				if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					lua_pushinteger(lua, j+1);
-					lua_createtable(lua, 0, 7);
-					lua_pushinteger(lua, line->points[j].vector_type);
-					lua_setfield(lua, -2, "vector_type");
-					lua_pushinteger(lua, line->points[j].flags);
+					lua_pushinteger(lua, line->flags);
 					lua_setfield(lua, -2, "flags");
-					pixel_value = line->points[j].color[0] << 24 |
-						line->points[j].color[1] << 16 | line->points[j].color[2] << 8 | line->points[j].color[3];
-					lua_pushunsigned(lua, pixel_value);
-					lua_setfield(lua, -2, "color");
-					lua_pushnumber(lua, line->points[j].pressure);
-					lua_setfield(lua, -2, "pressure");
-					lua_pushnumber(lua,line->points[j].size*2);
-					lua_setfield(lua, -2, "size");
-					lua_pushnumber(lua, line->points[j].x);
-					lua_setfield(lua, -2, "x");
-					lua_pushnumber(lua, line->points[j].y);
-					lua_setfield(lua, -2, "y");
+					lua_pushinteger(lua, line->num_points);
+					lua_setfield(lua, -2, "num_points");
+					lua_pushnumber(lua, line->blur);
+					lua_setfield(lua, -2, "blur");
+					lua_pushnumber(lua, line->outline_hardness);
+					lua_setfield(lua, -2, "outline_hardness");
+					lua_createtable(lua, 0, line->num_points);
+					for(j=0; j<line->num_points; j++)
+					{
+						lua_pushinteger(lua, j+1);
+						lua_createtable(lua, 0, 7);
+						lua_pushinteger(lua, line->points[j].vector_type);
+						lua_setfield(lua, -2, "vector_type");
+						lua_pushinteger(lua, line->points[j].flags);
+						lua_setfield(lua, -2, "flags");
+						pixel_value = line->points[j].color[0] << 24 |
+							line->points[j].color[1] << 16 | line->points[j].color[2] << 8 | line->points[j].color[3];
+						lua_pushunsigned(lua, pixel_value);
+						lua_setfield(lua, -2, "color");
+						lua_pushnumber(lua, line->points[j].pressure);
+						lua_setfield(lua, -2, "pressure");
+						lua_pushnumber(lua,line->points[j].size*2);
+						lua_setfield(lua, -2, "size");
+						lua_pushnumber(lua, line->points[j].x);
+						lua_setfield(lua, -2, "x");
+						lua_pushnumber(lua, line->points[j].y);
+						lua_setfield(lua, -2, "y");
+						lua_settable(lua, -3);
+					}
+					lua_setfield(lua, -2, "points");
 					lua_settable(lua, -3);
 				}
-				lua_setfield(lua, -2, "points");
-				lua_settable(lua, -3);
 
-				line = line->next;
+				line = (VECTOR_LINE*)line->base_data.next;
 			}
 			lua_setfield(lua, -2, "lines");
 		}
@@ -901,7 +904,7 @@ static int ScriptUpdateVectorLayer(lua_State* lua)
 	lua_pop(lua, 1);
 
 	lua_getfield(lua, -1, "lines");
-	line = layer->layer_data.vector_layer_p->base->next;
+	line = (VECTOR_LINE*)((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->base)->next;
 
 	for(i=0; i<num_lines; i++)
 	{
@@ -910,77 +913,80 @@ static int ScriptUpdateVectorLayer(lua_State* lua)
 
 		if(line == NULL)
 		{
-			line = layer->layer_data.vector_layer_p->top_line =
-				CreateVectorLine(layer->layer_data.vector_layer_p->top_line, NULL);
+			line = (VECTOR_LINE*)(layer->layer_data.vector_layer_p->top_data =
+				(void*)CreateVectorLine((VECTOR_LINE*)layer->layer_data.vector_layer_p->top_data, NULL));
 			layer->layer_data.vector_layer_p->num_lines++;
 		}
 
 		lua_getfield(lua, -1, "vector_type");
-		line->vector_type = (uint8)luaL_checkinteger(lua, -1);
-		lua_pop(lua, 1);
-		lua_getfield(lua, -1, "flags");
-		line->flags = (uint8)luaL_checkinteger(lua, -1);
-		lua_pop(lua, 1);
-		lua_getfield(lua, -1, "num_points");
-		line->num_points = (uint16)luaL_checkinteger(lua, -1);
-		lua_pop(lua, 1);
-		lua_getfield(lua, -1, "blur");
-		line->blur = luaL_checknumber(lua, -1);
-		lua_pop(lua, 1);
-		lua_getfield(lua, -1, "outline_hardness");
-		line->outline_hardness = luaL_checknumber(lua, -1);
-		lua_pop(lua, 1);
-
-		if(line->points == NULL)
+		line->base_data.vector_type = (uint8)luaL_checkinteger(lua, -1);
+		if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 		{
-			line->buff_size = (line->num_points/VECTOR_LINE_BUFFER_SIZE+1)*VECTOR_LINE_BUFFER_SIZE;
-			line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
-				sizeof(*line->points)*line->buff_size);
-			(void)memset(line->points, 0, sizeof(*line->points)*VECTOR_LINE_BUFFER_SIZE);
-		}
-
-		lua_getfield(lua, -1, "points");
-		for(j=0; j<line->num_points; j++)
-		{
-			lua_pushinteger(lua, j+1);
-			lua_gettable(lua, -2);
-
-			lua_getfield(lua, -1, "vector_type");
-			line->points[j].vector_type = (uint8)luaL_checkinteger(lua, -1);
 			lua_pop(lua, 1);
 			lua_getfield(lua, -1, "flags");
-			line->points[j].flags = (uint8)luaL_checkinteger(lua, -1);
+			line->flags = (uint8)luaL_checkinteger(lua, -1);
 			lua_pop(lua, 1);
-			lua_getfield(lua, -1, "color");
-			color_value = luaL_checkunsigned(lua, -1);
+			lua_getfield(lua, -1, "num_points");
+			line->num_points = (uint16)luaL_checkinteger(lua, -1);
+			lua_pop(lua, 1);
+			lua_getfield(lua, -1, "blur");
+			line->blur = luaL_checknumber(lua, -1);
+			lua_pop(lua, 1);
+			lua_getfield(lua, -1, "outline_hardness");
+			line->outline_hardness = luaL_checknumber(lua, -1);
+			lua_pop(lua, 1);
+
+			if(line->points == NULL)
+			{
+				line->buff_size = (line->num_points/VECTOR_LINE_BUFFER_SIZE+1)*VECTOR_LINE_BUFFER_SIZE;
+				line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(
+					sizeof(*line->points)*line->buff_size);
+				(void)memset(line->points, 0, sizeof(*line->points)*VECTOR_LINE_BUFFER_SIZE);
+			}
+
+			lua_getfield(lua, -1, "points");
+			for(j=0; j<line->num_points; j++)
+			{
+				lua_pushinteger(lua, j+1);
+				lua_gettable(lua, -2);
+
+				lua_getfield(lua, -1, "vector_type");
+				line->points[j].vector_type = (uint8)luaL_checkinteger(lua, -1);
+				lua_pop(lua, 1);
+				lua_getfield(lua, -1, "flags");
+				line->points[j].flags = (uint8)luaL_checkinteger(lua, -1);
+				lua_pop(lua, 1);
+				lua_getfield(lua, -1, "color");
+				color_value = luaL_checkunsigned(lua, -1);
 #if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
-			line->points[j].color[0]  = color[2];
-			line->points[j].color[1]  = color[1];
-			line->points[j].color[2]  = color[0];
-			line->points[j].color[3]  = color[3];
+				line->points[j].color[0]  = color[2];
+				line->points[j].color[1]  = color[1];
+				line->points[j].color[2]  = color[0];
+				line->points[j].color[3]  = color[3];
 #else
-			line->points[j].color[0]  = color[0];
-			line->points[j].color[1]  = color[1];
-			line->points[j].color[2]  = color[2];
-			line->points[j].color[3]  = color[3];
+				line->points[j].color[0]  = color[0];
+				line->points[j].color[1]  = color[1];
+				line->points[j].color[2]  = color[2];
+				line->points[j].color[3]  = color[3];
 #endif
-			lua_pop(lua, 1);
-			lua_getfield(lua, -1, "pressure");
-			line->points[j].pressure = luaL_checknumber(lua, -1);
-			lua_pop(lua, 1);
-			lua_getfield(lua, -1, "size");
-			line->points[j].size = luaL_checknumber(lua, -1) * 0.5;
-			lua_pop(lua, 1);
-			lua_getfield(lua, -1, "x");
-			line->points[j].x = luaL_checknumber(lua, -1);
-			lua_pop(lua, 1);
-			lua_getfield(lua, -1, "y");
-			line->points[j].y = luaL_checknumber(lua, -1);
+				lua_pop(lua, 1);
+				lua_getfield(lua, -1, "pressure");
+				line->points[j].pressure = luaL_checknumber(lua, -1);
+				lua_pop(lua, 1);
+				lua_getfield(lua, -1, "size");
+				line->points[j].size = luaL_checknumber(lua, -1) * 0.5;
+				lua_pop(lua, 1);
+				lua_getfield(lua, -1, "x");
+				line->points[j].x = luaL_checknumber(lua, -1);
+				lua_pop(lua, 1);
+				lua_getfield(lua, -1, "y");
+				line->points[j].y = luaL_checknumber(lua, -1);
+				lua_pop(lua, 2);
+			}
 			lua_pop(lua, 2);
 		}
-		lua_pop(lua, 2);
 
-		line = line->next;
+		line = (VECTOR_LINE*)line->base_data.next;
 	}
 
 	layer->layer_data.vector_layer_p->flags |=
@@ -3614,110 +3620,119 @@ static int ScriptBrushGetDistance(lua_State* lua)
 	return 1;
 }
 
-static const struct luaL_Reg g_script_functions[] =
+static void SetScriptFunctions(lua_State* state)
 {
-	{"print", ScriptPrint},
-	{"ParseRGBA", ScriptParseRGBA},
-	{"MergeRGBA", ScriptMergeRGBA},
-	{"GetAverageColor", ScriptGetAverageColor},
-	{"RGB2HSV", ScriptRGB2HSV},
-	{"HSV2RGB", ScriptHSV2RGB},
-	{"WindowNew", ScriptCreateWindow},
-	{"ShowDebug", ScriptCreateDebugWindow},
-	{"DialogRun", ScriptRunDialog},
-	{"MainLoop", ScriptMainLoop},
-	{"ScriptEnd", ScriptEnd},
-	{"SignalConnect", ScriptSignalConnect},
-	{"WidgetDestroy", ScriptWidgetDestroy},
-	{"ObjectSetData", ScriptObjectSetData},
-	{"ObjectGetData", ScriptObjectGetData},
-	{"SetSizeRequest", ScriptSetSizeRequest},
-	{"GetWidgetSize", ScriptGetWidgetSize},
-	{"ShowWidget", ScriptShowWidget},
-	{"SetEvents", ScriptSetEvents},
-	{"AddEvents", ScriptAddEvents},
-	{"QueueDraw", ScriptQueueDraw},
-	{"AdjustmentNew", ScriptAdjustmentNew},
-	{"AdjustmentGetValue", ScriptAdjustmentGetValue},
-	{"SeparatorNew", ScriptSeparatorNew},
-	{"LabelNew", ScriptLabelNew},
-	{"LabelSetText", ScriptLabelSetText},
-	{"ButtonNew", ScriptButtonNew},
-	{"ToggleButtonNew", ScriptToggleButtonNew},
-	{"CheckButtonNew", ScriptCheckButtonNew},
-	{"RadioButtonNew", ScriptRadioButtonNew},
-	{"ToggleButtonGetActive", ScriptGetToggleButtonActive},
-	{"RadioButtonGetGroup", ScriptGetRadioButtonGroup},
-	{"HBoxNew", ScriptHBoxNew},
-	{"VBoxNew", ScriptVBoxNew},
-	{"SpinButtonNew", ScriptSpinButtonNew},
-	{"BoxPackStart", ScriptBoxPackStart},
-	{"BoxPackEnd", ScriptBoxPackEnd},
-	{"HScaleNew", ScriptHScaleNew},
-	{"VScaleNew", ScriptVScaleNew},
-	{"SpinScaleNew", ScriptSpinScaleNew},
-	{"SpinScaleSetLimits", ScriptSpinScaleSetLimits},
-	{"ComboBoxNew", ScriptComboBoxNew},
-	{"ComboBoxAppendText", ScriptComboBoxAppendText},
-	{"ComboBoxPrependText", ScriptComboBoxPrependText},
-	{"ComboBoxSetActive", ScriptComboBoxSetActive},
-	{"ComboBoxGetActive", ScriptComboBoxGetActive},
-	{"ComboBoxGetValue", ScriptComboBoxGetValue},
-	{"ComboBoxSelectBlendModeNew", ScriptComboSelectBlendModeBoxNew},
-	{"ColorSelectionGetCurrentColor", ScriptColorSelectionGetCurrentColor},
-	{"ColorSelectionSetCurrentColor", ScriptColorSelectionSetCurrentColor},
-	{"ColorSelectionDialogNew", ScriptColorSelectionDialogNew},
-	{"ColorSelectionDialogGetColorSelection", ScriptColorSelectionDialogGetColorSelection},
-	{"ContainerAdd", ScriptContainerAdd},
-	{"DrawingAreaNew", ScriptCreateDrawingArea},
-	{"ProgressBarNew", ScriptProgressBarNew},
-	{"ProgressBarSetFraction", ScriptProgressBarSetFraction},
-	{"ProgressBarSetText", ScriptProgressBarSetText},
-	{"GetWidgetCairo", ScriptGetWidgetCairo},
-	{"CairoCreate", ScriptCairoCreate},
-	{"CairoSurfaceCreate", ScriptCairoSurfaceCreate},
-	{"GetSurfacePixels", ScriptGetSurfacePixels},
-	{"CairoDestroy", ScriptCairoDestroy},
-	{"SurfaceDestroy", ScriptSurfaceDestroy},
-	{"CairoSetSourceRGB", ScriptCairoSetSourceRGBA},
-	{"CairoSetSourceSurface", ScriptCairoSetSourceSurface},
-	{"CairoStroke", ScriptCairoStroke},
-	{"CairoFill", ScriptCairoFill},
-	{"CairoPaint", ScriptCairoPaint},
-	{"CairoPaintPixels", ScriptCairoPaintPixels},
-	{"CairoSetOperator", ScriptCairoSetOperator},
-	{"CairoMoveTo", ScriptCairoMoveTo},
-	{"CairoLineTo", ScriptCairoLineTo},
-	{"CairoArc", ScriptCairoArc},
-	{"CairoTranslate", ScriptCairoTranslate},
-	{"CairoScale", ScriptCairoScale},
-	{"CairoRotate", ScriptCairoRotate},
-	{"CairoSave", ScriptCairoSave},
-	{"CairoRestore", ScriptCairoRestore},
-	{"UpdatePixels", ScriptUpdateLayerPixels},
-	{"UpdateVectorLayer", ScriptUpdateVectorLayer},
-	{"AddVectorLine", ScriptAddVectorLine},
-	{"NewLayer", ScriptNewLayer},
-	{"GetLayer", ScriptGetLayer},
-	{"GetBottomLayer", ScriptGetBottomLayer},
-	{"GetBottomLayerInfo", ScriptGetBottomLayerInfo},
-	{"GetPreviousLayer", ScriptGetPreviousLayer},
-	{"GetPreviousLayerInfo", ScriptGetPreviousLayerInfo},
-	{"GetNextLayer", ScriptGetNextLayer},
-	{"GetNextLayerInfo", ScriptGetNextLayerInfo},
-	{"GetActiveLayer", ScriptGetActiveLayer},
-	{"GetActiveLayerInfo", ScriptGetActiveLayerInfo},
-	{"GetCanvasLayer", ScriptGetCanvasLayer},
-	{"GetBlendedUnderLayer", ScriptGetBlendedUnderLayer},
-	{"CirclePatternNew", ScriptBrushCirclePatternNew},
-	{"ImagePatternNew", ScriptBrushImagePatternNew},
-	{"DrawBrush", SriptDrawBrush},
-	{"SetBrushZoom", ScriptBrushSetZoom},
-	{"SetBrushRotate", ScriptBrushSetRotate},
-	{"SetBrushBlendMode", ScriptBrushSetBlendMode},
-	{"SetBrushColorizeMode", ScriptBrushSetColorizeMode},
-	{"GetDragDistance", ScriptBrushGetDistance}
-};
+	static const struct luaL_Reg script_functions[] =
+	{
+		{"print", ScriptPrint},
+		{"ParseRGBA", ScriptParseRGBA},
+		{"MergeRGBA", ScriptMergeRGBA},
+		{"GetAverageColor", ScriptGetAverageColor},
+		{"RGB2HSV", ScriptRGB2HSV},
+		{"HSV2RGB", ScriptHSV2RGB},
+		{"WindowNew", ScriptCreateWindow},
+		{"ShowDebug", ScriptCreateDebugWindow},
+		{"DialogRun", ScriptRunDialog},
+		{"MainLoop", ScriptMainLoop},
+		{"ScriptEnd", ScriptEnd},
+		{"SignalConnect", ScriptSignalConnect},
+		{"WidgetDestroy", ScriptWidgetDestroy},
+		{"ObjectSetData", ScriptObjectSetData},
+		{"ObjectGetData", ScriptObjectGetData},
+		{"SetSizeRequest", ScriptSetSizeRequest},
+		{"GetWidgetSize", ScriptGetWidgetSize},
+		{"ShowWidget", ScriptShowWidget},
+		{"SetEvents", ScriptSetEvents},
+		{"AddEvents", ScriptAddEvents},
+		{"QueueDraw", ScriptQueueDraw},
+		{"AdjustmentNew", ScriptAdjustmentNew},
+		{"AdjustmentGetValue", ScriptAdjustmentGetValue},
+		{"SeparatorNew", ScriptSeparatorNew},
+		{"LabelNew", ScriptLabelNew},
+		{"LabelSetText", ScriptLabelSetText},
+		{"ButtonNew", ScriptButtonNew},
+		{"ToggleButtonNew", ScriptToggleButtonNew},
+		{"CheckButtonNew", ScriptCheckButtonNew},
+		{"RadioButtonNew", ScriptRadioButtonNew},
+		{"ToggleButtonGetActive", ScriptGetToggleButtonActive},
+		{"RadioButtonGetGroup", ScriptGetRadioButtonGroup},
+		{"HBoxNew", ScriptHBoxNew},
+		{"VBoxNew", ScriptVBoxNew},
+		{"SpinButtonNew", ScriptSpinButtonNew},
+		{"BoxPackStart", ScriptBoxPackStart},
+		{"BoxPackEnd", ScriptBoxPackEnd},
+		{"HScaleNew", ScriptHScaleNew},
+		{"VScaleNew", ScriptVScaleNew},
+		{"SpinScaleNew", ScriptSpinScaleNew},
+		{"SpinScaleSetLimits", ScriptSpinScaleSetLimits},
+		{"ComboBoxNew", ScriptComboBoxNew},
+		{"ComboBoxAppendText", ScriptComboBoxAppendText},
+		{"ComboBoxPrependText", ScriptComboBoxPrependText},
+		{"ComboBoxSetActive", ScriptComboBoxSetActive},
+		{"ComboBoxGetActive", ScriptComboBoxGetActive},
+		{"ComboBoxGetValue", ScriptComboBoxGetValue},
+		{"ComboBoxSelectBlendModeNew", ScriptComboSelectBlendModeBoxNew},
+		{"ColorSelectionGetCurrentColor", ScriptColorSelectionGetCurrentColor},
+		{"ColorSelectionSetCurrentColor", ScriptColorSelectionSetCurrentColor},
+		{"ColorSelectionDialogNew", ScriptColorSelectionDialogNew},
+		{"ColorSelectionDialogGetColorSelection", ScriptColorSelectionDialogGetColorSelection},
+		{"ContainerAdd", ScriptContainerAdd},
+		{"DrawingAreaNew", ScriptCreateDrawingArea},
+		{"ProgressBarNew", ScriptProgressBarNew},
+		{"ProgressBarSetFraction", ScriptProgressBarSetFraction},
+		{"ProgressBarSetText", ScriptProgressBarSetText},
+		{"GetWidgetCairo", ScriptGetWidgetCairo},
+		{"CairoCreate", ScriptCairoCreate},
+		{"CairoSurfaceCreate", ScriptCairoSurfaceCreate},
+		{"GetSurfacePixels", ScriptGetSurfacePixels},
+		{"CairoDestroy", ScriptCairoDestroy},
+		{"SurfaceDestroy", ScriptSurfaceDestroy},
+		{"CairoSetSourceRGB", ScriptCairoSetSourceRGBA},
+		{"CairoSetSourceSurface", ScriptCairoSetSourceSurface},
+		{"CairoStroke", ScriptCairoStroke},
+		{"CairoFill", ScriptCairoFill},
+		{"CairoPaint", ScriptCairoPaint},
+		{"CairoPaintPixels", ScriptCairoPaintPixels},
+		{"CairoSetOperator", ScriptCairoSetOperator},
+		{"CairoMoveTo", ScriptCairoMoveTo},
+		{"CairoLineTo", ScriptCairoLineTo},
+		{"CairoArc", ScriptCairoArc},
+		{"CairoTranslate", ScriptCairoTranslate},
+		{"CairoScale", ScriptCairoScale},
+		{"CairoRotate", ScriptCairoRotate},
+		{"CairoSave", ScriptCairoSave},
+		{"CairoRestore", ScriptCairoRestore},
+		{"UpdatePixels", ScriptUpdateLayerPixels},
+		{"UpdateVectorLayer", ScriptUpdateVectorLayer},
+		{"AddVectorLine", ScriptAddVectorLine},
+		{"NewLayer", ScriptNewLayer},
+		{"GetLayer", ScriptGetLayer},
+		{"GetBottomLayer", ScriptGetBottomLayer},
+		{"GetBottomLayerInfo", ScriptGetBottomLayerInfo},
+		{"GetPreviousLayer", ScriptGetPreviousLayer},
+		{"GetPreviousLayerInfo", ScriptGetPreviousLayerInfo},
+		{"GetNextLayer", ScriptGetNextLayer},
+		{"GetNextLayerInfo", ScriptGetNextLayerInfo},
+		{"GetActiveLayer", ScriptGetActiveLayer},
+		{"GetActiveLayerInfo", ScriptGetActiveLayerInfo},
+		{"GetCanvasLayer", ScriptGetCanvasLayer},
+		{"GetBlendedUnderLayer", ScriptGetBlendedUnderLayer},
+		{"CirclePatternNew", ScriptBrushCirclePatternNew},
+		{"ImagePatternNew", ScriptBrushImagePatternNew},
+		{"DrawBrush", SriptDrawBrush},
+		{"SetBrushZoom", ScriptBrushSetZoom},
+		{"SetBrushRotate", ScriptBrushSetRotate},
+		{"SetBrushBlendMode", ScriptBrushSetBlendMode},
+		{"SetBrushColorizeMode", ScriptBrushSetColorizeMode},
+		{"GetDragDistance", ScriptBrushGetDistance}
+	};
+	int i;
+
+	for(i=0; i<sizeof(script_functions)/sizeof(script_functions[0]); i++)
+	{
+		lua_register(state, script_functions[i].name, script_functions[i].func);
+	}
+}
 
 /*********************************************************
 * CreateScript関数                                       *
@@ -3735,7 +3750,7 @@ SCRIPT* CreateScript(APPLICATION* app, const char* file_path)
 	GFileInputStream *stream = g_file_read(fp, NULL, NULL);
 	size_t data_size;
 	char *script_data;
-	int i;
+
 	(void)memset(ret, 0, sizeof(*ret));
 
 	if(stream == NULL)
@@ -3765,10 +3780,7 @@ SCRIPT* CreateScript(APPLICATION* app, const char* file_path)
 	ret->state = luaL_newstate();
 	luaL_openlibs(ret->state);
 
-	for(i=0; i<sizeof(g_script_functions)/sizeof(g_script_functions[0]); i++)
-	{
-		lua_register(ret->state, g_script_functions[i].name, g_script_functions[i].func);
-	}
+	SetScriptFunctions(ret->state);
 
 	if(luaL_dostring(ret->state, script_data) != 0)
 	{
@@ -3799,14 +3811,20 @@ SCRIPT* CreateScript(APPLICATION* app, const char* file_path)
 	lua_setglobal(ret->state, "TYPE_TEXT_LAYER");
 	lua_pushinteger(ret->state, TYPE_LAYER_SET);
 	lua_setglobal(ret->state, "TYPE_LAYER_SET");
-	lua_pushinteger(ret->state, VECTOR_LINE_STRAIGHT);
-	lua_setglobal(ret->state, "VECTOR_LINE_STRAIGHT");
-	lua_pushinteger(ret->state, VECTOR_LINE_BEZIER_OPEN);
-	lua_setglobal(ret->state, "VECTOR_LINE_BEZIER_OPEN");
-	lua_pushinteger(ret->state, VECTOR_LINE_STRAIGHT_CLOSE);
-	lua_setglobal(ret->state, "VECTOR_LINE_STRAIGHT_CLOSE");
-	lua_pushinteger(ret->state, VECTOR_LINE_BEZIER_CLOSE);
-	lua_setglobal(ret->state, "VECTOR_LINE_BEZIER_CLOSE");
+	lua_pushinteger(ret->state, VECTOR_TYPE_STRAIGHT);
+	lua_setglobal(ret->state, "VECTOR_TYPE_STRAIGHT");
+	lua_pushinteger(ret->state, VECTOR_TYPE_BEZIER_OPEN);
+	lua_setglobal(ret->state, "VECTOR_TYPE_BEZIER_OPEN");
+	lua_pushinteger(ret->state, VECTOR_TYPE_STRAIGHT_CLOSE);
+	lua_setglobal(ret->state, "VECTOR_TYPE_STRAIGHT_CLOSE");
+	lua_pushinteger(ret->state, VECTOR_TYPE_BEZIER_CLOSE);
+	lua_setglobal(ret->state, "VECTOR_TYPE_BEZIER_CLOSE");
+	lua_pushinteger(ret->state, VECTOR_TYPE_SQUARE);
+	lua_setglobal(ret->state, "VECTOR_TYPE_SQUARE");
+	lua_pushinteger(ret->state, VECTOR_TYPE_RHOMBUS);
+	lua_setglobal(ret->state, "VECTOR_TYPE_RHOMBUS");
+	lua_pushinteger(ret->state, VECTOR_TYPE_ECLIPSE);
+	lua_setglobal(ret->state, "VECTOR_TYPE_ECLIPSE");
 	lua_pushinteger(ret->state, VECTOR_LINE_ANTI_ALIAS);
 	lua_setglobal(ret->state, "VECTOR_LINE_ANTI_ALIAS");
 	lua_pushinteger(ret->state, GDK_EXPOSURE_MASK);

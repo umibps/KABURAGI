@@ -47,7 +47,7 @@ static void EnsureCapacity(DYN_POINTER_ARRAY* dyn_array, int capacity)
 void DynPointerArrayPush(DYN_POINTER_ARRAY* dyn_array, const void* data)
 {
 	EnsureCapacity(dyn_array, dyn_array->size + 1);
-	dyn_array->memory[dyn_array->size++] = data;
+	dyn_array->memory[dyn_array->size++] = (void*)data;
 }
 
 void** DynPointerArrayPushArray(DYN_POINTER_ARRAY* dyn_array, int count)

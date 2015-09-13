@@ -73,6 +73,7 @@ int ShaderProgramAddShaderSource(SHADER_PROGRAM* program, const char* source, GL
 {
 	GLint compiled;
 	GLuint shader = glCreateShader(type);
+
 	glShaderSource(shader, 1, &source, 0);
 	glCompileShader(shader);
 
@@ -797,9 +798,10 @@ void LoadTextureDrawHelperProgram(
 		(void)fseek(fp, 0, SEEK_END);
 		size = ftell(fp);
 		rewind(fp);
-		source = (char*)MEM_ALLOC_FUNC(size);
+		source = (char*)MEM_ALLOC_FUNC(size+1);
 		(void)fread(source, 1, size, fp);
 		(void)fclose(fp);
+		source[size] = '\0';
 	}
 	else
 	{
@@ -834,6 +836,167 @@ void TextureDrawHelperProgramSetUniformValues(
 {
 	glUniformMatrix4fv(program->model_view_projection_matrix, 4, GL_FALSE, matrix);
 	glUniform1ui(program->main_texture, texture_id);
+}
+
+void ShapeModelProgramGetUniformLocation(SHAPE_MODEL_PROGRAM* program)
+{
+	ObjectProgramGetUniformLocations(&program->base_data);
+	program->surface_color_uniform_location = glGetUniformLocation(
+		program->base_data.program.base_data.program, "surfaceColor");
+	program->camera_position_uniform_location = glGetUniformLocation(
+		program->base_data.program.base_data.program, "cameraPosition");
+}
+
+void InitializeShapeModelProgram(SHAPE_MODEL_PROGRAM* program)
+{
+	(void)memset(program, 0, sizeof(*program));
+
+	InitializeObjectProgram(&program->base_data);
+	program->base_data.program.get_uniform_locations =
+		(void (*)(void*))ShapeModelProgramGetUniformLocation;
+}
+
+void LoadShapeModelProgram(
+	SHAPE_MODEL_PROGRAM* program,
+	const char* path,
+	GLenum type
+)
+{
+	char *source;
+	FILE *fp = fopen(path, "rb");
+
+	if(fp != NULL)
+	{
+		long size;
+		(void)fseek(fp, 0, SEEK_END);
+		size = ftell(fp);
+		rewind(fp);
+		source = (char*)MEM_ALLOC_FUNC(size+1);
+		(void)fread(source, 1, size, fp);
+		(void)fclose(fp);
+		source[size] = '\0';
+	}
+	else
+	{
+		source = LoadSubstituteShaderSource(path);
+	}
+
+	BaseShaderProgramAddShaderSource(&program->base_data.program, source, type);
+	MEM_FREE_FUNC(source);
+}
+
+void ShapeModelProgramSetCameraPosition(SHAPE_MODEL_PROGRAM* program, float* position)
+{
+	glUniform3fv(program->camera_position_uniform_location, 1, position);
+}
+
+void ShapeModelProgramSetSurfaceColor(SHAPE_MODEL_PROGRAM* program, float* color)
+{
+	glUniform4fv(program->surface_color_uniform_location, 1, color);
+}
+
+void ShapeEdgeProgramGetUniformLocation(SHAPE_EDGE_PROGRAM* program)
+{
+	BaseShaderProgramGetUniformLocations(&program->base_data);
+	program->camera_position_uniform_location = glGetUniformLocation(
+		program->base_data.base_data.program, "cameraPosition");
+	program->color_uniform_location = glGetUniformLocation(program->base_data.base_data.program, "color");
+	program->edge_size_uniform_location = glGetUniformLocation(program->base_data.base_data.program, "edgeSize");
+	program->opacity_uniform_location = glGetUniformLocation(program->base_data.base_data.program, "opacity");
+}
+
+void InitializeShapeEdgeProgram(SHAPE_EDGE_PROGRAM* program)
+{
+	(void)memset(program, 0, sizeof(*program));
+
+	InitializeBaseShaderProgram(&program->base_data);
+	program->base_data.get_uniform_locations =
+		(void (*)(void*))ShapeEdgeProgramGetUniformLocation;
+}
+
+void LoadShapeEdgeProgram(
+	SHAPE_EDGE_PROGRAM* program,
+	const char* path,
+	GLenum type
+)
+{
+	char *source;
+	FILE *fp = fopen(path, "rb");
+
+	if(fp != NULL)
+	{
+		long size;
+		(void)fseek(fp, 0, SEEK_END);
+		size = ftell(fp);
+		rewind(fp);
+		source = (char*)MEM_ALLOC_FUNC(size+1);
+		(void)fread(source, 1, size, fp);
+		(void)fclose(fp);
+		source[size] = '\0';
+	}
+	else
+	{
+		source = LoadSubstituteShaderSource(path);
+	}
+
+	BaseShaderProgramAddShaderSource(&program->base_data, source, type);
+	MEM_FREE_FUNC(source);
+}
+
+void ShapeEdgeProgramSetCameraPosition(SHAPE_EDGE_PROGRAM* program, float* position)
+{
+	glUniform3fv(program->camera_position_uniform_location, 1, position);
+}
+
+void ShapeEdgeProgramSetColor(SHAPE_EDGE_PROGRAM* program, float* color)
+{
+	glUniform4fv(program->color_uniform_location, 1, color);
+}
+
+void ShapeEdgeProgramSetSize(SHAPE_EDGE_PROGRAM* program, float size)
+{
+	glUniform1f(program->edge_size_uniform_location, size);
+}
+
+void ShapeEdgeProgramSetOpacity(SHAPE_EDGE_PROGRAM* program, float opacity)
+{
+	glUniform1f(program->opacity_uniform_location, opacity);
+}
+
+void InitializeShapeShadowProgram(SHAPE_SHADOW_PROGRAM* program)
+{
+	(void)memset(program, 0, sizeof(*program));
+
+	InitializeObjectProgram(&program->base_data);
+}
+
+void LoadShapeShadowProgram(
+	SHAPE_SHADOW_PROGRAM* program,
+	const char* path,
+	GLenum type
+)
+{
+	char *source;
+	FILE *fp = fopen(path, "rb");
+
+	if(fp != NULL)
+	{
+		long size;
+		(void)fseek(fp, 0, SEEK_END);
+		size = ftell(fp);
+		rewind(fp);
+		source = (char*)MEM_ALLOC_FUNC(size+1);
+		(void)fread(source, 1, size, fp);
+		(void)fclose(fp);
+		source[size] = '\0';
+	}
+	else
+	{
+		source = LoadSubstituteShaderSource(path);
+	}
+
+	BaseShaderProgramAddShaderSource(&program->base_data.program, source, type);
+	MEM_FREE_FUNC(source);
 }
 
 #ifdef __cplusplus

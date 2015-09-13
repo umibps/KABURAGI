@@ -1410,12 +1410,14 @@ void DisplayTextLayerRange(DRAW_WINDOW* window, TEXT_LAYER* layer)
 void OnChangeTextCallBack(GtkTextBuffer* buffer, LAYER* layer)
 {
 	GtkTextIter start, end;
+	char *p;
 	MEM_FREE_FUNC(layer->layer_data.text_layer_p->text);
 	gtk_text_buffer_get_start_iter(buffer, &start);
 	gtk_text_buffer_get_end_iter(buffer, &end);
 	layer->layer_data.text_layer_p->text = MEM_STRDUP_FUNC(
-		gtk_text_buffer_get_text(buffer, &start, &end, FALSE));
+		p = gtk_text_buffer_get_text(buffer, &start, &end, FALSE));
 	layer->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	g_free(p);
 }
 
 /*************************************************************

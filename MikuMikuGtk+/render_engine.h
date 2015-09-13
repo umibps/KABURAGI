@@ -6,13 +6,15 @@
 #include "vertex.h"
 #include "texture.h"
 #include "effect.h"
+#include "shape_model.h"
 
 #define MINIMUM_EDGE_SIZE 2
 
 typedef enum _eRENDER_ENGINE_TYPE
 {
 	RENDER_ENGINE_PMX,
-	RENDER_ENGINE_ASSET
+	RENDER_ENGINE_ASSET,
+	RENDER_ENGINE_SHAPE
 } eRENDER_ENGINE_TYPE;
 
 typedef struct _RENDER_ENGINE_INTERFACE
@@ -108,6 +110,28 @@ typedef struct _ASSET_RENDER_ENGINE
 	int cull_face_state;
 } ASSET_RENDER_ENGINE;
 
+typedef struct _SHAPE_RENDER_ENGINE
+{
+	RENDER_ENGINE_INTERFACE interface_data;
+	struct _SCENE *scene;
+	struct _PROJECT *project;
+	SHAPE_MODEL_PROGRAM model_program;
+	SHAPE_EDGE_PROGRAM edge_program;
+	SHAPE_SHADOW_PROGRAM shadow_program;
+	MODEL_INDEX_BUFFER_INTERFACE *index_buffer;
+	MODEL_STATIC_VERTEX_BUFFER_INTERFACE *static_buffer;
+	MODEL_DYNAMIC_VERTEX_BUFFER_INTERFACE *dynamic_buffer;
+	VERTEX_BUNDLE *buffer;
+	VERTEX_BUNDLE_LAYOUT *layout;
+} SHAPE_RENDER_ENGINE;
+
+typedef enum _eSHAPE_VERTEX_BUFFER_OBJECT_TYPE
+{
+	SHAPE_VERTEX_BUFFER_OBJECT_TYPE_DYNAMIC_VERTEX_BUFFER,
+	//SHAPE_VERTEX_BUFFER_OBJECT_TYPE_STATIC_VERTEX_BUFFER,
+	SHAPE_VERTEX_BUFFER_OBJECT_TYPE_INDEX_BUFFER
+} eSHAPE_VERTEX_BUFFER_OBJECT_TYPE;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -127,6 +151,12 @@ extern void DeleteAssetRenderEngine(ASSET_RENDER_ENGINE* engine);
 extern int AssetRenderEngineUpload(ASSET_RENDER_ENGINE* engine, const char* directory);
 extern void AssetRenderEngineRenderModel(ASSET_RENDER_ENGINE* engine);
 extern EFFECT_INTERFACE* AssetRenderEngineGetEffect(ASSET_RENDER_ENGINE* engine, eEFFECT_SCRIPT_ORDER_TYPE type);
+
+extern void DeleteShapeRenderEngine(SHAPE_RENDER_ENGINE* engine);
+extern void ShapeRenderEngineRenderModel(SHAPE_RENDER_ENGINE* engine);
+extern void ShapeRenderEngineRenderEdge(SHAPE_RENDER_ENGINE* engine);
+extern int ShapeRenderEngineUpload(SHAPE_RENDER_ENGINE* engine, void* user_data);
+extern void ShapeRenderEngineUpdate(SHAPE_RENDER_ENGINE* engine);
 
 #ifdef __cplusplus
 }

@@ -2178,6 +2178,71 @@ void UpdateBrushMotionDrawArea(
 	}
 }
 
+/*************************************
+* UpdateBrushMotionDrawAreaSize関数  *
+* ブラシ更新範囲のサイズを更新する   *
+* 引数                               *
+* window	: キャンバスの情報       *
+* area	: 更新範囲を記憶するアドレス *
+*************************************/
+void UpdateBrushMotionDrawAreaSize(
+	DRAW_WINDOW* window,
+	BRUSH_UPDATE_INFO* area
+)
+{
+	if(area->max_x > window->update.x + window->update.width)
+	{
+		window->update.width = (int)(area->max_x - window->update.x);
+	}
+	if(area->max_y > window->update.y + window->update.height)
+	{
+		window->update.height = (int)(area->max_y - window->update.y);
+	}
+	/*
+	if(area->min_x < window->update.x)
+	{
+		if(area->max_x > area->min_x + window->width)
+		{
+			window->update.x = (int)area->min_x;
+			window->update.width = (int)(area->max_x - window->update.x);
+		}
+		else
+		{
+			window->update.width = (int)(window->update.x + window->width - area->min_x);
+			window->update.x = (int)area->min_x;
+		}
+	}
+	else
+	{
+		if(area->max_x > window->update.x + window->update.width)
+		{
+			window->width = (int)(area->max_x - window->update.x);
+		}
+	}
+
+	if(area->min_y < window->update.y)
+	{
+		if(area->max_y > area->min_y + window->height)
+		{
+			window->update.y = (int)area->min_y;
+			window->update.height = (int)(area->max_y - window->update.y);
+		}
+		else
+		{
+			window->update.height = (int)(window->update.y + window->height - area->min_y);
+			window->update.y = (int)area->min_y;
+		}
+	}
+	else
+	{
+		if(area->max_y > window->update.y + window->update.height)
+		{
+			window->height = (int)(area->max_y - window->update.y);
+		}
+	}
+	*/
+}
+
 /***************************************************
 * UpdateBrushScatterDrawArea関数                　 *
 * ブラシの散布に対する更新する範囲を設定する    　 *

@@ -54,7 +54,7 @@ typedef enum _eSELECTION_BLEND_MODE
 } eSELECTION_BLEND_MODE;
 
 // 関数のプロトタイプ宣言
-extern gboolean UpdateSelectionArea(SELECTION_AREA* area, LAYER* selection, LAYER* temp);
+EXTERN gboolean UpdateSelectionArea(SELECTION_AREA* area, LAYER* selection, LAYER* temp);
 
 /***************************************************************
 * LaplacianFilter関数                                          *
@@ -66,7 +66,7 @@ extern gboolean UpdateSelectionArea(SELECTION_AREA* area, LAYER* selection, LAYE
 * stride		: 1行分のバイト数                              *
 * write_buff	: エッジデータを書き出すバッファ               *
 ***************************************************************/
-extern void LaplacianFilter(
+EXTERN void LaplacianFilter(
 	uint8* pixels,
 	int width,
 	int height,
@@ -79,7 +79,7 @@ extern void DrawSelectionArea(
 	struct _DRAW_WINDOW* window
 );
 
-extern void AddSelectionAreaChangeHistory(
+EXTERN void AddSelectionAreaChangeHistory(
 	struct _DRAW_WINDOW* window,
 	const gchar* tool_name,
 	int32 min_x,
@@ -88,7 +88,7 @@ extern void AddSelectionAreaChangeHistory(
 	int32 max_y
 );
 
-extern void DetectSameColorArea(
+EXTERN void DetectSameColorArea(
 	LAYER* target,
 	uint8* buff,
 	uint8* temp_buff,
@@ -119,7 +119,7 @@ extern void DetectSameColorArea(
 * 返り値                                 *
 *	選択範囲有り:1 選択範囲無し:0        *
 *****************************************/
-extern int AddSelectionAreaByColor(
+EXTERN int AddSelectionAreaByColor(
 	LAYER* target,
 	uint8* buff,
 	uint8* color,

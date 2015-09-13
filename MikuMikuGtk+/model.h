@@ -13,6 +13,7 @@ typedef enum _eMODEL_TYPE
 	MODEL_TYPE_ASSET_MODEL,
 	MODEL_TYPE_PMD_MODEL,
 	MODEL_TYPE_PMX_MODEL,
+	MODEL_TYPE_SHAPE,
 	MAX_MODEL_TYPE
 } eMODEL_TYPE;
 
@@ -34,7 +35,7 @@ typedef struct _MODEL_INTERFACE
 	void* (*find_morph)(void*, const char*);
 	void (*get_index_buffer)(void*, void**);
 	void (*get_static_vertex_buffer)(void*, void**);
-	void (*get_dynanic_vertex_buffer)(void*, void**, void*);
+	void (*get_dynamic_vertex_buffer)(void*, void**, void*);
 	void (*get_matrix_buffer)(void*, void**, void*, void*);
 	void** (*get_bones)(void*, int*);
 	void** (*get_morphs)(void*, int*);

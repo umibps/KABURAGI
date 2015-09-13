@@ -13,6 +13,7 @@
 #include "memory.h"
 #include "types.h"
 #include "utils.h"
+#include "ght_hash_table.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -428,6 +429,72 @@ void Uint32ArrayResize(UINT32_ARRAY* uint32_array, size_t new_size)
 		uint32_array->num_data = alloc_size-1;
 	}
 	uint32_array->buffer_size = alloc_size;
+}
+
+FLOAT_ARRAY* FloatArrayNew(size_t block_size)
+{
+	FLOAT_ARRAY *ret;
+
+	if(block_size == 0)
+	{
+		return NULL;
+	}
+
+	ret = (FLOAT_ARRAY*)MEM_ALLOC_FUNC(sizeof(*ret));
+	(void)memset(ret, 0, sizeof(*ret));
+
+	ret->block_size = ret->buffer_size = block_size;
+	ret->buffer = (FLOAT_T*)MEM_ALLOC_FUNC(block_size * sizeof(FLOAT_T));
+
+	return ret;
+}
+
+void FloatArrayAppend(FLOAT_ARRAY* farray, FLOAT_T data)
+{
+	farray->buffer[farray->num_data] = data;
+	farray->num_data++;
+
+	if(farray->num_data >= farray->buffer_size)
+	{
+		size_t before_size = farray->buffer_size;
+		farray->buffer_size += farray->block_size;
+		farray->buffer = (FLOAT_T*)MEM_REALLOC_FUNC(
+			farray->buffer, farray->buffer_size * sizeof(FLOAT_T));
+		(void)memset(&farray->buffer[before_size], 0, farray->block_size * sizeof(FLOAT_T));
+	}
+}
+
+void FloatArrayDestroy(FLOAT_ARRAY** farray)
+{
+	MEM_FREE_FUNC((*farray)->buffer);
+	MEM_FREE_FUNC(*farray);
+	*farray = NULL;
+}
+
+void FloatArrayResize(FLOAT_ARRAY* float_array, size_t new_size)
+{
+	size_t alloc_size;
+
+	if(float_array->buffer_size == new_size)
+	{
+		return;
+	}
+	if(float_array->block_size > 1)
+	{
+		alloc_size = ((new_size + float_array->block_size - 1)
+			/ float_array->block_size) * float_array->block_size;
+	}
+	else
+	{
+		alloc_size = new_size;
+	}
+	float_array->buffer = (FLOAT_T*)MEM_REALLOC_FUNC(
+		float_array->buffer, sizeof(FLOAT_T) * alloc_size);
+	if(alloc_size < float_array->num_data)
+	{
+		float_array->num_data = alloc_size-1;
+	}
+	float_array->buffer_size = alloc_size;
 }
 
 POINTER_ARRAY* PointerArrayNew(size_t block_size)
@@ -904,6 +971,45 @@ void InvertMatrix(FLOAT_T **a, int n)
  }
 #endif
 
+/*****************************************
+* IsPointInTriangle関数                  *
+* 三角形内に座標があるか調べる           *
+* 引数                                   *
+* check		: 調べる座標                 *
+* triangle1	: 三角形の頂点その1          *
+* triangle2	: 三角形の頂点その2          *
+* triangle3	: 三角形の頂点その3          *
+* 返り値                                 *
+*	三角形内にある:TRUE	三角形の外:FALSE *
+*****************************************/
+int IsPointInTriangle(FLOAT_T check[2], FLOAT_T triangle1[2], FLOAT_T triangle2[2], FLOAT_T triangle3[2])
+{
+#define SUB_VECTOR(RESULT, X, Y) ((RESULT)[0] = (X)[0] - (Y)[0], (RESULT)[1] = (X)[1] - (Y)[1])
+	FLOAT_T ab[2], bp[2], bc[2], cp[2], ca[2], ap[2];
+	FLOAT_T sign1, sign2, sign3;
+
+	SUB_VECTOR(ab, triangle2, triangle1);
+	SUB_VECTOR(bp, check, triangle2);
+
+	SUB_VECTOR(bc, triangle3, triangle2);
+	SUB_VECTOR(cp, check, triangle3);
+
+	SUB_VECTOR(ca, triangle1, triangle3);
+	SUB_VECTOR(ap, check, triangle1);
+
+	sign1 = ab[0] * bp[1] - ab[1] * bp[0];
+	sign2 = bc[0] * cp[1] - bc[1] * cp[0];
+	sign3 = ca[0] * ap[1] - ca[1] * ap[0];
+
+	if((sign1 >= 0 && sign2 >= 0 && sign3 >= 0)
+		|| (sign1 <= 0 && sign2 <= 0 && sign3 <= 0))
+	{
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
 void AdjustmentChangeValueCallBackInt(GtkAdjustment* adjustment, int* store)
 {
 	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
@@ -1198,6 +1304,58 @@ void UpdateWidget(GtkWidget* widget)
 			}
 		}
 	}
+}
+
+/*****************************************
+* GetStringHash関数                      *
+* 文字列からハッシュ値を計算する         *
+* 引数                                   *
+* key	: ハッシュテーブル検索キーデータ *
+* 返り値                                 *
+*	ハッシュ値                           *
+*****************************************/
+ght_uint32_t GetStringHash(ght_hash_key_t* key)
+{
+	static const unsigned int initial_fnv = 2166136261u;
+	static const unsigned int fnv_multiple = 16777619u;
+
+	unsigned int hash = initial_fnv;
+	const char *str = (const char*)key->p_key;
+	unsigned int i;
+
+	for(i=0; i<key->i_size; i++)
+	{
+		hash = hash ^ (str[i]);
+		hash = hash * fnv_multiple;
+	}
+
+	return (ght_uint32_t)hash;
+}
+
+/***************************************************
+* GetStringHashIgnoreCase関数                      *
+* 文字列からハッシュ値を計算する(大文字小文字無視) *
+* 引数                                             *
+* key	: ハッシュテーブル検索キーデータ           *
+* 返り値                                           *
+*	ハッシュ値                                     *
+***************************************************/
+ght_uint32_t GetStringHashIgnoreCase(ght_hash_key_t* key)
+{
+	static const unsigned int initial_fnv = 2166136261u;
+	static const unsigned int fnv_multiple = 16777619u;
+
+	unsigned int hash = initial_fnv;
+	const char *str = (const char*)key->p_key;
+	unsigned int i;
+
+	for(i=0; i<key->i_size; i++)
+	{
+		hash = hash ^ (tolower(str[i]));
+		hash = hash * fnv_multiple;
+	}
+
+	return (ght_uint32_t)hash;
 }
 
 #ifdef __cplusplus

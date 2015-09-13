@@ -44,6 +44,8 @@ PROJECT* ProjectNew(
 
 	InitializeProjectWidgets(&ret->widgets, widget_width, widget_height, (void*)ret);
 
+	ret->aspect_ratio = 1.0f;
+
 	// レンダリングの初期化
 		// 配列の初期化
 	LoadIdentityMatrix4x4(ret->light_world_matrix);
@@ -93,6 +95,14 @@ void LoadProject(
 	(void)read_func(project->scene->light.vertex.position,
 		sizeof(*project->scene->light.vertex.position), 3, src);
 	project->scene->light.flags |= LIGHT_FLAG_COLOR_CHANGE | LIGHT_FLAG_DIRECTION_CHANGE;
+
+	// 背景色の情報を読み込む
+	(void)read_func(project->scene->clear_color,
+		sizeof(project->scene->clear_color), 1, src);
+
+	// グリッドの色の情報を読み込む
+	(void)read_func(project->grid.line_color,
+		sizeof(project->grid.line_color), 1, src);
 
 	// モデルの情報を読み込む
 	{
@@ -199,6 +209,14 @@ void SaveProject(
 	(void)write_func(project->scene->light.vertex.position,
 		sizeof(*project->scene->light.vertex.position), 3, dst);
 
+	// 背景色の情報を書き出す
+	(void)write_func(project->scene->clear_color,
+		sizeof(project->scene->clear_color), 1, dst);
+
+	// グリッドの色情報を書き出す
+	(void)write_func(project->grid.line_color,
+		sizeof(project->grid.line_color), 1, dst);
+
 	// モデルの情報を書き出す
 	data32 = (uint32)num_models;
 	(void)write_func(&data32, sizeof(data32), 1, dst);
@@ -225,7 +243,7 @@ void SaveProjectContextData(
 void GetContextMatrix(float *value, MODEL_INTERFACE* model, int flags, PROJECT* project)
 {
 	float matrix[16] = {
-		1,0,0,0,
+		project->aspect_ratio,0,0,0,
 		0,1,0,0,
 		0,0,1,0,
 		0,0,0,1
@@ -461,7 +479,7 @@ void RenderEngines(PROJECT* project, int width, int height)
 	size_t loop;
 	size_t i;
 
-	SetRequiredOpengGLState();
+	SetRequiredOpengGLState(project->scene);
 	SceneGetRenderEnginesByRenderOrder(scene);
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -527,6 +545,9 @@ void DisplayProject(PROJECT* project, int width, int height)
 	SCENE *scene = project->scene;
 	BONE_INTERFACE *bone = NULL;
 	MODEL_INTERFACE *model;
+
+	project->aspect_ratio = DEFAULT_ASPECT_RATIO
+		/ ((float)project->scene->width / (float)project->scene->height);
 
 	if((scene->flags & SCENE_FLAG_MODEL_CONTROLLED) != 0)
 	{
@@ -933,6 +954,31 @@ void ProjectSetOriginalSize(void* project_context, int width, int height)
 {
 	((PROJECT*)project_context)->original_width = width;
 	((PROJECT*)project_context)->original_height = height;
+}
+
+void ResizeProject(PROJECT* project, int available_width, int available_height)
+{
+	int new_width, new_height;
+
+	if(project->original_width == 0
+		|| project->original_height == 0)
+	{
+		new_width = available_width;
+		new_height = available_height;
+	}
+	else
+	{
+		new_width = available_width;
+		new_height = new_width * project->original_height / project->original_width;
+		if(new_height > available_height)
+		{
+			new_height = available_height;
+			new_width = new_height * project->original_width / project->original_height;
+		}
+	}
+
+	project->scene->width = new_width;
+	project->scene->height = new_height;
 }
 
 #ifdef __cplusplus

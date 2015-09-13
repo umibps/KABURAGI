@@ -6,16 +6,16 @@
 #define MAJOR_VERSION 1
 
 #if MAJOR_VERSION == 1
-# define MINOR_VERSION 3
-# define RELEASE_VERSION 3
-# define BUILD_VERSION 1
+# define MINOR_VERSION 4
+# define RELEASE_VERSION 1
+# define BUILD_VERSION 2
 #elif MAJOR_VERSION == 2
 # define MINOR_VERSION 0
 # define RELEASE_VERSION 1
 # define BUILD_VERSION 1
 #endif
 
-#define FILE_VERSION 5
+#define FILE_VERSION 6
 
 #include "draw_window.h"
 // 描画領域の最大数
@@ -47,6 +47,7 @@
 #include "preference.h"
 #include "display_filter.h"
 #include "fractal_label.h"
+#include "ght_hash_table.h"
 
 #include "MikuMikuGtk+/mikumikugtk.h"
 #include "MikuMikuGtk+/ui_label.h"
@@ -68,7 +69,9 @@ typedef enum _eUTILITY_PLACE
 {
 	UTILITY_PLACE_WINDOW,
 	UTILITY_PLACE_LEFT,
-	UTILITY_PLACE_RIGHT
+	UTILITY_PLACE_RIGHT,
+	UTILITY_PLACE_POPUP_LEFT,
+	UTILITY_PLACE_POPUP_RIGHT
 } eUTILITY_PLACE;
 
 typedef enum _eTOOL_WINDOW_FLAGS
@@ -77,7 +80,8 @@ typedef enum _eTOOL_WINDOW_FLAGS
 	TOOL_DOCKED = 0x02,
 	TOOL_PLACE_RIGHT = 0x04,
 	TOOL_SHOW_COLOR_CIRCLE = 0x08,
-	TOOL_SHOW_COLOR_PALLETE = 0x10
+	TOOL_SHOW_COLOR_PALLETE = 0x10,
+	TOOL_POP_UP = 0x20
 } eTOOL_WINDOW_FLAGS;
 
 /*************************************************
@@ -238,18 +242,26 @@ typedef struct _APPLICATION_MENUS
 	GtkWidget *display_filter_menus[NUM_DISPLAY_FUNC_TYPE];
 } APPLICATION_MENUS;
 
+/**********************
+* MAKE_NEW_DATA構造体 *
+* 新規作成時のデータ  *
+**********************/
+typedef struct _MAKE_NEW_DATA
+{
+	char *name;
+	int32 width, height;
+	int16 resolution;
+} MAKE_NEW_DATA;
+
 /***********************
 * MENU_DATA構造体      *
 * メニューで扱うデータ *
 ***********************/
 typedef struct _MENU_DATA
 {
-	struct
-	{
-		int32 width, height;
-		int16 resolution;
-		uint8 second_bg_color[3];
-	} make_new;
+	MAKE_NEW_DATA *make_new;
+	uint8 second_bg_color[3];
+	int16 num_make_new_data;
 
 	GtkWidget *reverse_horizontally;
 	GtkWidget *edit_selection;
@@ -359,6 +371,8 @@ typedef struct _APPLICATION
 	char *current_path;
 	// 言語ファイルのパス
 	char *language_file_path;
+	// 新規作成データファイルのパス
+	char *make_new_file_path;
 	// ブラシファイルのパス
 	char *brush_file_path;
 	// ベクトルブラシファイルのパス
@@ -437,6 +451,12 @@ typedef struct _APPLICATION
 	// ブラシプレビュー用のキャンバス
 	DRAW_WINDOW *brush_preview_canvas;
 
+	// スクリプト・プラグイン用の文字列ハッシュテーブル
+	ght_hash_table_t *label_table;
+
+	// 3Dモデリング用データ
+	void *modeling;
+
 #ifndef _WIN32
 	// Ubuntuではツールの切り替えが効かなくなるので
 		// デバイスの設定を記憶する必要がある?
@@ -444,9 +464,6 @@ typedef struct _APPLICATION
 	GdkInputSource *input_sources;
 	gboolean *set_input_modes;
 #endif
-
-	// 3Dモデリング用データ
-	void *modeling;
 } APPLICATION;
 
 // 関数のプロトタイプ宣言
@@ -1151,6 +1168,17 @@ extern void SetSelectionFilterFunctions(selection_filter_func* functions);
 **********************************************************/
 EXTERN void* MemoryAllocate(size_t size);
 
+/******************************************************************
+* MemoryReallocate関数                                            *
+* KABURAGI / MIKADOで使用するメモリアロケータでバッファサイズ変更 *
+* 引数                                                            *
+* address	: サイズ変更するバッファ                              *
+* size		: 新しいバッファサイズ                                *
+* 返り値                                                          *
+*	サイズ変更後のバッファのアドレス                              *
+******************************************************************/
+EXTERN void* MemoryReallocate(void* address, size_t size);
+
 /**************************************************************
 * MemoryFree関数                                              *
 * KABURAGI / MIKADOで確保されたメモリを開放する(プラグイン用) *
@@ -1158,6 +1186,17 @@ EXTERN void* MemoryAllocate(size_t size);
 * memory	: 開放するメモリのポインタ                        *
 **************************************************************/
 EXTERN void MemoryFree(void* memory);
+
+/*******************************************************************
+* GetLabelString関数                                               *
+* 日本語環境なら日本語の英語環境なら英語のラベル用文字列を取得する *
+* 引数                                                             *
+* app	: アプリケーションを管理するデータ                         *
+* key	: 基本的に英語環境時のラベル文字列                         *
+* 返り値                                                           *
+*	ラベル用文字列(free厳禁)                                       *
+*******************************************************************/
+EXTERN char* GetLabelString(APPLICATION* app, const char* key);
 
 /*********************************************************
 * SetHas3DLayer関数                                      *

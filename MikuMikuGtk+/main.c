@@ -76,11 +76,17 @@ int Timer(GtkWidget* widget)
 	return TRUE;
 }
 
+static void ModelControlSizeAllocate(GtkWidget* widget, GdkRectangle* allocation, APPLICATION* application)
+{
+	ResizeModelControlWidget(application, allocation->width, allocation->height);
+}
+
 int main(int argc, char** argv)
 {
 	APPLICATION *mikumiku;
 	GtkWidget *window;
 	GtkWidget *main_box;
+	GtkWidget *model_control;
 	GtkWidget *box;
 	void *tbb;
 #if defined(_DEBUG) && defined(CHECK_MEMORY_POOL) && CHECK_MEMORY_POOL != 0
@@ -127,7 +133,10 @@ int main(int argc, char** argv)
 	gtk_box_pack_start(GTK_BOX(main_box), MakeMenuBar(mikumiku, NULL), FALSE, FALSE, 0);
 	box = gtk_hbox_new(FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(main_box), box, TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(box), (GtkWidget*)ModelControlWidgetNew(mikumiku), FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(box),
+		(model_control = (GtkWidget*)ModelControlWidgetNew(mikumiku)), FALSE, FALSE, 0);
+	(void)g_signal_connect(G_OBJECT(model_control), "size-allocate",
+		G_CALLBACK(ModelControlSizeAllocate), mikumiku);
 	gtk_box_pack_start(GTK_BOX(box), mikumiku->projects[mikumiku->active_project]->widgets.drawing_area,
 		TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(box), (GtkWidget*)CameraLightControlWidgetNew(mikumiku), FALSE, FALSE, 0);

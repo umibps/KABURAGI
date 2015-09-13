@@ -20,7 +20,7 @@ typedef enum _eVECTOR_LAYER_FLAGS
 typedef struct _VECTOR_LAYER
 {
 	uint32 num_lines;
-	VECTOR_LINE* base, *active_line, *top_line;
+	VECTOR_DATA *base, *active_data, *top_data;
 	VECTOR_POINT* active_point;
 	struct _VECTOR_LINE_LAYER* mix;
 	uint32 flags;

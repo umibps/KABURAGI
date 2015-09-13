@@ -1379,7 +1379,7 @@ char* XmlDocumentIdentify(XML_DOCUMENT* document, char* p, XML_NODE** node)
 	else
 	{
 		return_node = (XML_NODE*)XmlMemoryPoolAllocation(&document->text_pool);
-		InitializeXmlText(return_node, document);
+		InitializeXmlText((XML_TEXT*)return_node, document);
 		return_node->memory_pool = &document->text_pool;
 		p = (char*)start;	// Back it up, all the text counts.
 	}

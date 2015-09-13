@@ -63,6 +63,8 @@ extern void ResizeCallback(
 	int height
 );
 
+extern void ResizeModelControlWidget(void* application_context, int new_width, int new_height);
+
 extern void RenderForPixelData(
 	void* project_context,
 	int width,

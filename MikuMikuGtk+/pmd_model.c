@@ -315,7 +315,7 @@ void InitializePmd2Model(PMD2_MODEL* model, SCENE* scene, const char* model_path
 		(void (*)(void*, void**))Pmd2ModelGetDefaultIndexBuffer;
 	model->interface_data.get_static_vertex_buffer =
 		(void (*)(void*, void**))Pmd2ModelGetDefaultStaticVertexBuffer;
-	model->interface_data.get_dynanic_vertex_buffer =
+	model->interface_data.get_dynamic_vertex_buffer =
 		(void (*)(void*, void**, void*))Pmd2ModelGetDefaultDynamicVertexBuffer;
 	model->interface_data.get_bones =
 		(void** (*)(void*, int*))Pmd2ModelGetBones;

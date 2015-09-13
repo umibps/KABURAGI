@@ -96,11 +96,11 @@ LAYER* CreateLayer(
 
 		// 一番下に空のレイヤーを作成する
 		ret->layer_data.vector_layer_p->base =
-			CreateVectorLine(NULL, NULL);
-		(void)memset(ret->layer_data.vector_layer_p->base, 0, sizeof(*ret->layer_data.vector_layer_p->base));
-		ret->layer_data.vector_layer_p->base->layer =
+			(VECTOR_DATA*)CreateVectorLine(NULL, NULL);
+		(void)memset(ret->layer_data.vector_layer_p->base, 0, sizeof(VECTOR_LINE));
+		ret->layer_data.vector_layer_p->base->line.base_data.layer =
 			CreateVectorLineLayer(ret, NULL, &rect);
-		ret->layer_data.vector_layer_p->top_line = ret->layer_data.vector_layer_p->base;
+		ret->layer_data.vector_layer_p->top_data = ret->layer_data.vector_layer_p->base;
 	}
 	else if(layer_type == TYPE_LAYER_SET)
 	{
@@ -618,31 +618,49 @@ void AddDeleteLayerHistory(
 	}
 	else if(target->layer_type == TYPE_VECTOR_LAYER)
 	{	// ベクトル情報を書き込む
-		VECTOR_LINE* line = target->layer_data.vector_layer_p->base->next;
+		VECTOR_LINE* line = target->layer_data.vector_layer_p->base->line.base_data.next;
 		size_t stream_size = 0;
 		VECTOR_LINE_BASE_DATA base;
 
 		while(line != NULL)
 		{
-			stream_size += sizeof(VECTOR_LINE_BASE_DATA) + sizeof(VECTOR_POINT)*line->num_points;
-			line = line->next;
+			if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+			{
+				stream_size += sizeof(VECTOR_LINE_BASE_DATA) + sizeof(VECTOR_POINT)*line->num_points;
+			}
+			else if(line->base_data.vector_type == VECTOR_TYPE_SQUARE)
+			{
+				stream_size += sizeof(VECTOR_SQUARE);
+			}
+			else if(line->base_data.vector_type == VECTOR_TYPE_ECLIPSE)
+			{
+				stream_size += sizeof(VECTOR_ECLIPSE);
+			}
+			line = line->base_data.next;
 		}
 
 		if(stream_size != 0)
 		{
 			stream = CreateMemoryStream(stream_size);
-			line = target->layer_data.vector_layer_p->base->next;
+			line = ((VECTOR_LINE*)target->layer_data.vector_layer_p->base)->base_data.next;
 			while(line != NULL)
 			{
-				base.vector_type = line->vector_type;
-				base.num_points = line->num_points;
-				base.blur = line->blur;
-				base.outline_hardness = line->outline_hardness;
+				if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+				{
+					base.vector_type = line->base_data.vector_type;
+					base.num_points = line->num_points;
+					base.blur = line->blur;
+					base.outline_hardness = line->outline_hardness;
 
-				(void)MemWrite(&base, sizeof(base), 1, stream);
-				(void)MemWrite(line->points, sizeof(*line->points), line->num_points, stream);
+					(void)MemWrite(&base, sizeof(base), 1, stream);
+					(void)MemWrite(line->points, sizeof(*line->points), line->num_points, stream);
+				}
+				else
+				{
+					WriteVectorShapeData((VECTOR_DATA*)line, stream);
+				}
 
-				line = line->next;
+				line = line->base_data.next;
 			}
 		
 			// 履歴データに追加する
@@ -757,9 +775,9 @@ void ResizeLayer(
 	case TYPE_VECTOR_LAYER:	// ベクトルレイヤー
 		{
 			// 座標を修正するベクトルデータ
-			VECTOR_LINE *line = target->layer_data.vector_layer_p->base->next;
+			VECTOR_LINE *line = ((VECTOR_LINE*)target->layer_data.vector_layer_p->base)->base_data.next;
 			// 一番下のラインはメモリ再確保
-			VECTOR_LINE_LAYER *line_layer = target->layer_data.vector_layer_p->base->layer;
+			VECTOR_LINE_LAYER *line_layer = ((VECTOR_LINE*)target->layer_data.vector_layer_p->base)->base_data.layer;
 			int i;	// for文用のカウンタ
 
 			// 先にレイヤーのピクセルデータとCAIRO情報を更新
@@ -773,14 +791,35 @@ void ResizeLayer(
 			// 全てのラインの座標を修正
 			while(line != NULL)
 			{
-				for(i=0; i<line->num_points; i++)
+				if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					line->points[i].x *= zoom_x;
-					line->points[i].y *= zoom_y;
+					for(i=0; i<line->num_points; i++)
+					{
+						line->points[i].x *= zoom_x;
+						line->points[i].y *= zoom_y;
+						line->points[i].size *= (zoom_x + zoom_y) * 0.5;
+					}
+				}
+				else if(line->base_data.vector_type == VECTOR_TYPE_SQUARE)
+				{
+					VECTOR_SQUARE *square = (VECTOR_SQUARE*)line;
+					square->left *= zoom_x;
+					square->top *= zoom_y;;
+					square->width *= zoom_x;
+					square->height *= zoom_y;
+					square->line_width *= (zoom_x + zoom_y) * 0.5;
+				}
+				else if(line->base_data.vector_type == VECTOR_TYPE_ECLIPSE)
+				{
+					VECTOR_ECLIPSE *eclipse = (VECTOR_ECLIPSE*)line;
+					eclipse->x *= zoom_x;
+					eclipse->y *= zoom_y;
+					eclipse->radius *= (zoom_x + zoom_y) * 0.5;
+					eclipse->line_width *= (zoom_x + zoom_y) * 0.5;
 				}
 
 				// 次のラインへ
-				line = line->next;
+				line = line->base_data.next;
 			}
 
 			// 一番下のレイヤーのラインレイヤーを作成し直す
@@ -810,9 +849,13 @@ void ResizeLayer(
 				line_layer->pixels, format, new_width, new_height, new_width*target->channel);
 			line_layer->cairo_p = cairo_create(line_layer->surface_p);
 
+			target->width = new_width;
+			target->height = new_height;
+			target->stride = new_width * target->channel;
+
 			// ラインを全てラスタライズ
 			ChangeActiveLayer(target->window, target);
-			target->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_ALL;
+			target->layer_data.vector_layer_p->flags = VECTOR_LAYER_RASTERIZE_ALL | VECTOR_LAYER_FIX_LINE;
 			RasterizeVectorLayer(target->window, target, target->layer_data.vector_layer_p);
 		}
 		break;
@@ -921,9 +964,9 @@ void ChangeLayerSize(
 	case TYPE_VECTOR_LAYER:	// ベクトルレイヤー
 		{
 			// 座標を修正するベクトルデータ
-			VECTOR_LINE *line = target->layer_data.vector_layer_p->base->next;
+			VECTOR_LINE *line = ((VECTOR_LINE*)target->layer_data.vector_layer_p->base)->base_data.next;
 			// 一番下のラインはメモリ再確保
-			VECTOR_LINE_LAYER *line_layer = target->layer_data.vector_layer_p->base->layer;
+			VECTOR_LINE_LAYER *line_layer = ((VECTOR_LINE*)target->layer_data.vector_layer_p->base)->base_data.layer;
 
 			// 先にレイヤーのピクセルデータとCAIRO情報を更新
 			(void)MEM_FREE_FUNC(target->pixels);
@@ -1889,11 +1932,13 @@ void LayerMergeDown(LAYER* target)
 		if(target->prev->layer_type == TYPE_VECTOR_LAYER)
 		{
 			prev->layer_data.vector_layer_p->num_lines += target->layer_data.vector_layer_p->num_lines;
-			if(target->layer_data.vector_layer_p->base->next != NULL)
+			if(((VECTOR_LINE*)target->layer_data.vector_layer_p->base)->base_data.next != NULL)
 			{
-				prev->layer_data.vector_layer_p->top_line->next = target->layer_data.vector_layer_p->base->next;
-				target->layer_data.vector_layer_p->base->next->prev = prev->layer_data.vector_layer_p->top_line;
-				prev->layer_data.vector_layer_p->top_line = target->layer_data.vector_layer_p->top_line;
+				prev->layer_data.vector_layer_p->top_data->line.base_data.next
+					= ((VECTOR_LINE*)target->layer_data.vector_layer_p->base)->base_data.next;
+				((VECTOR_LINE*)((VECTOR_LINE*)target->layer_data.vector_layer_p->base)->base_data.next)->base_data.prev
+					= prev->layer_data.vector_layer_p->top_data;
+				prev->layer_data.vector_layer_p->top_data = target->layer_data.vector_layer_p->top_data;
 			}
 
 			MEM_FREE_FUNC(target->layer_data.vector_layer_p);
@@ -2424,7 +2469,7 @@ LAYER* CreateLayerCopy(LAYER* src)
 	// レイヤー作成
 	ret = CreateLayer(
 		src->x, src->y, src->width, src->height, src->channel, src->layer_type,
-		src, src->next, layer_name, src->window);
+			src, src->next, layer_name, src->window);
 	// レイヤーのフラグをコピー
 	ret->flags = src->flags;
 
@@ -2433,40 +2478,58 @@ LAYER* CreateLayerCopy(LAYER* src)
 
 	if(src->layer_type == TYPE_VECTOR_LAYER)
 	{	// ベクトルレイヤーならベクトルデータをコピー
-		VECTOR_LINE* line = ret->layer_data.vector_layer_p->base,
-			*src_line = src->layer_data.vector_layer_p->base->next;
+		VECTOR_LINE *line = (VECTOR_LINE*)ret->layer_data.vector_layer_p->base,
+			*src_line = (VECTOR_LINE*)((VECTOR_LINE*)src->layer_data.vector_layer_p->base)->base_data.next;
 		while(src_line != NULL)
 		{
-			line = CreateVectorLine(line, NULL);
-			line->vector_type = src_line->vector_type;
-			line->num_points = src_line->num_points;
-			line->buff_size = src_line->buff_size;
-			line->blur = src_line->blur;
-			line->outline_hardness = src_line->outline_hardness;
+			if(src_line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+			{
+				line = CreateVectorLine(line, NULL);
+				line->base_data.vector_type = src_line->base_data.vector_type;
+				line->num_points = src_line->num_points;
+				line->buff_size = src_line->buff_size;
+				line->blur = src_line->blur;
+				line->outline_hardness = src_line->outline_hardness;
+			}
+			else if(src_line->base_data.vector_type == VECTOR_TYPE_SQUARE)
+			{
+				VECTOR_SQUARE *square = (VECTOR_SQUARE*)CreateVectorShape(&line->base_data, NULL, VECTOR_TYPE_SQUARE);
+				*square = *((VECTOR_SQUARE*)src_line);
+				line = (VECTOR_LINE*)square;
+			}
+			else if(src_line->base_data.vector_type == VECTOR_TYPE_ECLIPSE)
+			{
+				VECTOR_ECLIPSE *square = (VECTOR_ECLIPSE*)CreateVectorShape(&line->base_data, NULL, VECTOR_TYPE_ECLIPSE);
+				*square = *((VECTOR_ECLIPSE*)src_line);
+				line = (VECTOR_LINE*)square;
+			}
 
-			line->layer = (VECTOR_LINE_LAYER*)MEM_ALLOC_FUNC(sizeof(*line->layer));
-			line->layer->x = src_line->layer->x;
-			line->layer->y = src_line->layer->y;
-			line->layer->width = src_line->layer->width;
-			line->layer->height = src_line->layer->height;
-			line->layer->stride = src_line->layer->stride;
-			line->layer->pixels = (uint8*)MEM_ALLOC_FUNC(line->layer->stride*line->layer->height);
-			(void)memcpy(line->layer->pixels, src_line->layer->pixels,
-				line->layer->stride*line->layer->height);
-			line->layer->surface_p = cairo_image_surface_create_for_data(
-				line->layer->pixels, CAIRO_FORMAT_ARGB32, line->layer->width,
-				line->layer->height, line->layer->stride
+			line->base_data.layer = (VECTOR_LINE_LAYER*)MEM_ALLOC_FUNC(sizeof(*line->base_data.layer));
+			line->base_data.layer->x = src_line->base_data.layer->x;
+			line->base_data.layer->y = src_line->base_data.layer->y;
+			line->base_data.layer->width = src_line->base_data.layer->width;
+			line->base_data.layer->height = src_line->base_data.layer->height;
+			line->base_data.layer->stride = src_line->base_data.layer->stride;
+			line->base_data.layer->pixels = (uint8*)MEM_ALLOC_FUNC(line->base_data.layer->stride*line->base_data.layer->height);
+			(void)memcpy(line->base_data.layer->pixels, src_line->base_data.layer->pixels,
+				line->base_data.layer->stride*line->base_data.layer->height);
+			line->base_data.layer->surface_p = cairo_image_surface_create_for_data(
+				line->base_data.layer->pixels, CAIRO_FORMAT_ARGB32, line->base_data.layer->width,
+				line->base_data.layer->height, line->base_data.layer->stride
 			);
-			line->layer->cairo_p = cairo_create(line->layer->surface_p);
+			line->base_data.layer->cairo_p = cairo_create(line->base_data.layer->surface_p);
 
-			line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(*line->points)*src_line->buff_size);
-			(void)memcpy(line->points, src_line->points, sizeof(*line->points)*src_line->num_points);
+			if(src_line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
+			{
+				line->points = (VECTOR_POINT*)MEM_ALLOC_FUNC(sizeof(*line->points)*src_line->buff_size);
+				(void)memcpy(line->points, src_line->points, sizeof(*line->points)*src_line->num_points);
+			}
 
-			src_line = src_line->next;
+			src_line = (VECTOR_LINE*)src_line->base_data.next;
 		}
 
 		ret->layer_data.vector_layer_p->num_lines = src->layer_data.vector_layer_p->num_lines;
-		ret->layer_data.vector_layer_p->top_line = line;
+		ret->layer_data.vector_layer_p->top_data = (void*)line;
 		(void)memcpy(ret->layer_data.vector_layer_p->mix->pixels,
 			src->layer_data.vector_layer_p->mix->pixels, src->stride*src->height);
 	}

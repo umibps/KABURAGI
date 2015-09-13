@@ -1,4 +1,5 @@
 #include <gtk/gtk.h>
+#include <gdk/gdk.h>
 #include "spin_scale.h"
 #include "application.h"
 

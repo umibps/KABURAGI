@@ -7,4 +7,6 @@
 
 #define WHITE_TEXTURE_SIZE 128
 
+#define DEFAULT_ASPECT_RATIO (16.0f/9.0f)
+
 #endif	// #ifndef _INCLUDED_CONFIGURE_H_

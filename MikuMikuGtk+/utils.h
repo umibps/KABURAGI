@@ -54,6 +54,11 @@
 	(DEST)[1] = (SRC)[1], \
 	(DEST)[2] = (SRC)[2]
 
+#define REVERSE_VECTOR3(TARGET) \
+	(TARGET)[0] = - (TARGET)[0], \
+	(TARGET)[1] = - (TARGET)[1], \
+	(TARGET)[2] = - (TARGET)[2]
+
 #define COPY_VECTOR4(DEST, SRC) \
 	(DEST)[0] = (SRC)[0], \
 	(DEST)[1] = (SRC)[1], \
@@ -317,15 +322,22 @@ extern int CheckHasExtension(const char* name);
 
 extern int CheckHasAnyExtension(const char** names);
 
-extern float Dot3DVector(const float* vector1, const float* vector2);
+extern INLINE float Dot3DVector(const float* vector1, const float* vector2);
 
-extern float Length3DVector(const float* vector);
+extern INLINE float Length3DVector(const float* vector);
 
-extern void Normalize3DVector(float* vector);
+extern INLINE void Normalize3DVector(float* vector);
+
+extern void CalculateNormalVector(
+	VECTOR3 point1,
+	VECTOR3 point2,
+	VECTOR3 point3,
+	VECTOR3 normal
+);
 
 extern void SafeNormalize3DVector(float* vector);
 
-extern void Cross3DVector(float* result, const float* vector1, const float* vector2);
+extern INLINE void Cross3DVector(float* result, const float* vector1, const float* vector2);
 
 INLINE float QuaternionDot(const float* q1, const float* q2);
 

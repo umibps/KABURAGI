@@ -926,6 +926,7 @@ void ControlHandleBeginDraw(CONTROL_HANDLE* handle)
 {
 	float matrix[16];
 	float world[16], view[16], projection[16];
+	float scale[3] = {handle->project_context->aspect_ratio, 1, 1};
 	void *transform = ControlHandleGetModelHandleTransform(handle);
 	PROJECT *project = handle->project_context;
 
@@ -938,6 +939,9 @@ void ControlHandleBeginDraw(CONTROL_HANDLE* handle)
 	MulMatrix4x4(matrix, world, matrix);
 	MulMatrix4x4(matrix, view, matrix);
 	MulMatrix4x4(matrix, projection, matrix);
+
+	ScaleMatrix4x4(matrix, scale);
+
 	ShaderProgramBind(&handle->program.base_data);
 	HandleProgramSetMatrix(&handle->program, matrix);
 }

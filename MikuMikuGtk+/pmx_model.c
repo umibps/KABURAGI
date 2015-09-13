@@ -256,7 +256,7 @@ void InitializePmxModel(
 		(void (*)(void*, void**))PmxModelGetIndexBuffer;
 	model->interface_data.get_static_vertex_buffer =
 		(void (*)(void*, void**))PmxModelGetStaticVertexBuffer;
-	model->interface_data.get_dynanic_vertex_buffer =
+	model->interface_data.get_dynamic_vertex_buffer =
 		(void (*)(void*, void**, void*))PmxModelGetDynamicVertexBuffer;
 	model->interface_data.get_matrix_buffer =
 		(void (*)(void*, void**, void*, void*))PmxModelGetMatrixBuffer;

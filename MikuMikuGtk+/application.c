@@ -228,6 +228,30 @@ char* LoadSubstituteShaderSource(
 	{
 #include "gui_texture_fsh.txt"
 	};
+	static const uint8 shape_model_vsh[] =
+	{
+#include "shape_model_vsh.txt"
+	};
+	static const uint8 shape_model_fsh[] =
+	{
+#include "shape_model_fsh.txt"
+	};
+	static const uint8 shape_edge_vsh[] =
+	{
+#include "shape_edge_vsh.txt"
+	};
+	static const uint8 shape_edge_fsh[] =
+	{
+#include "shape_edge_fsh.txt"
+	};
+	static const uint8 shape_shadow_vsh[] =
+	{
+#include "shape_shadow_vsh.txt"
+	};
+	static const uint8 shape_shadow_fsh[] =
+	{
+#include "shape_shadow_fsh.txt"
+	};
 
 	z_stream stream = {0};
 	const uint8 *source_data;
@@ -344,6 +368,36 @@ char* LoadSubstituteShaderSource(
 		source_data = gui_texture_fsh;
 		length = sizeof(gui_texture_fsh) - sizeof(int32);
 	}
+	else if(strstr(file_path, "shape/model.vsh") != NULL)
+	{
+		source_data = shape_model_vsh;
+		length = sizeof(shape_model_vsh) - sizeof(int32);
+	}
+	else if(strstr(file_path, "shape/model.fsh") != NULL)
+	{
+		source_data = shape_model_fsh;
+		length = sizeof(shape_model_fsh) - sizeof(int32);
+	}
+	else if(strstr(file_path, "shape/edge.vsh") != NULL)
+	{
+		source_data = shape_edge_vsh;
+		length = sizeof(shape_edge_vsh) - sizeof(int32);
+	}
+	else if(strstr(file_path, "shape/edge.fsh") != NULL)
+	{
+		source_data = shape_edge_fsh;
+		length = sizeof(shape_edge_fsh) - sizeof(int32);
+	}
+	else if(strstr(file_path, "shape/shadow.vsh") != NULL)
+	{
+		source_data = shape_shadow_vsh;
+		length = sizeof(shape_shadow_vsh) - sizeof(int32);
+	}
+	else if(strstr(file_path, "shape/shadow.fsh") != NULL)
+	{
+		source_data = shape_shadow_fsh;
+		length = sizeof(shape_shadow_fsh) - sizeof(int32);
+	}
 	else
 	{
 		return NULL;
@@ -436,6 +490,8 @@ char* LoadShaderSource(
 	case MODEL_TYPE_PMX_MODEL:
 		(void)strcat(file_path, "/pmx");
 		break;
+	case MODEL_TYPE_SHAPE:
+		(void)strcat(file_path, "/shape");
 	}
 
 	switch(shader_type)
@@ -479,6 +535,18 @@ char* LoadShaderSource(
 	case SHADER_TYPE_TRANSFORM_FEEDBACK_VERTEX:
 		(void)strcat(file_path, "transform.vsh");
 		break;
+	case SHADER_TYPE_SHAPE_MODEL_VERTEX:
+		(void)strcat(file_path, "/shape/model.vsh");
+		break;
+	case SHADER_TYPE_SHAPE_MODEL_FRAGMENT:
+		(void)strcat(file_path, "/shape/model.fsh");
+		break;
+	case SHADER_TYPE_SHAPE_EDGE_VERTEX:
+		(void)strcat(file_path, "/shape/edge.vsh");
+		break;
+	case SHADER_TYPE_SHAPE_EDGE_FRAGMENT:
+		(void)strcat(file_path, "/shape/edge.fsh");
+		break;
 	default:
 		return NULL;
 	}
@@ -490,10 +558,12 @@ char* LoadShaderSource(
 		data_size = ftell(fp);
 		rewind(fp);
 
-		ret = (char*)MEM_ALLOC_FUNC(data_size);
+		ret = (char*)MEM_ALLOC_FUNC(data_size+1);
 		(void)fread(ret, 1, data_size, fp);
 
 		(void)fclose(fp);
+
+		ret[data_size] = '\0';
 	}
 	else
 	{

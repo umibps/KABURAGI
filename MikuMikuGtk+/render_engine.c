@@ -10,6 +10,7 @@
 #include "scene.h"
 #include "memory.h"
 #include "render_engine.h"
+#include "shape_model.h"
 #include "project.h"
 #include "application.h"
 #include "image_read_write.h"
@@ -66,7 +67,7 @@ PMX_RENDER_ENGINE* PmxRenderEngineNew(
 
 	model->get_index_buffer((void*)model, (void**)&ret->index_buffer);
 	model->get_static_vertex_buffer((void*)model, (void**)&ret->static_buffer);
-	model->get_dynanic_vertex_buffer((void*)model, (void**)&ret->dynamic_buffer, ret->index_buffer);
+	model->get_dynamic_vertex_buffer((void*)model, (void**)&ret->dynamic_buffer, ret->index_buffer);
 	if(is_vertex_skinning != FALSE)
 	{
 		model->get_matrix_buffer((void*)model, (void**)&ret->matrix_buffer, ret->dynamic_buffer, ret->index_buffer);
@@ -403,7 +404,44 @@ int PmxRenderEngineUploadMaterials(PMX_RENDER_ENGINE* engine, void* user_data)
 			}
 			else
 			{
-				return FALSE;
+				char sp_path[8192] = {0};
+				char *extention = sp_path;
+				char *p = extention;
+
+				(void)strcpy(sp_path, file_path);
+				while(*p != '\0')
+				{
+					if(*p == '.')
+					{
+						extention = p;
+					}
+					p++;
+				}
+				extention[1] = 's';
+				extention[2] = 'p';
+				extention[3] = 'a';
+				extention[4] = '\0';
+
+				if(UploadTexture(sp_path, &bridge, engine->project_context) != FALSE)
+				{
+					t = bridge.texture;
+					texture->sphere_texture = t;
+					(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
+				}
+				else
+				{
+					extention[3] = 'h';
+					if(UploadTexture(sp_path, &bridge, engine->project_context) != FALSE)
+					{
+						t = bridge.texture;
+						texture->sphere_texture = t;
+						(void)ght_insert(engine->allocated_textures, t, sizeof(t), &t);
+					}
+					else
+					{
+						return FALSE;
+					}
+				}
 			}
 		}
 		bridge.flags |= TEXTURE_FLAG_TOON_TEXTURE;
@@ -884,12 +922,12 @@ void PmxRenderEngineRenderModel(PMX_RENDER_ENGINE* engine)
 			}
 			if(has_model_transparent == FALSE && cull_face_state != FALSE && (material->flags & MATERIAL_FLAG_DISABLE_CULLING) != 0)
 			{
-				//glDisable(GL_CULL_FACE);
+				glDisable(GL_CULL_FACE);
 				cull_face_state = FALSE;
 			}
 			else if(cull_face_state == FALSE && (material->flags & MATERIAL_FLAG_DISABLE_CULLING) == 0)
 			{
-				//glEnable(GL_CULL_FACE);
+				glEnable(GL_CULL_FACE);
 				cull_face_state = TRUE;
 			}
 
@@ -2029,6 +2067,383 @@ void AssetRenderEngineRenderModel(ASSET_RENDER_ENGINE* engine)
 EFFECT_INTERFACE* AssetRenderEngineGetEffect(ASSET_RENDER_ENGINE* engine, eEFFECT_SCRIPT_ORDER_TYPE type)
 {
 	return NULL;
+}
+
+void ShapeRenderEngineUnbindVertexBundle(SHAPE_RENDER_ENGINE* engine)
+{
+	if(VertexBundleLayoutUnbind(engine->layout) == FALSE)
+	{
+		VertexBundleUnbind(VERTEX_BUNDLE_VERTEX_BUFFER);
+		VertexBundleUnbind(VERTEX_BUNDLE_INDEX_BUFFER);
+	}
+}
+
+void ShapeRenderEngineBindDynamicVertexAtrritbutePointers(SHAPE_RENDER_ENGINE* engine)
+{
+	size_t offset;
+	size_t size;
+	offset = engine->dynamic_buffer->base.get_stride_offset(engine->dynamic_buffer, MODEL_VERTEX_STRIDE);
+	size = engine->dynamic_buffer->base.get_stride_size(engine->dynamic_buffer);
+	glVertexAttribPointer(MODEL_VERTEX_STRIDE, 3,
+		GL_FLOAT, GL_FALSE, (GLsizei)size, (void*)offset);
+	offset = engine->dynamic_buffer->base.get_stride_offset(engine->dynamic_buffer, MODEL_NORMAL_STRIDE);
+	glVertexAttribPointer(MODEL_NORMAL_STRIDE, 3, GL_FLOAT, GL_FALSE, (GLsizei)size, (void*)offset);
+	//offset = engine->dynamic_buffer->base.get_stride_offset(engine->dynamic_buffer, MODEL_UVA1_STRIDE);
+	//glVertexAttribPointer(MODEL_UVA1_STRIDE, 4, GL_FLOAT, GL_FALSE, (GLsizei)size, (void*)offset);
+	glEnableVertexAttribArray(MODEL_VERTEX_STRIDE);
+	glEnableVertexAttribArray(MODEL_NORMAL_STRIDE);
+	//glEnableVertexAttribArray(MODEL_UVA1_STRIDE);
+}
+
+void ShapeRenderEngineMakeVertexBundle(SHAPE_RENDER_ENGINE* engine, GLuint vbo)
+{
+	VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, vbo);
+	ShapeRenderEngineBindDynamicVertexAtrritbutePointers(engine);
+	//VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, PMX_VERTEX_BUFFER_OBJECT_TYPE_STATIC_VERTEX_BUFFER);
+	//PmxRenderEngineBindStaticVertexAttributePointers(engine);
+	VertexBundleBind(engine->buffer, VERTEX_BUNDLE_INDEX_BUFFER, SHAPE_VERTEX_BUFFER_OBJECT_TYPE_INDEX_BUFFER);
+	ShapeRenderEngineUnbindVertexBundle(engine);
+}
+
+void ShapeRenderEngineBindVertexBundle(SHAPE_RENDER_ENGINE* engine)
+{
+	if(VertexBundleLayoutBind(engine->layout) == FALSE)
+	{
+		VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, SHAPE_VERTEX_BUFFER_OBJECT_TYPE_DYNAMIC_VERTEX_BUFFER);
+		ShapeRenderEngineBindDynamicVertexAtrritbutePointers(engine);
+		//VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, PMX_VERTEX_BUFFER_OBJECT_TYPE_STATIC_VERTEX_BUFFER);
+		//PmxRenderEngineBindStaticVertexAttributePointers(engine);
+		VertexBundleBind(engine->buffer, VERTEX_BUNDLE_INDEX_BUFFER, SHAPE_VERTEX_BUFFER_OBJECT_TYPE_INDEX_BUFFER);
+	}
+}
+
+void ShapeRenderEngineBindEdgeVertexAttributePointers(SHAPE_RENDER_ENGINE* engine)
+{
+	size_t size;
+	size_t offset;
+
+	size = engine->dynamic_buffer->base.get_stride_size(engine->dynamic_buffer);
+	offset = engine->dynamic_buffer->base.get_stride_offset(
+		engine->dynamic_buffer, MODEL_VERTEX_STRIDE);
+	glVertexAttribPointer(MODEL_VERTEX_STRIDE, 3,
+		GL_FLOAT, GL_FALSE, (GLsizei)size, (void*)offset);
+	glEnableVertexAttribArray(MODEL_VERTEX_STRIDE);
+}
+
+void ShapeRenderEngineBindEdgeBundle(SHAPE_RENDER_ENGINE* engine)
+{
+	if(VertexBundleLayoutBind(engine->layout) == FALSE)
+	{
+		VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, SHAPE_VERTEX_BUFFER_OBJECT_TYPE_DYNAMIC_VERTEX_BUFFER);
+		ShapeRenderEngineBindEdgeVertexAttributePointers(engine);
+		//VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, PMX_VERTEX_BUFFER_OBJECT_TYPE_STATIC_VERTEX_BUFFER);
+		//ShapeRenderEngineBindStaticVertexAttributePointers(engine);
+		VertexBundleBind(engine->buffer, VERTEX_BUNDLE_INDEX_BUFFER, SHAPE_VERTEX_BUFFER_OBJECT_TYPE_INDEX_BUFFER);
+	}
+}
+
+void ShapeRenderEngineMakeEdgeBundle(SHAPE_RENDER_ENGINE* engine, GLuint vbo)
+{
+	VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, vbo);
+	ShapeRenderEngineBindEdgeVertexAttributePointers(engine);
+	//VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, PMX_VERTEX_BUFFER_OBJECT_TYPE_STATIC_VERTEX_BUFFER);
+	//PmxRenderEngineBindStaticVertexAttributePointers(engine);
+	VertexBundleBind(engine->buffer, VERTEX_BUNDLE_INDEX_BUFFER, SHAPE_VERTEX_BUFFER_OBJECT_TYPE_INDEX_BUFFER);
+	ShapeRenderEngineUnbindVertexBundle(engine);
+}
+
+void ShapeRenderEngineRenderModel(SHAPE_RENDER_ENGINE* engine)
+{
+	//PMX_RENDER_ENGINE_MATERIAL_TEXTURE *textures = (PMX_RENDER_ENGINE_MATERIAL_TEXTURE*)engine->material_textures->buffer;
+	//MATERIAL_INTERFACE **materials;
+	SHAPE_MODEL *model = (SHAPE_MODEL*)engine->interface_data.model;
+	float matrix[16];
+	float light_color[3];
+	float surface_color[4];
+	float opacity;
+	GLuint texture_id = 0;
+	size_t offset;
+	size_t size;
+	int has_model_transparent;
+
+	ShaderProgramBind(&engine->model_program.base_data.program.base_data);
+	GetContextMatrix(matrix, engine->interface_data.model,
+		MATRIX_FLAG_WORLD_MATRIX | MATRIX_FLAG_VIEW_MATRIX | MATRIX_FLAG_PROJECTION_MATRIX | MATRIX_FLAG_CAMERA_MATRIX,
+		engine->project);
+	BaseShaderProgramSetModelViewProjectionMatrix(
+		&engine->model_program.base_data.program, matrix);
+	GetContextMatrix(matrix, engine->interface_data.model,
+		MATRIX_FLAG_WORLD_MATRIX | MATRIX_FLAG_VIEW_MATRIX | MATRIX_FLAG_CAMERA_MATRIX,
+		engine->project);
+	ObjectProgramSetNormalMatrix(&engine->model_program.base_data, matrix);
+	GetContextMatrix(matrix, engine->interface_data.model,
+		MATRIX_FLAG_WORLD_MATRIX | MATRIX_FLAG_VIEW_MATRIX | MATRIX_FLAG_PROJECTION_MATRIX | MATRIX_FLAG_LIGHT_MATRIX,
+		engine->project);
+	ObjectProgramSetLightViewProjectionMatrix(&engine->model_program.base_data, matrix);
+
+	if(engine->scene->shadow_map != NULL)
+	{
+		float size[3];
+		void *texture = engine->scene->shadow_map->get_texture(engine->scene->shadow_map);
+		texture_id = (GLuint)texture;
+		engine->scene->shadow_map->get_size(engine->scene->shadow_map, size);
+		ObjectProgramSetDepthTextureSize(&engine->model_program.base_data, size);
+	}
+
+	ObjectProgramSetLightColor(&engine->model_program.base_data, engine->scene->light.vertex.color);
+	ObjectProgramSetLightDirection(&engine->model_program.base_data, engine->scene->light.vertex.position);
+	//PmxModelProgramSetToonEnable(&engine->model_program, engine->scene->light.flags & LIGHT_FLAG_TOON_ENABLE);
+	ShapeModelProgramSetCameraPosition(&engine->model_program, engine->scene->camera.look_at);
+	opacity = ((MODEL_INTERFACE*)engine->interface_data.model)->opacity;
+	ObjectProgramSetOpacity(&engine->model_program.base_data, opacity);
+
+	surface_color[0] = model->surface_color[0] * DIV_PIXEL;
+	surface_color[1] = model->surface_color[1] * DIV_PIXEL;
+	surface_color[2] = model->surface_color[2] * DIV_PIXEL;
+	surface_color[3] = 1.0f;
+	ShapeModelProgramSetSurfaceColor(&engine->model_program, surface_color);
+
+	//materials = (MATERIAL_INTERFACE**)engine->interface_data.model->get_materials(engine->interface_data.model, &num_materials);
+	has_model_transparent = !FuzzyZero(opacity - 1.0f);
+	ShapeRenderEngineBindVertexBundle(engine);
+	light_color[0] = engine->scene->light.vertex.color[0] * DIV_PIXEL;
+	light_color[1] = engine->scene->light.vertex.color[1] * DIV_PIXEL;
+	light_color[2] = engine->scene->light.vertex.color[2] * DIV_PIXEL;
+	size = engine->index_buffer->base.get_stride_size(engine->index_buffer);
+	offset = engine->dynamic_buffer->base.get_stride_offset(engine->dynamic_buffer, MODEL_VERTEX_STRIDE);
+
+	glDrawElements(GL_TRIANGLES, model->num_model_indices, GL_UNSIGNED_SHORT, (GLvoid*)offset);
+
+	ShapeRenderEngineUnbindVertexBundle(engine);
+	ShaderProgramUnbind(&engine->model_program.base_data.program.base_data);
+
+	ShapeRenderEngineRenderEdge(engine);
+}
+
+void ShapeRenderEngineRenderEdge(SHAPE_RENDER_ENGINE* engine)
+{
+	SHAPE_MODEL *model = (SHAPE_MODEL*)engine->interface_data.model;
+	FLOAT_T edge_scale_factor = 0;
+	float matrix[16];
+	GLfloat before_line_width;
+	const float opacity = ((MODEL_INTERFACE*)engine->interface_data.model)->opacity;
+	size_t offset = 0;
+	size_t size;
+	int is_opaque;
+
+	glGetFloatv(GL_LINE_WIDTH, &before_line_width);
+
+	ShaderProgramBind(&engine->edge_program.base_data.base_data);
+	GetContextMatrix(matrix, engine->interface_data.model,
+		MATRIX_FLAG_WORLD_MATRIX | MATRIX_FLAG_VIEW_MATRIX | MATRIX_FLAG_PROJECTION_MATRIX | MATRIX_FLAG_CAMERA_MATRIX,
+		engine->project);
+	BaseShaderProgramSetModelViewProjectionMatrix(&engine->edge_program.base_data, matrix);
+	ShapeEdgeProgramSetOpacity(&engine->edge_program, opacity);
+
+	size = engine->index_buffer->base.get_stride_size(engine->index_buffer);
+	is_opaque = FuzzyZero(opacity - 1.0f);
+	if(is_opaque != FALSE)
+	{
+		glDisable(GL_BLEND);
+	}
+	glCullFace(GL_FRONT);
+	ShapeRenderEngineBindEdgeBundle(engine);
+
+	glLineWidth((GLfloat)model->interface_data.edge_width);
+	glDrawElements(GL_LINES, model->num_edge_indices, GL_UNSIGNED_SHORT, (GLvoid*)(model->num_model_indices*2));
+
+	glLineWidth(model->line_width);
+	glDrawElements(GL_LINES, model->num_line_indices, GL_UNSIGNED_SHORT, (GLvoid*)((model->num_model_indices+model->num_edge_indices)*2));
+
+	ShapeRenderEngineUnbindVertexBundle(engine);
+	glCullFace(GL_BACK);
+	if(is_opaque != FALSE)
+	{
+		glEnable(GL_BLEND);
+	}
+	ShaderProgramUnbind(&engine->edge_program.base_data.base_data);
+	glLineWidth(before_line_width);
+}
+
+void ShapeRenderEngineRenderShadow(SHAPE_RENDER_ENGINE* engine)
+{
+	SHAPE_MODEL *model = (SHAPE_MODEL*)engine->interface_data.model;
+	float matrix[16];
+	size_t offset = 0;
+	size_t size;
+
+	ShaderProgramBind(&engine->shadow_program.base_data.program.base_data);
+	GetContextMatrix(matrix, engine->interface_data.model,
+		MATRIX_FLAG_WORLD_MATRIX | MATRIX_FLAG_VIEW_MATRIX | MATRIX_FLAG_PROJECTION_MATRIX | MATRIX_FLAG_SHADOW_MATRIX,
+			engine->project);
+	BaseShaderProgramSetModelViewProjectionMatrix(&engine->shadow_program.base_data.program, matrix);
+	ObjectProgramSetLightColor(&engine->shadow_program.base_data, engine->scene->light.vertex.color);
+	ObjectProgramSetLightDirection(&engine->shadow_program.base_data, engine->scene->light.vertex.position);
+
+	ShapeRenderEngineBindVertexBundle(engine);
+
+	size = engine->index_buffer->base.get_stride_size(engine->index_buffer);
+	glDisable(GL_CULL_FACE);
+	size = engine->index_buffer->base.get_stride_size(engine->index_buffer);
+	offset = engine->dynamic_buffer->base.get_stride_offset(engine->dynamic_buffer, MODEL_VERTEX_STRIDE);
+
+	glDrawElements(GL_TRIANGLES, model->num_model_indices, GL_UNSIGNED_SHORT, (GLvoid*)offset);
+
+	ShapeRenderEngineUnbindVertexBundle(engine);
+	glEnable(GL_CULL_FACE);
+	ShaderProgramUnbind(&engine->shadow_program.base_data.program.base_data);
+}
+
+void DeleteShapeRenderEngine(SHAPE_RENDER_ENGINE* engine)
+{
+	engine->index_buffer->base.delete_func(engine->index_buffer);
+	engine->static_buffer->base.delete_func(engine->static_buffer);
+	engine->dynamic_buffer->base.delete_func(engine->dynamic_buffer);
+	ReleaseShaderProgram((SHADER_PROGRAM*)&engine->edge_program);
+	ReleaseShaderProgram((SHADER_PROGRAM*)&engine->model_program);
+	DeleteVertexBundle(&engine->buffer);
+	DeleteVertexBundleLayout(&engine->layout);
+	MEM_FREE_FUNC(engine);
+}
+
+void ShapeRenderEngineUpdate(SHAPE_RENDER_ENGINE* engine)
+{
+	SHAPE_MODEL *model = (SHAPE_MODEL*)engine->interface_data.model;
+	FLOAT_T before_edge_width;
+	//uint16 *indices;
+
+	if(((MODEL_INTERFACE*)engine->interface_data.model)->is_visible(engine->interface_data.model) == FALSE
+		|| (model->flags & SHAPE_MODEL_FLAG_RENDER_UPDATE) == 0)
+	{
+		return;
+	}
+
+	before_edge_width = engine->interface_data.model->edge_width;
+
+	VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER,
+		SHAPE_VERTEX_BUFFER_OBJECT_TYPE_DYNAMIC_VERTEX_BUFFER);
+	VertexBundleWrite(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER,
+		0, engine->dynamic_buffer->base.get_size(engine->dynamic_buffer), model->vertices->buffer);
+	VertexBundleUnbind(VERTEX_BUNDLE_VERTEX_BUFFER);
+
+	if((model->flags & SHAPE_MODEL_FLAG_INDEX_BUFFER_UPDATE) != 0)
+	{
+		ReleaseVertexBundleLayout(engine->layout);
+		if(MakeVertexBundleLayout(engine->layout) != FALSE)
+		{
+			MakeVertexBundle(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, SHAPE_VERTEX_BUFFER_OBJECT_TYPE_DYNAMIC_VERTEX_BUFFER,
+				GL_DYNAMIC_DRAW, (void*)model->vertices->buffer, engine->dynamic_buffer->base.get_size(engine->dynamic_buffer));
+			MakeVertexBundle(engine->buffer, VERTEX_BUNDLE_INDEX_BUFFER, SHAPE_VERTEX_BUFFER_OBJECT_TYPE_INDEX_BUFFER, GL_STATIC_DRAW,
+				engine->index_buffer->bytes(engine->index_buffer), engine->index_buffer->base.get_size(engine->index_buffer));
+			if(VertexBundleLayoutBind(engine->layout) != FALSE)
+			{
+				ShapeRenderEngineMakeVertexBundle(engine, SHAPE_VERTEX_BUFFER_OBJECT_TYPE_DYNAMIC_VERTEX_BUFFER);
+			}
+			VertexBundleLayoutUnbind(engine->layout);
+
+			VertexBundleUnbind(VERTEX_BUNDLE_VERTEX_BUFFER);
+			VertexBundleUnbind(VERTEX_BUNDLE_INDEX_BUFFER);
+		}
+	}
+
+	//VertexBundleBind(engine->buffer, VERTEX_BUNDLE_INDEX_BUFFER,
+	//	SHAPE_VERTEX_BUFFER_OBJECT_TYPE_INDEX_BUFFER);
+	//VertexBundleWrite(engine->buffer, VERTEX_BUNDLE_INDEX_BUFFER,
+	//	0, engine->index_buffer->get_type(engine->index_buffer), model->indices->buffer);
+	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(*model->indices->buffer)*model->indices->num_data,
+	//	model->indices->buffer, GL_DYNAMIC_DRAW);
+	//VertexBundleUnbind(VERTEX_BUNDLE_INDEX_BUFFER);
+
+	//((MODEL_INTERFACE*)engine->interface_data.model)->set_aa_bb(engine->interface_data.model, engine->aa_bb_min, engine->aa_bb_max);
+
+	engine->interface_data.model->edge_width = before_edge_width;
+
+	model->flags &= ~(SHAPE_MODEL_FLAG_RENDER_UPDATE);
+}
+
+EFFECT_INTERFACE* ShapeRenderEngineGetEffect(SHAPE_RENDER_ENGINE* engine, eEFFECT_SCRIPT_ORDER_TYPE type)
+{
+	return NULL;
+}
+
+SHAPE_RENDER_ENGINE* ShapeRenderEngineNew(
+	PROJECT* project_context,
+	SCENE* scene,
+	MODEL_INTERFACE* model
+)
+{
+	SHAPE_RENDER_ENGINE *ret;
+
+	ret = (SHAPE_RENDER_ENGINE*)MEM_ALLOC_FUNC(sizeof(*ret));
+	(void)memset(ret, 0, sizeof(*ret));
+
+	model->get_index_buffer((void*)model, (void**)&ret->index_buffer);
+	//model->get_static_vertex_buffer((void*)model, (void**)&ret->static_buffer);
+	model->get_dynamic_vertex_buffer((void*)model, (void**)&ret->dynamic_buffer, ret->index_buffer);
+
+	ret->project = project_context;
+	ret->scene = scene;
+	ret->interface_data.model = model;
+	ret->buffer = VertexBundleNew();
+	ret->layout = VertexBundleLayoutNew();
+
+	ret->interface_data.type = RENDER_ENGINE_SHAPE;
+	ret->interface_data.render_model = (void (*)(void*))ShapeRenderEngineRenderModel;
+	ret->interface_data.render_shadow = (void (*)(void*))ShapeRenderEngineRenderShadow;
+	ret->interface_data.render_edge = (void (*)(void*))DummyFuncNoReturn;
+	ret->interface_data.render_z_plot = (void (*)(void*))DummyFuncNoReturn;
+	ret->interface_data.render_model_reverse = (void (*)(void*))DummyFuncNoReturn;
+	ret->interface_data.update = (void (*)(void*))ShapeRenderEngineUpdate;
+	ret->interface_data.get_effect = (EFFECT_INTERFACE* (*)(void*, eEFFECT_SCRIPT_ORDER_TYPE))ShapeRenderEngineGetEffect;
+	ret->interface_data.prepare_post_process = (void (*)(void*))DummyFuncNoReturn;
+	ret->interface_data.perform_pre_process = (void (*)(void*))DummyFuncNoReturn;
+	ret->interface_data.delete_func = (void (*)(void*))DeleteShapeRenderEngine;
+
+	return ret;
+}
+
+int ShapeRenderEngineUpload(SHAPE_RENDER_ENGINE* engine, void* user_data)
+{
+	//VERTEX_BUNDLE_LAYOUT *layout;
+	//void *address;
+	int ret = TRUE;
+
+	InitializeShapeModelProgram(&engine->model_program);
+	LoadShapeModelProgram(&engine->model_program, "./shape/model.vsh", GL_VERTEX_SHADER);
+	LoadShapeModelProgram(&engine->model_program, "./shape/model.fsh", GL_FRAGMENT_SHADER);
+	BaseShaderProgramLinkProgram(&engine->model_program.base_data.program);
+
+	InitializeShapeEdgeProgram(&engine->edge_program);
+	LoadShapeEdgeProgram(&engine->edge_program, "./shape/edge.vsh", GL_VERTEX_SHADER);
+	LoadShapeEdgeProgram(&engine->edge_program, "./shape/edge.fsh", GL_FRAGMENT_SHADER);
+	BaseShaderProgramLinkProgram(&engine->edge_program.base_data);
+
+	InitializeShapeShadowProgram(&engine->shadow_program);
+	LoadShapeShadowProgram(&engine->shadow_program, "./shape/shadow.vsh", GL_VERTEX_SHADER);
+	LoadShapeShadowProgram(&engine->shadow_program, "./shape/shadow.fsh", GL_FRAGMENT_SHADER);
+	BaseShaderProgramLinkProgram(&engine->shadow_program.base_data.program);
+
+	//if(PmxRenderEngineUploadMaterials(engine, user_data) == FALSE)
+	//{
+	//	return FALSE;
+	//}
+
+	MakeVertexBundle(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, SHAPE_VERTEX_BUFFER_OBJECT_TYPE_DYNAMIC_VERTEX_BUFFER,
+		GL_DYNAMIC_DRAW, NULL, engine->dynamic_buffer->base.get_size(engine->dynamic_buffer));
+	//MakeVertexBundleLayout(engine->layout);
+	//MakeVertexBundle(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, PMX_VERTEX_BUFFER_OBJECT_TYPE_STATIC_VERTEX_BUFFER,
+	//	GL_STATIC_DRAW, 0, engine->static_buffer->base.get_size(engine->static_buffer));
+	//VertexBundleBind(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, PMX_VERTEX_BUFFER_OBJECT_TYPE_STATIC_VERTEX_BUFFER);
+	//address = VertexBundleMap(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, 0, engine->static_buffer->base.get_size(engine->static_buffer));
+	//engine->static_buffer->update(engine->static_buffer, address);
+	//VertexBundleUnmap(engine->buffer, VERTEX_BUNDLE_VERTEX_BUFFER, address);
+	//VertexBundleUnbind(VERTEX_BUNDLE_VERTEX_BUFFER);
+
+	engine->interface_data.model->set_visible(engine->interface_data.model, TRUE);
+
+	ShapeRenderEngineUpdate(engine);
+
+	return ret;
 }
 
 #ifdef __cplusplus

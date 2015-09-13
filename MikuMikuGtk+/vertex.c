@@ -808,7 +808,7 @@ void VertexBundleRelease(
 			if(buffer != 0)
 			{
 				glDeleteBuffers(1, &buffer);
-				ght_remove(bundle->vertex_buffers, sizeof(key), (const void*)key);
+				ght_remove(bundle->vertex_buffers, sizeof(key), (const void*)&key);
 			}
 		}
 		break;
@@ -960,7 +960,11 @@ void ReleaseVertexBundleLayout(VERTEX_BUNDLE_LAYOUT* layout)
 		return;
 	}
 
-	glDeleteVertexArrays(1, &layout->name);
+	if(layout->name != 0)
+	{
+		glDeleteVertexArrays(1, &layout->name);
+		layout->name = 0;
+	}
 }
 
 void FreeVertexBundleLayout(VERTEX_BUNDLE_LAYOUT* layout)

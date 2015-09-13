@@ -12,6 +12,7 @@
 #include "pmx_model.h"
 #include "pmd_model.h"
 #include "asset_model.h"
+#include "shape_model.h"
 #include "keyframe.h"
 
 typedef enum _eSCENE_ACCELERATION_TYPE
@@ -110,6 +111,7 @@ typedef struct _SCENE
 	float projection[16];
 
 	int width, height;
+	uint8 clear_color[3];
 
 	struct _PROJECT *project;
 
@@ -120,7 +122,7 @@ typedef struct _SCENE
 extern "C" {
 #endif
 
-extern void SetRequiredOpengGLState(void);
+extern void SetRequiredOpengGLState(SCENE* scene);
 
 extern void UpdateScene(SCENE* scene);
 
@@ -133,6 +135,16 @@ extern void InitializePmxModel(
 	SCENE* scene,
 	TEXT_ENCODE* encode,
 	const char* model_path
+);
+
+extern void InitializeCuboidModel(
+	CUBOID_MODEL* model,
+	SCENE* scene
+);
+
+extern void InitializeConeModel(
+	CONE_MODEL* model,
+	SCENE* scene
 );
 
 extern void SceneGetRenderEnginesByRenderOrder(SCENE* scene);

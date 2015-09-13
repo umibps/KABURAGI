@@ -159,6 +159,126 @@ void InitializeSplashWindow(SPLASH_WINDOW* window)
 	window->timer_id = g_timeout_add(2000, (GSourceFunc)SplashWindowTimeOut, window->window);
 }
 
+/*************************************************************************
+* LoadMakeNewData関数                                                    *
+* 新規作成時のデータを読み込む                                           *
+* 引数                                                                   *
+* app					: アプリケーション全体を管理する構造体のアドレス *
+* make_new_file_path	: データファイルのパス                           *
+*************************************************************************/
+void LoadMakeNewData(APPLICATION* app, const char* make_new_file_path)
+{
+	INI_FILE *file;
+	GFile *fp;
+	GFileInputStream *stream;
+	GFileInfo *file_info;
+	size_t file_size;
+	int i;
+
+	if((fp = g_file_new_for_path(make_new_file_path)) == NULL)
+	{
+		return;
+	}
+	if((stream = g_file_read(fp, NULL, NULL)) == NULL)
+	{
+		g_object_unref(fp);
+		return;
+	}
+
+	// ファイルサイズを取得
+	file_info = g_file_input_stream_query_info(stream,
+		G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
+	file_size = (size_t)g_file_info_get_size(file_info);
+
+	file = CreateIniFile((void*)stream, (size_t (*)(void*, size_t, size_t, void*))FileRead,
+		file_size, INI_READ);
+
+	app->menu_data.make_new = (MAKE_NEW_DATA*)MEM_ALLOC_FUNC(
+		sizeof(*app->menu_data.make_new) * (file->section_count+1));
+	for(i=0; i<file->section_count; i++)
+	{
+		int index = app->menu_data.num_make_new_data+1;
+		app->menu_data.make_new[index].name = IniFileStrdup(file, file->section[i].section_name, "NAME");
+		if(app->menu_data.make_new[index].name != NULL)
+		{
+			app->menu_data.make_new[index].width = IniFileGetInteger(file, file->section[i].section_name, "WIDTH");
+			app->menu_data.make_new[index].height = IniFileGetInteger(file, file->section[i].section_name, "HEIGHT");
+			app->menu_data.make_new[index].resolution = IniFileGetInteger(file, file->section[i].section_name, "RESOLUTION");
+
+			if(app->menu_data.make_new[index].width <= 0)
+			{
+				app->menu_data.make_new[index].width = 1;
+			}
+			if(app->menu_data.make_new[index].height <= 0)
+			{
+				app->menu_data.make_new[index].height = 1;
+			}
+			if(app->menu_data.make_new[index].resolution <= 0)
+			{
+				app->menu_data.make_new[index].resolution = 1;
+			}
+
+			app->menu_data.num_make_new_data++;
+		}
+	}
+
+	file->delete_func(file);
+
+	g_object_unref(file_info);
+	g_object_unref(stream);
+	g_object_unref(fp);
+}
+
+/*************************************************************************
+* WriteMakeNewData関数                                                   *
+* 新規作成時のデータを書き込む                                           *
+* 引数                                                                   *
+* app					: アプリケーション全体を管理する構造体のアドレス *
+* make_new_file_path	: データファイルのパス                           *
+* 返り値                                                                 *
+*	正常終了:TRUE	異常終了:FALSE                                       *
+*************************************************************************/
+gboolean WriteMakeNewData(APPLICATION* app, const char* make_new_file_path)
+{
+	INI_FILE *file;
+	GFile *fp;
+	GFileOutputStream *stream;
+	char section_name[256];
+	int i;
+
+	if((fp = g_file_new_for_path(make_new_file_path)) == NULL)
+	{
+		return FALSE;
+	}
+	if((stream = g_file_create(fp, G_FILE_CREATE_NONE, NULL, NULL)) == NULL)
+	{
+		if((stream = g_file_replace(fp, NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL)) == NULL)
+		{
+			g_object_unref(fp);
+			return FALSE;
+		}
+	}
+
+	file = CreateIniFile((void*)stream, NULL, 0, INI_WRITE);
+
+	for(i=0; i<app->menu_data.num_make_new_data; i++)
+	{
+		(void)sprintf(section_name, "DATA%d", i+1);
+		IniFileAddString(file, section_name, "NAME", app->menu_data.make_new[i+1].name);
+		IniFileAddInteger(file, section_name, "WIDTH", app->menu_data.make_new[i+1].width, 10);
+		IniFileAddInteger(file, section_name, "HEIGHT", app->menu_data.make_new[i+1].height, 10);
+		IniFileAddInteger(file, section_name, "RESOLUTION", app->menu_data.make_new[i+1].resolution, 10);
+	}
+
+	WriteIniFile(file, (size_t (*)(void*, size_t, size_t, void*))FileWrite);
+	file->delete_func(file);
+
+	g_object_unref(stream);
+	g_object_unref(fp);
+
+	return TRUE;
+}
+
 typedef enum _eDROP_LIST
 {
 	DROP_URI = 10,
@@ -225,6 +345,8 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	app->common_tool_file_path = glib_str;
 	// 表示テキストのデータ
 	app->language_file_path = IniFileStrdup(file, "LANGUAGE_FILE", "PATH");
+	// 新規作成時のデータ
+	app->make_new_file_path = IniFileStrdup(file, "MAKE_NEW_FILE", "PATH");
 	// 各データディレクトリ
 	app->pattern_path = IniFileStrdup(file, "PATTERN_DIRECTORY", "PATH");
 	app->stamp_path = IniFileStrdup(file, "STAMP_DIRECTORY", "PATH");
@@ -376,22 +498,48 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 
 	// メニューデータを読み込む
 		// 新規作成
-	app->menu_data.make_new.width = IniFileGetInteger(file, "NEW", "WIDTH");
-	app->menu_data.make_new.height = IniFileGetInteger(file, "NEW", "HEIGHT");
-	app->menu_data.make_new.resolution = IniFileGetInteger(file, "NEW", "RESOLUTION");
+	
+	// 新規作成時のデータ読み込み
+	if(app->make_new_file_path != NULL)
+	{
+		if(app->make_new_file_path[0] == '.'
+			&& app->make_new_file_path[1] == '/')
+		{
+			file_path = g_build_filename(app->current_path, &app->make_new_file_path[2], NULL);
+			LoadMakeNewData(app, file_path);
+			g_free((gpointer)file_path);
+		}
+		else
+		{
+			LoadMakeNewData(app, app->make_new_file_path);
+		}
+
+		if(app->menu_data.make_new == NULL)
+		{
+			app->menu_data.make_new = (MAKE_NEW_DATA*)MEM_ALLOC_FUNC(sizeof(*app->menu_data.make_new));
+		}
+	}
+	else
+	{
+		app->menu_data.make_new = (MAKE_NEW_DATA*)MEM_ALLOC_FUNC(sizeof(*app->menu_data.make_new));
+		app->make_new_file_path = MEM_STRDUP_FUNC("./make_new_list.ini");
+	}
+	app->menu_data.make_new->width = IniFileGetInteger(file, "NEW", "WIDTH");
+	app->menu_data.make_new->height = IniFileGetInteger(file, "NEW", "HEIGHT");
+	app->menu_data.make_new->resolution = IniFileGetInteger(file, "NEW", "RESOLUTION");
 	if(IniFileGetString(file, "NEW", "SECOND_BG_COLOR", color_string, sizeof(color_string)) != 0)
 	{
 		uint8 *color_buff = (uint8*)&color;
 		(void)sscanf(color_string, "%x", &color);
 
 #if 1 // defined(BIG_ENDIAN)
-		app->menu_data.make_new.second_bg_color[0] = color_buff[2];
-		app->menu_data.make_new.second_bg_color[1] = color_buff[1];
-		app->menu_data.make_new.second_bg_color[2] = color_buff[0];
+		app->menu_data.second_bg_color[0] = color_buff[2];
+		app->menu_data.second_bg_color[1] = color_buff[1];
+		app->menu_data.second_bg_color[2] = color_buff[0];
 #else
-		app->menu_data.make_new.second_bg_color[0] = color_buff[0];
-		app->menu_data.make_new.second_bg_color[1] = color_buff[1];
-		app->menu_data.make_new.second_bg_color[2] = color_buff[2];
+		app->menu_data.second_bg_color[0] = color_buff[0];
+		app->menu_data.second_bg_color[1] = color_buff[1];
+		app->menu_data.second_bg_color[2] = color_buff[2];
 #endif
 	}
 
@@ -554,6 +702,8 @@ int WriteInitializeFile(APPLICATION* app, const char* file_path)
 	g_free(write_path);
 	// 表示文字のデータ
 	(void)IniFileAddString(file, "LANGUAGE_FILE", "PATH", app->language_file_path);
+	// 新規作成時のデータ
+	(void)IniFileAddString(file, "MAKE_NEW_FILE", "PATH", app->make_new_file_path);
 	// 各種データディレクトリ
 	(void)IniFileAddString(file, "PATTERN_DIRECTORY", "PATH", app->pattern_path);
 	(void)IniFileAddString(file, "STAMP_DIRECTORY", "PATH", app->stamp_path);
@@ -716,11 +866,11 @@ int WriteInitializeFile(APPLICATION* app, const char* file_path)
 
 	// メニューデータを書き込む
 		// 新規作成
-	(void)IniFileAddInteger(file, "NEW", "WIDTH", app->menu_data.make_new.width, 10);
-	(void)IniFileAddInteger(file, "NEW", "HEIGHT", app->menu_data.make_new.height, 10);
-	(void)IniFileAddInteger(file, "NEW", "RESOLUTION", app->menu_data.make_new.resolution, 10);
-	color = app->menu_data.make_new.second_bg_color[2] | (app->menu_data.make_new.second_bg_color[1] << 8)
-		| (app->menu_data.make_new.second_bg_color[0] << 16);
+	(void)IniFileAddInteger(file, "NEW", "WIDTH", app->menu_data.make_new->width, 10);
+	(void)IniFileAddInteger(file, "NEW", "HEIGHT", app->menu_data.make_new->height, 10);
+	(void)IniFileAddInteger(file, "NEW", "RESOLUTION", app->menu_data.make_new->resolution, 10);
+	color = app->menu_data.second_bg_color[2] | (app->menu_data.second_bg_color[1] << 8)
+		| (app->menu_data.second_bg_color[0] << 16);
 	(void)sprintf(str, "%06x", color);
 	(void)IniFileAddString(file, "NEW", "SECOND_BG_COLOR", str);
 	// 手ブレ補正
@@ -1011,6 +1161,64 @@ gboolean OnQuitApplication(APPLICATION* app)
 	else
 	{
 		(void)WriteVectorBrushData(&app->tool_window, app->vector_brush_file_path, app);
+	}
+
+	// 新規作成時のプリセットデータを更新する
+	if(app->make_new_file_path[0] == '.' && app->make_new_file_path[1] == '/')
+	{
+		file_path = g_build_filename(app->current_path, &app->make_new_file_path[2], NULL);
+		if(WriteMakeNewData(app, file_path) == FALSE)
+		{
+			app->flags |= APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY;
+			g_free(file_path);
+			dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
+			make_app_dir = TRUE;
+			if((dir = g_dir_open(dir_path, 0, NULL)) == NULL)
+			{
+				(void)g_mkdir(dir_path,
+#ifdef __MAC_OS__
+					S_IRUSR | S_IWUSR | S_IXUSR |
+					S_IRGRP | S_IWGRP | S_IXGRP |
+					S_IROTH | S_IXOTH | S_IXOTH
+#elif defined(_WIN32)
+					0
+#else
+					S_IRUSR | S_IWUSR | S_IXUSR |
+					S_IRGRP | S_IWGRP | S_IXGRP |
+					S_IROTH | S_IXOTH | S_IXOTH
+#endif
+				);
+			}
+			else
+			{
+				g_dir_close(dir);
+			}
+
+			file_path = g_build_filename(dir_path, "make_new_list.ini", NULL);
+			if(WriteMakeNewData(app, file_path) != FALSE)
+			{
+				g_free(app->brush_file_path);
+				app->brush_file_path = file_path;
+			}
+			else
+			{
+				g_free(file_path);
+				file_path = g_build_filename(app->current_path, &app->make_new_file_path[2], NULL);
+				(void)WriteMakeNewData(app, file_path);
+				g_free(file_path);
+			}
+			g_free(dir_path);
+
+			app->flags &= ~(APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY);
+		}
+		else
+		{
+			g_free(file_path);
+		}
+	}
+	else
+	{
+		(void)WriteMakeNewData(app, app->make_new_file_path);
 	}
 
 	// 初期化ファイルを更新する
@@ -3192,7 +3400,7 @@ void OpenFile(char *file_path, APPLICATION* app)
 *********************************************************/
 void ExecuteOpenFile(APPLICATION* app)
 {	// ファイルを開くダイアログ
-	GtkWidget* chooser = gtk_file_chooser_dialog_new(
+	GtkWidget *chooser = gtk_file_chooser_dialog_new(
 		app->labels->menu.open,
 		GTK_WINDOW(app->window),
 		GTK_FILE_CHOOSER_ACTION_OPEN,
@@ -3239,7 +3447,7 @@ void ExecuteOpenFileAsLayer(APPLICATION* app)
 
 	if(gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT)
 	{	// ファイルが開かれた
-		gchar* file_path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+		gchar *file_path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
 		// ピクセルバッファに変換
 		GdkPixbuf *pixbuf;
 		// レイヤーを追加するキャンバス
@@ -3264,6 +3472,7 @@ void ExecuteOpenFileAsLayer(APPLICATION* app)
 				height = gdk_pixbuf_get_height(pixbuf);
 			uint8* pixels;
 			int stride, original_stride;
+			int copy_height, copy_stride;
 			const int channel = 4;
 
 			// ファイルパスからファイル名だけを取り出す
@@ -3273,7 +3482,7 @@ void ExecuteOpenFileAsLayer(APPLICATION* app)
 			{
 				if(*str == '/' || *str == '\\')
 				{
-					file_path = str+1;
+					file_name = str+1;
 				}
 
 				str = g_utf8_next_char(str);
@@ -3323,24 +3532,32 @@ void ExecuteOpenFileAsLayer(APPLICATION* app)
 			if(width > layer->width)
 			{
 				width = layer->width;
-				stride = layer->width * 4;
+				copy_stride = stride = layer->width * 4;
+			}
+			else if(width < layer->width)
+			{
+				copy_stride = width * 4;
 			}
 
 			if(height > layer->height)
 			{
-				height = layer->height;
+				copy_height = height = layer->height;
+			}
+			else if(height < layer->height)
+			{
+				copy_height = height;
 			}
 
-			for(i=0; i<height; i++)
+			for(i=0; i<copy_height; i++)
 			{
 				(void)memcpy(&layer->pixels[layer->stride*i],
-						&pixels[i*original_stride], stride
+						&pixels[i*original_stride], copy_stride
 				);
 			}
 
 			// 履歴データを追加
-			AddNewLayerWithImageHistory(layer, pixels, width, height,
-				original_stride, 4, app->labels->menu.open_as_layer);
+			AddNewLayerWithImageHistory(layer, layer->pixels, layer->width, layer->height,
+				layer->stride, 4, app->labels->menu.open_as_layer);
 
 			// 追加したレイヤーをアクティブに
 			LayerViewAddLayer(layer, window->layer,
@@ -3422,9 +3639,9 @@ void ExecuteSave(APPLICATION* app)
 *********************************************************/
 void ExecuteSaveAs(APPLICATION* app)
 {	// ファイル選択ダイアログ
-	GtkWidget* chooser;
+	GtkWidget *chooser;
 	// ファイルタイプのフィルター
-	GtkFileFilter* filter;
+	GtkFileFilter *filter;
 
 	if(app->window_num < 1)
 	{
@@ -3476,7 +3693,7 @@ void ExecuteSaveAs(APPLICATION* app)
 	if(app->draw_window[app->active_window]->file_path != NULL)
 	{
 		char *directly = g_path_get_dirname(app->draw_window[app->active_window]->file_path);
-		gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(chooser), directly);
+		(void)gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(chooser), directly);
 		gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(chooser),
 			app->draw_window[app->active_window]->file_name);
 		g_free(directly);
@@ -3485,15 +3702,15 @@ void ExecuteSaveAs(APPLICATION* app)
 	if(gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT)
 	{	// 保存ファイル名が決定された
 			// ファイルパス
-		const gchar* path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+		const gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
 		// ファイルフィルタの情報
-		const gchar* filter_name;
+		const gchar *filter_name;
 		// ファイル名
 		const char *file_name;
 		// ファイル形式
 		const char *file_type;
 		// 作業用ポインタ
-		const char* str;
+		const char *str;
 
 		// 選択されているファイルのフィルターを取得
 		filter = gtk_file_chooser_get_filter(GTK_FILE_CHOOSER(chooser));
@@ -3524,7 +3741,9 @@ void ExecuteSaveAs(APPLICATION* app)
 		}
 
 		// 書き出し実行
+		str = path;
 		path = Save(app, app->draw_window[app->active_window], path, file_type);
+		g_free((char*)str);
 
 		// ファイル名を取得
 		str = path;
@@ -3946,18 +4165,18 @@ void Change2ndBackColor(APPLICATION* app)
 
 	gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
 
-	color.red = (app->menu_data.make_new.second_bg_color[0] << 8) | app->menu_data.make_new.second_bg_color[0];
-	color.green = (app->menu_data.make_new.second_bg_color[1] << 8) | app->menu_data.make_new.second_bg_color[1];
-	color.blue = (app->menu_data.make_new.second_bg_color[2] << 8) | app->menu_data.make_new.second_bg_color[2];
+	color.red = (app->menu_data.second_bg_color[0] << 8) | app->menu_data.second_bg_color[0];
+	color.green = (app->menu_data.second_bg_color[1] << 8) | app->menu_data.second_bg_color[1];
+	color.blue = (app->menu_data.second_bg_color[2] << 8) | app->menu_data.second_bg_color[2];
 
 	gtk_color_selection_set_current_color(GTK_COLOR_SELECTION(selection), &color);
 
 	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
 	{
 		gtk_color_selection_get_current_color(GTK_COLOR_SELECTION(selection), &color);
-		app->menu_data.make_new.second_bg_color[0] = color.red / 256;
-		app->menu_data.make_new.second_bg_color[1] = color.green / 256;
-		app->menu_data.make_new.second_bg_color[2] = color.blue / 256;
+		app->menu_data.second_bg_color[0] = color.red / 256;
+		app->menu_data.second_bg_color[1] = color.green / 256;
+		app->menu_data.second_bg_color[2] = color.blue / 256;
 
 #if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
 		window->second_back_ground[2] = color.red / 256;
@@ -4714,7 +4933,7 @@ GtkWidget* CreateTextureChooser(TEXTURES* textures, APPLICATION* app)
 	gtk_box_pack_start(GTK_BOX(vbox), scale, FALSE, FALSE, 0);
 
 	// 「閉じる」ボタンを作成
-	button = gtk_button_new_with_label(app->labels->window.close);
+	button = gtk_button_new_with_label(app->labels->menu.close);
 	(void)g_signal_connect(G_OBJECT(button), "clicked",
 		G_CALLBACK(ClickedCloseButton), ret);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
@@ -4757,6 +4976,20 @@ void ReturnFromLoupeMode(APPLICATION* app)
 void* MemoryAllocate(size_t size)
 {
 	return MEM_ALLOC_FUNC(size);
+}
+
+/******************************************************************
+* MemoryReallocate関数                                            *
+* KABURAGI / MIKADOで使用するメモリアロケータでバッファサイズ変更 *
+* 引数                                                            *
+* address	: サイズ変更するバッファ                              *
+* size		: 新しいバッファサイズ                                *
+* 返り値                                                          *
+*	サイズ変更後のバッファのアドレス                              *
+******************************************************************/
+void* MemoryReallocate(void* address, size_t size)
+{
+	return MEM_REALLOC_FUNC(address, size);
 }
 
 /**************************************************************

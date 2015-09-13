@@ -20,7 +20,8 @@ typedef enum _eLAYER_WINDOW_FLAGS
 	LAYER_WINDOW_DROP_UPPER = 0x02,
 	LAYER_WINDOW_IN_CHANGE_NAME = 0x04,
 	LAYER_WINDOW_DOCKED = 0x08,
-	LAYER_WINDOW_PLACE_RIGHT = 0x10
+	LAYER_WINDOW_PLACE_RIGHT = 0x10,
+	LAYER_WINDOW_POP_UP = 0x20
 } eLAYER_WINDOW_FLAGS;
 
 typedef struct _LAYER_WINDOW
@@ -72,9 +73,9 @@ typedef struct _LAYER_WIDGET
 } LAYER_WIDGET;
 
 // 関数のプロトタイプ宣言
-extern GtkWidget *CreateLayerWindow(struct _APPLICATION* app, GtkWidget *parent, GtkWidget** view);
-extern void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_layer);
-extern void LayerViewSetActiveLayer(LAYER* layer, GtkWidget* view);
+EXTERN GtkWidget *CreateLayerWindow(struct _APPLICATION* app, GtkWidget *parent, GtkWidget** view);
+EXTERN void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_layer);
+EXTERN void LayerViewSetActiveLayer(LAYER* layer, GtkWidget* view);
 
 /*************************************************
 * ClearLayerView関数                             *
@@ -82,7 +83,7 @@ extern void LayerViewSetActiveLayer(LAYER* layer, GtkWidget* view);
 * 引数                                           *
 * layer_window	: レイヤービューを持つウィンドウ *
 *************************************************/
-extern void ClearLayerView(LAYER_WINDOW* layer_window);
+EXTERN void ClearLayerView(LAYER_WINDOW* layer_window);
 
 #ifdef __cplusplus
 }

@@ -30,7 +30,8 @@ typedef enum _eDRAW_WINDOW_FLAGS
 	DRAW_WINDOW_IS_FOCAL_WINDOW = 0x400,
 	DRAW_WINDOW_INITIALIZED = 0x800,
 	DRAW_WINDOW_DISCONNECT_3D = 0x1000,
-	DRAW_WINDOW_UPDATE_AREA_INITIALIZED = 0x2000
+	DRAW_WINDOW_UPDATE_AREA_INITIALIZED = 0x2000,
+	DRAW_WINDOW_IN_RASTERIZING_VECTOR_SCRIPT = 0x4000
 } eDRAW_WINDOW_FLAGS;
 
 typedef struct _UPDATE_RECTANGLE
@@ -480,6 +481,30 @@ EXTERN void RasterizeVectorLayer(
 	VECTOR_LAYER* layer
 );
 
+EXTERN void RasterizeVectorSquare(
+	DRAW_WINDOW* window,
+	VECTOR_SQUARE* square,
+	VECTOR_LAYER_RECTANGLE* rectangle
+);
+
+EXTERN void RasterizeVectorRhombus(
+	DRAW_WINDOW* window,
+	VECTOR_ECLIPSE* eclipse,
+	VECTOR_LAYER_RECTANGLE* rectangle
+);
+
+EXTERN void RasterizeVectorEclipse(
+	DRAW_WINDOW* window,
+	VECTOR_ECLIPSE* eclipse,
+	VECTOR_LAYER_RECTANGLE* rectangle
+);
+
+EXTERN void RasterizeVectorScript(
+	DRAW_WINDOW* window,
+	VECTOR_SCRIPT* script,
+	VECTOR_LAYER_RECTANGLE* rectangle
+);
+
 /***********************************************
 * ReadVectorLineData関数                       *
 * ベクトルレイヤーのデータを読み込む           *
@@ -554,7 +579,7 @@ EXTERN void AddControlPointHistory(
 * line			: 制御点を追加したライン           *
 * point			: 追加した制御点                   *
 * tool_name		: 制御点を追加したツールの名前     *
-* add_line_flag	: ライン追加をしたといのフラグ     *
+* add_line_flag	: ライン追加をしたときのフラグ     *
 ***************************************************/
 EXTERN void AddTopLineControlPointHistory(
 	DRAW_WINDOW* window,
@@ -563,6 +588,86 @@ EXTERN void AddTopLineControlPointHistory(
 	VECTOR_POINT* point,
 	const char* tool_name,
 	uint8 add_line_flag
+);
+
+/***********************************************
+* AddTopSquareHistory関数                      *
+* 四角形追加履歴を追加                         *
+* 引数                                         *
+* window		: 描画領域の情報               *
+* layer			: 四角形を追加したレイヤー     *
+* square		: 追加した四角形               *
+* tool_name		: 四角形を追加したツールの名前 *
+***********************************************/
+EXTERN void AddTopSquareHistory(
+	DRAW_WINDOW* window,
+	LAYER* layer,
+	VECTOR_SQUARE* square,
+	const char* tool_name
+);
+
+/*********************************************
+* AddTopEclipseHistory関数                   *
+* 楕円追加履歴を追加                         *
+* 引数                                       *
+* window		: 描画領域の情報             *
+* layer			: 楕円を追加したレイヤー     *
+* eclipse		: 追加した楕円               *
+* tool_name		: 楕円を追加したツールの名前 *
+*********************************************/
+EXTERN void AddTopEclipseHistory(
+	DRAW_WINDOW* window,
+	LAYER* layer,
+	VECTOR_ECLIPSE* eclipse,
+	const char* tool_name
+);
+
+/*********************************************
+* AddTopScriptHistory関数                    *
+* スクリプトのいベクトル追加履歴を追加       *
+* 引数                                       *
+* window		: 描画領域の情報             *
+* layer			: 楕円を追加したレイヤー     *
+* eclipse		: 追加した楕円               *
+* tool_name		: 楕円を追加したツールの名前 *
+*********************************************/
+EXTERN void AddTopScriptHistory(
+	DRAW_WINDOW* window,
+	LAYER* layer,
+	VECTOR_SCRIPT* script,
+	const char* tool_name
+);
+
+/*************************************************
+* AddDeleteVectorShapeHistory関数                *
+* 四角形, 楕円削除の履歴を追加                   *
+* 引数                                           *
+* window		: 描画領域の情報                 *
+* layer			: ベクトルを削除したレイヤー     *
+* delete_shape	: 削除したベクトルデータ         *
+* tool_name		: ベクトルデータを削除したツール *
+*************************************************/
+EXTERN void AddDeleteVectorShapeHistory(
+	DRAW_WINDOW* window,
+	LAYER* layer,
+	VECTOR_BASE_DATA* delete_shape,
+	const char* tool_name
+);
+
+/*************************************************
+* AddDeleteVectorScriptHistory関数               *
+* スクリプトのベクトル削除の履歴を追加           *
+* 引数                                           *
+* window		: 描画領域の情報                 *
+* layer			: ベクトルを削除したレイヤー     *
+* delete_script	: 削除したベクトルデータ         *
+* tool_name		: ベクトルデータを削除したツール *
+*************************************************/
+EXTERN void AddDeleteVectorScriptHistory(
+	DRAW_WINDOW* window,
+	LAYER* layer,
+	VECTOR_SCRIPT* delete_script,
+	const char* tool_name
 );
 
 /***********************************************************

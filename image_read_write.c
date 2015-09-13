@@ -1350,12 +1350,403 @@ LAYER* ReadOriginalFormatLayers(
 
 				// 一番下に空のレイヤー作成
 				layer->layer_data.vector_layer_p->base =
-					CreateVectorLine(NULL, NULL);
+					(VECTOR_DATA*)CreateVectorLine(NULL, NULL);
 				(void)memset(layer->layer_data.vector_layer_p->base, 0,
-					sizeof(*layer->layer_data.vector_layer_p->base));
-				layer->layer_data.vector_layer_p->base->layer =
+					sizeof(VECTOR_LINE));
+				layer->layer_data.vector_layer_p->base->line.base_data.layer =
 					CreateVectorLineLayer(window->work_layer, NULL, &rect);
-				layer->layer_data.vector_layer_p->top_line =
+				layer->layer_data.vector_layer_p->top_data =
+					layer->layer_data.vector_layer_p->base;
+
+				// データのバイト数を読み込む
+				next_data_point = (uint32)(stream->data_point +
+					ReadVectorLineData(&stream->buff_ptr[stream->data_point], layer));
+
+				// ベクトルデータをラスタライズ
+				layer->layer_data.vector_layer_p->flags =
+					(VECTOR_LAYER_FIX_LINE | VECTOR_LAYER_RASTERIZE_ALL);
+				RasterizeVectorLayer(window, layer, layer->layer_data.vector_layer_p);
+			}
+			break;
+		case TYPE_TEXT_LAYER:	// テキストレイヤー
+			{
+				// フォントサーチ用
+				PangoFontFamily** search_font;
+				// フォントID
+				gint32 font_id;
+
+				// データのサイズを読み込む
+				(void)MemRead(&data_size, sizeof(data_size), 1, stream);
+				next_data_point = (uint32)(stream->data_point + data_size);
+
+				// 文字描画領域の座標、幅、高さ、文字サイズ
+					// フォントファイル名、色等を読み込む
+				(void)MemRead(&text_base.x, sizeof(text_base.x), 1, stream);
+				(void)MemRead(&text_base.y, sizeof(text_base.y), 1, stream);
+				(void)MemRead(&text_base.width, sizeof(text_base.width), 1, stream);
+				(void)MemRead(&text_base.height, sizeof(text_base.height), 1, stream);
+				(void)MemRead(&text_base.balloon_type, sizeof(text_base.balloon_type), 1, stream);
+				(void)MemRead(&text_base.font_size, sizeof(text_base.font_size), 1, stream);
+				(void)MemRead(text_base.color, sizeof(text_base.color), 1, stream);
+				(void)MemRead(text_base.edge_position, sizeof(text_base.edge_position), 1, stream);
+				(void)MemRead(&text_base.arc_start, sizeof(text_base.arc_start), 1, stream);
+				(void)MemRead(&text_base.arc_end, sizeof(text_base.arc_end), 1, stream);
+				(void)MemRead(text_base.back_color, sizeof(text_base.back_color), 1, stream);
+				(void)MemRead(text_base.line_color, sizeof(text_base.line_color), 1, stream);
+				(void)MemRead(&text_base.line_width, sizeof(text_base.line_width), 1, stream);
+				(void)MemRead(&text_base.base_size, sizeof(text_base.base_size), 1, stream);
+				(void)MemRead(&text_base.balloon_data.num_edge, sizeof(text_base.balloon_data.num_edge), 1, stream);
+				(void)MemRead(&text_base.balloon_data.num_children, sizeof(text_base.balloon_data.num_children), 1, stream);
+				(void)MemRead(&text_base.balloon_data.edge_size, sizeof(text_base.balloon_data.edge_size), 1, stream);
+				(void)MemRead(&text_base.balloon_data.random_seed, sizeof(text_base.balloon_data.random_seed), 1, stream);
+				(void)MemRead(&text_base.balloon_data.edge_random_size, sizeof(text_base.balloon_data.edge_random_size), 1, stream);
+				(void)MemRead(&text_base.balloon_data.edge_random_distance, sizeof(text_base.balloon_data.edge_random_distance), 1, stream);
+				(void)MemRead(&text_base.balloon_data.start_child_size, sizeof(text_base.balloon_data.start_child_size), 1, stream);
+				(void)MemRead(&text_base.balloon_data.end_child_size, sizeof(text_base.balloon_data.end_child_size), 1, stream);
+				(void)MemRead(&text_base.flags, sizeof(text_base.flags), 1, stream);
+				(void)MemRead(&name_length, sizeof(name_length), 1, stream);
+				name = (char*)MEM_ALLOC_FUNC(name_length);
+				(void)MemRead(name, 1, name_length, stream);
+				search_font = (PangoFontFamily**)bsearch(
+					name, app->font_list, app->num_font, sizeof(*app->font_list),
+					(int (*)(const void*, const void*))ForFontFamilySearchCompare);
+				if(search_font == NULL)
+				{
+					font_id = 0;
+				}
+				else
+				{
+					font_id = (gint32)(search_font - app->font_list);
+				}
+				MEM_FREE_FUNC(name);
+				layer->layer_data.text_layer_p =
+					CreateTextLayer(window, text_base.x, text_base.y, text_base.width, text_base.height,
+						text_base.base_size, text_base.font_size, font_id, text_base.color, text_base.balloon_type,
+							text_base.back_color, text_base.line_color, text_base.line_width, &text_base.balloon_data, text_base.flags
+				);
+				layer->layer_data.text_layer_p->edge_position[0][0] = text_base.edge_position[0][0];
+				layer->layer_data.text_layer_p->edge_position[0][1] = text_base.edge_position[0][1];
+				layer->layer_data.text_layer_p->edge_position[1][0] = text_base.edge_position[1][0];
+				layer->layer_data.text_layer_p->edge_position[1][1] = text_base.edge_position[1][1];
+				layer->layer_data.text_layer_p->edge_position[2][0] = text_base.edge_position[2][0];
+				layer->layer_data.text_layer_p->edge_position[2][1] = text_base.edge_position[2][1];
+				layer->layer_data.text_layer_p->arc_start = text_base.arc_start;
+				layer->layer_data.text_layer_p->arc_end = text_base.arc_end;
+
+				(void)MemRead(&name_length, sizeof(name_length), 1, stream);
+				layer->layer_data.text_layer_p->text =
+					(char*)MEM_ALLOC_FUNC(name_length);
+				(void)MemRead(layer->layer_data.text_layer_p->text, 1, name_length, stream);
+				// レイヤーをラスタライズ
+				RenderTextLayer(window, layer, layer->layer_data.text_layer_p);
+			}
+
+			break;
+		case TYPE_LAYER_SET:	// レイヤーセット
+			{
+				LAYER *target = layer->prev;
+				next_data_point = (uint32)stream->data_point;
+				current_hierarchy = hierarchy[i]+1;
+
+				for(k=i-1; k>=0 && current_hierarchy == hierarchy[k]; k--)
+				{
+					hierarchy[k] = 0;
+					target->layer_set = layer;
+					target = target->prev;
+				}
+
+				if(stream->buff_ptr[stream->data_point] > 20)
+				{
+					before_error = TRUE;
+					while(stream->buff_ptr[stream->data_point] != 0x0)
+					{
+						stream->data_point++;
+					}
+					next_data_point = (uint32)stream->data_point;
+				}
+			}
+
+			break;
+		case TYPE_3D_LAYER:	// 3Dモデリングレイヤー
+			if(GetHas3DLayer(app) != FALSE)
+			{
+				// PNG圧縮されたピクセルデータを展開して読み込む
+				(void)MemRead(&data_size, sizeof(data_size), 1, stream);
+				next_data_point = (uint32)(stream->data_point + data_size);
+				(void)MemRead(&data_size, sizeof(data_size), 1, stream);
+				image = CreateMemoryStream(data_size);
+				(void)MemRead(image->buff_ptr, 1, data_size, stream);
+				pixels = ReadPNGStream(image, (stream_func_t)MemRead,
+					&width, &height, &stride);
+				if(pixels != NULL)
+				{
+					(void)memcpy(layer->pixels, pixels, height*stride);
+				}
+				DeleteMemoryStream(image);
+				MEM_FREE_FUNC(pixels);
+
+				// 3Dモデルのデータを読み込む
+				(void)MemRead(&data_size, sizeof(data_size), 1, stream);
+				layer->modeling_data = MEM_ALLOC_FUNC(data_size);
+				(void)MemRead(layer->modeling_data, 1, data_size, stream);
+				layer->modeling_data_size = data_size;
+
+				break;
+			}
+		default:
+			// PNG圧縮されたピクセルデータを展開して読み込む
+			(void)MemRead(&data_size, sizeof(data_size), 1, stream);
+			next_data_point = (uint32)(stream->data_point + data_size);
+			(void)MemRead(&data_size, sizeof(data_size), 1, stream);
+			image = CreateMemoryStream(data_size);
+			(void)MemRead(image->buff_ptr, 1, data_size, stream);
+			pixels = ReadPNGStream(image, (stream_func_t)MemRead,
+				&width, &height, &stride);
+			if(pixels != NULL)
+			{
+				(void)memcpy(layer->pixels, pixels, height*stride);
+			}
+			else
+			{
+				before_error = TRUE;
+			}
+			DeleteMemoryStream(image);
+			MEM_FREE_FUNC(pixels);
+		}
+
+		// 追加情報データに移動
+		(void)MemSeek(stream, (long)next_data_point, SEEK_SET);
+		// 追加情報を読み込む
+		(void)MemRead(&layer->num_extra_data, sizeof(layer->num_extra_data), 1, stream);
+
+		for(j=0; j<layer->num_extra_data; j++)
+		{
+			// データの名前を読み込む
+			(void)MemRead(&name_length, sizeof(name_length), 1, stream);
+			if(name_length >= 8192)
+			{
+				break;
+			}
+			layer->extra_data[j].name = (char*)MEM_ALLOC_FUNC(name_length);
+			(void)MemRead(layer->extra_data[j].name, 1, name_length, stream);
+			(void)MemRead(&size_t_temp, sizeof(size_t_temp), 1, stream);
+			if((int)size_t_temp >= layer->stride * layer->height * 3)
+			{
+				break;
+			}
+			layer->extra_data[j].data_size = size_t_temp;
+			layer->extra_data[j].data = MEM_ALLOC_FUNC(layer->extra_data[j].data_size);
+			(void)MemRead(layer->extra_data[j].data, 1, layer->extra_data[j].data_size, stream);
+		}
+
+		// 進捗状況を更新
+		current_progress += progress_step;
+		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), current_progress);
+		(void)sprintf(show_text, "%.0f%%", current_progress * 100);
+		gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->progress), show_text);
+#if GTK_MAJOR_VERSION <= 2
+		gdk_window_process_updates(app->progress->window, FALSE);
+#else
+		gdk_window_process_updates(gtk_widget_get_window(app->progress), FALSE);
+#endif
+		while(gdk_events_pending() != FALSE)
+		{
+#define MAX_REDRAW_TRY 250
+			queued_event = gdk_event_get();
+			gtk_main_iteration();
+			if(queued_event != NULL)
+			{
+#if GTK_MAJOR_VERSION <= 2
+				if(queued_event->any.window == app->progress->window
+#else
+				if(queued_event->any.window == gtk_widget_get_window(app->progress)
+#endif
+					&& queued_event->any.type == GDK_EXPOSE
+					|| redraw_counter >= MAX_REDRAW_TRY)
+				{
+					redraw_counter = 0;
+					gdk_event_free(queued_event);
+					break;
+				}
+				else
+				{
+					redraw_counter++;
+					gdk_event_free(queued_event);
+				}
+			}
+		}
+	}
+
+return_layers:
+	// 先頭のレイヤーを返す
+	while(layer->prev != NULL)
+	{
+		layer = layer->prev;
+	}
+
+	return layer;
+}
+
+/**************************************************************
+* ReadOriginalFormatLayersOldVersion5関数                     *
+* 旧独自形式のレイヤーデータを読み込む(ファイルバージョン： 5 *
+* 引数                                                        *
+* stream		: 読み込み元のアドレス                        *
+* progress_step	: 進捗状況の更新幅                            *
+* window		: 描画領域の情報                              *
+* app			: アプリケーションを管理する構造体アドレス    *
+* 返り値                                                      *
+*	読み込んだレイヤーデータ                                  *
+**************************************************************/
+LAYER* ReadOriginalFormatLayersOldVersion5(
+	MEMORY_STREAM_PTR stream,
+	FLOAT_T progress_step,
+	DRAW_WINDOW* window,
+	APPLICATION* app,
+	uint16 num_layer
+)
+{
+	// レイヤーの基本情報読み込み用
+	LAYER_BASE_DATA base;
+	// テキストレイヤーの基本情報読み込み用
+	TEXT_LAYER_BASE_DATA text_base;
+	// 画像データ
+	uint8 *pixels;
+	// 画像データのバイト数
+	guint32 data_size;
+	// 次のレイヤーデータが開始するポイント
+	guint32 next_data_point;
+	// 追加するレイヤー
+	LAYER* layer = NULL;
+	// ピクセルデータ展開用
+	MEMORY_STREAM_PTR image;
+	// ピクセルデータの幅、高さ、一行分のバイト数
+	gint32 width, height, stride;
+	// 32bit読み込み用
+	guint32 size_t_temp;
+	// レイヤー・フォントの名前とその長さ
+	char *name;
+	uint16 name_length;
+	// レイヤーセットの階層
+	int8 current_hierarchy = 0;
+	int8 hierarchy[2048] = {0};
+	// 現在の進捗状況
+	FLOAT_T current_progress = progress_step;
+	// 進捗状況のパーセンテージ表示用
+	gchar show_text[16];
+	// 進捗状況表示更新用
+	GdkEvent *queued_event;
+	// レイヤー読み込みエラー判定
+	int before_error = FALSE;
+	// 再表示諦めのカウンタ
+	int redraw_counter = 0;
+	// for文用のカウンタ
+	unsigned int i, j;
+	int k;
+
+	for(i=0; i<num_layer; i++)
+	{
+		// レイヤーデータ読み込み
+		if(before_error == FALSE)
+		{	// 名前
+			(void)MemRead(&name_length, sizeof(name_length), 1, stream);
+			name = (char*)MEM_ALLOC_FUNC(name_length);
+			(void)MemRead(name, 1, name_length, stream);
+			// 基本情報
+			(void)MemRead(&base.layer_type, sizeof(base.layer_type), 1, stream);
+			(void)MemRead(&base.layer_mode, sizeof(base.layer_mode), 1, stream);
+			(void)MemRead(&base.x, sizeof(base.x), 1, stream);
+			(void)MemRead(&base.y, sizeof(base.y), 1, stream);
+			(void)MemRead(&base.width, sizeof(base.width), 1, stream);
+			(void)MemRead(&base.height, sizeof(base.height), 1, stream);
+			(void)MemRead(&base.flags, sizeof(base.flags), 1, stream);
+			(void)MemRead(&base.alpha, sizeof(base.alpha), 1, stream);
+			(void)MemRead(&base.channel, sizeof(base.channel), 1, stream);
+			(void)MemRead(&base.layer_set, sizeof(base.layer_set), 1, stream);
+
+			if(base.layer_type >= NUM_LAYER_TYPE || base.x != 0)
+			{
+				goto return_layers;
+			}
+
+			// 値のセット
+			layer = CreateLayer(base.x, base.y, base.width, base.height,
+				base.channel, base.layer_type, layer, NULL, name, window);
+			layer->alpha = base.alpha;
+			layer->layer_mode = base.layer_mode;
+			layer->flags = base.flags;
+			hierarchy[i] = base.layer_set;
+			MEM_FREE_FUNC(name);
+			window->active_layer = layer;
+		}
+		else
+		{
+			name = MEM_STRDUP_FUNC("Error");
+			base.layer_type = TYPE_NORMAL_LAYER;
+			base.layer_mode = LAYER_BLEND_NORMAL;
+			base.x = 0;
+			base.y = 0;
+			base.width = window->width;
+			base.height = window->height;
+			base.flags = 0;
+			base.alpha = 100;
+			base.channel = 4;
+			base.layer_set = 0;
+			before_error = FALSE;
+			// 値のセット
+			layer = CreateLayer(base.x, base.y, base.width, base.height,
+				base.channel, base.layer_type, layer, NULL, name, window);
+			layer->alpha = base.alpha;
+			layer->layer_mode = base.layer_mode;
+			layer->flags = base.flags;
+			hierarchy[i] = base.layer_set;
+			stream->data_point -= 4;
+			MEM_FREE_FUNC(name);
+			window->active_layer = layer;
+		}
+		// レイヤーのタイプで処理切り替え
+		switch(base.layer_type)
+		{
+		case TYPE_NORMAL_LAYER:	// 通常レイヤー
+			// PNG圧縮されたピクセルデータを展開して読み込む
+			(void)MemRead(&data_size, sizeof(data_size), 1, stream);
+			next_data_point = (uint32)(stream->data_point + data_size);
+			image = CreateMemoryStream(data_size);
+			(void)MemRead(image->buff_ptr, 1, data_size, stream);
+			pixels = ReadPNGStream(image, (stream_func_t)MemRead,
+				&width, &height, &stride);
+			if(pixels != NULL)
+			{
+				(void)memcpy(layer->pixels, pixels, height*stride);
+			}
+			else
+			{
+				before_error = TRUE;
+			}
+			DeleteMemoryStream(image);
+			MEM_FREE_FUNC(pixels);
+			break;
+		case TYPE_VECTOR_LAYER:	// ベクトルレイヤー
+			{	// 線をピクセルデータへ変更するための準備
+				VECTOR_LAYER_RECTANGLE rect = {0, 0, base.width, base.height};
+
+				layer->layer_data.vector_layer_p =
+					(VECTOR_LAYER*)MEM_ALLOC_FUNC(sizeof(*layer->layer_data.vector_layer_p));
+				(void)memset(layer->layer_data.vector_layer_p, 0,
+					sizeof(*layer->layer_data.vector_layer_p));
+				// 線情報をラスタライズしたレイヤー
+				(void)memset(window->work_layer->pixels, 0, window->pixel_buf_size);
+				layer->layer_data.vector_layer_p->mix =
+					CreateVectorLineLayer(window->work_layer, NULL, &rect);
+
+				// 一番下に空のレイヤー作成
+				layer->layer_data.vector_layer_p->base =
+					(VECTOR_DATA*)CreateVectorLine(NULL, NULL);
+				(void)memset(layer->layer_data.vector_layer_p->base, 0,
+					sizeof(VECTOR_LINE));
+				layer->layer_data.vector_layer_p->base->line.base_data.layer =
+					CreateVectorLineLayer(window->work_layer, NULL, &rect);
+				layer->layer_data.vector_layer_p->top_data =
 					layer->layer_data.vector_layer_p->base;
 
 				// データのバイト数を読み込む
@@ -1741,12 +2132,12 @@ LAYER* ReadOriginalFormatLayersOldVersion4(
 
 				// 一番下に空のレイヤー作成
 				layer->layer_data.vector_layer_p->base =
-					CreateVectorLine(NULL, NULL);
+					(VECTOR_DATA*)CreateVectorLine(NULL, NULL);
 				(void)memset(layer->layer_data.vector_layer_p->base, 0,
 					sizeof(*layer->layer_data.vector_layer_p->base));
-				layer->layer_data.vector_layer_p->base->layer =
+				layer->layer_data.vector_layer_p->base->line.base_data.layer =
 					CreateVectorLineLayer(window->work_layer, NULL, &rect);
-				layer->layer_data.vector_layer_p->top_line =
+				layer->layer_data.vector_layer_p->top_data =
 					layer->layer_data.vector_layer_p->base;
 
 				// データのバイト数を読み込む
@@ -2068,12 +2459,12 @@ LAYER* ReadOriginalFormatLayersOldVersion3(
 
 				// 一番下に空のレイヤー作成
 				layer->layer_data.vector_layer_p->base =
-					CreateVectorLine(NULL, NULL);
+					(VECTOR_DATA*)CreateVectorLine(NULL, NULL);
 				(void)memset(layer->layer_data.vector_layer_p->base, 0,
 					sizeof(*layer->layer_data.vector_layer_p->base));
-				layer->layer_data.vector_layer_p->base->layer =
+				layer->layer_data.vector_layer_p->base->line.base_data.layer =
 					CreateVectorLineLayer(window->work_layer, NULL, &rect);
-				layer->layer_data.vector_layer_p->top_line =
+				layer->layer_data.vector_layer_p->top_data =
 					layer->layer_data.vector_layer_p->base;
 
 				// データのバイト数を読み込む
@@ -2284,12 +2675,12 @@ LAYER* ReadOriginalFormatLayersOldVersion2(
 
 				// 一番下に空のレイヤー作成
 				layer->layer_data.vector_layer_p->base =
-					CreateVectorLine(NULL, NULL);
+					(VECTOR_DATA*)CreateVectorLine(NULL, NULL);
 				(void)memset(layer->layer_data.vector_layer_p->base, 0,
 					sizeof(*layer->layer_data.vector_layer_p->base));
-				layer->layer_data.vector_layer_p->base->layer =
+				layer->layer_data.vector_layer_p->base->line.base_data.layer =
 					CreateVectorLineLayer(window->work_layer, NULL, &rect);
-				layer->layer_data.vector_layer_p->top_line =
+				layer->layer_data.vector_layer_p->top_data =
 					layer->layer_data.vector_layer_p->base;
 
 				// データのバイト数を読み込む
@@ -2516,12 +2907,12 @@ LAYER* ReadOriginalFormatLayersOldVersion1(
 
 				// 一番下に空のレイヤー作成
 				layer->layer_data.vector_layer_p->base =
-					CreateVectorLine(NULL, NULL);
+					(VECTOR_DATA*)CreateVectorLine(NULL, NULL);
 				(void)memset(layer->layer_data.vector_layer_p->base, 0,
 					sizeof(*layer->layer_data.vector_layer_p->base));
-				layer->layer_data.vector_layer_p->base->layer =
+				layer->layer_data.vector_layer_p->base->line.base_data.layer =
 					CreateVectorLineLayer(window->work_layer, NULL, &rect);
-				layer->layer_data.vector_layer_p->top_line =
+				layer->layer_data.vector_layer_p->top_data =
 					layer->layer_data.vector_layer_p->base;
 
 				// データのバイト数を読み込む
@@ -2563,8 +2954,8 @@ LAYER* ReadOriginalFormatLayersOldVersion1(
 					(void)MemRead(&line_base.num_points, sizeof(line_base.num_points), 1, image);
 					(void)MemRead(&line_base.blur, sizeof(line_base.blur), 1, image);
 					(void)MemRead(&line_base.outline_hardness, sizeof(line_base.outline_hardness), 1, image);
-					line = CreateVectorLine(layer->layer_data.vector_layer_p->top_line, NULL);
-					line->vector_type = line_base.vector_type;
+					line = CreateVectorLine((VECTOR_LINE*)layer->layer_data.vector_layer_p->top_data, NULL);
+					line->base_data.vector_type = line_base.vector_type;
 					line->num_points = line_base.num_points;
 					line->blur = line_base.blur;
 					line->outline_hardness = line_base.outline_hardness;
@@ -2590,7 +2981,7 @@ LAYER* ReadOriginalFormatLayersOldVersion1(
 					}
 					MEM_FREE_FUNC(points);
 
-					layer->layer_data.vector_layer_p->top_line = line;
+					layer->layer_data.vector_layer_p->top_data = (VECTOR_DATA*)line;
 				}
 
 				// ベクトルデータをラスタライズ
@@ -2960,6 +3351,10 @@ DRAW_WINDOW* ReadOriginalFormat(
 	if(file_version == FILE_VERSION)
 	{
 		window->layer = ReadOriginalFormatLayers(mem_stream, progress_step, window, app, num_layer);
+	}
+	else if(file_version == 5)
+	{
+		window->layer = ReadOriginalFormatLayersOldVersion5(mem_stream, progress_step, window, app, num_layer);
 	}
 	else if(file_version == 4)
 	{

@@ -32,6 +32,7 @@ static void ExecuteLoadProject(APPLICATION* application);
 static void ExecuteSaveProject(APPLICATION* application);
 static void ExecuteSaveProjectAs(APPLICATION* application);
 static void ExecuteLoadModel(APPLICATION* application);
+static void ExecuteAddShape(GtkWidget* widget, APPLICATION* application);
 static void ExecuteLoadPose(APPLICATION* application);
 static void FillParentModelComboBox(GtkWidget* combo, SCENE* scene, APPLICATION* application);
 static void FillParentBoneComboBox(GtkWidget* combo, SCENE* scene, APPLICATION* application);
@@ -119,7 +120,7 @@ static void ToggleButtonSetFlag(
 
 static void InitializeGL(PROJECT* project, int widget_width, int widget_height)
 {
-	SetRequiredOpengGLState();
+	SetRequiredOpengGLState(NULL);
 
 	// グリッド
 	InitializeGrid(&project->grid);
@@ -146,6 +147,8 @@ static void InitializeGL(PROJECT* project, int widget_width, int widget_height)
 	UploadWhiteTexture(WHITE_TEXTURE_SIZE, WHITE_TEXTURE_SIZE, project);
 
 	project->world.debug_drawer = &project->debug_drawer;
+
+	ResizeProject(project, widget_width, widget_height);
 }
 
 static void ShowChildMenuItem(GtkWidget* menu, void* dummy)
@@ -185,7 +188,7 @@ GtkWidget* MakeMenuBar(void* application_context, GtkAccelGroup* hot_key)
 	GtkWidget *menu_bar;
 	GtkWidget *menu;
 	GtkWidget *menu_item;
-	GtkWidget *sub_item;
+	//GtkWidget *sub_item;
 	char buff[2048];
 
 	if(hot_key == NULL)
@@ -291,6 +294,22 @@ GtkWidget* MakeMenuBar(void* application_context, GtkAccelGroup* hot_key)
 	menu = gtk_menu_new();
 	gtk_menu_item_set_submenu(GTK_MENU_ITEM(menu_item), menu);
 
+	// 「直方体を追加」
+	(void)sprintf(buff, "%s", application->label.control.add_cuboid);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_object_set_data(G_OBJECT(menu_item), "shape_type", GINT_TO_POINTER(SHAPE_TYPE_CUBOID));
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteAddShape), application);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+
+	// 「円錐を追加」
+	(void)sprintf(buff, "%s", application->label.control.add_cone);
+	menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_object_set_data(G_OBJECT(menu_item), "shape_type", GINT_TO_POINTER(SHAPE_TYPE_CONE));
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteAddShape), application);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+
 	// 「現在のモデルを削除」
 	(void)sprintf(buff, "%s", application->label.control.delete_current_model);
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
@@ -320,6 +339,7 @@ gboolean ConfigureEvent(
 	GdkGLContext *context = gtk_widget_get_gl_context(widget);
 	GdkGLDrawable *drawable = gtk_widget_get_gl_drawable(widget);
 	int start_x = 0,	start_y = 0;
+
 #if GTK_MAJOR_VERSION <= 2
 	if(gdk_gl_drawable_gl_begin(drawable, context) == FALSE)
 #else
@@ -393,8 +413,7 @@ gboolean ConfigureEvent(
 	else
 #endif
 	{
-		project->scene->width = allocation.width;
-		project->scene->height = allocation.height;
+		ResizeProject(project, allocation.width, allocation.height);
 	}
 	// project->flags &= ~(PROJECT_FLAG_ADJUST_TO_RATIO);
 
@@ -409,7 +428,7 @@ gboolean ConfigureEvent(
 
 	ResizeHandle(&project->control.handle, project->scene->width, project->scene->height);
 
-	glViewport(start_x, start_y, allocation.width, allocation.height);
+	glViewport(start_x, start_y, project->scene->width, project->scene->height);
 
 #if GTK_MAJOR_VERSION <= 2
 	gdk_gl_drawable_gl_end(drawable);
@@ -873,6 +892,59 @@ static void ExecuteLoadModel(APPLICATION* application)
 	}
 }
 
+static void ExecuteAddShape(GtkWidget* widget, APPLICATION* application)
+{
+	PROJECT *project = application->projects[application->active_project];
+	eSHAPE_TYPE shape_type = (eSHAPE_TYPE)GPOINTER_TO_INT(g_object_get_data(G_OBJECT(widget), "shape_type"));
+	SHAPE_MODEL *model = NULL;
+
+	if(project == NULL)
+	{
+		return;
+	}
+
+	switch(shape_type)
+	{
+	case SHAPE_TYPE_CUBOID:
+		{
+			CUBOID_MODEL *cuboid = (CUBOID_MODEL*)MEM_ALLOC_FUNC(sizeof(*cuboid));
+			InitializeCuboidModel(cuboid, project->scene);
+			model = &cuboid->base_data;
+		}
+		break;
+	case SHAPE_TYPE_CONE:
+		{
+			CONE_MODEL *cone = (CONE_MODEL*)MEM_ALLOC_FUNC(sizeof(*cone));
+			InitializeConeModel(cone, project->scene);
+			model = &cone->base_data;
+		}
+		break;
+	default:
+		return;
+	}
+
+	if(model == NULL)
+	{
+		return;
+	}
+
+	if(AddShapeModel(application, model) == FALSE)
+	{
+		return;
+	}
+
+#if GTK_MAJOR_VERSION <= 2
+	gtk_combo_box_append_text(GTK_COMBO_BOX(application->widgets.model_combo_box), model->interface_data.name);
+#else
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(application->widgets.model_combo_box), model->interface_data.name);
+#endif
+	gtk_combo_box_set_active(GTK_COMBO_BOX(application->widgets.model_combo_box),
+		(int)project->scene->models->num_data);
+	FillParentModelComboBox(application->widgets.connect_model, project->scene, application);
+
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.edge_size), 1);
+}
+
 static void ExecuteLoadPose(APPLICATION* application)
 {
 	PROJECT *project = NULL;
@@ -955,6 +1027,210 @@ static void ExecuteLoadPose(APPLICATION* application)
 	}
 }
 
+static void OnChangeShapeModelColor(GtkWidget* color_button, uint8* color)
+{
+	GdkColor color_value;
+
+	gtk_color_button_get_color(GTK_COLOR_BUTTON(color_button), &color_value);
+	color[0] = color_value.red >> 8;
+	color[1] = color_value.green >> 8;
+	color[2] = color_value.blue >> 8;
+}
+
+static void OnChangeShapeModelSize(GtkWidget* spin, float* size)
+{
+	SHAPE_MODEL *model = (SHAPE_MODEL*)g_object_get_data(G_OBJECT(spin), "shape");
+	*size = (float)gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin));
+	model->flags |= SHAPE_MODEL_FLAG_UPDATE;
+}
+
+static GtkWidget* ShapeModelDetailSettingWidgetNew(SHAPE_MODEL* model, APPLICATION* application)
+{
+	if(model->shape_type == SHAPE_TYPE_CUBOID)
+	{
+		CUBOID_MODEL *cuboid = (CUBOID_MODEL*)model;
+		GtkWidget *table = gtk_table_new(3, 2, FALSE);
+		GtkWidget *label;
+		GtkWidget *control;
+		char str[256];
+
+		(void)sprintf(str, "%s : ", application->label.control.width);
+		label = gtk_label_new(str);
+		control = gtk_spin_button_new_with_range(0, 30000, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(control), cuboid->width);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 1);
+		g_object_set_data(G_OBJECT(control), "shape", cuboid);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(OnChangeShapeModelSize), &cuboid->width);
+		gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 0, 1);
+		gtk_table_attach_defaults(GTK_TABLE(table), control, 1, 2, 0, 1);
+
+		(void)sprintf(str, "%s : ", application->label.control.height);
+		label = gtk_label_new(str);
+		control = gtk_spin_button_new_with_range(0, 30000, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(control), cuboid->height);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 1);
+		g_object_set_data(G_OBJECT(control), "shape", cuboid);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(OnChangeShapeModelSize), &cuboid->height);
+		gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 1, 2);
+		gtk_table_attach_defaults(GTK_TABLE(table), control, 1, 2, 1, 2);
+
+		(void)sprintf(str, "%s : ", application->label.control.depth);
+		label = gtk_label_new(str);
+		control = gtk_spin_button_new_with_range(0, 30000, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(control), cuboid->depth);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 1);
+		g_object_set_data(G_OBJECT(control), "shape", cuboid);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(OnChangeShapeModelSize), &cuboid->depth);
+		gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 2, 3);
+		gtk_table_attach_defaults(GTK_TABLE(table), control, 1, 2, 2, 3);
+
+		return table;
+	}
+	else if(model->shape_type == SHAPE_TYPE_CONE)
+	{
+		CONE_MODEL *cone = (CONE_MODEL*)model;
+		GtkWidget *table = gtk_table_new(3, 2, FALSE);
+		GtkWidget *label;
+		GtkWidget *control;
+		char str[256];
+
+		(void)sprintf(str, "%s : ", application->label.control.upper_size);
+		label = gtk_label_new(str);
+		control = gtk_spin_button_new_with_range(0, 30000, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(control), cone->upper_radius);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 1);
+		g_object_set_data(G_OBJECT(control), "shape", cone);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(OnChangeShapeModelSize), &cone->upper_radius);
+		gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 0, 1);
+		gtk_table_attach_defaults(GTK_TABLE(table), control, 1, 2, 0, 1);
+
+		(void)sprintf(str, "%s : ", application->label.control.lower_size);
+		label = gtk_label_new(str);
+		control = gtk_spin_button_new_with_range(0, 30000, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(control), cone->lower_radius);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 1);
+		g_object_set_data(G_OBJECT(control), "shape", cone);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(OnChangeShapeModelSize), &cone->lower_radius);
+		gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 1, 2);
+		gtk_table_attach_defaults(GTK_TABLE(table), control, 1, 2, 1, 2);
+
+		(void)sprintf(str, "%s : ", application->label.control.height);
+		label = gtk_label_new(str);
+		control = gtk_spin_button_new_with_range(0, 30000, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(control), cone->height);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 1);
+		g_object_set_data(G_OBJECT(control), "shape", cone);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(OnChangeShapeModelSize), &cone->height);
+		gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 2, 3);
+		gtk_table_attach_defaults(GTK_TABLE(table), control, 1, 2, 2, 3);
+
+		return table;
+	}
+	return NULL;
+}
+
+static void OnChangeShapeModelNumLines(GtkWidget* spin, SHAPE_MODEL* model)
+{
+	model->num_lines = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin));
+	model->flags |= SHAPE_MODEL_FLAG_UPDATE | SHAPE_MODEL_FLAG_INDEX_BUFFER_UPDATE;
+}
+
+static void OnChangeShapeModelLineWidth(GtkWidget* spin, SHAPE_MODEL* model)
+{
+	model->line_width = (float)gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin));
+}
+
+static GtkWidget* ModelDetailSettingWidgetNew(PROJECT* project)
+{
+	if(project == NULL || project->scene == NULL)
+	{
+		return NULL;
+	}
+
+	if(project->scene->selected_model == NULL)
+	{
+		return NULL;
+	}
+
+	if(project->scene->selected_model->type == MODEL_TYPE_SHAPE)
+	{
+		UI_LABEL *labels = &project->application_context->label;
+		SHAPE_MODEL *model = (SHAPE_MODEL*)project->scene->selected_model;
+		GtkWidget *layout;
+		GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
+		GtkWidget *control;
+		GtkWidget *label;
+		GdkColor color;
+		char str[256];
+
+		control = gtk_hseparator_new();
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+
+		if((control = ShapeModelDetailSettingWidgetNew(model, project->application_context)) != NULL)
+		{
+			gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+			control = gtk_hseparator_new();
+			gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+		}
+
+		layout = gtk_table_new(4, 2, FALSE);
+
+		(void)sprintf(str, "%s : ", labels->control.surface_color);
+		label = gtk_label_new(str);
+		color.red = model->surface_color[0] | (model->surface_color[0] << 8);
+		color.green = model->surface_color[1] | (model->surface_color[1] << 8);
+		color.blue = model->surface_color[2] | (model->surface_color[2] << 8);
+		control = gtk_color_button_new_with_color(&color);
+		gtk_color_button_set_title(GTK_COLOR_BUTTON(control), labels->control.surface_color);
+		(void)g_signal_connect(G_OBJECT(control), "color-set", G_CALLBACK(OnChangeShapeModelColor), model->surface_color);
+		gtk_table_attach_defaults(GTK_TABLE(layout), label, 0, 1, 0, 1);
+		gtk_table_attach_defaults(GTK_TABLE(layout), control, 1, 2, 0, 1);
+
+		(void)sprintf(str, "%s : ", labels->control.line_color);
+		label = gtk_label_new(str);
+		color.red = model->line_color[0] | (model->line_color[0] << 8);
+		color.green = model->line_color[1] | (model->line_color[1] << 8);
+		color.blue = model->line_color[2] | (model->line_color[2] << 8);
+		control = gtk_color_button_new_with_color(&color);
+		gtk_color_button_set_title(GTK_COLOR_BUTTON(control), labels->control.line_color);
+		(void)g_signal_connect(G_OBJECT(control), "color-set", G_CALLBACK(OnChangeShapeModelColor), model->line_color);
+		gtk_table_attach_defaults(GTK_TABLE(layout), label, 0, 1, 1, 2);
+		gtk_table_attach_defaults(GTK_TABLE(layout), control, 1, 2, 1, 2);
+
+		(void)sprintf(str, "%s : ", labels->control.num_lines);
+		label = gtk_label_new(str);
+		control = gtk_spin_button_new_with_range(0, 100, 1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(control), model->num_lines);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 0);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(OnChangeShapeModelNumLines), model);
+		gtk_table_attach_defaults(GTK_TABLE(layout), label, 0, 1, 2, 3);
+		gtk_table_attach_defaults(GTK_TABLE(layout), control, 1, 2, 2, 3);
+
+		(void)sprintf(str, "%s : ", labels->control.line_width);
+		label = gtk_label_new(str);
+		control = gtk_spin_button_new_with_range(0, 100, 0.1);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(control), model->line_width);
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 1);
+		(void)g_signal_connect(G_OBJECT(control), "changed",
+			G_CALLBACK(OnChangeShapeModelLineWidth), model);
+		gtk_table_attach_defaults(GTK_TABLE(layout), label, 0, 1, 3, 4);
+		gtk_table_attach_defaults(GTK_TABLE(layout), control, 1, 2, 3, 4);
+
+		gtk_box_pack_start(GTK_BOX(vbox), layout, FALSE, FALSE, 0);
+
+		return vbox;
+	}
+
+	return NULL;
+}
+
 static void OnChangeSelectedModel(GtkWidget* combo, APPLICATION* application)
 {
 	PROJECT *project = application->projects[application->active_project];
@@ -970,6 +1246,11 @@ static void OnChangeSelectedModel(GtkWidget* combo, APPLICATION* application)
 	{
 		scene->selected_model = NULL;
 		ClearBoneTreeView(application->widgets.bone_tree_view);
+		if(application->widgets.detail_model_setting != NULL)
+		{
+			gtk_widget_destroy(application->widgets.detail_model_setting);
+			application->widgets.detail_model_setting = NULL;
+		}
 	}
 	else
 	{
@@ -989,6 +1270,19 @@ static void OnChangeSelectedModel(GtkWidget* combo, APPLICATION* application)
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(application->widgets.edge_size), scene->selected_model->edge_width);
 		BoneTreeViewSetBones(application->widgets.bone_tree_view, scene->selected_model, application);
 		application->widgets.ui_disabled = FALSE;
+
+		if(application->widgets.detail_model_setting != NULL)
+		{
+			gtk_widget_destroy(application->widgets.detail_model_setting);
+			application->widgets.detail_model_setting = NULL;
+		}
+		application->widgets.detail_model_setting = ModelDetailSettingWidgetNew(project);
+		if(application->widgets.detail_model_setting != NULL)
+		{
+			gtk_box_pack_start(GTK_BOX(application->widgets.model_control),
+				application->widgets.detail_model_setting, FALSE, FALSE, 0);
+			gtk_widget_show_all(application->widgets.detail_model_setting );
+		}
 	}
 }
 
@@ -1633,8 +1927,56 @@ static void OnChangeMorphWeight(GtkAdjustment* adjust, APPLICATION* application)
 	}
 }
 
+static void OnChangeGridLineColor(GtkWidget* color_button, APPLICATION* application)
+{
+	PROJECT *project;
+	GdkColor color;
+	uint8 new_color[3];
+
+	if(application->num_projects == 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	project = application->projects[application->active_project];
+	if(project == NULL)
+	{
+		return;
+	}
+
+	gtk_color_button_get_color(GTK_COLOR_BUTTON(color_button), &color);
+	new_color[0] = color.red >> 8;
+	new_color[1] = color.green >> 8;
+	new_color[2] = color.blue >> 8;
+
+	GridChangeLineColor(&project->grid, new_color);
+}
+
+static void OnChangeBackGroundColor(GtkWidget* color_button, APPLICATION* application)
+{
+	PROJECT *project;
+	SCENE *scene;
+	GdkColor color;
+
+	if(application->num_projects == 0 || application->widgets.ui_disabled != FALSE)
+	{
+		return;
+	}
+	project = application->projects[application->active_project];
+	if(project == NULL)
+	{
+		return;
+	}
+	scene = project->scene;
+
+	gtk_color_button_get_color(GTK_COLOR_BUTTON(color_button), &color);
+	scene->clear_color[0] = color.red >> 8;
+	scene->clear_color[1] = color.green >> 8;
+	scene->clear_color[2] = color.blue >> 8;
+}
+
 void OnDestroyModelControlWidget(APPLICATION* application)
 {
+	application->widgets.model_control = NULL;
 	application->widgets.model_combo_box = NULL;
 	application->widgets.model_scale = NULL;
 	application->widgets.model_opacity = NULL;
@@ -1649,9 +1991,12 @@ void OnDestroyModelControlWidget(APPLICATION* application)
 	application->widgets.connect_bone = NULL;
 	application->widgets.bone_tree_view = NULL;
 	application->widgets.morph_group_selector = NULL;
+	application->widgets.detail_model_setting = NULL;
 	application->widgets.detail_morph_selector = NULL;
 	application->widgets.morph_weight = NULL;
 }
+
+#define UI_FONT_SIZE 10
 
 void* ModelControlWidgetNew(void* application_context)
 {
@@ -1671,6 +2016,8 @@ void* ModelControlWidgetNew(void* application_context)
 	GtkWidget *widget;
 	GtkWidget *control[4];
 	GtkTreeSelection *selection;
+	GdkColor color;
+	GList *list;
 	float scalar_value[4];
 	FLOAT_T float_value;
 	gchar *path;
@@ -1709,7 +2056,7 @@ void* ModelControlWidgetNew(void* application_context)
 
 	// モデルの選択
 	label = gtk_label_new(application->label.control.model);
-	child_note_book_box = gtk_vbox_new(FALSE, 0);
+	application->widgets.model_control = child_note_book_box = gtk_vbox_new(FALSE, 0);
 	gtk_notebook_append_page(GTK_NOTEBOOK(child_note_book), child_note_book_box, label);
 	layout_box = gtk_hbox_new(FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(child_note_book_box), layout_box, FALSE, FALSE, 0);
@@ -1744,6 +2091,9 @@ void* ModelControlWidgetNew(void* application_context)
 		}
 	}
 #endif
+	list = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(control[0]));
+	g_object_set(G_OBJECT(list->data), "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+	g_list_free(list);
 	gtk_box_pack_start(GTK_BOX(layout_box), control[0], FALSE, TRUE, 0);
 	(void)g_signal_connect(G_OBJECT(control[0]), "changed",
 		G_CALLBACK(OnChangeSelectedModel), application);
@@ -1807,12 +2157,18 @@ void* ModelControlWidgetNew(void* application_context)
 #else
 		gtk_combo_box_text_new();
 #endif
+	list = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(control[0]));
+	g_object_set(G_OBJECT(list->data), "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+	g_list_free(list);
 	FillParentModelComboBox(control[0], scene, application);
 	gtk_box_pack_start(GTK_BOX(layout_box), control[0], FALSE, TRUE, 0);
 	(void)g_signal_connect(G_OBJECT(control[0]), "changed",
 		G_CALLBACK(OnChangeSelectedParentModel), application);
 	// 接続先ボーン
 	layout_box = gtk_hbox_new(FALSE, 0);
+	list = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(control[0]));
+	g_object_set(G_OBJECT(list->data), "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+	g_list_free(list);
 	gtk_box_pack_start(GTK_BOX(frame_box), layout_box, FALSE, FALSE, 0);
 	(void)sprintf(str, "%s : ", application->label.control.bone);
 	gtk_box_pack_start(GTK_BOX(layout_box), gtk_label_new(str), FALSE, FALSE, 0);
@@ -1933,6 +2289,13 @@ void* ModelControlWidgetNew(void* application_context)
 	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
 		G_CALLBACK(OnChangeModelEdgeSize), application);
 
+	application->widgets.detail_model_setting = ModelDetailSettingWidgetNew(project);
+	if(application->widgets.detail_model_setting != NULL)
+	{
+		gtk_box_pack_start(GTK_BOX(application->widgets.model_control),
+			application->widgets.detail_model_setting, FALSE, FALSE, 0);
+	}
+
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	label = gtk_label_new(application->label.control.bone);
@@ -1992,6 +2355,9 @@ void* ModelControlWidgetNew(void* application_context)
 		gtk_combo_box_text_new();
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(control[1]), application->label.control.no_select);
 #endif
+	list = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(control[0]));
+	g_object_set(G_OBJECT(list->data), "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+	g_list_free(list);
 	gtk_box_pack_start(GTK_BOX(child_note_book_box), control[1], FALSE, FALSE, 0);
 	(void)g_signal_connect(G_OBJECT(control[1]), "changed",
 		G_CALLBACK(OnChangeDetailMorph), application);
@@ -2021,6 +2387,26 @@ void* ModelControlWidgetNew(void* application_context)
 		NULL, NULL, &application->widgets.ui_disabled);
 	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
 
+	layout_box = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", application->label.control.line_color);
+	label = gtk_label_new(str);
+	if(project != NULL)
+	{
+		color.red = project->grid.line_color[0] | (project->grid.line_color[0] << 8);
+		color.green = project->grid.line_color[1] | (project->grid.line_color[1] << 8);
+		color.blue = project->grid.line_color[2] | (project->grid.line_color[2] << 8);
+	}
+	else
+	{
+		color.red = color.green = color.blue = 0x8888;
+	}
+	control[0] = gtk_color_button_new_with_color(&color);
+	(void)g_signal_connect(G_OBJECT(control[0]), "color-set",
+		G_CALLBACK(OnChangeGridLineColor), application);
+	gtk_box_pack_start(GTK_BOX(layout_box), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(note_book_box), layout_box, FALSE, FALSE, 0);
+
 	control[0] = gtk_check_button_new_with_label(application->label.control.render_shadow);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control[0]),
 		project->flags & PROJECT_FLAG_RENDER_SHADOW);
@@ -2035,7 +2421,54 @@ void* ModelControlWidgetNew(void* application_context)
 		NULL, NULL, &application->widgets.ui_disabled);
 	gtk_box_pack_start(GTK_BOX(note_book_box), control[0], FALSE, FALSE, 0);
 
+	layout_box = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", application->label.control.back_ground_color);
+	label = gtk_label_new(str);
+	if(scene != NULL)
+	{
+		color.red = scene->clear_color[0] | (scene->clear_color[0] << 8);
+		color.green = scene->clear_color[1] | (scene->clear_color[1] << 8);
+		color.blue = scene->clear_color[2] | (scene->clear_color[2] << 8);
+	}
+	else
+	{
+		color.red = color.green = color.blue = 0xFFFF;
+	}
+	control[0] = gtk_color_button_new_with_color(&color);
+	(void)g_signal_connect(G_OBJECT(control[0]), "color-set",
+		G_CALLBACK(OnChangeBackGroundColor), application);
+	gtk_box_pack_start(GTK_BOX(layout_box), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(layout_box), control[0], FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(note_book_box), layout_box, FALSE, FALSE, 0);
+
 	return (void*)vbox;
+}
+
+static void SetComboBoxWidth(GtkWidget* combo, int new_width)
+{
+	GtkAllocation allocation;
+	GList *list;
+
+#if GTK_MAJOR_VERSION <= 2
+	allocation = combo->allocation;
+#else
+	gtk_widget_get_allocation(combo, &allocation);
+#endif
+	list = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(combo));
+	g_object_set(G_OBJECT(list->data), "width-chars", (new_width - allocation.x) / UI_FONT_SIZE, NULL);
+
+	g_list_free(list);
+}
+
+void ResizeModelControlWidget(void* application_context, int new_width, int new_height)
+{
+	APPLICATION *application = (APPLICATION*)application_context;
+
+	SetComboBoxWidth(application->widgets.model_combo_box, new_width);
+	SetComboBoxWidth(application->widgets.connect_model, new_width);
+	SetComboBoxWidth(application->widgets.connect_bone, new_width);
+	SetComboBoxWidth(application->widgets.morph_group_selector, new_width);
+	SetComboBoxWidth(application->widgets.detail_morph_selector, new_width);
 }
 
 static void OnChangeCameraPosition(GtkAdjustment* adjustment, APPLICATION* application)

@@ -803,3 +803,21 @@ int DeflateData(
 
 	return 0;
 }
+
+ght_uint32_t GetStringHash(ght_hash_key_t* key)
+{
+	static const unsigned int initial_fnv = 2166136261u;
+	static const unsigned int fnv_multiple = 16777619u;
+
+	unsigned int hash = initial_fnv;
+	const char *str = (const char*)key->p_key;
+	unsigned int i;
+
+	for(i=0; i<key->i_size; i++)
+	{
+		hash = hash ^ (str[i]);
+		hash = hash * fnv_multiple;
+	}
+
+	return (ght_uint32_t)hash;
+}

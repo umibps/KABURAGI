@@ -76,6 +76,11 @@ extern MODEL_INTERFACE* LoadModel(
 	const char* file_type
 );
 
+extern int AddShapeModel(
+	APPLICATION* application,
+	SHAPE_MODEL* model
+);
+
 extern void InitializeDefaultBone(DEFAULT_BONE* bone, APPLICATION* application_context);
 
 extern void InitializeDefaultMaterial(DEFAULT_MATERIAL* material, APPLICATION* application_context);

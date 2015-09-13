@@ -59,4 +59,12 @@ typedef int (*seek_func_t)(void*, long, int);
 # define EXTERN extern
 #endif
 
+#ifndef INLINE
+# ifdef _MSC_VER
+#  define INLINE __inline
+# else
+#  define INLINE inline
+# endif
+#endif
+
 #endif	// #ifndef _INCLUDE_TYPES_H_

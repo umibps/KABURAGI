@@ -140,6 +140,27 @@ typedef struct _TEXTURE_DRAW_HELPER_PROGRAM
 	GLint main_texture;
 } TEXTURE_DRAW_HELPER_PROGRAM;
 
+typedef struct _SHAPE_MODEL_PROGRAM
+{
+	OBJECT_PROGRAM base_data;
+	GLint surface_color_uniform_location;
+	GLint camera_position_uniform_location;
+} SHAPE_MODEL_PROGRAM;
+
+typedef struct _SHAPE_EDGE_PROGRAM
+{
+	BASE_SHADER_PROGRAM base_data;
+	GLint camera_position_uniform_location;
+	GLint color_uniform_location;
+	GLint edge_size_uniform_location;
+	GLint opacity_uniform_location;
+} SHAPE_EDGE_PROGRAM;
+
+typedef struct _SHAPE_SHADOW_PROGRAM
+{
+	OBJECT_PROGRAM base_data;
+} SHAPE_SHADOW_PROGRAM;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -247,6 +268,33 @@ extern void TextureDrawHelperProgramSetUniformValues(
 	TEXTURE_DRAW_HELPER_PROGRAM* program,
 	const float matrix[16],
 	GLuint texture_id
+);
+
+extern void InitializeShapeModelProgram(SHAPE_MODEL_PROGRAM* program);
+extern void LoadShapeModelProgram(
+	SHAPE_MODEL_PROGRAM* program,
+	const char* path,
+	GLenum type
+);
+extern void ShapeModelProgramSetCameraPosition(SHAPE_MODEL_PROGRAM* program, float* position);
+extern void ShapeModelProgramSetSurfaceColor(SHAPE_MODEL_PROGRAM* program, float* color);
+
+extern void InitializeShapeEdgeProgram(SHAPE_EDGE_PROGRAM* program);
+extern void LoadShapeEdgeProgram(
+	SHAPE_EDGE_PROGRAM* program,
+	const char* path,
+	GLenum type
+);
+extern void ShapeEdgeProgramSetCameraPosition(SHAPE_EDGE_PROGRAM* program, float* position);
+extern void ShapeEdgeProgramSetColor(SHAPE_EDGE_PROGRAM* program, float* color);
+extern void ShapeEdgeProgramSetSize(SHAPE_EDGE_PROGRAM* program, float size);
+extern void ShapeEdgeProgramSetOpacity(SHAPE_EDGE_PROGRAM* program, float opacity);
+
+extern void InitializeShapeShadowProgram(SHAPE_SHADOW_PROGRAM* program);
+extern void LoadShapeShadowProgram(
+	SHAPE_SHADOW_PROGRAM* program,
+	const char* path,
+	GLenum type
 );
 
 #ifdef __cplusplus

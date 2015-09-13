@@ -210,6 +210,9 @@ int ReadModelData(
 	case MODEL_TYPE_PMX_MODEL:
 		return ReadPmxModelDataAndState(scene, (PMX_MODEL*)model,
 			src, read_func, seek_func);
+	case MODEL_TYPE_SHAPE:
+		return ReadShapeModelDataAndState((SHAPE_MODEL*)model,
+			src, read_func, seek_func, scene);
 	}
 
 	return FALSE;
@@ -247,6 +250,9 @@ size_t WriteModelData(
 	case MODEL_TYPE_PMX_MODEL:
 		return WritePmxModelDataAndState(
 			(PMX_MODEL*)model, dst, write_func, seek_func, tell_func);
+	case MODEL_TYPE_SHAPE:
+		return WriteShapeModel((SHAPE_MODEL*)model,
+			dst, write_func, seek_func, tell_func);
 	}
 
 	return 0;
@@ -284,6 +290,10 @@ MODEL_INTERFACE* MakeModelContext(
 	case MODEL_TYPE_PMX_MODEL:
 		model = (MODEL_INTERFACE*)MEM_ALLOC_FUNC(sizeof(PMX_MODEL));
 		InitializePmxModel((PMX_MODEL*)model, (SCENE*)scene, &application->encode, "./");
+		break;
+	case MODEL_TYPE_SHAPE:
+		model = (MODEL_INTERFACE*)MEM_ALLOC_FUNC(sizeof(SHAPE_MODEL_DATA));
+		model->type = MODEL_TYPE_SHAPE;
 		break;
 	}
 

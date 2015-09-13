@@ -390,6 +390,18 @@ EXTERN void UpdateBrushMotionDrawArea(
 	BRUSH_UPDATE_AREA* brush_area
 );
 
+/*************************************
+* UpdateBrushMotionDrawAreaSize関数  *
+* ブラシ更新範囲のサイズを更新する   *
+* 引数                               *
+* window	: キャンバスの情報       *
+* area	: 更新範囲を記憶するアドレス *
+*************************************/
+EXTERN void UpdateBrushMotionDrawAreaSize(
+	DRAW_WINDOW* window,
+	BRUSH_UPDATE_INFO* area
+);
+
 /***************************************************
 * UpdateBrushScatterDrawArea関数                　 *
 * ブラシの散布に対する更新する範囲を設定する    　 *

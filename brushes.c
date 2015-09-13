@@ -2160,7 +2160,7 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(HardPenScaleChange), core->brush_data);
 	gtk_table_attach_defaults(GTK_TABLE(table), brush_scale, 0, 3, 0, 1);
-	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, FALSE, 0);
 
 	g_object_set_data(G_OBJECT(base_scale), "scale", brush_scale);
 	g_signal_connect(G_OBJECT(base_scale), "changed", G_CALLBACK(SetBrushBaseScale), &pen->base_scale);
@@ -2173,7 +2173,7 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 		G_CALLBACK(HardPenFlowChange), core->brush_data);
 	table = gtk_table_new(1, 3, TRUE);
 	gtk_table_attach_defaults(GTK_TABLE(table), brush_scale, 0, 3, 0, 1);
-	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, FALSE, 0);
 
 	hbox = gtk_hbox_new(FALSE, 0);
 	label = gtk_label_new("");
@@ -2198,7 +2198,7 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	(void)g_signal_connect(G_OBJECT(combo), "changed",
 		G_CALLBACK(HardPenSetBlendMode), pen);
 	gtk_box_pack_start(GTK_BOX(hbox), combo, FALSE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
 
 	table = gtk_hbox_new(FALSE, 0);
 	label = gtk_label_new("");
@@ -2214,19 +2214,19 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(HardPenPressureFlowChange), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), pen->flags & BRUSH_FLAG_FLOW);
 	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, FALSE, 0);
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
 	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(HardPenSetAntiAlias), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), pen->flags & BRUSH_FLAG_ANTI_ALIAS);
-	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, FALSE, 0);
 
 	brush_scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(pen->minimum_pressure * 100,
 		0, 100, 1, 1, 0));
 	brush_scale = SpinScaleNew(brush_scale_adjustment, app->labels->tool_box.min_pressure, 0);
 	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(PencilSetMinimumPressure), pen);
-	gtk_box_pack_start(GTK_BOX(vbox), brush_scale, FALSE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), brush_scale, FALSE, FALSE, 0);
 
 	return vbox;
 }
@@ -10438,7 +10438,7 @@ static void CreateStampCoreDetailUI(
 	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(StampCoreSetFlags), core);
 	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(box), table, FALSE, FALSE, 0);
-	check_button = gtk_check_button_new_with_label(app->labels->tool_box.randoam_size);
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.random_size);
 	g_object_set_data(G_OBJECT(check_button), "flag-value", GUINT_TO_POINTER(STAMP_RANDOM_SIZE));
 	g_object_set_data(G_OBJECT(check_button), "application", app);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), core->flags & STAMP_RANDOM_SIZE);
@@ -12807,7 +12807,7 @@ static GtkWidget* CreateImageBrushDetailUI(APPLICATION* app, BRUSH_CORE* brush_c
 	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(StampCoreSetFlags), core);
 	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, FALSE, 0);
-	check_button = gtk_check_button_new_with_label(app->labels->tool_box.randoam_size);
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.random_size);
 	g_object_set_data(G_OBJECT(check_button), "flag-value", GUINT_TO_POINTER(STAMP_RANDOM_SIZE));
 	g_object_set_data(G_OBJECT(check_button), "application", app);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), core->flags & STAMP_RANDOM_SIZE);
@@ -14742,7 +14742,7 @@ static GtkWidget* CreateBlendImageBrushDetailUI(APPLICATION* app, BRUSH_CORE* br
 	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(StampCoreSetFlags), core);
 	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, FALSE, 0);
-	check_button = gtk_check_button_new_with_label(app->labels->tool_box.randoam_size);
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.random_size);
 	g_object_set_data(G_OBJECT(check_button), "flag-value", GUINT_TO_POINTER(STAMP_RANDOM_SIZE));
 	g_object_set_data(G_OBJECT(check_button), "application", app);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), core->flags & STAMP_RANDOM_SIZE);
@@ -17857,7 +17857,7 @@ static GtkWidget* CreatePickerImageBrushDetailUI(APPLICATION* app, BRUSH_CORE* b
 	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(StampCoreSetFlags), core);
 	gtk_box_pack_start(GTK_BOX(table), check_button, FALSE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, FALSE, 0);
-	check_button = gtk_check_button_new_with_label(app->labels->tool_box.randoam_size);
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.random_size);
 	g_object_set_data(G_OBJECT(check_button), "flag-value", GUINT_TO_POINTER(STAMP_RANDOM_SIZE));
 	g_object_set_data(G_OBJECT(check_button), "application", app);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), core->flags & STAMP_RANDOM_SIZE);
@@ -31138,7 +31138,7 @@ int WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATION
 		}
 	}
 
-	file = CreateIniFile(stream, NULL,0, INI_WRITE);
+	file = CreateIniFile(stream, NULL, 0, INI_WRITE);
 
 	// •¶ŽšƒR[ƒh‚ð‘‚«ž‚Þ
 	IniFileAddString(file, "CODE", "CODE_TYPE", window->brush_code);

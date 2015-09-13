@@ -1,3 +1,4 @@
+#include <string.h>
 #include "labels.h"
 #include "ini_file.h"
 #include "utils.h"
@@ -56,8 +57,6 @@ void LoadLabels(
 	labels->window.apply = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "WINDOW", "CANCEL", temp_str, MAX_STR_SIZE);
 	labels->window.cancel = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
-	length = IniFileGetString(file, "WINDOW", "CLOSE", temp_str, MAX_STR_SIZE);
-	labels->window.close = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "WINDOW", "NORMAL", temp_str, MAX_STR_SIZE);
 	labels->window.normal = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "WINDOW", "REVERSE", temp_str, MAX_STR_SIZE);
@@ -136,6 +135,10 @@ void LoadLabels(
 	labels->unit.yellow = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "COMMON", "KEYPLATE", temp_str, MAX_STR_SIZE);
 	labels->unit.key_plate = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "ADD", temp_str, MAX_STR_SIZE);
+	labels->unit.add = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "DELETE", temp_str, MAX_STR_SIZE);
+	labels->unit._delete = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// メニューバー
 		// ファイルメニュー
@@ -331,6 +334,12 @@ void LoadLabels(
 	labels->make_new.second_bg_color = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "NEW", "ADOPT_ICC_PROFILE", temp_str, MAX_STR_SIZE);
 	labels->make_new.adopt_icc_profile = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "NEW", "PRESET", temp_str, MAX_STR_SIZE);
+	labels->make_new.preset = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "NEW", "ADD_PRESET", temp_str, MAX_STR_SIZE);
+	labels->make_new.add_preset = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "NEW", "SWAP_HEIGHT_AND_WIDTH", temp_str, MAX_STR_SIZE);
+	labels->make_new.swap_height_and_width = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// ツールボックス
 	length = IniFileGetString(file, "TOOL_BOX", "TITLE", temp_str, MAX_STR_SIZE);
@@ -417,6 +426,8 @@ void LoadLabels(
 	labels->tool_box.balloon_has_edge = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "LINE_COLOR", temp_str, MAX_STR_SIZE);
 	labels->tool_box.line_color = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "FILL_COLOR", temp_str, MAX_STR_SIZE);
+	labels->tool_box.fill_color = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "LINE_WIDTH", temp_str, MAX_STR_SIZE);
 	labels->tool_box.line_width = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "CENTERING_HORIZONTALLY", temp_str, MAX_STR_SIZE);
@@ -468,7 +479,7 @@ void LoadLabels(
 	length = IniFileGetString(file, "TOOL_BOX", "ROTATE_RANGE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.rotate_range = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "RANDOM_SIZE", temp_str, MAX_STR_SIZE);
-	labels->tool_box.randoam_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	labels->tool_box.random_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SIZE_RANGE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.size_range = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "PICK_MODE", temp_str, MAX_STR_SIZE);
@@ -603,10 +614,14 @@ void LoadLabels(
 	labels->tool_box.scatter_random_flow = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_CIRCLE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.shape.circle = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_ECLIPSE", temp_str, MAX_STR_SIZE);
+	labels->tool_box.shape.eclipse = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_TRIANGLE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.shape.triangle = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_SQUARE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.shape.square = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_RHOMBUS", temp_str, MAX_STR_SIZE);
+	labels->tool_box.shape.rhombus = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_HEXAGON", temp_str, MAX_STR_SIZE);
 	labels->tool_box.shape.hexagon = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_STAR", temp_str, MAX_STR_SIZE);
@@ -615,6 +630,14 @@ void LoadLabels(
 	labels->tool_box.shape.pattern = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_IMAGE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.shape.image = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "BEVEL", temp_str, MAX_STR_SIZE);
+	labels->tool_box.bevel = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "ROUND", temp_str, MAX_STR_SIZE);
+	labels->tool_box.round = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "MITER", temp_str, MAX_STR_SIZE);
+	labels->tool_box.miter = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "MANUALLY_SET", temp_str, MAX_STR_SIZE);
+	labels->tool_box.manually_set = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// レイヤーウィンドウ
 	length = IniFileGetString(file, "LAYER_WINDOW", "TITLE", temp_str, MAX_STR_SIZE);
@@ -994,6 +1017,10 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	length = IniFileGetString(file, "3D_MODELING", "APPLY_CENTER_POSITION", temp_str, MAX_STR_SIZE);
 	labels->control.apply_center_position = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	labels->control.scale = app->labels->tool_box.scale;
+	labels->control.width = app->labels->make_new.width;
+	labels->control.height = app->labels->make_new.height;
+	length = IniFileGetString(file, "3D_MODELING", "DEPTH", temp_str, MAX_STR_SIZE);
+	labels->control.depth = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "3D_MODELING", "COLOR", temp_str, MAX_STR_SIZE);
 	labels->control.color = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	labels->control.opacity = app->labels->layer_window.opacity;
@@ -1001,6 +1028,9 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	labels->control.weight = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "3D_MODELING", "EDGE_SIZE", temp_str, MAX_STR_SIZE);
 	labels->control.edge_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "NUM_LINES", temp_str, MAX_STR_SIZE);
+	labels->control.num_lines = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	labels->control.line_width = app->labels->tool_box.line_width;
 	length = IniFileGetString(file, "3D_MODELING", "DISTANCE", temp_str, MAX_STR_SIZE);
 	labels->control.distance = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "3D_MODELING", "FIELD_OF_VIEW", temp_str, MAX_STR_SIZE);
@@ -1029,9 +1059,393 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	labels->control.morph_group.eye_blow = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "3D_MODELING", "OTHER", temp_str, MAX_STR_SIZE);
 	labels->control.morph_group.other = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "UPPER_SURFACE_SIZE", temp_str, MAX_STR_SIZE);
+	labels->control.upper_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "LOWER_SURFACE_SIZE", temp_str, MAX_STR_SIZE);
+	labels->control.lower_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "CUBOID", temp_str, MAX_STR_SIZE);
+	labels->control.cuboid = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "ADD_CUBOID", temp_str, MAX_STR_SIZE);
+	labels->control.add_cuboid = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "CONE", temp_str, MAX_STR_SIZE);
+	labels->control.cone = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "3D_MODELING", "ADD_CONE", temp_str, MAX_STR_SIZE);
+	labels->control.add_cone = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	labels->control.back_ground_color = app->labels->unit.bg;
+	labels->control.line_color = app->labels->tool_box.line_color;
+	length = IniFileGetString(file, "3D_MODELING", "SURFACE_COLOR", temp_str, MAX_STR_SIZE);
+	labels->control.surface_color = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	file->delete_func(file);
 #undef MAX_STR_SIZE
+}
+
+ght_hash_table_t* LabelStringTableNew(APPLICATION* app)
+{
+#define ADD_STR(TABLE, STR, KEY) {const char key[] = (KEY); (void)ght_insert((TABLE), (STR), sizeof(key)-1, key);}
+#define TABLE_SIZE 1024
+	ght_hash_table_t *table = ght_create(TABLE_SIZE);
+
+	ght_set_hash(table, (ght_fn_hash_t)GetStringHashIgnoreCase);
+
+	ADD_STR(table, app->labels->window.ok, "OK");
+	ADD_STR(table, app->labels->window.apply, "Apply");
+	ADD_STR(table, app->labels->window.cancel, "Cancel");
+	ADD_STR(table, app->labels->window.normal, "Normal");
+	ADD_STR(table, app->labels->window.reverse, "Reverse");
+	ADD_STR(table, app->labels->window.edit_selection, "Edit Selection");
+	ADD_STR(table, app->labels->window.window, "Window");
+	ADD_STR(table, app->labels->window.close_window, "Close Window");
+	ADD_STR(table, app->labels->window.place_left, "Dock Left");
+	ADD_STR(table, app->labels->window.place_right, "Dock Right");
+	ADD_STR(table, app->labels->window.fullscreen, "Full Screen");
+	ADD_STR(table, app->labels->window.reference, "Reference Image Window");
+	ADD_STR(table, app->labels->window.move_top_left, "Move Top Left");
+	ADD_STR(table, app->labels->window.hot_key, "Hot Key");
+	ADD_STR(table, app->labels->window.loading, "Loading...");
+	ADD_STR(table, app->labels->window.saving, "Saving...");
+
+	ADD_STR(table, app->labels->unit.pixel, "pixel");
+	ADD_STR(table, app->labels->unit.length, "Length");
+	ADD_STR(table, app->labels->unit.angle, "Angle");
+	ADD_STR(table, app->labels->unit.pixel, "Pixel");
+	ADD_STR(table, app->labels->unit.bg, "BG");
+	ADD_STR(table, app->labels->unit.repeat, "Loop");
+	ADD_STR(table, app->labels->unit.preview, "Preview");
+	ADD_STR(table, app->labels->unit.interval, "Interval");
+	ADD_STR(table, app->labels->unit.minute, "minute");
+	ADD_STR(table, app->labels->unit.detail, "Detail");
+	ADD_STR(table, app->labels->unit.target, "Target");
+	ADD_STR(table, app->labels->unit.clip_board, "Clip Board");
+	ADD_STR(table, app->labels->unit.name, "Name");
+	ADD_STR(table, app->labels->unit.type, "Type");
+	ADD_STR(table, app->labels->unit.resolution, "Resolution");
+	ADD_STR(table, app->labels->unit.center, "Center");
+	ADD_STR(table, app->labels->unit.straight, "Straight");
+	ADD_STR(table, app->labels->unit.extend, "Grow");
+	ADD_STR(table, app->labels->unit.mode, "Mode");
+	ADD_STR(table, app->labels->unit.red, "Red");
+	ADD_STR(table, app->labels->unit.green, "Green");
+	ADD_STR(table, app->labels->unit.blue, "Blue");
+	ADD_STR(table, app->labels->unit.cyan, "Cyan");
+	ADD_STR(table, app->labels->unit.magenta, "Magenta");
+	ADD_STR(table, app->labels->unit.yellow, "Yellow");
+	ADD_STR(table, app->labels->unit.key_plate, "Key Plate");
+	ADD_STR(table, app->labels->unit.add, "Add");
+	ADD_STR(table, app->labels->unit._delete, "Delete");
+
+	ADD_STR(table, app->labels->menu.file, "File");
+	ADD_STR(table, app->labels->menu.make_new, "New");
+	ADD_STR(table, app->labels->menu.open, "Open");
+	ADD_STR(table, app->labels->menu.open_as_layer, "Open As Layer");
+	ADD_STR(table, app->labels->menu.save, "Save");
+	ADD_STR(table, app->labels->menu.save_as, "Save as");
+	ADD_STR(table, app->labels->menu.close, "Close");
+	ADD_STR(table, app->labels->menu.quit, "Quit");
+	ADD_STR(table, app->labels->menu.edit, "Edit");
+	ADD_STR(table, app->labels->menu.undo, "Undo");
+	ADD_STR(table, app->labels->menu.redo, "Redo");
+	ADD_STR(table, app->labels->menu.copy, "Copy");
+	ADD_STR(table, app->labels->menu.copy_visible, "Copy Visible");
+	ADD_STR(table, app->labels->menu.cut, "Cut");
+	ADD_STR(table, app->labels->menu.paste, "Paste");
+	ADD_STR(table, app->labels->menu.clip_board, "Clipboard");
+	ADD_STR(table, app->labels->menu.transform, "Transform");
+	ADD_STR(table, app->labels->menu.projection, "Projection");
+	ADD_STR(table, app->labels->menu.canvas, "Canvas");
+	ADD_STR(table, app->labels->menu.change_resolution, "Change Resolution");
+	ADD_STR(table, app->labels->menu.change_canvas_size, "Change Canvas Size");
+	ADD_STR(table, app->labels->menu.flip_canvas_horizontally, "Flip Canvas Horizontally");
+	ADD_STR(table, app->labels->menu.flip_canvas_vertically, "Flip Canvas Vertically");
+	ADD_STR(table, app->labels->menu.switch_bg_color, "Switch BG Color");
+	ADD_STR(table, app->labels->menu.change_2nd_bg_color, "Change 2nd BG Color");
+	ADD_STR(table, app->labels->menu.canvas_icc, "Change ICC Profile");
+	ADD_STR(table, app->labels->menu.layer, "Layer");
+	ADD_STR(table, app->labels->menu.new_color, "New Layer(Color)");
+	ADD_STR(table, app->labels->menu.new_vector, "New Layer(Vector)");
+	ADD_STR(table, app->labels->menu.new_layer_set, "New Layer Set");
+	ADD_STR(table, app->labels->menu.new_3d_modeling, "New 3D Modeling Layer");
+	ADD_STR(table, app->labels->menu.copy_layer, "Copy Layer");
+	ADD_STR(table, app->labels->menu.delete_layer, "Delete Layer");
+	ADD_STR(table, app->labels->menu.fill_layer_fg_color, "Fill with FG Color");
+	ADD_STR(table, app->labels->menu.fill_layer_pattern , "Fill with Pattern");
+	ADD_STR(table, app->labels->menu.rasterize_layer, "Rasterize Layer");
+	ADD_STR(table, app->labels->menu.merge_down_layer, "Merge Down");
+	ADD_STR(table, app->labels->menu.merge_all_layer, "Flaten Image");
+	ADD_STR(table, app->labels->menu.visible2layer, "Visible to Layer");
+	ADD_STR(table, app->labels->menu.copy_visible, "Visible Copy");
+	ADD_STR(table, app->labels->menu.select, "Select");
+	ADD_STR(table, app->labels->menu.select_none, "Select None");
+	ADD_STR(table, app->labels->menu.select_invert, "Select Invert");
+	ADD_STR(table, app->labels->menu.select_all, "Select All");
+	ADD_STR(table, app->labels->menu.selection_extend, "Select Grow");
+	ADD_STR(table, app->labels->menu.selection_reduct, "Select Shrink");
+	ADD_STR(table, app->labels->menu.view, "View");
+	ADD_STR(table, app->labels->menu.zoom, "Zoom");
+	ADD_STR(table, app->labels->menu.zoom_in, "Zoom In");
+	ADD_STR(table, app->labels->menu.zoom_out, "Zoom Out");
+	ADD_STR(table, app->labels->menu.zoom_reset, "Actual Size");
+	ADD_STR(table, app->labels->menu.reverse_horizontally, "Reverse Horizontally");
+	ADD_STR(table, app->labels->menu.rotate, "Rotate");
+	ADD_STR(table, app->labels->menu.reset_rotate, "Reset Rotate");
+	ADD_STR(table, app->labels->menu.display_filter, "Display Filters");
+	ADD_STR(table, app->labels->menu.no_filter, "Nothing");
+	ADD_STR(table, app->labels->menu.gray_scale, "Gray Scale");
+	ADD_STR(table, app->labels->menu.gray_scale_yiq, "Gray Scale(YIQ)");
+	ADD_STR(table, app->labels->menu.filters, "Filters");
+	ADD_STR(table, app->labels->menu.blur, "Blur Filter");
+	ADD_STR(table, app->labels->menu.motion_blur, "Motion Blur");
+	ADD_STR(table, app->labels->menu.gaussian_blur, "Gaussian Blur");
+	ADD_STR(table, app->labels->menu.bright_contrast, "Brightness & Contrast");
+	ADD_STR(table, app->labels->menu.hue_saturtion, "Hue & Saturation");
+	ADD_STR(table, app->labels->menu.color_levels, "Color Levels");
+	ADD_STR(table, app->labels->menu.tone_curve, "Tone Curve");
+	ADD_STR(table, app->labels->menu.luminosity2opacity, "Luminosity to Opacity");
+	ADD_STR(table, app->labels->menu.color2alpha, "Color to Alpha");
+	ADD_STR(table, app->labels->menu.colorize_with_under, "Colorize with Under Layer");
+	ADD_STR(table, app->labels->menu.gradation_map, "Gradation Map");
+	ADD_STR(table, app->labels->menu.detect_max, "Map with Detect Max Black Value");
+	ADD_STR(table, app->labels->menu.tranparancy_as_white, "Transparency as White");
+	ADD_STR(table, app->labels->menu.fill_with_vector, "Fill with Vector");
+	ADD_STR(table, app->labels->menu.render, "Render");
+	ADD_STR(table, app->labels->menu.cloud, "Cloud");
+	ADD_STR(table, app->labels->menu.fractal, "Fractal");
+	ADD_STR(table, app->labels->menu.plug_in, "Plug-in");
+	ADD_STR(table, app->labels->menu.script, "Script");
+	ADD_STR(table, app->labels->menu.help, "Help");
+	ADD_STR(table, app->labels->menu.version, "Version");
+
+	ADD_STR(table, app->labels->make_new.title, "Make New Title");
+	ADD_STR(table, app->labels->make_new.name, "New Canvas");
+	ADD_STR(table, app->labels->make_new.width, "Width");
+	ADD_STR(table, app->labels->make_new.height, "Height");
+	ADD_STR(table, app->labels->make_new.second_bg_color, "2nd BG Color");
+	ADD_STR(table, app->labels->make_new.adopt_icc_profile, "Adopt ICC Profile?");
+
+	ADD_STR(table, app->labels->tool_box.title, "Tool Box");
+	ADD_STR(table, app->labels->tool_box.initialize, "Initialize");
+	ADD_STR(table, app->labels->tool_box.new_brush, "New Brush");
+	ADD_STR(table, app->labels->tool_box.smooth, "Smooth");
+	ADD_STR(table, app->labels->tool_box.smooth_quality, "Quality");
+	ADD_STR(table, app->labels->tool_box.smooth_rate, "Smooth Rate");
+	ADD_STR(table, app->labels->tool_box.smooth_gaussian, "Gaussian");
+	ADD_STR(table, app->labels->tool_box.smooth_average, "Average");
+	ADD_STR(table, app->labels->tool_box.base_scale, "Magnification");
+	ADD_STR(table, app->labels->tool_box.brush_scale, "Brush Size");
+	ADD_STR(table, app->labels->tool_box.scale, "Scale");
+	ADD_STR(table, app->labels->tool_box.flow, "Flow");
+	ADD_STR(table, app->labels->tool_box.pressure, "Pressure");
+	ADD_STR(table, app->labels->tool_box.extend, "Extend Range");
+	ADD_STR(table, app->labels->tool_box.blur, "Blur");
+	ADD_STR(table, app->labels->tool_box.outline_hardness, "Outline Hardness");
+	ADD_STR(table, app->labels->tool_box.color_extend, "Color Extends");
+	ADD_STR(table, app->labels->tool_box.select_move_start, "Start Distance");
+	ADD_STR(table, app->labels->tool_box.anti_alias, "Anti Alias");
+	ADD_STR(table, app->labels->tool_box.change_text_color, "Change Text Color");
+	ADD_STR(table, app->labels->tool_box.text_horizonal, "Horzonal");
+	ADD_STR(table, app->labels->tool_box.text_vertical, "Vertical");
+	ADD_STR(table, app->labels->tool_box.text_style, "Style");
+	ADD_STR(table, app->labels->tool_box.text_normal, "Text Normal");
+	ADD_STR(table, app->labels->tool_box.text_bold, "Bold");
+	ADD_STR(table, app->labels->tool_box.text_italic, "Italic");
+	ADD_STR(table, app->labels->tool_box.text_oblique, "Oblique");
+	ADD_STR(table, app->labels->tool_box.has_balloon, "Balloon");
+	ADD_STR(table, app->labels->tool_box.balloon_has_edge, "Balloon Has Edge");
+	ADD_STR(table, app->labels->tool_box.line_color, "Line Color");
+	ADD_STR(table, app->labels->tool_box.fill_color, "Fill Color");
+	ADD_STR(table, app->labels->tool_box.line_width, "Line Width");
+	ADD_STR(table, app->labels->tool_box.change_line_width, "Change Line Width");
+	ADD_STR(table, app->labels->tool_box.manually_set, "Manually Set");
+	ADD_STR(table, app->labels->tool_box.aspect_ratio, "Aspect Ratio");
+	ADD_STR(table, app->labels->tool_box.centering_horizontally, "Centering Horizontally");
+	ADD_STR(table, app->labels->tool_box.centering_vertically, "Centering Vertically");
+	ADD_STR(table, app->labels->tool_box.adjust_range_to_text, "Adjust Range to Text");
+	ADD_STR(table, app->labels->tool_box.num_edge, "Number of Edge");
+	ADD_STR(table, app->labels->tool_box.edge_size, "Edge Size");
+	ADD_STR(table, app->labels->tool_box.random_edge_size, "Edge Size Random");
+	ADD_STR(table, app->labels->tool_box.random_edge_distance, "Edge Distance Random");
+	ADD_STR(table, app->labels->tool_box.num_children, "Number of Children");
+	ADD_STR(table, app->labels->tool_box.start_child_size, "Start Child Size");
+	ADD_STR(table, app->labels->tool_box.end_child_size, "End Child Size");
+	ADD_STR(table, app->labels->tool_box.reverse, "Reverse");
+	ADD_STR(table, app->labels->tool_box.reverse_horizontally, "Reverse Horizontally");
+	ADD_STR(table, app->labels->tool_box.reverse_vertically, "Reverse Vertically");
+	ADD_STR(table, app->labels->tool_box.blend_mode, "Blend Mode");
+	ADD_STR(table, app->labels->tool_box.hue, "Hue");
+	ADD_STR(table, app->labels->tool_box.saturation, "Saturation");
+	ADD_STR(table, app->labels->tool_box.brightness, "Brightness");
+	ADD_STR(table, app->labels->tool_box.contrast, "Contrast");
+	ADD_STR(table, app->labels->tool_box.distance, "Distance");
+	ADD_STR(table, app->labels->tool_box.rotate_start, "Rotate Start");
+	ADD_STR(table, app->labels->tool_box.rotate_speed, "Rotate Speed");
+	ADD_STR(table, app->labels->tool_box.random_rotate, "Random Rotate");
+	ADD_STR(table, app->labels->tool_box.rotate_to_brush_direction, "Rotate to Brush Direction");
+	ADD_STR(table, app->labels->tool_box.size_range, "Size Range");
+	ADD_STR(table, app->labels->tool_box.rotate_range, "Rotate Range");
+	ADD_STR(table, app->labels->tool_box.random_size, "Random Size");
+	ADD_STR(table, app->labels->tool_box.clockwise, "Clockwise");
+	ADD_STR(table, app->labels->tool_box.counter_clockwise, "Counter Clockwise");
+	ADD_STR(table, app->labels->tool_box.both_direction, "Both Direction");
+	ADD_STR(table, app->labels->tool_box.min_degree, "Minimum Degree");
+	ADD_STR(table, app->labels->tool_box.min_distance, "Minimum Distance");
+	ADD_STR(table, app->labels->tool_box.min_pressure, "Minimum Pressure");
+	ADD_STR(table, app->labels->tool_box.enter, "Enter");
+	ADD_STR(table, app->labels->tool_box.out, "Out");
+	ADD_STR(table, app->labels->tool_box.enter_out, "Enter & Out");
+	ADD_STR(table, app->labels->tool_box.mix, "Mix");
+	ADD_STR(table, app->labels->tool_box.gradation_reverse, "Reverse FG BG");
+	ADD_STR(table, app->labels->tool_box.devide_stroke, "Devide Stroke");
+	ADD_STR(table, app->labels->tool_box.delete_stroke, "Delete Stroke");
+	ADD_STR(table, app->labels->tool_box.target, "Vector Target");
+	ADD_STR(table, app->labels->tool_box.stroke, "Stroke");
+	ADD_STR(table, app->labels->tool_box.prior_angle, "Prior Angle");
+	ADD_STR(table, app->labels->tool_box.control_point, "Control Point");
+	ADD_STR(table, app->labels->tool_box.transform_free, "Transform Free");
+	ADD_STR(table, app->labels->tool_box.transform_scale, "Transform Scale");
+	ADD_STR(table, app->labels->tool_box.transform_free_shape, "Transform Free Shape");
+	ADD_STR(table, app->labels->tool_box.transform_rotate, "Transform Rotate");
+	ADD_STR(table, app->labels->tool_box.preference, "Preference");
+	ADD_STR(table, app->labels->tool_box.name, "Brush Name");
+	ADD_STR(table, app->labels->tool_box.copy_brush, "Copy Brush");
+	ADD_STR(table, app->labels->tool_box.change_brush, "Change Brush");
+	ADD_STR(table, app->labels->tool_box.delete_brush, "Delete Brush");
+	ADD_STR(table, app->labels->tool_box.texture, "Texture");
+	ADD_STR(table, app->labels->tool_box.texture_strength, "Strength");
+	ADD_STR(table, app->labels->tool_box.no_texture, "No Texture");
+	ADD_STR(table, app->labels->tool_box.pallete_add, "Add Color");
+	ADD_STR(table, app->labels->tool_box.pallete_delete, "Delete Color");
+	ADD_STR(table, app->labels->tool_box.load_pallete, "Load Pallete");
+	ADD_STR(table, app->labels->tool_box.load_pallete_after, "Add Pallete");
+	ADD_STR(table, app->labels->tool_box.write_pallete, "Write Pallete");
+	ADD_STR(table, app->labels->tool_box.clear_pallete, "Clear Pallete");
+	ADD_STR(table, app->labels->tool_box.pick_mode, "Pick Mode");
+	ADD_STR(table, app->labels->tool_box.single_pixels, "Single Pixel");
+	ADD_STR(table, app->labels->tool_box.average_color, "Average Color");
+	ADD_STR(table, app->labels->tool_box.open_path, "Open Path");
+	ADD_STR(table, app->labels->tool_box.close_path, "Close Path");
+	ADD_STR(table, app->labels->tool_box.update, "Update");
+	ADD_STR(table, app->labels->tool_box.frequency, "Frequency");
+	ADD_STR(table, app->labels->tool_box.cloud_color, "Cloud Color");
+	ADD_STR(table, app->labels->tool_box.persistence, "Persistence");
+	ADD_STR(table, app->labels->tool_box.rand_seed, "Random Seed");
+	ADD_STR(table, app->labels->tool_box.use_random, "Use Random");
+	ADD_STR(table, app->labels->tool_box.update_immediately, "Update Immediately");
+	ADD_STR(table, app->labels->tool_box.num_octaves, "Number of Octaves");
+	ADD_STR(table, app->labels->tool_box.linear, "Linear");
+	ADD_STR(table, app->labels->tool_box.cosine, "Cosine");
+	ADD_STR(table, app->labels->tool_box.cubic, "Cubic");
+	ADD_STR(table, app->labels->tool_box.colorize, "Colorize");
+	ADD_STR(table, app->labels->tool_box.start_edit_3d, "Start Editting 3D Model");
+	ADD_STR(table, app->labels->tool_box.end_edit_3d, "Finish Editting 3D Model");
+	ADD_STR(table, app->labels->tool_box.scatter, "Scatter");
+	ADD_STR(table, app->labels->tool_box.scatter_size, "Scatter Size");
+	ADD_STR(table, app->labels->tool_box.scatter_range, "Scatter Range");
+	ADD_STR(table, app->labels->tool_box.scatter_random_size, "Random Size Scatter");
+	ADD_STR(table, app->labels->tool_box.scatter_random_flow, "Random Flow Scatter");
+	ADD_STR(table, app->labels->tool_box.normal_brush, "Normal Brush");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_PENCIL], "Pencil");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_HARD_PEN], "Hard Pen");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_AIR_BRUSH], "Air Brush");
+	//ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_OLD_AIR_BRUSH], "Old Air Brush");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_WATER_COLOR_BRUSH], "Water Color Brush");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_PICKER_BRUSH], "Picker Brush");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_ERASER], "Eraser");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_BUCKET], "Bucket");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_PATTERN_FILL], "Pattern Fill");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_BLUR], "Blur Tool");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_SMUDGE], "Smudge");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_MIX_BRUSH], "Mix Brush");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_GRADATION], "Gradation");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_TEXT], "Text Tool");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_STAMP_TOOL], "Stamp Tool");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_IMAGE_BRUSH], "Image Brush");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_BLEND_IMAGE_BRUSH], "Image Blend Brush");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_PICKER_IMAGE_BRUSH], "Picker Image Brush");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_SCRIPT_BRUSH], "Script Brush");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_CUSTOM_BRUSH], "Custom Brush");
+	ADD_STR(table, app->labels->tool_box.brush_default_names[BRUSH_TYPE_PLUG_IN], "PLUG_IN");
+	ADD_STR(table, app->labels->tool_box.select.target, "Detection Target");
+	ADD_STR(table, app->labels->tool_box.select.area, "Detect from ...");
+	ADD_STR(table, app->labels->tool_box.select.rgb, "Pixels Color");
+	ADD_STR(table, app->labels->tool_box.select.rgba, "Pixel Color + Alpha");
+	ADD_STR(table, app->labels->tool_box.select.alpha, "Alpha");
+	ADD_STR(table, app->labels->tool_box.select.active_layer, "Active Layer");
+	ADD_STR(table, app->labels->tool_box.select.under_layer, "Under Layer");
+	ADD_STR(table, app->labels->tool_box.select.canvas, "Canvas");
+	ADD_STR(table, app->labels->tool_box.select.threshold, "Threshold");
+	ADD_STR(table, app->labels->tool_box.select.detect_area, "Detection Area");
+	ADD_STR(table, app->labels->tool_box.select.area_large, "Large");
+	ADD_STR(table, app->labels->tool_box.control.select, "Select/Release");
+	ADD_STR(table, app->labels->tool_box.control.move, "Move Control Point");
+	ADD_STR(table, app->labels->tool_box.control.change_pressure, "Change Pressure");
+	ADD_STR(table, app->labels->tool_box.control.delete_point, "Delete Control Point");
+	ADD_STR(table, app->labels->tool_box.control.move_stroke, "Move Stroke");
+	ADD_STR(table, app->labels->tool_box.control.copy_stroke, "Copy & Move Stroke");
+	ADD_STR(table, app->labels->tool_box.control.joint_stroke, "Joint Storke");
+	ADD_STR(table, app->labels->tool_box.shape.circle, "Circle");
+	ADD_STR(table, app->labels->tool_box.shape.eclipse, "Eclipse");
+	ADD_STR(table, app->labels->tool_box.shape.triangle, "Triangle");
+	ADD_STR(table, app->labels->tool_box.shape.square, "Square");
+	ADD_STR(table, app->labels->tool_box.shape.rhombus, "Rhombus");
+	ADD_STR(table, app->labels->tool_box.shape.hexagon, "Hexagon");
+	ADD_STR(table, app->labels->tool_box.shape.star, "Star");
+	ADD_STR(table, app->labels->tool_box.shape.pattern, "Pattern");
+	ADD_STR(table, app->labels->tool_box.shape.image, "Image");
+
+	//ADD_STR(table, app->labels->layer_window.new_layer, "Layer");
+	ADD_STR(table, app->labels->layer_window.new_vector, "Vector");
+	ADD_STR(table, app->labels->layer_window.new_layer_set, "Layer Set");
+	ADD_STR(table, app->labels->layer_window.new_text, "Text");
+	ADD_STR(table, app->labels->layer_window.new_3d_modeling, "3D Modeling");
+	ADD_STR(table, app->labels->layer_window.rename, "Rename Layer");
+	ADD_STR(table, app->labels->layer_window.reorder, "Reorder Layer");
+	ADD_STR(table, app->labels->layer_window.alpha_to_select, "Opaciy to Selection Area");
+	ADD_STR(table, app->labels->layer_window.alpha_add_select, "Opacity Add Selection Area");
+	ADD_STR(table, app->labels->layer_window.pasted_layer, "Pasted Layer");
+	ADD_STR(table, app->labels->layer_window.under_layer, "Under Layer");
+	ADD_STR(table, app->labels->layer_window.mixed_under_layer, "Mixed Under Layer");
+	ADD_STR(table, app->labels->layer_window.blend_mode, "Blend Mode");
+	ADD_STR(table, app->labels->layer_window.opacity, "Opacity");
+	ADD_STR(table, app->labels->layer_window.mask_with_under, "Making with Under Layer");
+	ADD_STR(table, app->labels->layer_window.lock_opacity, "Lock Opacity");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_ADD], "Blend Add");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_MULTIPLY], "Mlutiply");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_SCREEN], "Screen");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_OVERLAY], "Overlay");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_LIGHTEN], "Lighten");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_DARKEN], "Darken");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_DODGE], "Dodge");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_BURN], "Burn");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_HARD_LIGHT], "Hard Light");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_SOFT_LIGHT], "Soft Light");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_DIFFERENCE], "Difference");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_EXCLUSION], "Exclusion");
+	ADD_STR(table, app->labels->layer_window.blend_modes[LAYER_BLEND_BINALIZE], "Binalize");
+
+	return table;
+#undef TABLE_SIZE
+}
+
+/*******************************************************************
+* GetLabelString関数                                               *
+* 日本語環境なら日本語の英語環境なら英語のラベル用文字列を取得する *
+* 引数                                                             *
+* app	: アプリケーションを管理するデータ                         *
+* key	: 基本的に英語環境時のラベル文字列                         *
+* 返り値                                                           *
+*	ラベル用文字列(free厳禁)                                       *
+*******************************************************************/
+char* GetLabelString(APPLICATION* app, const char* key)
+{
+	if(app->label_table == NULL)
+	{
+		if((app->label_table = LabelStringTableNew(app)) == NULL)
+		{
+			return NULL;
+		}
+	}
+
+	return (char*)ght_get(app->label_table, (unsigned int)strlen(key), key);
 }
 
 #ifdef __cplusplus

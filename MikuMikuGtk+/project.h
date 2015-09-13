@@ -57,6 +57,10 @@ typedef enum _eSHADER_TYPE
 	SHADER_TYPE_Z_PLOT_WITH_SKINNING_VERTEX,
 	SHADER_TYPE_MODEL_EFFECT_TECHNIQUES,
 	SHADER_TYPE_TRANSFORM_FEEDBACK_VERTEX,
+	SHADER_TYPE_SHAPE_MODEL_VERTEX,
+	SHADER_TYPE_SHAPE_MODEL_FRAGMENT,
+	SHADER_TYPE_SHAPE_EDGE_VERTEX,
+	SHADER_TYPE_SHAPE_EDGE_FRAGMENT,
 	MAX_SHADER_TYPE
 } eSHADER_TYPE;
 
@@ -109,6 +113,8 @@ typedef struct _PROJECT
 	float view_port[2];
 
 	int debug_flags;
+
+	float aspect_ratio;
 
 	unsigned int flags;
 
@@ -182,6 +188,14 @@ extern ASSET_RENDER_ENGINE* AssetRenderEngineNew(
 	SCENE* scene,
 	MODEL_INTERFACE* model
 );
+
+extern SHAPE_RENDER_ENGINE* ShapeRenderEngineNew(
+	PROJECT* project_context,
+	SCENE* scene,
+	MODEL_INTERFACE* model
+);
+
+extern void ResizeProject(PROJECT* project, int available_width, int available_height);
 
 extern void MakeRay(PROJECT* project, FLOAT_T mouse_x, FLOAT_T mouse_y, float *ray_from, float *ray_to);
 extern int RayAabb(

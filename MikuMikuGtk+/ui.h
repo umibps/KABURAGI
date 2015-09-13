@@ -7,6 +7,7 @@
 typedef struct _APPLICATION_WIDGETS
 {
 	GtkWidget *main_window;
+	GtkWidget *model_control;
 	GtkWidget *model_combo_box;
 	GtkWidget *model_scale;
 	GtkWidget *model_opacity;
@@ -24,6 +25,7 @@ typedef struct _APPLICATION_WIDGETS
 	GtkWidget *bone_tree_view;
 	GtkWidget *morph_group_selector;
 	GtkWidget *detail_morph_selector;
+	GtkWidget *detail_model_setting;
 	GtkAdjustment *morph_weight;
 	int ui_disabled;
 } APPLICATION_WIDGETS;

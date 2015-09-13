@@ -522,9 +522,8 @@ DRAW_WINDOW* CreateDrawWindow(
 		| GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_BUTTON_RELEASE_MASK
 #if GTK_MAJOR_VERSION >= 3
 			| GDK_TOUCH_MASK
-#else
-			| GDK_POINTER_MOTION_HINT_MASK
 #endif
+			| GDK_POINTER_MOTION_HINT_MASK
 	);
 	// 描画領域を入れるスクロールを作成
 	ret->scroll = gtk_scrolled_window_new(NULL, NULL);
@@ -1415,16 +1414,19 @@ void FlipDrawWindowHorizontally(DRAW_WINDOW* window)
 		// ベクトルレイヤーならば
 		if(target->layer_type == TYPE_VECTOR_LAYER)
 		{	// ベクトルデータの座標を水平反転
-			VECTOR_LINE* line = target->layer_data.vector_layer_p->base->next;
+			VECTOR_LINE* line = ((VECTOR_LINE*)(target->layer_data.vector_layer_p->base))->base_data.next;
 
 			while(line != NULL)
 			{
-				for(i=0; i<line->num_points; i++)
+				if(line->base_data.vector_type < NUM_VECTOR_LINE_TYPE)
 				{
-					line->points[i].x = window->width - line->points[i].x;
+					for(i=0; i<line->num_points; i++)
+					{
+						line->points[i].x = window->width - line->points[i].x;
+					}
 				}
 
-				line = line->next;
+				line = line->base_data.next;
 			}
 
 			// ベクトルをラスタライズ
@@ -1459,7 +1461,7 @@ void FlipDrawWindowVertically(DRAW_WINDOW* window)
 		// ベクトルレイヤーならば
 		if(target->layer_type == TYPE_VECTOR_LAYER)
 		{	// ベクトルの座標データを垂直反転する
-			VECTOR_LINE* line = target->layer_data.vector_layer_p->base->next;
+			VECTOR_LINE* line = ((VECTOR_LINE*)(target->layer_data.vector_layer_p->base))->base_data.next;
 
 			while(line != NULL)
 			{
@@ -1468,7 +1470,7 @@ void FlipDrawWindowVertically(DRAW_WINDOW* window)
 					line->points[i].y = window->height - line->points[i].y;
 				}
 
-				line = line->next;
+				line = line->base_data.next;
 			}
 
 			// ベクトルをラスタライズ
@@ -1769,7 +1771,7 @@ void ChangeDrawWindowResolution(DRAW_WINDOW* window, int32 new_width, int32 new_
 	while(layer != NULL)
 	{
 		ResizeLayer(layer, new_width, new_height);
-
+_CrtCheckMemory();
 		layer = layer->next;
 	}
 
@@ -2184,6 +2186,8 @@ void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* w
 	{
 		int width = size->width;
 		int height = size->height;
+		int new_width, new_height;
+
 		if(width > SCROLLED_WINDOW_MARGIN)
 		{
 			width -= SCROLLED_WINDOW_MARGIN;
@@ -2192,7 +2196,14 @@ void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* w
 		{
 			height -= SCROLLED_WINDOW_MARGIN;
 		}
-		gtk_widget_set_size_request(layer->window->window, width, height);
+		new_width = width;
+		new_height = new_width * window->height / window->width;
+		if(new_height > height)
+		{
+			new_height = height;
+			new_width = new_height * window->width / window->height;
+		}
+		gtk_widget_set_size_request(layer->window->window, new_width, new_height);
 		gtk_widget_show_all(layer->window->window);
 	}
 }

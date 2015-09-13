@@ -1745,7 +1745,7 @@ gboolean VectorBrushButtonRightClicked(GtkWidget* button, GdkEventButton* event_
 		app->tool_window.copy_brush = (void*)core;
 		menu_item = gtk_menu_item_new_with_label(app->labels->tool_box.copy_brush);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(CopyVectorBrushData), app);
 
 		menu_item = gtk_menu_item_new_with_label(app->labels->tool_box.delete_brush);
@@ -1756,13 +1756,13 @@ gboolean VectorBrushButtonRightClicked(GtkWidget* button, GdkEventButton* event_
 		}
 		else
 		{
-			g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+			(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 				G_CALLBACK(DeleteVectorBrushData), app);
 		}
 
 		menu_item = gtk_menu_item_new_with_label(app->labels->tool_box.preference);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-		g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(ChangeVectorBrushPreference), app);
 
 		menu_item = gtk_separator_menu_item_new();
@@ -2238,6 +2238,26 @@ static void End3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	}
 }
 
+static gboolean ModelControlConfigureEvent(GtkWidget* widget, GdkEventConfigure* event_info, APPLICATION* app)
+{
+	GtkAllocation allocation;
+
+#if GTK_MAJOR_VERSION <= 2
+	allocation = widget->allocation;
+#else
+	gtk_widget_get_allocation(widget, &allocation);
+#endif
+
+	ResizeModelControlWidget(app->modeling, allocation.width, allocation.height);
+
+	return TRUE;
+}
+
+static void ModelControlSizeAllocate(GtkWidget* widget, GdkRectangle* allocation, APPLICATION* app)
+{
+	ResizeModelControlWidget(app->modeling, allocation->width, allocation->height);
+}
+
 static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 {
 	DRAW_WINDOW *draw_window = app->draw_window[app->active_window];
@@ -2246,6 +2266,7 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	GtkAllocation allocation;
 	GtkWidget *return_button;
 	GtkWidget *camera_light_widget;
+
 	gtk_widget_destroy(window->brush_table);
 	window->brush_table = (GtkWidget*)ModelControlWidgetNew(
 		app->modeling);
@@ -2257,6 +2278,10 @@ static void Change3DLayerButtonPressed(GtkWidget* button, APPLICATION* app)
 	gtk_box_pack_end(GTK_BOX(window->ui), return_button, FALSE, FALSE, 0);
 
 	window->brush_scroll = gtk_scrolled_window_new(NULL, NULL);
+	(void)g_signal_connect(G_OBJECT(window->brush_scroll), "configure-event",
+		G_CALLBACK(ModelControlConfigureEvent), app);
+	(void)g_signal_connect(G_OBJECT(window->brush_scroll), "size-allocate",
+		G_CALLBACK(ModelControlSizeAllocate), app);
 	gtk_box_pack_start(GTK_BOX(window->ui), window->brush_scroll, TRUE, TRUE, 0);
 	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(window->brush_scroll), window->brush_table);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(window->brush_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
@@ -2521,8 +2546,8 @@ GtkWidget *CreateToolBox(
 	int i;
 
 	// ファイル読み込みストリーム
-	GFile* fp;
-	GFileInputStream* stream;
+	GFile *fp;
+	GFileInputStream *stream;
 	// ファイルサイズ取得用
 	GFileInfo *file_info;
 	// ファイルサイズ
@@ -2887,13 +2912,14 @@ GtkWidget *CreateToolBoxWindow(APPLICATION* app, GtkWidget *parent)
 		gtk_window_move(GTK_WINDOW(window), app->tool_window.window_x, app->tool_window.window_y);
 		gtk_window_resize(GTK_WINDOW(window), app->tool_window.window_width, app->tool_window.window_height);
 		// ウィンドウが閉じるときのコールバック関数をセット
-		g_signal_connect(G_OBJECT(window), "delete_event", G_CALLBACK(OnDeleteToolBoxWindow), app);
+		(void)g_signal_connect(G_OBJECT(window), "delete_event", G_CALLBACK(OnDeleteToolBoxWindow), app);
 		// 親ウィンドウを登録
 		gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(parent));
 		// タイトルをセット
 		gtk_window_set_title(GTK_WINDOW(window), app->labels->tool_box.title);
 		// 閉じるボタンのみのウィンドウへ
-		gtk_window_set_type_hint(GTK_WINDOW(window), GDK_WINDOW_TYPE_HINT_UTILITY);
+		gtk_window_set_type_hint(GTK_WINDOW(window),
+			((app->tool_window.flags & TOOL_POP_UP) == 0) ? GDK_WINDOW_TYPE_HINT_UTILITY : GDK_WINDOW_TYPE_HINT_POPUP_MENU);
 		// タスクバーには表示しない
 		gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window), TRUE);
 		// ショートカットキーを登録
@@ -2907,13 +2933,13 @@ GtkWidget *CreateToolBoxWindow(APPLICATION* app, GtkWidget *parent)
 						app->tool_window.vector_brushes, app->tool_window.common_tools)));
 
 		// ツールボックスの位置変更用に削除時のコールバック関数をセット
-		g_signal_connect(G_OBJECT(app->tool_window.ui), "destroy",
+		(void)g_signal_connect(G_OBJECT(app->tool_window.ui), "destroy",
 			G_CALLBACK(OnDeleteToolBoxWidget), app);
 
 		// キーボードのコールバック関数をセット
-		g_signal_connect(G_OBJECT(window), "key-press-event",
+		(void)g_signal_connect(G_OBJECT(window), "key-press-event",
 			G_CALLBACK(KeyPressEvent), app);
-		g_signal_connect(G_OBJECT(window), "key-release-event",
+		(void)g_signal_connect(G_OBJECT(window), "key-release-event",
 			G_CALLBACK(KeyPressEvent), app);
 	}
 	else
@@ -2923,7 +2949,7 @@ GtkWidget *CreateToolBoxWindow(APPLICATION* app, GtkWidget *parent)
 				app->common_tool_file_path, app->tool_window.brushes,
 					app->tool_window.vector_brushes, app->tool_window.common_tools);
 		// ツールボックスの位置変更用に削除時のコールバック関数をセット
-		g_signal_connect(G_OBJECT(app->tool_window.ui), "destroy",
+		(void)g_signal_connect(G_OBJECT(app->tool_window.ui), "destroy",
 			G_CALLBACK(OnDeleteToolBoxWidget), app);
 
 		if((app->tool_window.flags & TOOL_PLACE_RIGHT) == 0)

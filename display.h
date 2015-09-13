@@ -18,7 +18,7 @@ extern "C" {
 * 返り値                                 *
 *	常にFALSE                            *
 *****************************************/
-extern gboolean DisplayDrawWindow(
+EXTERN gboolean DisplayDrawWindow(
 	GtkWidget* widget,
 	GdkEventExpose* event_info,
 	struct _DRAW_WINDOW* window
@@ -34,7 +34,7 @@ extern gboolean DisplayDrawWindow(
 * 返り値                                           *
 *	常にFALSE                                      *
 ***************************************************/
-extern gboolean DisplayBrushPreview(
+EXTERN gboolean DisplayBrushPreview(
 	GtkWidget* widget,
 	GdkEventExpose* event_info,
 	struct _DRAW_WINDOW* window
@@ -46,7 +46,7 @@ extern gboolean DisplayBrushPreview(
 * 引数                       *
 * window	: 描画領域の情報 *
 *****************************/
-extern void UpdateDrawWindow(struct _DRAW_WINDOW* window);
+EXTERN void UpdateDrawWindow(struct _DRAW_WINDOW* window);
 
 /*******************************************************
 * MixLayerForSave関数                                  *
@@ -56,7 +56,7 @@ extern void UpdateDrawWindow(struct _DRAW_WINDOW* window);
 * 返り値                                               *
 *	合成したレイヤーのデータ                           *
 *******************************************************/
-extern LAYER* MixLayerForSave(DRAW_WINDOW* window);
+EXTERN LAYER* MixLayerForSave(DRAW_WINDOW* window);
 
 /*******************************************************
 * MixLayerForSaveWithBackGround関数                    *
@@ -66,7 +66,7 @@ extern LAYER* MixLayerForSave(DRAW_WINDOW* window);
 * 返り値                                               *
 *	合成したレイヤーのデータ                           *
 *******************************************************/
-extern LAYER* MixLayerForSaveWithBackGround(DRAW_WINDOW* window);
+EXTERN LAYER* MixLayerForSaveWithBackGround(DRAW_WINDOW* window);
 
 #ifdef __cplusplus
 }

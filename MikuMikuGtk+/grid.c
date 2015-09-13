@@ -86,8 +86,9 @@ void GridAddShaderFromFile(
 		(void)fseek(fp, 0, SEEK_END);
 		size = ftell(fp);
 		(void)fseek(fp, 0, SEEK_SET);
-		source = (char*)MEM_ALLOC_FUNC(size);
+		source = (char*)MEM_ALLOC_FUNC(size+1);
 		(void)fread(source, 1, size, fp);
+		source[size] = '\0';
 
 		ShaderProgramAddShaderSource(&grid->program.base_data, source, type);
 
@@ -250,6 +251,8 @@ void LoadGrid(GRID* grid, void* project_context)
 			GridAddLine(grid, from, to, grid->line_color, &index);
 		}
 
+		grid->num_lines = (int)grid->vertices->num_data;
+
 		to[0] = width,	to[2] = 0;
 		GridAddLine(grid, zero, to, grid->axis_x_color, &index);
 
@@ -261,7 +264,7 @@ void LoadGrid(GRID* grid, void* project_context)
 
 		vertex = (GRID_VERTEX*)grid->vertices->buffer;
 		MakeVertexBundle(grid->bundle, VERTEX_BUNDLE_VERTEX_BUFFER, 0, GL_STATIC_DRAW,
-			vertex->position,	sizeof(*vertex) * grid->vertices->num_data);
+			vertex,	sizeof(*vertex) * grid->vertices->num_data);
 		MakeVertexBundle(grid->bundle, VERTEX_BUNDLE_INDEX_BUFFER, 0, GL_STATIC_DRAW,
 			grid->indices->buffer, sizeof(int) * grid->indices->num_data);
 
@@ -274,6 +277,36 @@ void LoadGrid(GRID* grid, void* project_context)
 
 		grid->num_indices = index;
 	}
+}
+
+void GridChangeLineColor(GRID* grid, uint8* new_color)
+{
+	GRID_VERTEX *vertices = (GRID_VERTEX*)grid->vertices->buffer;
+	int i;
+
+	grid->line_color[0] = new_color[0];
+	grid->line_color[1] = new_color[1];
+	grid->line_color[2] = new_color[2];
+
+	for(i=0; i<grid->num_lines; i++)
+	{
+		vertices[i].color[0] = grid->line_color[0];
+		vertices[i].color[1] = grid->line_color[1];
+		vertices[i].color[2] = grid->line_color[2];
+	}
+
+	MakeVertexBundle(grid->bundle, VERTEX_BUNDLE_VERTEX_BUFFER, 0, GL_STATIC_DRAW,
+		vertices,	sizeof(*vertices) * grid->vertices->num_data);
+	MakeVertexBundle(grid->bundle, VERTEX_BUNDLE_INDEX_BUFFER, 0, GL_STATIC_DRAW,
+		grid->indices->buffer, sizeof(int) * grid->indices->num_data);
+
+	ReleaseVertexBundleLayout(grid->layout);
+	(void)MakeVertexBundleLayout(grid->layout);
+	(void)VertexBundleLayoutBind(grid->layout);
+	GridBindVertexBundle(grid, FALSE);
+	GridProgramEnableAttributes(&grid->program);
+	(void)VertexBundleLayoutUnbind(grid->layout);
+	GridReleaseVertexBundle(grid, FALSE);
 }
 
 #ifdef __cplusplus

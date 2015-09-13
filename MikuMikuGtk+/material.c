@@ -206,6 +206,68 @@ uint8* WriteMmdModelMaterials(
 
 					(void)fclose(fp);
 				}
+				else
+				{
+					char sp_path[8192] = {0};
+					char *extention = sp_path;
+					char *p = extention;
+
+					(void)strcpy(sp_path, system_path);
+					while(*p != '\0')
+					{
+						if(*p == '.')
+						{
+							extention = p;
+						}
+						p++;
+					}
+					extention[1] = 's';
+					extention[2] = 'p';
+					extention[3] = 'a';
+					extention[4] = '\0';
+					if((fp = fopen(sp_path, "rb")) != NULL)
+					{
+						(void)fseek(fp, 0, SEEK_END);
+						names[counter].name = material->main_texture;
+						names[counter].data_size = ftell(fp);
+						names[counter].data_start = total_image_size + image_start;
+						total_image_size += names[counter].data_size;
+						rewind(fp);
+						if(image_data_buffer_size < names[counter].data_size)
+						{
+							image_data = (uint8*)MEM_REALLOC_FUNC(image_data, names[counter].data_size);
+							image_data_buffer_size = names[counter].data_size;
+						}
+						(void)fread(image_data, 1, names[counter].data_size, fp);
+						(void)MemWrite(image_data, 1, names[counter].data_size, stream);
+						counter++;
+
+						(void)fclose(fp);
+					}
+					else
+					{
+						extention[3] = 'h';
+						if((fp = fopen(sp_path, "rb")) != NULL)
+						{
+							(void)fseek(fp, 0, SEEK_END);
+							names[counter].name = material->main_texture;
+							names[counter].data_size = ftell(fp);
+							names[counter].data_start = total_image_size + image_start;
+							total_image_size += names[counter].data_size;
+							rewind(fp);
+							if(image_data_buffer_size < names[counter].data_size)
+							{
+								image_data = (uint8*)MEM_REALLOC_FUNC(image_data, names[counter].data_size);
+								image_data_buffer_size = names[counter].data_size;
+							}
+							(void)fread(image_data, 1, names[counter].data_size, fp);
+							(void)MemWrite(image_data, 1, names[counter].data_size, stream);
+							counter++;
+
+							(void)fclose(fp);
+						}
+					}
+				}
 
 				MEM_FREE_FUNC(system_path);
 			}

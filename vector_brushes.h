@@ -5,6 +5,7 @@
 #include "vector_brush_core.h"
 #include "ini_file.h"
 #include "types.h"
+#include "vector.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,7 +30,7 @@ typedef struct _POLY_LINE_BRUSH
 	uint8 first_pressure;
 	uint8 last_pressure;
 	uint16 flags;
-	GTimer* timer;
+	GTimer *timer;
 } POLY_LINE_BRUSH;
 
 typedef enum _eBEZIER_LINE_FLAGS
@@ -50,7 +51,7 @@ typedef struct _BEZIER_LINE_BRUSH
 	uint8 last_pressure;
 	uint8 line_type;
 	uint16 flags;
-	GTimer* timer;
+	GTimer *timer;
 } BEZIER_LINE_BRUSH;
 
 #define FREE_HAND_MINIMUM_DISTANCE 3
@@ -143,7 +144,7 @@ typedef enum _eVECTOR_ERASER_FLAGS
 } eVECTOR_ERASER_FLAGS;
 
 /*************************
-* VECTOR_ERASER関数      *
+* VECTOR_ERASER構造体    *
 * ベクトル消しゴムの情報 *
 *************************/
 typedef struct _VECTOR_ERASER
@@ -157,6 +158,41 @@ typedef struct _VECTOR_ERASER
 	uint8 flags;	// 筆圧使用などのフラグ
 } VECTOR_ERASER;
 
+/***********************************
+* VECTOR_SHAPE_BRUSH構造体         *
+* 四角形, 楕円作成用のブラシの情報 *
+***********************************/
+typedef struct _VECTOR_SHAPE_BRUSH
+{
+	uint8 mode;						// 追加・変形・削除
+	uint8 shape_type;				// 形状(四角形or楕円)
+	uint8 control_point;			// 移動中の頂点
+	uint8 add_vector;				// ベクトルレイヤーを追加するか
+	uint8 line_joint;				// 線の繋ぎ目
+	uint8 changing_shape;			// 形状の変更中のフラグ
+	uint8 change_line_width;		// 変形時の線の太さ変更有無
+	uint8 manually_set;				// 手入力での形状データ設定
+	gdouble line_width;				// 線の太さ
+	uint8 line_color[4];			// 線の色
+	uint8 fill_color[4];			// 塗り潰しの色
+	cairo_line_join_t join_type;	// 線の繋ぎ目の形
+	FLOAT_T shape_points[9][2];		// 拡大縮小・回転・移動用の座標記憶バッファ
+	VECTOR_DATA before_shape;		// 形状変更前のデータ
+	GtkWidget *detail_widget;		// 各モードの設定ウィジェット
+	GtkWidget *detail_frame;		// 各モードの設定ウィジェットのコンテナ
+	const char *brush_name;			// ブラシの名前
+	char *before_script_directory;	// 前回スクリプト読み込み時のフォルダ
+	int text_field_size[2];			// スクリプトの編集ウィジェットのサイズ
+} VECTOR_SHAPE_BRUSH;
+
+typedef enum _eVECTOR_SHAPE_BRUSH_MODE
+{
+	VECTOR_SHAPE_BRUSH_MODE_ADD,
+	VECTOR_SHAPE_BRUSH_MODE_TRANSFORM,
+	VECTOR_SHAPE_BRUSH_MODE_CHANGE_COLOR,
+	VECTOR_SHAPE_BRUSH_MODE_DELETE
+} eVECTOR_SHAPE_BRUSH_MODE;
+
 typedef enum _eVECTOR_BRUSH_TYPE
 {
 	TYPE_POLY_LINE_BRUSH,
@@ -165,7 +201,8 @@ typedef enum _eVECTOR_BRUSH_TYPE
 	TYPE_CONTROL_POINT,
 	TYPE_CHANGE_LINE_COLOR,
 	TYPE_CHANGE_LINE_SIZE,
-	TYPE_VECTOR_ERASER
+	TYPE_VECTOR_ERASER,
+	TYPE_VECTOR_SHAPE_BRUSH
 } eVECTOR_BRUSH_TYPE;
 
 // 関数のプロトタイプ宣言

@@ -2,6 +2,7 @@
 	// 警告が出ないようにする
 #if defined _MSC_VER && _MSC_VER >= 1400
 # define _CRT_SECURE_NO_DEPRECATE
+# define _CRT_NONSTDC_NO_DEPRECATE
 #endif
 
 #include <stdio.h>
@@ -1080,6 +1081,30 @@ GtkWidget* GetMainMenu(
 		G_CALLBACK(ExecuteChangeToolWindowPlace), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 
+	/*
+	// 左からポップアップ
+	(void)sprintf(buff, "%s", "pop up left");
+	menu_item = gtk_radio_menu_item_new_with_label(
+		gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(app->tool_window.menu_item)), buff);
+	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item),
+		(app->tool_window.flags & TOOL_DOCKED) != 0 && (app->tool_window.flags & TOOL_PLACE_RIGHT) != 0);
+	g_object_set_data(G_OBJECT(menu_item), "change_mode", GINT_TO_POINTER(UTILITY_PLACE_POPUP_LEFT));
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteChangeToolWindowPlace), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
+
+	// 右からポップアップ
+	(void)sprintf(buff, "%s", "pop up left");
+	menu_item = gtk_radio_menu_item_new_with_label(
+		gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(app->tool_window.menu_item)), buff);
+	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item),
+		(app->tool_window.flags & TOOL_DOCKED) != 0 && (app->tool_window.flags & TOOL_PLACE_RIGHT) != 0);
+	g_object_set_data(G_OBJECT(menu_item), "change_mode", GINT_TO_POINTER(UTILITY_PLACE_POPUP_RIGHT));
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteChangeToolWindowPlace), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
+	*/
+
 	// ウィンドウを左上に移動
 	(void)sprintf(buff, "%s", app->labels->window.move_top_left);
 	menu_item = gtk_menu_item_new_with_label(buff);
@@ -1242,6 +1267,162 @@ GtkWidget* GetMainMenu(
 	return menu_bar;
 }
 
+/*************************************
+* ADD_MAKE_NEW_DATA構造体            *
+* 新規作成時のプリセットデータ追加用 *
+*************************************/
+typedef struct _ADD_MAKE_NEW_DATA
+{
+	APPLICATION *app;
+	GtkWidget *dialog;
+	GtkWidget *name;
+	GtkWidget *width;
+	GtkWidget *height;
+	GtkWidget *resolution;
+	GtkWidget *combo;
+} ADD_MAKE_NEW_DATA;
+
+/*********************************************************
+* AddmakeNewData関数                                     *
+* 新規作成時のプリセットデータを追加する                 *
+* 引数                                                   *
+* button	: 新規作成用ボタンウィジェット               *
+* make_new	: 新規作成時のプリセットデータ追加用のデータ *
+*********************************************************/
+static void AddMakeNewData(GtkWidget* button, ADD_MAKE_NEW_DATA* make_new)
+{
+	APPLICATION *app = make_new->app;
+	GtkWidget *dialog;
+	GtkWidget *entry;
+	GtkWidget *width;
+	GtkWidget *height;
+	GtkWidget *resolution;
+	GtkWidget *hbox;
+	GtkWidget *label;
+	char str[256];
+
+	dialog = 
+		gtk_dialog_new_with_buttons(
+			"",
+			GTK_WINDOW(make_new->dialog),
+			GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+			GTK_STOCK_OK,
+			GTK_RESPONSE_OK,
+			GTK_STOCK_CANCEL,
+			GTK_RESPONSE_CANCEL,
+			NULL
+		);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", app->labels->unit.name);
+	label = gtk_label_new(str);
+	entry = gtk_entry_new();
+	gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), entry, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		hbox, FALSE, FALSE, 0);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", app->labels->make_new.width);
+	label = gtk_label_new(str);
+	width = gtk_spin_button_new_with_range(1, LONG_MAX, 1);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(width),
+		gtk_spin_button_get_value(GTK_SPIN_BUTTON(make_new->width)));
+	gtk_spin_button_set_digits(GTK_SPIN_BUTTON(width), 0);
+	gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), width, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		hbox, FALSE, FALSE, 0);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", app->labels->make_new.height);
+	label = gtk_label_new(str);
+	height = gtk_spin_button_new_with_range(1, LONG_MAX, 1);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(height),
+		gtk_spin_button_get_value(GTK_SPIN_BUTTON(make_new->height)));
+	gtk_spin_button_set_digits(GTK_SPIN_BUTTON(height), 0);
+	gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), height, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		hbox, FALSE, FALSE, 0);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", "dpi");
+	label = gtk_label_new(str);
+	resolution = gtk_spin_button_new_with_range(1, LONG_MAX, 1);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(resolution),
+		gtk_spin_button_get_value(GTK_SPIN_BUTTON(make_new->resolution)));
+	gtk_spin_button_set_digits(GTK_SPIN_BUTTON(resolution), 0);
+	gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), resolution, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		hbox, FALSE, FALSE, 0);
+
+	gtk_widget_show_all(dialog);
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{
+		const char *name = gtk_entry_get_text(GTK_ENTRY(entry));
+
+		if(name != NULL)
+		{
+			int index;
+			app->menu_data.num_make_new_data++;
+			index = app->menu_data.num_make_new_data;
+			app->menu_data.make_new = (MAKE_NEW_DATA*)MEM_REALLOC_FUNC(
+				app->menu_data.make_new, sizeof(*app->menu_data.make_new) * (app->menu_data.num_make_new_data+1));
+			app->menu_data.make_new[index].name = MEM_STRDUP_FUNC(name);
+			app->menu_data.make_new[index].width = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(width));
+			app->menu_data.make_new[index].height = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(height));
+			app->menu_data.make_new[index].resolution = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(resolution));
+
+#if GTK_MAJOR_VERSION <= 2
+			gtk_combo_box_append_text(GTK_COMBO_BOX(make_new->name), name);
+#else
+			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(make_new->name), name);
+#endif
+			gtk_combo_box_set_active(GTK_COMBO_BOX(make_new->name), index-1);
+		}
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(make_new->width), gtk_spin_button_get_value(GTK_SPIN_BUTTON(width)));
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(make_new->height), gtk_spin_button_get_value(GTK_SPIN_BUTTON(height)));
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(make_new->resolution), gtk_spin_button_get_value(GTK_SPIN_BUTTON(resolution)));
+	}
+	gtk_widget_destroy(dialog);
+}
+
+/*************************************************
+* SetFromMakeNewPreset関数                       *
+* 新規作成のデータをプリセットから設定する       *
+* 引数                                           *
+* combo		: プリセットデータ選択用ウィジェット *
+* make_new	: プリセットデータ                   *
+*************************************************/
+static void SetFromMakeNewPreset(GtkWidget* combo, ADD_MAKE_NEW_DATA* make_new)
+{
+	APPLICATION *app = make_new->app;
+	int index = gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+
+	if(index >= 0)
+	{
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(make_new->width), app->menu_data.make_new[index+1].width);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(make_new->height), app->menu_data.make_new[index+1].height);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(make_new->resolution), app->menu_data.make_new[index+1].resolution);
+	}
+}
+
+/*******************************
+* SwapHeightAndWidth関数       *
+* 縦横を入れ替える             *
+* 引数                         *
+* make_new	: 新規作成用データ *
+*******************************/
+static void SwapHeightAndWidth(ADD_MAKE_NEW_DATA* make_new)
+{
+	int width = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(make_new->width));
+	int height = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(make_new->height));
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(make_new->width), height);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(make_new->height), width);
+}
+
 /*****************************************************
 * ExecuteNew関数                                     *
 * 新規作成を実行                                     *
@@ -1250,6 +1431,8 @@ GtkWidget* GetMainMenu(
 *****************************************************/
 static void ExecuteNew(APPLICATION* app)
 {
+	// 新規作成時のデータ用
+	ADD_MAKE_NEW_DATA add_make_new = {0};
 	// 画像の幅と高さを決めるダイアログボックスを作成
 	GtkWidget *dialog =
 		gtk_dialog_new_with_buttons(
@@ -1263,18 +1446,44 @@ static void ExecuteNew(APPLICATION* app)
 			NULL
 		);
 	// ウィジェットの配置用
-	GtkWidget *table, *spin1, *spin2, *label;
-	GtkWidget *dpi;
+	GtkWidget *table, *label;
 	GtkWidget *second_color;
+	GtkWidget *control;
 	GtkAdjustment *adjust;
 	// 2つめの背景色
 	GdkColor second_back_rgb;
 	// OK, キャンセルの結果を受ける
 	gint ret;
+	// ラベル用文字列
+	char str[256];
 	// 作成する画像の幅と高さ
 	int32 width, height;
 	// for文用のカウンタ
 	int i;
+
+	add_make_new.dialog = dialog;
+	add_make_new.app = app;
+
+	table = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", app->labels->make_new.preset);
+	label = gtk_label_new(str);
+#if GTK_MAJOR_VERSION <= 2
+	add_make_new.name = gtk_combo_box_new_text();
+	for(i=0; i<app->menu_data.num_make_new_data; i++)
+	{
+		gtk_combo_box_append_text(GTK_COMBO_BOX(add_make_new.name), app->menu_data.make_new[i+1].name);
+	}
+#else
+	add_make_new.name = gtk_combo_box_text_new();
+	for(i=0; i<app->menu_data.num_make_new_data; i++)
+	{
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(add_make_new.name), app->menu_data.make_new[i+1].name);
+	}
+#endif
+	(void)g_signal_connect(G_OBJECT(add_make_new.name), "changed", G_CALLBACK(SetFromMakeNewPreset), &add_make_new);
+	gtk_box_pack_start(GTK_BOX(table), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(table), add_make_new.name, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), table, FALSE, FALSE, 0);
 
 	table = gtk_table_new(4, 3, FALSE);
 
@@ -1282,36 +1491,47 @@ static void ExecuteNew(APPLICATION* app)
 	gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), table);
 	label = gtk_label_new(app->labels->make_new.width);
 	gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 0, 1);
-	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(app->menu_data.make_new.width, 1, LONG_MAX, 1, 10, 0));
-	spin1 = gtk_spin_button_new(adjust, 1, 0);
-	gtk_table_attach_defaults(GTK_TABLE(table), spin1, 1, 2, 0, 1);
+	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(app->menu_data.make_new->width, 1, LONG_MAX, 1, 10, 0));
+	add_make_new.width = gtk_spin_button_new(adjust, 1, 0);
+	gtk_table_attach_defaults(GTK_TABLE(table), add_make_new.width, 1, 2, 0, 1);
 
 	// ダイアログボックスに高さのラベルと値設定用のウィジェットを登録
 	label = gtk_label_new(app->labels->make_new.height);
 	gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 1, 2);
-	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(app->menu_data.make_new.height, 1, LONG_MAX, 1, 10, 0));
-	spin2 = gtk_spin_button_new(adjust, 1, 0);
-	gtk_table_attach_defaults(GTK_TABLE(table), spin2, 1, 2, 1, 2);
+	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(app->menu_data.make_new->height, 1, LONG_MAX, 1, 10, 0));
+	add_make_new.height = gtk_spin_button_new(adjust, 1, 0);
+	gtk_table_attach_defaults(GTK_TABLE(table), add_make_new.height, 1, 2, 1, 2);
 
 	// 解像度設定用のウィジェットを登録
 	label = gtk_label_new(app->labels->unit.resolution);
 	gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 2, 3);
-	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(app->menu_data.make_new.resolution,
+	adjust = GTK_ADJUSTMENT(gtk_adjustment_new(app->menu_data.make_new->resolution,
 		1, 1200, 1, 1, 0));
-	dpi = gtk_spin_button_new(adjust, 1, 0);
-	gtk_table_attach_defaults(GTK_TABLE(table), dpi, 1, 2, 2, 3);
+	add_make_new.resolution = gtk_spin_button_new(adjust, 1, 0);
+	gtk_table_attach_defaults(GTK_TABLE(table), add_make_new.resolution, 1, 2, 2, 3);
 	label = gtk_label_new("dpi");
 	gtk_table_attach_defaults(GTK_TABLE(table), label, 2, 3, 2, 3);
 
 	// 2つめの背景色設定用のウィジェットを登録
 	label = gtk_label_new(app->labels->make_new.second_bg_color);
 	gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 3, 4);
-	second_back_rgb.red = (app->menu_data.make_new.second_bg_color[0] << 8) | app->menu_data.make_new.second_bg_color[0];
-	second_back_rgb.green = (app->menu_data.make_new.second_bg_color[1] << 8) | app->menu_data.make_new.second_bg_color[1];
-	second_back_rgb.blue = (app->menu_data.make_new.second_bg_color[2] << 8) | app->menu_data.make_new.second_bg_color[2];
+	second_back_rgb.red = (app->menu_data.second_bg_color[0] << 8) | app->menu_data.second_bg_color[0];
+	second_back_rgb.green = (app->menu_data.second_bg_color[1] << 8) | app->menu_data.second_bg_color[1];
+	second_back_rgb.blue = (app->menu_data.second_bg_color[2] << 8) | app->menu_data.second_bg_color[2];
 	second_color = gtk_color_button_new_with_color(&second_back_rgb);
 	gtk_color_button_set_title(GTK_COLOR_BUTTON(second_color), app->labels->make_new.second_bg_color);
 	gtk_table_attach_defaults(GTK_TABLE(table), second_color, 1, 2, 3, 4);
+
+	// 縦横入れ替えボタン
+	control = gtk_button_new_with_label(app->labels->make_new.swap_height_and_width);
+	(void)g_signal_connect_swapped(G_OBJECT(control), "clicked",
+		G_CALLBACK(SwapHeightAndWidth), &add_make_new);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), control, FALSE, FALSE, 0);
+
+	// プリセット追加ボタン
+	control = gtk_button_new_with_label(app->labels->make_new.add_preset);
+	(void)g_signal_connect(G_OBJECT(control), "clicked", G_CALLBACK(AddMakeNewData), &add_make_new);
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), control, FALSE, FALSE, 0);
 
 	// ダイアログボックスを表示
 	gtk_widget_show_all(gtk_dialog_get_content_area(GTK_DIALOG(dialog)));
@@ -1322,12 +1542,13 @@ static void ExecuteNew(APPLICATION* app)
 	// 「OK」が押されたら
 	if(ret == GTK_RESPONSE_ACCEPT)
 	{	// 入力された幅と高さの値を取得
-		width = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin1));
-		height = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin2));
+		width = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(add_make_new.width));
+		height = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(add_make_new.height));
 
-		app->menu_data.make_new.width = width;
-		app->menu_data.make_new.height = height;
-		app->menu_data.make_new.resolution = (uint16)gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(dpi));
+		app->menu_data.make_new->width = width;
+		app->menu_data.make_new->height = height;
+		app->menu_data.make_new->resolution =
+			(uint16)gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(add_make_new.resolution));
 
 		// 描画領域を作成
 		app->draw_window[app->window_num] =
@@ -1335,19 +1556,19 @@ static void ExecuteNew(APPLICATION* app)
 			app->note_book, app->window_num, app);
 		app->active_window = app->window_num;
 		app->draw_window[app->active_window]->resolution =
-			(uint16)gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(dpi));
+			(uint16)gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(add_make_new.resolution));
 		gtk_color_button_get_color(GTK_COLOR_BUTTON(second_color), &second_back_rgb);
-		app->menu_data.make_new.second_bg_color[0] = second_back_rgb.red / 256;
-		app->menu_data.make_new.second_bg_color[1] = second_back_rgb.green / 256;
-		app->menu_data.make_new.second_bg_color[2] = second_back_rgb.blue / 256;
+		app->menu_data.second_bg_color[0] = second_back_rgb.red / 256;
+		app->menu_data.second_bg_color[1] = second_back_rgb.green / 256;
+		app->menu_data.second_bg_color[2] = second_back_rgb.blue / 256;
 #if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
-		app->draw_window[app->active_window]->second_back_ground[2] = app->menu_data.make_new.second_bg_color[0];
-		app->draw_window[app->active_window]->second_back_ground[1] = app->menu_data.make_new.second_bg_color[1];
-		app->draw_window[app->active_window]->second_back_ground[0] = app->menu_data.make_new.second_bg_color[2];
+		app->draw_window[app->active_window]->second_back_ground[2] = app->menu_data.second_bg_color[0];
+		app->draw_window[app->active_window]->second_back_ground[1] = app->menu_data.second_bg_color[1];
+		app->draw_window[app->active_window]->second_back_ground[0] = app->menu_data.second_bg_color[2];
 #else
-		app->draw_window[app->active_window]->second_back_ground[0] = app->menu_data.make_new.second_bg_color[0];
-		app->draw_window[app->active_window]->second_back_ground[1] = app->menu_data.make_new.second_bg_color[1];
-		app->draw_window[app->active_window]->second_back_ground[2] = app->menu_data.make_new.second_bg_color[2];
+		app->draw_window[app->active_window]->second_back_ground[0] = app->menu_data.second_bg_color[0];
+		app->draw_window[app->active_window]->second_back_ground[1] = app->menu_data.second_bg_color[1];
+		app->draw_window[app->active_window]->second_back_ground[2] = app->menu_data.second_bg_color[2];
 #endif
 		app->window_num++;
 
@@ -2094,7 +2315,7 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 				gtk_widget_destroy(app->tool_window.ui);
 			}
 
-			app->tool_window.flags &= ~(TOOL_DOCKED);
+			app->tool_window.flags &= ~(TOOL_DOCKED | TOOL_POP_UP);
 			app->tool_window.window = CreateToolBoxWindow(app, app->window);
 
 			gtk_widget_show_all(app->tool_window.window);
@@ -2112,7 +2333,7 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 		}
 
 		app->tool_window.flags |= TOOL_DOCKED;
-		app->tool_window.flags &= ~(TOOL_PLACE_RIGHT);
+		app->tool_window.flags &= ~(TOOL_PLACE_RIGHT | TOOL_POP_UP);
 
 		app->tool_window.window = CreateToolBoxWindow(app, app->window);
 		gtk_widget_show_all(app->tool_window.ui);
@@ -2131,10 +2352,43 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 
 		app->tool_window.flags |= TOOL_DOCKED;
 		app->tool_window.flags |= TOOL_PLACE_RIGHT;
+		app->tool_window.flags &= ~(TOOL_POP_UP);
 
 		app->tool_window.window = CreateToolBoxWindow(app, app->window);
 		gtk_widget_show_all(app->tool_window.ui);
 
+		break;
+	case UTILITY_PLACE_POPUP_LEFT:
+		if(app->tool_window.window == NULL
+			&& (app->flags & APPLICATION_IN_DELETE_EVENT) == 0)
+		{
+			if(app->tool_window.ui != NULL)
+			{
+				gtk_widget_destroy(app->tool_window.ui);
+			}
+
+			app->tool_window.flags |= TOOL_POP_UP;
+			app->tool_window.flags &= ~(TOOL_DOCKED | TOOL_PLACE_RIGHT);
+			app->tool_window.window = CreateToolBoxWindow(app, app->window);
+
+			gtk_widget_show_all(app->tool_window.window);
+		}
+		break;
+	case UTILITY_PLACE_POPUP_RIGHT:
+		if(app->tool_window.window == NULL
+			&& (app->flags & APPLICATION_IN_DELETE_EVENT) == 0)
+		{
+			if(app->tool_window.ui != NULL)
+			{
+				gtk_widget_destroy(app->tool_window.ui);
+			}
+
+			app->tool_window.flags |= TOOL_POP_UP | TOOL_PLACE_RIGHT;
+			app->tool_window.flags &= ~(TOOL_DOCKED);
+			app->tool_window.window = CreateToolBoxWindow(app, app->window);
+
+			gtk_widget_show_all(app->tool_window.window);
+		}
 		break;
 	}
 
@@ -2230,7 +2484,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 	switch(app->layer_window.place)
 	{
 	case UTILITY_PLACE_WINDOW:
-		app->layer_window.flags &= ~(LAYER_WINDOW_DOCKED | LAYER_WINDOW_PLACE_RIGHT);
+		app->layer_window.flags &= ~(LAYER_WINDOW_DOCKED | LAYER_WINDOW_PLACE_RIGHT | LAYER_WINDOW_POP_UP);
 		if(app->layer_window.window == NULL)
 		{
 			if(app->navi_layer_pane != NULL)
@@ -2275,7 +2529,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 		break;
 	case UTILITY_PLACE_LEFT:
 		app->layer_window.flags |= LAYER_WINDOW_DOCKED;
-		app->layer_window.flags &= ~(LAYER_WINDOW_PLACE_RIGHT);
+		app->layer_window.flags &= ~(LAYER_WINDOW_PLACE_RIGHT | LAYER_WINDOW_POP_UP);
 
 		if(app->layer_window.window != NULL)
 		{
@@ -2336,6 +2590,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 		break;
 	case UTILITY_PLACE_RIGHT:
 		app->layer_window.flags |= LAYER_WINDOW_DOCKED | LAYER_WINDOW_PLACE_RIGHT;
+		app->layer_window.flags &= ~(LAYER_WINDOW_POP_UP);
 
 		if(app->layer_window.window != NULL)
 		{
@@ -2370,6 +2625,96 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 		gtk_box_pack_end(GTK_BOX(box), app->navi_layer_pane, TRUE, TRUE, 0);
 
 		gtk_widget_show_all(app->navi_layer_pane);
+
+		box = gtk_paned_get_child1(GTK_PANED(app->left_pane));
+		if(box != NULL)
+		{
+			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
+			if(child == NULL)
+			{
+				gtk_widget_destroy(box);
+			}
+			g_list_free(child);
+		}
+
+		box = gtk_paned_get_child2(GTK_PANED(app->right_pane));
+		if(box != NULL)
+		{
+			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
+			if(child == NULL)
+			{
+				gtk_widget_destroy(box);
+			}
+			g_list_free(child);
+		}
+
+		break;
+	case UTILITY_PLACE_POPUP_LEFT:
+		app->layer_window.flags |= LAYER_WINDOW_POP_UP;
+		app->layer_window.flags &= ~(LAYER_WINDOW_DOCKED | LAYER_WINDOW_PLACE_RIGHT);
+		if(app->layer_window.window == NULL)
+		{
+			if(app->navi_layer_pane != NULL)
+			{
+				app->layer_window.pane_position = gtk_paned_get_position(
+					GTK_PANED(app->navi_layer_pane));
+				gtk_widget_destroy(app->navi_layer_pane);
+				app->navi_layer_pane = NULL;
+			}
+
+			app->layer_window.window = CreateLayerWindow(app, app->window, &app->layer_window.view);
+			gtk_widget_show_all(app->layer_window.window);
+		}
+
+		if(app->navigation_window.window == NULL)
+		{
+			InitializeNavigation(&app->navigation_window, app, NULL);
+		}
+
+		box = gtk_paned_get_child1(GTK_PANED(app->left_pane));
+		if(box != NULL)
+		{
+			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
+			if(child == NULL)
+			{
+				gtk_widget_destroy(box);
+			}
+			g_list_free(child);
+		}
+
+		box = gtk_paned_get_child2(GTK_PANED(app->right_pane));
+		if(box != NULL)
+		{
+			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
+			if(child == NULL)
+			{
+				gtk_widget_destroy(box);
+			}
+			g_list_free(child);
+		}
+
+		break;
+	case UTILITY_PLACE_POPUP_RIGHT:
+		app->layer_window.flags |= LAYER_WINDOW_POP_UP | LAYER_WINDOW_PLACE_RIGHT;
+		app->layer_window.flags &= ~(LAYER_WINDOW_DOCKED);
+		if(app->layer_window.window == NULL)
+		{
+			if(app->navi_layer_pane != NULL)
+			{
+				app->layer_window.pane_position = gtk_paned_get_position(
+					GTK_PANED(app->navi_layer_pane));
+				gtk_widget_destroy(app->navi_layer_pane);
+				app->navi_layer_pane = NULL;
+			}
+
+			app->layer_window.window = CreateLayerWindow(app, app->window, &app->layer_window.view);
+			gtk_widget_show_all(app->layer_window.window);
+		}
+
+		if(app->navigation_window.window == NULL)
+		{
+			InitializeNavigation(&app->navigation_window, app, NULL);
+		}
 
 		box = gtk_paned_get_child1(GTK_PANED(app->left_pane));
 		if(box != NULL)

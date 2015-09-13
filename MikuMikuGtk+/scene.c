@@ -17,11 +17,17 @@
 extern "C" {
 #endif
 
-void SetRequiredOpengGLState(void)
+void SetRequiredOpengGLState(SCENE* scene)
 {
 	int num_attribs;
 	int i;
 
+	if(scene != NULL)
+	{
+		// Á‹ŽF‚ðÝ’è
+		glClearColor(scene->clear_color[0] * DIV_PIXEL,
+			scene->clear_color[1] * DIV_PIXEL, scene->clear_color[2] * DIV_PIXEL, 1.0f);
+	}
 	glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &num_attribs);
 	for(i=0; i<num_attribs; i++)
 	{
@@ -55,8 +61,6 @@ void SetRequiredOpengGLState(void)
 	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 	glEnableClientState(GL_INDEX_ARRAY);
 */
-	// Á‹ŽF‚ðÝ’è
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 void ResizeSceneRenderEngines(SCENE* scene, size_t new_size)
@@ -120,8 +124,9 @@ void InitializeScene(
 	(void)memset(scene, 0, sizeof(*scene));
 	InitializeLight(&scene->light, (void*)scene);
 	InitializeCamera(&scene->camera, (void*)scene);
+	scene->clear_color[0] = scene->clear_color[1] = scene->clear_color[2] = 0xFF;
 
-	SetRequiredOpengGLState();
+	SetRequiredOpengGLState(scene);
 
 	if(scene->models != NULL)
 	{
@@ -191,6 +196,17 @@ RENDER_ENGINE_INTERFACE* SceneCreateRenderEngine(
 					return NULL;
 				}
 			}
+			break;
+		case RENDER_ENGINE_SHAPE:
+			ret = (RENDER_ENGINE_INTERFACE*)ShapeRenderEngineNew(project, scene, model);
+			if(ret != NULL)
+			{
+				if(ShapeRenderEngineUpload((SHAPE_RENDER_ENGINE*)ret, NULL) == FALSE)
+				{
+					return NULL;
+				}
+			}
+			break;
 		}
 	}
 
