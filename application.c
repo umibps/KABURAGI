@@ -4660,6 +4660,13 @@ void ExecuteChangeCanvasIccProfile(GtkWidget* menu, APPLICATION* app)
 		cmsCloseProfile(monitor_profile);
 	}
 
+	// （ディスプレイフィルタを切り替えて）表示を更新
+	{
+		GtkCheckMenuItem *item = GTK_CHECK_MENU_ITEM(app->menus.display_filter_menus[DISPLAY_FUNC_TYPE_ICC_PROFILE]);
+		gtk_check_menu_item_set_active(item, FALSE);
+		gtk_check_menu_item_set_active(item, TRUE);
+	}
+
 	g_free(before_path);
 }
 

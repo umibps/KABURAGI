@@ -2104,20 +2104,12 @@ void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_
 				monitor_profile, TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, cmsFLAGS_BLACKPOINTCOMPENSATION);
 		}
 
-		window->display_filter_mode = DISPLAY_FUNC_TYPE_ICC_PROFILE;
-		app->display_filter.filter_func = app->tool_window.color_chooser->filter_func =
-			g_display_filter_funcs[DISPLAY_FUNC_TYPE_ICC_PROFILE];
-		app->display_filter.filter_data = app->tool_window.color_chooser->filter_data = (void*)app;
-
-		gtk_widget_queue_draw(app->tool_window.color_chooser->widget);
-		UpdateColorBox(app->tool_window.color_chooser);
-		gtk_widget_queue_draw(app->tool_window.color_chooser->pallete_widget);
-
-		gtk_check_menu_item_set_active(
-			GTK_CHECK_MENU_ITEM(app->menus.display_filter_menus[DISPLAY_FUNC_TYPE_ICC_PROFILE]),
-			TRUE
-		);
-		app->flags |= APPLICATION_DISPLAY_SOFT_PROOF;
+		// （ディスプレイフィルタを切り替えて）表示を更新
+		{
+			GtkCheckMenuItem *item = GTK_CHECK_MENU_ITEM(app->menus.display_filter_menus[DISPLAY_FUNC_TYPE_ICC_PROFILE]);
+			gtk_check_menu_item_set_active(item, FALSE);
+			gtk_check_menu_item_set_active(item, TRUE);
+		}
 
 		cmsCloseProfile(monitor_profile);
 	}

@@ -92,13 +92,15 @@ void RGBA2GrayScaleFilterYIQ(uint8* source, uint8* destination, int num_pixel, v
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-void NoDisplayFilter(APPLICATION* app)
+void NoDisplayFilter(GtkWidget* menu, APPLICATION* app)
 {
-	if((app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) == 0 && app->window_num > 0)
+	if((app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) == 0 && app->draw_window[app->active_window] &&
+		gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menu)) != FALSE)
 	{
 		app->draw_window[app->active_window]->display_filter_mode
 			= DISPLAY_FUNC_TYPE_NO_CONVERT;
 		app->display_filter.filter_func = NULL;
+
 		app->tool_window.color_chooser->filter_func = NULL;
 		gtk_widget_queue_draw(app->tool_window.color_chooser->widget);
 		UpdateColorBox(app->tool_window.color_chooser);
@@ -106,11 +108,7 @@ void NoDisplayFilter(APPLICATION* app)
 
 		app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
 		app->flags &= ~(APPLICATION_DISPLAY_GRAY_SCALE | APPLICATION_DISPLAY_SOFT_PROOF);
-
-		if(app->window_num > 0)
-		{
-			gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
-		}
+		gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
 	}
 }
 
@@ -120,13 +118,15 @@ void NoDisplayFilter(APPLICATION* app)
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-void GrayScaleDisplayFilter(APPLICATION* app)
+void GrayScaleDisplayFilter(GtkWidget* menu, APPLICATION* app)
 {
-	if((app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) == 0 && app->window_num > 0)
+	if((app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) == 0 && app->draw_window[app->active_window] &&
+		gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menu)) != FALSE)
 	{
 		app->draw_window[app->active_window]->display_filter_mode
 			= DISPLAY_FUNC_TYPE_GRAY_SCALE;
 		app->display_filter.filter_func = RGBA2GrayScaleFilter;
+
 		app->tool_window.color_chooser->filter_func = RGBA2GrayScaleFilter;
 		gtk_widget_queue_draw(app->tool_window.color_chooser->widget);
 		UpdateColorBox(app->tool_window.color_chooser);
@@ -135,11 +135,7 @@ void GrayScaleDisplayFilter(APPLICATION* app)
 		app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
 		app->flags |= APPLICATION_DISPLAY_GRAY_SCALE;
 		app->flags &= ~(APPLICATION_DISPLAY_SOFT_PROOF);
-
-		if(app->window_num > 0)
-		{
-			gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
-		}
+		gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
 	}
 }
 
@@ -149,13 +145,15 @@ void GrayScaleDisplayFilter(APPLICATION* app)
 * 引数                                                            *
 * app	: アプリケーションを管理する構造体のアドレス              *
 ******************************************************************/
-void GrayScaleDisplayFilterYIQ(APPLICATION* app)
+void GrayScaleDisplayFilterYIQ(GtkWidget* menu, APPLICATION* app)
 {
-	if((app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) == 0 && app->window_num > 0)
+	if((app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) == 0 && app->draw_window[app->active_window] &&
+		gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menu)) != FALSE)
 	{
 		app->draw_window[app->active_window]->display_filter_mode
 			= DISPLAY_FUNC_TYPE_GRAY_SCALE_YIQ;
 		app->display_filter.filter_func = RGBA2GrayScaleFilterYIQ;
+
 		app->tool_window.color_chooser->filter_func = RGBA2GrayScaleFilterYIQ;
 		gtk_widget_queue_draw(app->tool_window.color_chooser->widget);
 		UpdateColorBox(app->tool_window.color_chooser);
@@ -164,11 +162,7 @@ void GrayScaleDisplayFilterYIQ(APPLICATION* app)
 		app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
 		app->flags |= APPLICATION_DISPLAY_GRAY_SCALE;
 		app->flags &= ~(APPLICATION_DISPLAY_SOFT_PROOF);
-
-		if(app->window_num > 0)
-		{
-			gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
-		}
+		gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
 	}
 }
 
@@ -196,33 +190,24 @@ void AdaptIccProfileDisplayFilter(uint8* source, uint8* destination, int num_pix
 *****************************************************/
 void IccProfileDisplayFilter(GtkWidget* menu, APPLICATION* app)
 {
-	if((app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) == 0 && app->window_num > 0)
+	if((app->flags & APPLICATION_IN_SWITCH_DRAW_WINDOW) == 0 && app->draw_window[app->active_window] &&
+		gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menu)) != FALSE)
 	{
 		app->draw_window[app->active_window]->display_filter_mode
 			= DISPLAY_FUNC_TYPE_ICC_PROFILE;
-		if(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menu)) != FALSE)
-		{
-			app->display_filter.filter_func = AdaptIccProfileDisplayFilter;
-			app->display_filter.filter_data = (void*)app;
-			app->tool_window.color_chooser->filter_func = AdaptIccProfileDisplayFilter;
-			app->tool_window.color_chooser->filter_data = (void*)app;
-			gtk_widget_queue_draw(app->tool_window.color_chooser->widget);
-			UpdateColorBox(app->tool_window.color_chooser);
-			gtk_widget_queue_draw(app->tool_window.color_chooser->pallete_widget);
-		}
-		else
-		{
-			app->display_filter.filter_func = NULL;
-		}
+		app->display_filter.filter_func = AdaptIccProfileDisplayFilter;
+		app->display_filter.filter_data = (void*)app;
+
+		app->tool_window.color_chooser->filter_func = AdaptIccProfileDisplayFilter;
+		app->tool_window.color_chooser->filter_data = (void*)app;
+		gtk_widget_queue_draw(app->tool_window.color_chooser->widget);
+		UpdateColorBox(app->tool_window.color_chooser);
+		gtk_widget_queue_draw(app->tool_window.color_chooser->pallete_widget);
 
 		app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
-		app->flags &= ~(APPLICATION_DISPLAY_GRAY_SCALE);
 		app->flags |= APPLICATION_DISPLAY_SOFT_PROOF;
-
-		if(app->window_num > 0)
-		{
-			gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
-		}
+		app->flags &= ~(APPLICATION_DISPLAY_GRAY_SCALE);
+		gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
 	}
 }
 
