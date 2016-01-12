@@ -2071,7 +2071,7 @@ void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_
 
 		gtk_widget_show_all(dialog);
 
-		result = gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_YES;
+		result = gtk_dialog_run(GTK_DIALOG(dialog));
 
 		gtk_widget_destroy(dialog);
 
