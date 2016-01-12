@@ -266,6 +266,15 @@ gboolean OnCloseDrawWindow(void* data, gint page)
 	// 描画領域の数を更新
 	window->app->window_num--;
 
+	// 描画領域がゼロになった場合にメニューを無効化
+	if(!window->app->window_num)
+	{
+		for(i = 0; i < window->app->menus.num_disable_if_no_open; i++)
+		{
+			gtk_widget_set_sensitive(window->app->menus.disable_if_no_open[i], FALSE);
+		}
+	}
+
 	// 描画領域の削除実行
 	DeleteDrawWindow(&window);
 
