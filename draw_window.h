@@ -323,6 +323,17 @@ EXTERN gboolean OnCloseDrawWindow(void* data, gint page);
 ***********************************************************/
 EXTERN int GetWindowID(DRAW_WINDOW* window, struct _APPLICATION* app);
 
+/*********************************************************
+* GetWindowTitle関数                                     *
+* 描画領域の情報に基づくウインドウタイトルを取得する     *
+* 引数                                                   *
+* window	: 描画領域の情報                             *
+* app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	ウインドウタイトル                                   *
+*********************************************************/
+EXTERN gchar *GetWindowTitle(DRAW_WINDOW* window, struct _APPLICATION* app);
+
 /*********************************
 * DrawWindowChangeZoom関数       *
 * 描画領域の拡大縮小率を変更する *

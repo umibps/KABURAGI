@@ -475,6 +475,14 @@ typedef struct _APPLICATION
 * init_file_name	: 初期化ファイルの名前                           *
 *********************************************************************/
 EXTERN void InitializeApplication(APPLICATION* app, char* init_file_name);
+ 
+/*********************************************************************
+* UpdateWindowTitle関数                                              *
+* ウインドウタイトルの更新                                           *
+* 引数                                                               *
+* app				: アプリケーション全体を管理する構造体のアドレス *
+*********************************************************************/
+EXTERN void UpdateWindowTitle(APPLICATION* app);
 
 /*********************************************************
 * GetActiveDrawWindow関数                                *

@@ -273,6 +273,8 @@ gboolean OnCloseDrawWindow(void* data, gint page)
 		{
 			gtk_widget_set_sensitive(window->app->menus.disable_if_no_open[i], FALSE);
 		}
+
+		UpdateWindowTitle(window->app);
 	}
 
 	// 描画領域の削除実行
@@ -1294,6 +1296,49 @@ int GetWindowID(DRAW_WINDOW* window, APPLICATION* app)
 	return -1;
 }
 
+/*********************************************************
+* GetWindowTitle関数                                     *
+* 描画領域の情報に基づくウインドウタイトルを取得する     *
+* 引数                                                   *
+* window	: 描画領域の情報                             *
+* app		: アプリケーションを管理する構造体のアドレス *
+* 返り値                                                 *
+*	ウインドウタイトル                                   *
+*********************************************************/
+gchar *GetWindowTitle(DRAW_WINDOW* window, APPLICATION* app)
+{
+	gchar *profile_desc = NULL;
+	gchar *title;
+	cmsHPROFILE h_profile = window->input_icc ? window->input_icc : app->input_icc;
+
+	wchar_t *buf = NULL;
+	guint32 buf_size;
+
+	// TODO : langファイルにLanguageCodeとCountryCodeを入れといてほしい
+	if((buf_size = cmsGetProfileInfo(h_profile, cmsInfoDescription, "ja", "JP", NULL, 0)))
+	{
+		gssize count;
+
+		buf = (wchar_t *)g_malloc(buf_size);
+
+		cmsGetProfileInfo(h_profile, cmsInfoDescription, "ja", "JP", buf, buf_size);
+
+		profile_desc = g_convert(buf, buf_size, "UTF-8", "UTF-16LE", NULL, &count, NULL);
+
+		g_free(buf);
+	}
+	else
+	{
+		profile_desc = g_strdup("*unknown profile name*");
+	}
+
+	title = g_strdup_printf("%s (%s%s)", window->file_name ? window->file_name : app->labels->make_new.name, !(window->input_icc) ? "untagged : " : "", profile_desc);
+
+	g_free(profile_desc);
+
+	return title;
+}
+
 /***************************************
 * ResizeDispTemp関数                   *
 * 表示用の一時保存のバッファを変更     *
@@ -2113,6 +2158,8 @@ void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_
 
 		cmsCloseProfile(monitor_profile);
 	}
+
+	UpdateWindowTitle(app);
 }
 
 gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_info, DRAW_WINDOW* window)

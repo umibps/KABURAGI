@@ -1581,7 +1581,7 @@ static void ExecuteNew(APPLICATION* app)
 		);
 
 		// ウィンドウのタイトルバーを「新規作成」に
-		gtk_window_set_title(GTK_WINDOW(app->window), app->labels->make_new.name);
+		UpdateWindowTitle(app);
 		
 		// 無効にしていた一部のメニューを有効に
 		for(i=0; i<app->menus.num_disable_if_no_open; i++)
