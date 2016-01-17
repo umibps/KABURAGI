@@ -4607,75 +4607,148 @@ void ExecuteChangeCanvasIccProfile(GtkWidget* menu, APPLICATION* app)
 {
 	DRAW_WINDOW *window = app->draw_window[app->active_window];
 	cmsHPROFILE *monitor_profile;
-	char *before_path = NULL;
 	GtkWidget *dialog;
+	gint response;
 	
-	if(window->icc_profile_path != NULL)
+	gchar *profile_path = NULL;
+	gint32 profile_size = 0;
+	gpointer profile_data = NULL;
+	cmsHPROFILE h_profile = NULL;
+	cmsHTRANSFORM h_transform = NULL;
+
+	if(!window)
 	{
-		before_path = g_strdup(window->icc_profile_path);
+		return;
 	}
 
-	dialog = IccProfileChooserDialogNew(PROFILE_USAGE_RGB_DOCUMENT, &window->icc_profile_path);
+	dialog = IccProfileChangerDialogNew(app->window, app->input_icc_path);
+	response = gtk_dialog_run(GTK_DIALOG(dialog));
+	profile_path = (gchar *)g_object_get_data(G_OBJECT(dialog), "file");
+	gtk_widget_destroy(dialog);
 
-	IccProfileChooserDialogRun(dialog);
-
-	if(window->icc_profile_path != NULL)
+	if(response == GTK_RESPONSE_OK)
 	{
-		FILE *fp;
-
-		if(window->icc_transform != NULL)
+		if(profile_path != NULL)
 		{
-			cmsDeleteTransform(window->icc_transform);
-		}
-		MEM_FREE_FUNC(window->icc_profile_data);
-		window->icc_profile_data = NULL;
+			FILE *fp;
 
-		fp = fopen(window->icc_profile_path, "rb");
-		if(fp != NULL)
-		{
-			(void)fseek(fp, 0, SEEK_END);
-			window->icc_profile_size = (int32)ftell(fp);
-			rewind(fp);
+			fp = fopen(profile_path, "rb");
 
-			window->icc_profile_data = MEM_ALLOC_FUNC(window->icc_profile_size);
-			(void)fread(window->icc_profile_data, 1, window->icc_profile_size, fp);
+			if(fp != NULL)
+			{
+				(void)fseek(fp, 0, SEEK_END);
+				profile_size = (int32)ftell(fp);
+				rewind(fp);
 
-			window->input_icc = cmsOpenProfileFromMem(window->icc_profile_data, window->icc_profile_size);
+				profile_data = g_malloc(profile_size);
+				(void)fread(profile_data, 1, profile_size, fp);
 
-			(void)fclose(fp);
-		}
+				(void)fclose(fp);
 
-		monitor_profile = GetPrimaryMonitorProfile();
+				h_profile = cmsOpenProfileFromMem(profile_data, profile_size);
 
-		if(app->output_icc != NULL)
-		{
-			cmsBool bpc[] = {TRUE, TRUE, TRUE, TRUE};
-			cmsHPROFILE h_profiles[] = {window->input_icc, app->output_icc, app->output_icc, monitor_profile};
-			cmsUInt32Number intents[] = { INTENT_RELATIVE_COLORIMETRIC, INTENT_RELATIVE_COLORIMETRIC, INTENT_RELATIVE_COLORIMETRIC, INTENT_RELATIVE_COLORIMETRIC };
-			cmsFloat64Number adaptation_states[] = {0, 0, 0, 0};
+				if(h_profile)
+				{
+					// TODO : マルチモニタ対応
+					monitor_profile = GetPrimaryMonitorProfile();
 
-			window->icc_transform = cmsCreateExtendedTransform(cmsGetProfileContextID(h_profiles[1]), 4, h_profiles,
-				bpc, intents, adaptation_states, NULL, 0, TYPE_BGRA_8, TYPE_BGRA_8, 0);
+					if(app->output_icc != NULL)
+					{
+						cmsBool bpc[] = {TRUE, TRUE, TRUE, TRUE};
+						cmsHPROFILE h_profiles[] = {h_profile, app->output_icc, app->output_icc, monitor_profile};
+						cmsUInt32Number intents[] = { INTENT_RELATIVE_COLORIMETRIC, INTENT_RELATIVE_COLORIMETRIC, INTENT_RELATIVE_COLORIMETRIC, INTENT_RELATIVE_COLORIMETRIC };
+						cmsFloat64Number adaptation_states[] = {0, 0, 0, 0};
+
+						h_transform = cmsCreateExtendedTransform(cmsGetProfileContextID(h_profiles[1]), 4, h_profiles,
+							bpc, intents, adaptation_states, NULL, 0, TYPE_BGRA_8, TYPE_BGRA_8, 0);
+					}
+					else
+					{
+						h_transform = cmsCreateTransform(h_profile, TYPE_BGRA_8,
+							monitor_profile, TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, cmsFLAGS_BLACKPOINTCOMPENSATION);
+					}
+
+					cmsCloseProfile(monitor_profile);
+
+					if(h_transform)
+					{
+						g_free(window->icc_profile_path);
+						g_free(window->icc_profile_data);
+
+						if(window->input_icc)
+						{
+							cmsCloseProfile(window->input_icc);
+						}
+
+						if(window->icc_transform)
+						{
+							cmsDeleteTransform(window->icc_transform);
+						}
+
+						window->icc_profile_path = profile_path;
+						window->icc_profile_size = profile_size;
+						window->icc_profile_data = profile_data;
+						window->input_icc = h_profile;
+						window->icc_transform = h_transform;
+
+						// （ディスプレイフィルタを切り替えて）表示を更新
+						{
+							GtkCheckMenuItem *item = GTK_CHECK_MENU_ITEM(app->menus.display_filter_menus[DISPLAY_FUNC_TYPE_ICC_PROFILE]);
+							gtk_check_menu_item_set_active(item, FALSE);
+							gtk_check_menu_item_set_active(item, TRUE);
+						}
+
+						UpdateWindowTitle(app);
+
+						return;
+					}
+				}
+			}
 		}
 		else
 		{
-			window->icc_transform = cmsCreateTransform(window->input_icc, TYPE_BGRA_8,
-				monitor_profile, TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, cmsFLAGS_BLACKPOINTCOMPENSATION);
+			// プロファイル破棄
+			// TODO : Transform生成成功後の処理と被るのをなんとかできないか
+			g_free(window->icc_profile_path);
+			g_free(window->icc_profile_data);
+
+			if(window->input_icc)
+			{
+				cmsCloseProfile(window->input_icc);
+			}
+
+			if(window->icc_transform)
+			{
+				cmsDeleteTransform(window->icc_transform);
+			}
+
+			window->icc_profile_path = NULL;
+			window->icc_profile_data = NULL;
+			window->icc_profile_size = 0;
+			window->input_icc = NULL;
+			window->icc_transform = NULL;
+
+			// （ディスプレイフィルタを切り替えて）表示を更新
+			{
+				GtkCheckMenuItem *item = GTK_CHECK_MENU_ITEM(app->menus.display_filter_menus[DISPLAY_FUNC_TYPE_ICC_PROFILE]);
+				gtk_check_menu_item_set_active(item, FALSE);
+				gtk_check_menu_item_set_active(item, TRUE);
+			}
+
+			UpdateWindowTitle(app);
+
+			return;
 		}
-
-		cmsCloseProfile(monitor_profile);
 	}
 
-	// （ディスプレイフィルタを切り替えて）表示を更新
+	// 以下、Transformの生成まで完了しなかった場合の後始末
+	if(h_profile)
 	{
-		GtkCheckMenuItem *item = GTK_CHECK_MENU_ITEM(app->menus.display_filter_menus[DISPLAY_FUNC_TYPE_ICC_PROFILE]);
-		gtk_check_menu_item_set_active(item, FALSE);
-		gtk_check_menu_item_set_active(item, TRUE);
+		cmsCloseProfile(h_profile);
 	}
 
-	UpdateWindowTitle(app);
-
-	g_free(before_path);
+	g_free(profile_data);
+	g_free(profile_path);
 }
 
 /*****************************************************

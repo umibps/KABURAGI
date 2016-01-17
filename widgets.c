@@ -410,6 +410,121 @@ GtkWidget* IccProfileChooser(char** icc_path, ICC_PROFILE_USAGE usage)
 	return button;
 }
 
+static void IccProfileChangerDialogProfileChanged(IccButton *button, GtkToggleButton *toggle)
+{
+	gpointer p;
+
+	gtk_toggle_button_set_active(toggle, TRUE);
+
+	p = g_object_get_data(G_OBJECT(toggle), "data");
+	g_free(p);
+	g_object_set_data(G_OBJECT(toggle), "data", icc_button_get_filename(button));
+}
+
+static void IccProfileChangerDialogSelectionChanged(GObject *radio, GObject *dialog)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio)))
+	{
+		g_object_set_data(dialog, "data", radio);
+
+#ifdef _DEBUG
+		g_printerr("Selection : %s\n",  g_object_get_data(radio, "data"));
+#endif
+	}
+}
+
+static void IccProfileChangerDialogResponse(GObject *dialog, gint response_id, gpointer user_data)
+{
+	if(response_id == GTK_RESPONSE_OK)
+	{
+		g_object_set_data(dialog, "file", g_strdup(g_object_get_data(G_OBJECT(g_object_get_data(G_OBJECT(dialog), "data")), "data")));
+	}
+	g_free(g_object_get_data(G_OBJECT(g_object_get_data(G_OBJECT(dialog), "radio1")), "data"));
+	g_free(g_object_get_data(G_OBJECT(g_object_get_data(G_OBJECT(dialog), "radio2")), "data"));
+	g_free(g_object_get_data(G_OBJECT(g_object_get_data(G_OBJECT(dialog), "radio3")), "data"));
+}
+
+/********************************************************
+* IccProfileChangerDialogNew関数                        *
+* ICCプロファイルを選択するダイアログウィジェットを作成 *
+* 引数                                                  *
+* parent			     : 親ウインドウ                 *
+* workspace_profile_path : 作業用プロファイルのパス     *
+* 返り値                                                *
+*	ダイアログ生成用のウィジェット                      *
+********************************************************/
+GtkWidget* IccProfileChangerDialogNew(GtkWindow *parent, gchar *workspace_profile_path)
+{
+	GtkWidget *dialog, *content_area, *box, *radio1, *radio2 = NULL, *radio3, *button;
+
+	dialog = gtk_dialog_new_with_buttons("Change ICC profile", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_STOCK_OK, GTK_RESPONSE_OK, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, NULL);
+	gtk_widget_set_size_request(dialog, 400, -1);
+	g_signal_connect(dialog, "response", G_CALLBACK(IccProfileChangerDialogResponse), dialog);
+	content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+	gtk_container_set_border_width(GTK_CONTAINER(dialog), 4);
+
+	radio1 = gtk_radio_button_new_with_label(NULL, "Don't color manage this canvas");
+	gtk_misc_set_alignment(GTK_MISC(GTK_BIN(radio1)->child), 0, .5);
+	gtk_label_set_width_chars(GTK_LABEL(GTK_BIN(radio1)->child), 64);
+	gtk_label_set_ellipsize(GTK_LABEL(GTK_BIN(radio1)->child), PANGO_ELLIPSIZE_END);
+	gtk_box_pack_start(GTK_BOX(content_area), radio1, FALSE, FALSE, 2);
+
+	if(workspace_profile_path)
+	{
+		wchar_t *buf;
+		guint32 buf_size;
+		gssize count;
+		gchar *desc = NULL, *label_text;
+		cmsHPROFILE h_profile = cmsOpenProfileFromFile(workspace_profile_path, "rb");
+		
+		if(h_profile)
+		{
+			buf_size = cmsGetProfileInfo(h_profile, cmsInfoDescription, "ja", "JP", NULL, 0);
+			buf = (wchar_t *)g_malloc(buf_size);
+			cmsGetProfileInfo(h_profile, cmsInfoDescription, "ja", "JP", buf, buf_size);
+
+			desc = g_convert((gchar *)buf, buf_size, "UTF-8", "UTF-16LE", NULL, &count, NULL);
+
+			cmsCloseProfile(h_profile);
+		}
+
+		label_text = g_strdup_printf("Workspace%s%s", desc ? " : " : "", desc ? desc : "");
+
+		radio2 = gtk_radio_button_new_with_label_from_widget(radio1, label_text);
+		gtk_misc_set_alignment(GTK_MISC(GTK_BIN(radio2)->child), 0, .5);
+		gtk_label_set_width_chars(GTK_LABEL(GTK_BIN(radio2)->child), 64);
+		gtk_label_set_ellipsize(GTK_LABEL(GTK_BIN(radio2)->child), PANGO_ELLIPSIZE_END);
+		g_object_set_data(G_OBJECT(radio2), "data", g_strdup(workspace_profile_path));
+		gtk_box_pack_start(GTK_BOX(content_area), radio2, FALSE, FALSE, 2);
+	}
+
+	radio3 = gtk_radio_button_new_with_label_from_widget(radio1, "Profile : ");
+	button = icc_button_new();
+	icc_button_set_enable_empty(ICC_BUTTON(button), FALSE);
+	icc_button_set_mask (ICC_BUTTON(button),
+		ICC_BUTTON_CLASS_INPUT | ICC_BUTTON_CLASS_OUTPUT | ICC_BUTTON_CLASS_DISPLAY,
+		ICC_BUTTON_COLORSPACE_XYZ | ICC_BUTTON_COLORSPACE_LAB,
+		ICC_BUTTON_COLORSPACE_RGB);
+	g_object_set_data(G_OBJECT(radio3), "data", icc_button_get_filename(ICC_BUTTON(button)));
+	g_signal_connect(button, "changed", G_CALLBACK(IccProfileChangerDialogProfileChanged), radio3);
+	box = gtk_hbox_new(FALSE, 4);
+	gtk_box_pack_start(GTK_BOX(box), radio3, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(box), button, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(content_area), box, FALSE, FALSE, 2);
+
+	g_signal_connect(radio1, "toggled", G_CALLBACK(IccProfileChangerDialogSelectionChanged), dialog);
+	g_signal_connect(radio2, "toggled", G_CALLBACK(IccProfileChangerDialogSelectionChanged), dialog);
+	g_signal_connect(radio3, "toggled", G_CALLBACK(IccProfileChangerDialogSelectionChanged), dialog);
+
+	g_object_set_data(dialog, "radio1", radio1);
+	g_object_set_data(dialog, "radio2", radio2);
+	g_object_set_data(dialog, "radio3", radio3);
+
+	gtk_widget_show_all(dialog);
+
+	return dialog;
+}
+
 /**************************************************************************
 * IccProfileChooserDialogNew関数                                          *
 * ICCプロファイルを選択するダイアログウィジェットを作成                   *

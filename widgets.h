@@ -71,6 +71,17 @@ typedef enum _ICC_PROFILE_USAGE
 ******************************************************************************/
 EXTERN GtkWidget* IccProfileChooser(char** icc_path, ICC_PROFILE_USAGE usage);
 
+/********************************************************
+* IccProfileChangerDialogNew関数                        *
+* ICCプロファイルを選択するダイアログウィジェットを作成 *
+* 引数                                                  *
+* parent			     : 親ウインドウ                 *
+* workspace_profile_path : 作業用プロファイルのパス     *
+* 返り値                                                *
+*	ダイアログ生成用のウィジェット                      *
+********************************************************/
+EXTERN GtkWidget* IccProfileChangerDialogNew(GtkWindow *parent, gchar *workspace_profile_path);
+
 /**************************************************************************
 * IccProfileChooserDialogNew関数                                          *
 * ICCプロファイルを選択するダイアログウィジェットを作成                   *
