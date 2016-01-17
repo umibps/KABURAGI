@@ -2110,6 +2110,46 @@ cmsHPROFILE* GetPrimaryMonitorProfile(void)
 
 	if (profile)
 		return profile;
+#elif defined GDK_WINDOWING_X11
+	cmsHPROFILE *profile = NULL;
+	GdkScreen *screen;
+	GdkAtom type = GDK_NONE;
+	gint format = 0;
+	gint nitems = 0;
+	gint monitor = 0;
+	gchar *atom_name = NULL;
+	guchar *data = NULL;
+
+	//screen = gtk_widget_get_screen(app->window);
+	//monitor = gdk_screen_get_monitor_at_window(screen, app->window->window);
+	screen = gdk_screen_get_default();
+	monitor = 0;
+
+	if (monitor > 0)
+	{
+		atom_name = g_strdup_printf("_ICC_PROFILE_%d", monitor);
+	}
+	else
+	{
+		atom_name = g_strdup("_ICC_PROFILE");
+	}
+
+	if (gdk_property_get(gdk_screen_get_root_window (screen),
+		gdk_atom_intern(atom_name, FALSE),
+		GDK_NONE,
+		0, 64 * 1024 * 1024, FALSE,
+		&type, &format, &nitems, &data) && nitems > 0)
+	{
+	  profile = cmsOpenProfileFromMem(data, nitems);
+	  g_free(data);
+	}
+
+	g_free(atom_name);
+
+	if(profile)
+	{
+		return profile;
+	}
 #endif
 	return cmsOpenProfileFromMem(sRGB_profile, sizeof(sRGB_profile));
 }
