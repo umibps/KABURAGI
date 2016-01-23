@@ -2374,8 +2374,11 @@ gboolean KeyPressEvent(
 		}
 		else if(event->type == GDK_KEY_RELEASE)
 		{
+#if GTK_MAJOR_VERSION <= 2
 			if(event->keyval == GDK_Shift_L || event->keyval == GDK_Shift_R)
-			//if(event->keyval == GDK_KEY_Shift_L || event->keyval == GDK_KEY_Shift_R)
+#else
+			if(event->keyval == GDK_KEY_Shift_L || event->keyval == GDK_KEY_Shift_R)
+#endif
 			{
 				if((window->flags & DRAW_WINDOW_DRAWING_STRAIGHT) != 0)
 				{

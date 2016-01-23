@@ -4484,7 +4484,7 @@ static void ColorLevelAdjustChangeMode(GtkWidget* combo, EXECUTE_COLOR_LEVLE_ADJ
 		gtk_combo_box_append_text(GTK_COMBO_BOX(adjust_data->color_select), app->labels->unit.key_plate);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.cyan);
-		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.,magenta);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.magenta);
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.yellow);
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(adjust_data->color_select), app->labels->unit.key_plate);
 #endif
@@ -5808,7 +5808,7 @@ static void ToneCurveChangeMode(GtkWidget* combo, EXECUTE_TONE_CURVE* tone_curve
 		gtk_combo_box_append_text(GTK_COMBO_BOX(tone_curve->color_select), app->labels->unit.key_plate);
 #else
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.cyan);
-		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.,magenta);
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.magenta);
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.yellow);
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_curve->color_select), app->labels->unit.key_plate);
 #endif

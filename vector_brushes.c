@@ -213,8 +213,11 @@ static void PolyLineMotionCallBack(
 
 static void PolyLineKeyPressCallBack(DRAW_WINDOW *window, GdkEventKey* key, void* data)
 {
+#if GTK_MAJOR_VERSION <= 2
 	if(key->keyval == GDK_Return)
-	//if(key->keyval == GDK_KEY_Return)
+#else
+	if(key->keyval == GDK_KEY_Return)
+#endif
 	{
 		POLY_LINE_BRUSH* line = (POLY_LINE_BRUSH*)data;
 		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;
@@ -651,8 +654,11 @@ static void BezierLineMotionCallBack(
 
 static void BezierLineKeyPressCallBack(DRAW_WINDOW *window, GdkEventKey* key, void* data)
 {
+#if GTK_MAJOR_VERSION <= 2
 	if(key->keyval == GDK_Return)
+#else
 	//if(key->keyval == GDK_KEY_Return)
+#endif
 	{
 		BEZIER_LINE_BRUSH* line = (BEZIER_LINE_BRUSH*)data;
 		VECTOR_LAYER *layer = window->active_layer->layer_data.vector_layer_p;

@@ -1323,7 +1323,7 @@ gchar *GetWindowTitle(DRAW_WINDOW* window, APPLICATION* app)
 
 		cmsGetProfileInfo(h_profile, cmsInfoDescription, "ja", "JP", buf, buf_size);
 
-		profile_desc = g_convert(buf, buf_size, "UTF-8", "UTF-16LE", NULL, &count, NULL);
+		profile_desc = g_convert((const gchar*)buf, buf_size, "UTF-8", "UTF-16LE", NULL, &count, NULL);
 
 		g_free(buf);
 	}
@@ -1825,7 +1825,7 @@ void ChangeDrawWindowResolution(DRAW_WINDOW* window, int32 new_width, int32 new_
 	while(layer != NULL)
 	{
 		ResizeLayer(layer, new_width, new_height);
-_CrtCheckMemory();
+
 		layer = layer->next;
 	}
 

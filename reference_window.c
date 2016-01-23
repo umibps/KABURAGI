@@ -853,8 +853,11 @@ static GtkWidget* ReferenceWindowMenuNew(REFERENCE_WINDOW* reference, APPLICATIO
 	(void)sprintf(buff, "%s", app->labels->window.close_window);
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
+#if GTK_MAJOR_VERSION <= 2
 		GDK_Escape, 0, GTK_ACCEL_VISIBLE);
-	//	GDK_KEY_Escape, 0, GTK_ACCEL_VISIBLE);
+#else
+		GDK_KEY_Escape, 0, GTK_ACCEL_VISIBLE);
+#endif
 	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(gtk_widget_destroy), reference->data->window);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);

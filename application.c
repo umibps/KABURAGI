@@ -1498,6 +1498,14 @@ static void OnChangeCurrentTab(
 				TRUE
 			);
 		}
+		else
+		{	// 描画領域が無ければメインウィンドウのキャプションを変更
+			char window_title[512];
+			(void)sprintf(window_title, "Paint Soft %s %d.%d.%d.%d",
+				(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIAKDO",
+					MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
+			gtk_window_set_title(GTK_WINDOW(app->window), window_title);
+		}
 	}
 
 	// 描画領域切り替え終了
@@ -1764,6 +1772,8 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	GtkTargetEntry target_list[] = {{"text/uri-list", 0, DROP_URI}};
 	// シングルウィンドウ用の左右のパッキングボックス
 	GtkWidget *left_box, *right_box;
+	// ウィンドウのタイトル
+	char window_title[512];
 	// アプリケーションデータのディレクトリ
 	char *app_dir_path;
 
@@ -1788,6 +1798,10 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	// トップレベルウィンドウを作成
 	app->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
+#if GTK_MAJOR_VERSION >= 3
+	gtk_container_set_reallocate_redraws(GTK_CONTAINER(app->window), TRUE);
+#endif
+
 	// スプラッシュウィンドウ表示でスタートアップが
 		// 終了しないようにする
 	gtk_window_set_auto_startup_notification(FALSE);
@@ -1798,12 +1812,9 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	gtk_window_set_auto_startup_notification(TRUE);
 
 	// アプリケーション名の設定
-	{
-		gchar *app_name = g_strdup_printf("Paint Soft %s",
-			(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIKADO");
-		g_set_application_name(app_name);
-		g_free(app_name);
-	}
+	(void)sprintf(window_title, "Paint Soft %s",
+		(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIKADO");
+	g_set_application_name(window_title);
 
 	// フルスクリーンの設定
 	if((app->flags & APPLICATION_FULL_SCREEN) != 0)
@@ -1820,6 +1831,10 @@ void InitializeApplication(APPLICATION* app, char* init_file_name)
 	gtk_window_set_default_icon_from_file(file_path, NULL);
 	g_free(file_path);
 
+	(void)sprintf(window_title, "Paint Soft %s %d.%d.%d.%d",
+		(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIAKDO",
+			MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
+			
 	// ラベルの文字列を読み込む
 	if(app->language_file_path != NULL)
 	{
@@ -4621,7 +4636,7 @@ void ExecuteChangeCanvasIccProfile(GtkWidget* menu, APPLICATION* app)
 		return;
 	}
 
-	dialog = IccProfileChangerDialogNew(app->window, app->input_icc_path);
+	dialog = IccProfileChangerDialogNew(GTK_WINDOW(app->window), app->input_icc_path);
 	response = gtk_dialog_run(GTK_DIALOG(dialog));
 	profile_path = (gchar *)g_object_get_data(G_OBJECT(dialog), "file");
 	gtk_widget_destroy(dialog);
