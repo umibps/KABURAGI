@@ -475,6 +475,14 @@ typedef struct _APPLICATION
 * init_file_name	: 初期化ファイルの名前                           *
 *********************************************************************/
 EXTERN void InitializeApplication(APPLICATION* app, char* init_file_name);
+ 
+/*********************************************************************
+* UpdateWindowTitle関数                                              *
+* ウインドウタイトルの更新                                           *
+* 引数                                                               *
+* app				: アプリケーション全体を管理する構造体のアドレス *
+*********************************************************************/
+EXTERN void UpdateWindowTitle(APPLICATION* app);
 
 /*********************************************************
 * GetActiveDrawWindow関数                                *
@@ -1041,25 +1049,28 @@ EXTERN void ChangeNavigationDrawWindow(NAVIGATION_WINDOW* navigation, DRAW_WINDO
 * NoDisplayFilter関数                                *
 * 表示時のフィルターをオフ                           *
 * 引数                                               *
+* menu	: メニューウィジェット                       *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-EXTERN void NoDisplayFilter(APPLICATION* app);
+EXTERN void NoDisplayFilter(GtkWidget* menu, APPLICATION* app);
 
 /*****************************************************
 * GrayScaleDisplayFilter関数                         *
 * 表示時のフィルターをグレースケール変換のものへ     *
 * 引数                                               *
+* menu	: メニューウィジェット                       *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-EXTERN void GrayScaleDisplayFilter(APPLICATION* app);
+EXTERN void GrayScaleDisplayFilter(GtkWidget* menu, APPLICATION* app);
 
 /******************************************************************
 * GrayScaleDisplayFilterYIQ関数                                   *
 * 表示時のフィルターをグレースケール変換(YIQカラーモデル)のものへ *
 * 引数                                                            *
+* menu	: メニューウィジェット                                    *
 * app	: アプリケーションを管理する構造体のアドレス              *
 ******************************************************************/
-EXTERN void GrayScaleDisplayFilterYIQ(APPLICATION* app);
+EXTERN void GrayScaleDisplayFilterYIQ(GtkWidget* menu, APPLICATION* app);
 
 /*****************************************************
 * IccProfileDisplayFilter関数                        *

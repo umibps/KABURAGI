@@ -101,11 +101,11 @@ static void ClipBoardImageRecieveCallBack(
 		gtk_widget_set_sensitive(app->layer_window.layer_control.mode, TRUE);
 		gtk_widget_set_sensitive(app->layer_window.layer_control.lock_opacity, TRUE);
 
-		// ウィンドウのタイトルを画像名に
-		gtk_window_set_title(GTK_WINDOW(app->window), app->labels->menu.clip_board);
-
 		// 描画領域のカウンタを更新
 		app->window_num++;
+
+		// ウィンドウのタイトルを画像名に
+		UpdateWindowTitle(app);
 	}
 	else
 	{	// 描画領域に新たにレイヤーを作成してコピー

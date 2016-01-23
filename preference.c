@@ -1057,6 +1057,8 @@ void ExecuteSetPreference(APPLICATION* app)
 			{
 				app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
 				gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
+
+				UpdateWindowTitle(app);
 			}
 		}
 		else
@@ -1206,6 +1208,8 @@ void ExecuteSetPreference(APPLICATION* app)
 			{
 				app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
 				gtk_widget_queue_draw(app->draw_window[app->active_window]->window);
+
+				UpdateWindowTitle(app);
 			}
 
 			break;
