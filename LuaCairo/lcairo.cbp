@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="LuaCairo" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="mingw-release">
+				<Option platforms="Windows;" />
+				<Option output="..\bin\lcairo.dll" prefix_auto="0" extension_auto="0" />
+				<Option object_output=".ormingw" />
+				<Option type="3" />
+				<Option compiler="gcc" />
+				<Option projectResourceIncludeDirsRelation="0" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-Wall" />
+					<Add option="-fno-pcc-struct-return" />
+					<Add option="-DLUA_BUILD_AS_DLL" />
+					<Add option="-DHAVE_W32API_H" />
+					<Add option="-DWIN32" />
+					<Add option="-D_WINDOWS" />
+					<Add directory="." />
+					<Add directory="..\..\cairo\src" />
+					<Add directory="..\..\pixman\pixman" />
+					<Add directory="..\..\depend\include\png" />
+					<Add directory="..\..\depend\include\zlib" />
+					<Add directory="..\..\lua\src" />
+				</Compiler>
+				<ResourceCompiler>
+					<Add directory="." />
+				</ResourceCompiler>
+				<Linker>
+					<Add option="-s" />
+					<Add option='&quot;lcairo.def&quot;' />
+					<Add option="-Wl,--subsystem,windows" />
+					<Add option="-Wl,-s" />
+					<Add option="-mwindows" />
+					<Add library="cairo" />
+					<Add library="pixman" />
+					<Add library="png" />
+					<Add library="z" />
+					<Add library="liblua51.dll.a" />
+					<Add library="gdi32" />
+					<Add library="msimg32" />
+					<Add library="user32" />
+					<Add library="kernel32" />
+					<Add directory="..\..\cairo" />
+					<Add directory="..\..\pixman" />
+					<Add directory="..\..\depend" />
+					<Add directory="..\..\lua\lib" />
+				</Linker>
+			</Target>
+		</Build>
+		<Unit filename="lcairo.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lcairo.def" />
+		<Unit filename="lcairo.rc">
+			<Option compilerVar="WINDRES" />
+		</Unit>
+		<Extensions>
+			<envvars />
+			<code_completion />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

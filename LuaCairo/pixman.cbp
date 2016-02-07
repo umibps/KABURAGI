@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="Pixman" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="GCCrelease">
+				<Option output="libpixman" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output=".ormingw" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+			</Target>
+			<Target title="GCCdebug">
+				<Option output="libpixmand" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output=".odmingw" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-march=pentium-mmx" />
+			<Add option="-Wall" />
+			<Add option="-DHAVE_CONFIG_H" />
+			<Add option="-DUSE_MMX=1" />
+			<Add directory=".\pixman" />
+		</Compiler>
+		<Linker>
+			<Add directory="." />
+		</Linker>
+		<Unit filename="pixman\pixman-access-accessors.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-access.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-combine32.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-combine64.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-edge-accessors.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-edge.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-image.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-mmx.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-timer.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-trap.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-matrix.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-utils.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-region16.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-region32.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-gradient-walker.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-linear-gradient.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-radial-gradient.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-bits-image.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-cpu.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-fast-path.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-implementation.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-solid-fill.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="pixman\pixman-general.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

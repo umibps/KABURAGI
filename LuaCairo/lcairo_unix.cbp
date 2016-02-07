@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="LuaCairo" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="gcc-release-lua-system">
+				<Option platforms="Unix;Mac;" />
+				<Option output="lcairo" prefix_auto="1" extension_auto="1" />
+				<Option object_output="../.build/.orgcc" />
+				<Option type="3" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Option createStaticLib="1" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-Wall" />
+					<Add option="`pkg-config --cflags lua5.1`" />
+					<Add option="`pkg-config --cflags cairo`" />
+					<Add option="`pkg-config --cflags gtk+-2.0`" />
+					<Add option="`pkg-config --cflags gdk-2.0`" />
+					<Add option="-fPIC" />
+				</Compiler>
+				<Linker>
+					<Add option="`pkg-config --libs lua5.1`" />
+					<Add option="`pkg-config --libs cairo`" />
+					<Add option="`pkg-config --libs gtk+-2.0`" />
+					<Add option="`pkg-config --libs gdk-2.0`" />
+					<Add option="-fPIC" />
+				</Linker>
+			</Target>
+			<Target title="gcc-release-lua-local">
+				<Option platforms="Unix;Mac;" />
+				<Option output="lcairo" prefix_auto="1" extension_auto="1" />
+				<Option object_output="../.build/.orgcc" />
+				<Option type="3" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Option createStaticLib="1" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-Wall" />
+					<Add option="`pkg-config --cflags cairo`" />
+					<Add option="`pkg-config --cflags gtk+-2.0`" />
+					<Add option="`pkg-config --cflags gdk-2.0`" />
+					<Add option="-fPIC" />
+					<Add directory="../../lua/src" />
+				</Compiler>
+				<Linker>
+					<Add option="./lua51.so" />
+					<Add option="`pkg-config --libs cairo`" />
+					<Add option="`pkg-config --libs gtk+-2.0`" />
+					<Add option="`pkg-config --libs gdk-2.0`" />
+					<Add option="-fPIC" />
+				</Linker>
+			</Target>
+		</Build>
+		<Unit filename="lcairo.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Extensions>
+			<envvars />
+			<code_completion />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

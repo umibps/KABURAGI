@@ -1,0 +1,4 @@
+DESCRIPTION 'Lua binding of Cairo'
+EXPORTS
+luaopen_lcairo
+

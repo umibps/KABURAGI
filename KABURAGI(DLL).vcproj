@@ -203,7 +203,7 @@
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS; USE_3D_LAYER=1;"
 				StringPooling="true"
 				ExceptionHandling="0"
 				RuntimeLibrary="0"
@@ -730,6 +730,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\hash_functions.c"
+				>
+			</File>
+			<File
+				RelativePath=".\hash_table.c"
+				>
+			</File>
+			<File
 				RelativePath=".\history.c"
 				>
 			</File>
@@ -747,6 +755,10 @@
 			</File>
 			<File
 				RelativePath=".\input.c"
+				>
+			</File>
+			<File
+				RelativePath=".\label.c"
 				>
 			</File>
 			<File
@@ -783,6 +795,10 @@
 			</File>
 			<File
 				RelativePath=".\navigation.c"
+				>
+			</File>
+			<File
+				RelativePath=".\older_lib.c"
 				>
 			</File>
 			<File
@@ -1553,6 +1569,10 @@
 					>
 				</File>
 				<File
+					RelativePath=".\MikuMikuGtk+\bit_stream.c"
+					>
+				</File>
+				<File
 					RelativePath=".\MikuMikuGtk+\bone.c"
 					>
 				</File>
@@ -1573,11 +1593,23 @@
 					>
 				</File>
 				<File
+					RelativePath=".\MikuMikuGtk+\dyn_array.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\effect.c"
+					>
+				</File>
+				<File
 					RelativePath=".\MikuMikuGtk+\effect_engine.c"
 					>
 				</File>
 				<File
 					RelativePath=".\MikuMikuGtk+\face.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\golomb_table.c"
 					>
 				</File>
 				<File
@@ -1662,6 +1694,10 @@
 				</File>
 				<File
 					RelativePath=".\MikuMikuGtk+\ik.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\image_read_write.c"
 					>
 				</File>
 				<File
@@ -1757,7 +1793,19 @@
 					>
 				</File>
 				<File
+					RelativePath=".\MikuMikuGtk+\shape_model.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\slide.c"
+					>
+				</File>
+				<File
 					RelativePath=".\MikuMikuGtk+\soft_body.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\spin_scale.c"
 					>
 				</File>
 				<File
@@ -1846,6 +1894,18 @@
 				</File>
 				<File
 					RelativePath=".\MikuMikuGtk+\texture_draw_helper.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\tlg.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\tlg6_bit_stream.c"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\tlg6_encode.c"
 					>
 				</File>
 				<File
@@ -2585,6 +2645,14 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="LuaCairo"
+				>
+				<File
+					RelativePath=".\LuaCairo\lcairo.c"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="ヘッダー ファイル"
@@ -2847,6 +2915,10 @@
 					>
 				</File>
 				<File
+					RelativePath=".\MikuMikuGtk+\bit_stream.h"
+					>
+				</File>
+				<File
 					RelativePath=".\MikuMikuGtk+\bone.h"
 					>
 				</File>
@@ -2875,6 +2947,10 @@
 					>
 				</File>
 				<File
+					RelativePath=".\MikuMikuGtk+\dyn_array.h"
+					>
+				</File>
+				<File
 					RelativePath=".\MikuMikuGtk+\effect.h"
 					>
 				</File>
@@ -2891,11 +2967,23 @@
 					>
 				</File>
 				<File
+					RelativePath=".\MikuMikuGtk+\golomb_table.h"
+					>
+				</File>
+				<File
 					RelativePath=".\MikuMikuGtk+\grid.h"
 					>
 				</File>
 				<File
+					RelativePath=".\MikuMikuGtk+\history.h"
+					>
+				</File>
+				<File
 					RelativePath=".\MikuMikuGtk+\ik.h"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\image_read_write.h"
 					>
 				</File>
 				<File
@@ -3003,7 +3091,19 @@
 					>
 				</File>
 				<File
+					RelativePath=".\MikuMikuGtk+\shape_model.h"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\slide.h"
+					>
+				</File>
+				<File
 					RelativePath=".\MikuMikuGtk+\soft_body.h"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\spin_scale.h"
 					>
 				</File>
 				<File
@@ -3028,6 +3128,18 @@
 				</File>
 				<File
 					RelativePath=".\MikuMikuGtk+\texture_draw_helper.h"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\tlg.h"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\tlg6_bit_stream.h"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\tlg6_encode.h"
 					>
 				</File>
 				<File
@@ -3060,6 +3172,10 @@
 				</File>
 				<File
 					RelativePath=".\MikuMikuGtk+\world.h"
+					>
+				</File>
+				<File
+					RelativePath=".\MikuMikuGtk+\xml.h"
 					>
 				</File>
 			</Filter>

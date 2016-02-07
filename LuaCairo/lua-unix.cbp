@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="Lua" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="gccRelease (so)">
+				<Option platforms="Unix;Mac;" />
+				<Option output="bin/lua51" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="lib" />
+				<Option object_output=".orgc-so-unix" />
+				<Option type="3" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Option createStaticLib="1" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-fPIC" />
+					<Add option="-Wall" />
+					<Add option="-DLUA_USE_LINUX" />
+					<Add directory="lua/src" />
+				</Compiler>
+				<Linker>
+					<Add option="-Wl,-s" />
+					<Add option="-fPIC" />
+					<Add library="dl" />
+				</Linker>
+			</Target>
+			<Target title="gccRelease (lib)">
+				<Option platforms="Unix;Mac;" />
+				<Option output="lib/libluax" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output=".orgc-lib-unix" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-Wall" />
+					<Add option="-DLUA_USE_LINUX" />
+					<Add directory="lua/src" />
+				</Compiler>
+				<Linker>
+					<Add option="-Wl,-s" />
+					<Add library="dl" />
+				</Linker>
+			</Target>
+			<Target title="gccRelease (lua)">
+				<Option platforms="Unix;Mac;" />
+				<Option output="./bin/lua51" prefix_auto="1" extension_auto="1" />
+				<Option object_output=".orgc-linux" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-Wall" />
+					<Add option="-DLUA_USE_LINUX" />
+					<Add directory="lua/src" />
+				</Compiler>
+				<Linker>
+					<Add option="-Wl,-s" />
+					<Add option="-Wl,-E" />
+					<Add option="./lua51.so" />
+					<Add library="dl" />
+					<Add library="readline" />
+					<Add library="history" />
+					<Add library="ncurses" />
+				</Linker>
+			</Target>
+		</Build>
+		<Unit filename="src/lapi.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lapi.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lauxlib.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lauxlib.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lbaselib.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lcode.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lcode.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ldblib.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ldebug.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ldebug.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ldo.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ldo.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ldump.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lfunc.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lfunc.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lgc.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lgc.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/linit.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/liolib.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/llex.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/llex.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/llimits.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lmathlib.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lmem.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lmem.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/loadlib.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lobject.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lobject.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lopcodes.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lopcodes.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/loslib.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lparser.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lparser.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lstate.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lstate.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lstring.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lstring.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lstrlib.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ltable.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ltable.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ltablib.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ltm.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/ltm.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lua.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (lua)" />
+		</Unit>
+		<Unit filename="src/lua.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/luaconf.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lualib.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lundump.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lundump.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lvm.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lvm.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lzio.c">
+			<Option compilerVar="CC" />
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Unit filename="src/lzio.h">
+			<Option target="gccRelease (so)" />
+			<Option target="gccRelease (lib)" />
+		</Unit>
+		<Extensions>
+			<envvars />
+			<code_completion />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

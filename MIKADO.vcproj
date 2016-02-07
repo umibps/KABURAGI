@@ -198,7 +198,7 @@
 				FavorSizeOrSpeed="1"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
+				PreprocessorDefinitions="USE_3D_LAYER=1;WIN32;NDEBUG;_WINDOWS;"
 				StringPooling="true"
 				ExceptionHandling="0"
 				RuntimeLibrary="0"

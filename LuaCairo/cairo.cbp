@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="Cairo" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="GCCrelease">
+				<Option output="libcairo" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output=".ormingw" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+			</Target>
+			<Target title="GCCdebug">
+				<Option output="libcairo_debug" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output=".odmingw" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-march=pentium-mmx" />
+			<Add option="-Wall" />
+			<Add option="-DHAVE_CONFIG_H" />
+			<Add option="-DHAVE_WINDOWS_H" />
+			<Add option="-DCAIRO_BUILD" />
+			<Add option="-DLIBCAIRO_EXPORTS" />
+			<Add option="-DCAIRO_HAS_WIN32_SURFACE" />
+			<Add option="-DCAIRO_HAS_WIN32_FONT" />
+			<Add option="-DCAIRO_WIN32_STATIC_BUILD=1" />
+			<Add option="-DCAIRO_NO_MUTEX=0" />
+			<Add option="-DUSE_MMX=1" />
+			<Add directory="." />
+			<Add directory=".\src" />
+			<Add directory="..\pixman\pixman" />
+			<Add directory="..\depend\include\png" />
+			<Add directory="..\depend\include\zlib" />
+		</Compiler>
+		<Linker>
+			<Add directory="." />
+		</Linker>
+		<Unit filename=".\src\cairo-analysis-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-arc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-array.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-atomic.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-base64-stream.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-base85-stream.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-bentley-ottmann-rectangular.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-bentley-ottmann-rectilinear.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-bentley-ottmann.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-botor-scan-converter.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-boxes.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-cache.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-cff-subset.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-clip.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-color.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-composite-rectangles.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-debug.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-deflate-stream.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-device.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-fixed.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-font-face-twin-data.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-font-face-twin.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-font-face.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-font-options.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-freed-pool.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-freelist.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-gstate.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-hash.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-hull.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-image-info.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-image-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-lzw.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-matrix.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-misc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-mutex.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-observer.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-output-stream.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-paginated-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-path-bounds.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-path-fill.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-path-fixed.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-path-in-fill.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-path-stroke.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-path.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-pattern.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-pdf-operators.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-pdf-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-pen.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-png.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-polygon.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-ps-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-recording-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-rectangle.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-rectangular-scan-converter.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-region.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-rtree.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-scaled-font-subsets.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-scaled-font.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-slope.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-spans.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-spline.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-stroke-style.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-surface-clipper.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-surface-fallback.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-surface-offset.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-surface-snapshot.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-surface-subsurface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-surface-wrapper.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-svg-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\cairo-tee-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-tor-scan-converter.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-toy-font-face.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-traps.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-truetype-subset.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-type1-fallback.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-type1-subset.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-type3-glyph-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-unicode.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-user-font.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-version.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-wideint.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-win32-font.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-win32-printing-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-win32-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo-xml-surface.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename=".\src\cairo.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
