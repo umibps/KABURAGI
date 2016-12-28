@@ -32,7 +32,7 @@ typedef struct _SHAPE_LABELS
 		*star, *pattern, *image;
 } SHAPE_LABELS;
 
-typedef struct _APPLICATON_LABELS
+typedef struct _APPLICATION_LABELS
 {
 	char *language_name;
 
@@ -59,10 +59,10 @@ typedef struct _APPLICATON_LABELS
 		gchar *canvas, *change_resolution, *change_canvas_size,
 			*flip_canvas_horizontally, *flip_canvas_vertically,
 			*switch_bg_color, *change_2nd_bg_color, *canvas_icc;
-		gchar *layer, *new_color, *new_vector, *new_layer_set, *new_3d_modeling,
-			*copy_layer, *delete_layer, *fill_layer_fg_color, *fill_layer_pattern,
-			*rasterize_layer, *merge_down_layer, *merge_all_layer, *visible2layer,
-			*visible_copy;
+		gchar *layer, *new_color, *new_vector, *new_layer_set, *new_adjustment_layer,
+			*new_3d_modeling, *copy_layer, *delete_layer, *fill_layer_fg_color,
+			*fill_layer_pattern, *rasterize_layer, *merge_down_layer, *merge_all_layer,
+			*visible2layer, *visible_copy;
 		gchar *select, *select_none, *select_invert, *select_all, *selection_extend,
 			*selection_reduct;
 		gchar *view, *zoom, *zoom_in, *zoom_out, *zoom_reset, *reverse_horizontally,
@@ -71,7 +71,8 @@ typedef struct _APPLICATON_LABELS
 		gchar *filters, *blur, *motion_blur, *gaussian_blur, *bright_contrast,
 			*hue_saturtion, *color_levels, *tone_curve, *luminosity2opacity,
 			*color2alpha, *colorize_with_under, *gradation_map, *detect_max,
-			*tranparancy_as_white, *fill_with_vector, *render, *cloud, *fractal;
+			*tranparancy_as_white, *fill_with_vector, *render, *cloud, *fractal,
+			*trace_pixels;
 		gchar *plug_in;
 		gchar *script;
 		gchar *help, *version;
@@ -122,9 +123,10 @@ typedef struct _APPLICATON_LABELS
 	struct
 	{
 		gchar *title, *new_layer, *new_vector, *new_layer_set, *new_text,
-			*new_3d_modeling, *add_normal, *add_vector, *add_layer_set,
-			*add_3d_modeling, *rename, *reorder, *alpha_to_select,
-			*alpha_add_select, *pasted_layer, *under_layer, *mixed_under_layer;
+			*new_3d_modeling, *new_adjsutment_layer, *add_normal, *add_vector,
+			*add_layer_set, *add_3d_modeling, *add_adjustment_layer, *rename,
+			*reorder, *alpha_to_select, *alpha_add_select, *pasted_layer,
+			*under_layer, *mixed_under_layer;
 		gchar *blend_mode, *opacity, *mask_with_under, *lock_opacity;
 		gchar *blend_modes[LAYER_BLEND_SLELECTABLE_NUM];
 	} layer_window;

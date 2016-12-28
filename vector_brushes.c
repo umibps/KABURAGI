@@ -1312,7 +1312,7 @@ static void FreeHandUndo(DRAW_WINDOW* window, void* p)
 	}
 
 	next_top = ((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
-	DeleteVectorLine(((VECTOR_LINE*)(&(layer->layer_data.vector_layer_p->top_data))));
+	DeleteVectorLine(((VECTOR_LINE**)(&(layer->layer_data.vector_layer_p->top_data))));
 	layer->layer_data.vector_layer_p->top_data = (void*)next_top;
 
 	layer->layer_data.vector_layer_p->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;
@@ -7764,7 +7764,7 @@ static void VectorShapePressCallBack(
 				{
 					AddDeleteVectorShapeHistory(window, window->active_layer,
 						(VECTOR_BASE_DATA*)layer->active_data, core->name);
-					DeleteVectorShape(((VECTOR_BASE_DATA*)(&(layer->active_data))));
+					DeleteVectorShape(((VECTOR_BASE_DATA**)(&(layer->active_data))));
 				}
 
 				layer->flags |= VECTOR_LAYER_RASTERIZE_ACTIVE;

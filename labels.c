@@ -210,6 +210,8 @@ void LoadLabels(
 	labels->menu.new_layer_set = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER", "NEW_3D_MODELING", temp_str, MAX_STR_SIZE);
 	labels->menu.new_3d_modeling = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER", "NEW_ADJUSTMENT_LAYER", temp_str, MAX_STR_SIZE);
+	labels->menu.new_adjustment_layer = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER", "COPY", temp_str, MAX_STR_SIZE);
 	labels->menu.copy_layer = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER", "DELETE", temp_str, MAX_STR_SIZE);
@@ -320,6 +322,8 @@ void LoadLabels(
 	labels->menu.cloud = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "FILTERS", "FRACTAL", temp_str, MAX_STR_SIZE);
 	labels->menu.fractal = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "FILTERS", "TRACE_PIXEL", temp_str, MAX_STR_SIZE);
+	labels->menu.trace_pixels = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// 新規作成ウィンドウ
 	length = IniFileGetString(file, "NEW", "TITLE", temp_str, MAX_STR_SIZE);
@@ -652,6 +656,8 @@ void LoadLabels(
 	labels->layer_window.new_3d_modeling = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "TEXT_LAYER", temp_str, MAX_STR_SIZE);
 	labels->layer_window.new_text = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER_WINDOW", "ADJUSTMENT_LAYER", temp_str, MAX_STR_SIZE);
+	labels->layer_window.new_adjsutment_layer = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "ADD_NORMAL_LAYER", temp_str, MAX_STR_SIZE);
 	labels->layer_window.add_normal = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "ADD_VECTOR_LAYER", temp_str, MAX_STR_SIZE);
@@ -660,6 +666,8 @@ void LoadLabels(
 	labels->layer_window.add_layer_set = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "ADD_3D_MODELING", temp_str, MAX_STR_SIZE);
 	labels->layer_window.add_3d_modeling = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER_WINDOW", "ADD_ADJUSTMENT_LAYER", temp_str, MAX_STR_SIZE);
+	labels->layer_window.add_adjustment_layer = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "RENAME", temp_str, MAX_STR_SIZE);
 	labels->layer_window.rename = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "REORDER", temp_str, MAX_STR_SIZE);
@@ -1397,6 +1405,7 @@ ght_hash_table_t* LabelStringTableNew(APPLICATION* app)
 	ADD_STR(table, app->labels->layer_window.new_layer_set, "Layer Set");
 	ADD_STR(table, app->labels->layer_window.new_text, "Text");
 	ADD_STR(table, app->labels->layer_window.new_3d_modeling, "3D Modeling");
+	ADD_STR(table, app->labels->layer_window.new_adjsutment_layer, "Adjustment Layer");
 	ADD_STR(table, app->labels->layer_window.rename, "Rename Layer");
 	ADD_STR(table, app->labels->layer_window.reorder, "Reorder Layer");
 	ADD_STR(table, app->labels->layer_window.alpha_to_select, "Opaciy to Selection Area");

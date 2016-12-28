@@ -110,6 +110,11 @@ LAYER* CreateLayer(
 		ret->layer_data.layer_set_p->active_under =
 			CreateLayer(0, 0, width, height, channel, TYPE_NORMAL_LAYER, NULL, NULL, NULL, window);
 	}
+	else if(layer_type == TYPE_ADJUSTMENT_LAYER)
+	{
+		ret->layer_data.adjustment_layer_p =
+			CreateAdjustmentLayer(ADJUSTMENT_LAYER_TYPE_BRIGHT_CONTRAST, ADJUSTMENT_LAYER_TARGET_UNDER_LAYER, prev_layer, ret);
+	}
 	else if(layer_type == TYPE_3D_LAYER)
 	{
 		ret->layer_data.project = window->first_project;
@@ -293,6 +298,10 @@ void DeleteLayer(LAYER** layer)
 	else if((*layer)->layer_type == TYPE_LAYER_SET)
 	{
 		DeleteLayerSet(*layer, (*layer)->window);
+	}
+	else if((*layer)->layer_type == TYPE_ADJUSTMENT_LAYER)
+	{
+		DeleteAdjustmentLayer(*layer);
 	}
 
 	if((*layer)->next != NULL)
@@ -666,6 +675,14 @@ void AddDeleteLayerHistory(
 			// 履歴データに追加する
 			(void)MemWrite(stream->buff_ptr, 1, stream->data_point, history_data);
 		}
+	}
+	else if(target->layer_type == TYPE_ADJUSTMENT_LAYER)
+	{
+		stream =
+			CreateMemoryStream(sizeof(*target->layer_data.adjustment_layer_p));
+
+		WriteAdjustmentLayerData((void*)stream,
+			(stream_func_t)MemWrite, target->layer_data.adjustment_layer_p);
 	}
 
 	// データバイト数を書き込む
@@ -1161,6 +1178,9 @@ void AddNewLayerHistory(
 	case TYPE_3D_LAYER:
 		history_name = new_layer->window->app->labels->layer_window.add_3d_modeling;
 		break;
+	case TYPE_ADJUSTMENT_LAYER:
+		history_name = new_layer->window->app->labels->layer_window.add_adjustment_layer;
+		break;
 	default:
 		history_name = new_layer->window->app->labels->layer_window.add_layer_set;
 	}
@@ -1534,7 +1554,10 @@ void ChangeActiveLayer(DRAW_WINDOW* window, LAYER* layer)
 
 			if((window->app->tool_window.flags & TOOL_USING_BRUSH) != 0)
 			{
-				gtk_widget_destroy(layer->window->app->tool_window.detail_ui);
+				if(layer->window->app->tool_window.detail_ui != NULL)
+				{
+					gtk_widget_destroy(layer->window->app->tool_window.detail_ui);
+				}
 				layer->window->app->tool_window.detail_ui = layer->window->app->tool_window.active_brush[window->app->input]->create_detail_ui(
 					layer->window->app, layer->window->app->tool_window.active_brush[window->app->input]);
 				gtk_scrolled_window_add_with_viewport(
@@ -1549,7 +1572,10 @@ void ChangeActiveLayer(DRAW_WINDOW* window, LAYER* layer)
 
 			if((window->app->tool_window.flags & TOOL_USING_BRUSH) != 0)
 			{
-				gtk_widget_destroy(layer->window->app->tool_window.detail_ui);
+				if(layer->window->app->tool_window.detail_ui != NULL)
+				{
+					gtk_widget_destroy(layer->window->app->tool_window.detail_ui);
+				}
 				layer->window->app->tool_window.detail_ui = layer->window->app->tool_window.active_vector_brush[window->app->input]->create_detail_ui(
 					layer->window->app, layer->window->app->tool_window.active_vector_brush[window->app->input]->brush_data);
 				gtk_scrolled_window_add_with_viewport(
@@ -1574,7 +1600,10 @@ void ChangeActiveLayer(DRAW_WINDOW* window, LAYER* layer)
 				}
 				(void)g_signal_connect(G_OBJECT(layer->layer_data.text_layer_p->buffer), "changed",
 					G_CALLBACK(OnChangeTextCallBack), layer);
-				gtk_widget_destroy(window->app->tool_window.detail_ui);
+				if(layer->window->app->tool_window.detail_ui != NULL)
+				{
+					gtk_widget_destroy(window->app->tool_window.detail_ui);
+				}
 				layer->window->app->tool_window.detail_ui = CreateTextLayerDetailUI(
 					window->app, layer, layer->layer_data.text_layer_p);
 				gtk_scrolled_window_add_with_viewport(
@@ -1582,6 +1611,14 @@ void ChangeActiveLayer(DRAW_WINDOW* window, LAYER* layer)
 					layer->window->app->tool_window.detail_ui
 				);
 			}
+			break;
+		case TYPE_ADJUSTMENT_LAYER:
+			if(layer->window->app->tool_window.detail_ui != NULL)
+			{
+				gtk_widget_destroy(layer->window->app->tool_window.detail_ui);
+			}
+			layer->window->app->tool_window.detail_ui = NULL;
+			CreateAdjustmentLayerWidget(layer);
 			break;
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 		case TYPE_3D_LAYER:
@@ -1593,7 +1630,10 @@ void ChangeActiveLayer(DRAW_WINDOW* window, LAYER* layer)
 		gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(layer->window->app->tool_window.brush_scroll),
 			layer->window->app->tool_window.brush_table);
 		gtk_widget_show_all(layer->window->app->tool_window.brush_table);
-		gtk_widget_show_all(layer->window->app->tool_window.detail_ui);
+		if(layer->window->app->tool_window.detail_ui != NULL)
+		{
+			gtk_widget_show_all(layer->window->app->tool_window.detail_ui);
+		}
 
 		// 通常のレイヤーならラスタライズ等のメニューは無効に
 		for(i=0; i<window->app->menus.num_disable_if_normal_layer; i++)
@@ -1963,6 +2003,14 @@ void ChangeLayerOrder(LAYER* change_layer, LAYER* new_prev, LAYER** bottom)
 	if(change_layer->next != NULL)
 	{
 		change_layer->next->prev = change_layer->prev;
+	}
+
+	if(change_layer->layer_type == TYPE_ADJUSTMENT_LAYER)
+	{
+		change_layer->layer_data.adjustment_layer_p->target_layer = new_prev;
+		change_layer->layer_data.adjustment_layer_p->release(change_layer->layer_data.adjustment_layer_p);
+		change_layer->layer_data.adjustment_layer_p->update(change_layer->layer_data.adjustment_layer_p,
+			new_prev, change_layer->window->mixed_layer, 0, 0, change_layer->width, change_layer->height);
 	}
 
 	if(new_prev != NULL)

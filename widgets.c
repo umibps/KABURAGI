@@ -464,9 +464,9 @@ GtkWidget* IccProfileChangerDialogNew(GtkWindow *parent, gchar *workspace_profil
 	gtk_container_set_border_width(GTK_CONTAINER(dialog), 4);
 
 	radio1 = gtk_radio_button_new_with_label(NULL, "Don't color manage this canvas");
-	gtk_misc_set_alignment(GTK_MISC(GTK_BIN(radio1)->child), 0, .5);
-	gtk_label_set_width_chars(GTK_LABEL(GTK_BIN(radio1)->child), 64);
-	gtk_label_set_ellipsize(GTK_LABEL(GTK_BIN(radio1)->child), PANGO_ELLIPSIZE_END);
+	gtk_misc_set_alignment(GTK_MISC(gtk_bin_get_child(GTK_BIN(radio1))), 0, 0.5);
+	gtk_label_set_width_chars(GTK_LABEL(gtk_bin_get_child(GTK_BIN(radio1))), 64);
+	gtk_label_set_ellipsize(GTK_LABEL(gtk_bin_get_child(GTK_BIN(radio1))), PANGO_ELLIPSIZE_END);
 	gtk_box_pack_start(GTK_BOX(content_area), radio1, FALSE, FALSE, 2);
 
 	if(workspace_profile_path)
@@ -477,7 +477,7 @@ GtkWidget* IccProfileChangerDialogNew(GtkWindow *parent, gchar *workspace_profil
 		gchar *desc = NULL, *label_text;
 		cmsHPROFILE h_profile = cmsOpenProfileFromFile(workspace_profile_path, "rb");
 		
-		if(h_profile)
+		if(h_profile != NULL)
 		{
 			buf_size = cmsGetProfileInfo(h_profile, cmsInfoDescription, "ja", "JP", NULL, 0);
 			buf = (wchar_t *)g_malloc(buf_size);
@@ -490,15 +490,15 @@ GtkWidget* IccProfileChangerDialogNew(GtkWindow *parent, gchar *workspace_profil
 
 		label_text = g_strdup_printf("Workspace%s%s", desc ? " : " : "", desc ? desc : "");
 
-		radio2 = gtk_radio_button_new_with_label_from_widget(radio1, label_text);
-		gtk_misc_set_alignment(GTK_MISC(GTK_BIN(radio2)->child), 0, .5);
-		gtk_label_set_width_chars(GTK_LABEL(GTK_BIN(radio2)->child), 64);
-		gtk_label_set_ellipsize(GTK_LABEL(GTK_BIN(radio2)->child), PANGO_ELLIPSIZE_END);
+		radio2 = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(radio1), label_text);
+		gtk_misc_set_alignment(GTK_MISC(gtk_bin_get_child(GTK_BIN(radio2))), 0, .5);
+		gtk_label_set_width_chars(GTK_LABEL(gtk_bin_get_child(GTK_BIN(radio2))), 64);
+		gtk_label_set_ellipsize(GTK_LABEL(gtk_bin_get_child(GTK_BIN(radio2))), PANGO_ELLIPSIZE_END);
 		g_object_set_data(G_OBJECT(radio2), "data", g_strdup(workspace_profile_path));
 		gtk_box_pack_start(GTK_BOX(content_area), radio2, FALSE, FALSE, 2);
 	}
 
-	radio3 = gtk_radio_button_new_with_label_from_widget(radio1, "Profile : ");
+	radio3 = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(radio1), "Profile : ");
 	button = icc_button_new();
 	icc_button_set_enable_empty(ICC_BUTTON(button), FALSE);
 	icc_button_set_mask (ICC_BUTTON(button),
@@ -506,19 +506,19 @@ GtkWidget* IccProfileChangerDialogNew(GtkWindow *parent, gchar *workspace_profil
 		ICC_BUTTON_COLORSPACE_XYZ | ICC_BUTTON_COLORSPACE_LAB,
 		ICC_BUTTON_COLORSPACE_RGB);
 	g_object_set_data(G_OBJECT(radio3), "data", icc_button_get_filename(ICC_BUTTON(button)));
-	g_signal_connect(button, "changed", G_CALLBACK(IccProfileChangerDialogProfileChanged), radio3);
+	(void)g_signal_connect(button, "changed", G_CALLBACK(IccProfileChangerDialogProfileChanged), radio3);
 	box = gtk_hbox_new(FALSE, 4);
 	gtk_box_pack_start(GTK_BOX(box), radio3, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(box), button, TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(content_area), box, FALSE, FALSE, 2);
 
-	g_signal_connect(radio1, "toggled", G_CALLBACK(IccProfileChangerDialogSelectionChanged), dialog);
-	g_signal_connect(radio2, "toggled", G_CALLBACK(IccProfileChangerDialogSelectionChanged), dialog);
-	g_signal_connect(radio3, "toggled", G_CALLBACK(IccProfileChangerDialogSelectionChanged), dialog);
+	(void)g_signal_connect(radio1, "toggled", G_CALLBACK(IccProfileChangerDialogSelectionChanged), dialog);
+	(void)g_signal_connect(radio2, "toggled", G_CALLBACK(IccProfileChangerDialogSelectionChanged), dialog);
+	(void)g_signal_connect(radio3, "toggled", G_CALLBACK(IccProfileChangerDialogSelectionChanged), dialog);
 
-	g_object_set_data(dialog, "radio1", radio1);
-	g_object_set_data(dialog, "radio2", radio2);
-	g_object_set_data(dialog, "radio3", radio3);
+	g_object_set_data(G_OBJECT(dialog), "radio1", radio1);
+	g_object_set_data(G_OBJECT(dialog), "radio2", radio2);
+	g_object_set_data(G_OBJECT(dialog), "radio3", radio3);
 
 	gtk_widget_show_all(dialog);
 

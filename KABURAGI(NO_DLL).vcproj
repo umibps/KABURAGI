@@ -649,6 +649,10 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath=".\adjustment_layer.c"
+				>
+			</File>
+			<File
 				RelativePath=".\anti_alias.c"
 				>
 			</File>
@@ -722,6 +726,14 @@
 			</File>
 			<File
 				RelativePath=".\golomb_table.c"
+				>
+			</File>
+			<File
+				RelativePath=".\hash_functions.c"
+				>
+			</File>
+			<File
+				RelativePath=".\hash_table.c"
 				>
 			</File>
 			<File
@@ -854,6 +866,10 @@
 			</File>
 			<File
 				RelativePath=".\tool_box.c"
+				>
+			</File>
+			<File
+				RelativePath=".\trace.c"
 				>
 			</File>
 			<File
@@ -1480,12 +1496,24 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="LuaCairo"
+				>
+				<File
+					RelativePath=".\LuaCairo\lcairo.c"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="ヘッダー ファイル"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
+			<File
+				RelativePath=".\adjustment_layer.h"
+				>
+			</File>
 			<File
 				RelativePath=".\anti_alias.h"
 				>
@@ -1564,6 +1592,10 @@
 			</File>
 			<File
 				RelativePath=".\fractal_point.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ght_hash_table.h"
 				>
 			</File>
 			<File
@@ -1688,6 +1720,10 @@
 			</File>
 			<File
 				RelativePath=".\tool_box.h"
+				>
+			</File>
+			<File
+				RelativePath=".\trace.h"
 				>
 			</File>
 			<File

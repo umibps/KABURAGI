@@ -2079,6 +2079,242 @@ void CreateVectorBrushTable(
 	}
 }
 
+static void AdjustmentLayerChangeBrightness(GtkAdjustment* adjustment, ADJUSTMENT_LAYER* layer)
+{
+	layer->filter_data.bright_contrast.bright = (int)gtk_adjustment_get_value(adjustment);
+	layer->target_layer->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	layer->update(layer, layer->target_layer, layer->target_layer->window->mixed_layer,
+		0, 0, layer->target_layer->width, layer->target_layer->height);
+	gtk_widget_queue_draw(layer->target_layer->window->window);
+}
+
+static void AdjustmentLayerChangeContrast(GtkAdjustment* adjustment, ADJUSTMENT_LAYER* layer)
+{
+	layer->filter_data.bright_contrast.contrast = (int)gtk_adjustment_get_value(adjustment);
+	layer->target_layer->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	layer->update(layer, layer->target_layer, layer->target_layer->window->mixed_layer,
+		0, 0, layer->target_layer->width, layer->target_layer->height);
+	gtk_widget_queue_draw(layer->target_layer->window->window);
+}
+
+static void AdjustmentLayerChangeHue(GtkAdjustment* adjustment, ADJUSTMENT_LAYER* layer)
+{
+	layer->filter_data.hue_saturation.h = (int)gtk_adjustment_get_value(adjustment);
+	layer->target_layer->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	layer->update(layer, layer->target_layer, layer->target_layer->window->mixed_layer,
+		0, 0, layer->target_layer->width, layer->target_layer->height);
+	gtk_widget_queue_draw(layer->target_layer->window->window);
+}
+
+static void AdjustmentLayerChangeSaturation(GtkAdjustment* adjustment, ADJUSTMENT_LAYER* layer)
+{
+	layer->filter_data.hue_saturation.s = (int)gtk_adjustment_get_value(adjustment);
+	layer->target_layer->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	layer->update(layer, layer->target_layer, layer->target_layer->window->mixed_layer,
+		0, 0, layer->target_layer->width, layer->target_layer->height);
+	gtk_widget_queue_draw(layer->target_layer->window->window);
+}
+
+static void AdjustmentLayerChangeVivid(GtkAdjustment* adjustment, ADJUSTMENT_LAYER* layer)
+{
+	layer->filter_data.hue_saturation.v = (int)gtk_adjustment_get_value(adjustment);
+	layer->target_layer->window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	layer->update(layer, layer->target_layer, layer->target_layer->window->mixed_layer,
+		0, 0, layer->target_layer->width, layer->target_layer->height);
+	gtk_widget_queue_draw(layer->target_layer->window->window);
+}
+
+static void AdjustmentLayerDetailSettingWidgetNew(GtkWidget* vbox, LAYER* layer, APPLICATION* app)
+{
+	GtkWidget *control;
+	GtkAdjustment *adjustment;
+	ADJUSTMENT_LAYER *data = layer->layer_data.adjustment_layer_p;
+
+	switch(data->type)
+	{
+	case ADJUSTMENT_LAYER_TYPE_BRIGHT_CONTRAST:
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(data->filter_data.bright_contrast.bright,
+			-100, 100, 1, 1, 0));
+		control = SpinScaleNew(adjustment, app->labels->tool_box.brightness, 0);
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+			G_CALLBACK(AdjustmentLayerChangeBrightness), data);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(data->filter_data.bright_contrast.contrast,
+			-100, 100, 1, 1, 0));
+		control = SpinScaleNew(adjustment, app->labels->tool_box.contrast, 0);
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+			G_CALLBACK(AdjustmentLayerChangeContrast), data);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+		break;
+	case ADJUSTMENT_LAYER_TYPE_HUE_SATURATION:
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(data->filter_data.hue_saturation.h,
+			-180, 180, 1, 1, 0));
+		control = SpinScaleNew(adjustment, app->labels->tool_box.hue, 0);
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+			G_CALLBACK(AdjustmentLayerChangeHue), data);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(data->filter_data.hue_saturation.s,
+			-255, 255, 1, 1, 0));
+		control = SpinScaleNew(adjustment, app->labels->tool_box.saturation, 0);
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+			G_CALLBACK(AdjustmentLayerChangeSaturation), data);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+		adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(data->filter_data.hue_saturation.v,
+			-255, 255, 1, 1, 0));
+		control = SpinScaleNew(adjustment, app->labels->tool_box.brightness, 0);
+		(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+			G_CALLBACK(AdjustmentLayerChangeVivid), data);
+		gtk_box_pack_start(GTK_BOX(vbox), control, FALSE, FALSE, 0);
+		break;
+	}
+}
+
+static void AdjustmentLayerItemChanged(GtkWidget* tree, APPLICATION* app)
+{
+	LAYER *active_layer = GetActiveDrawWindow(app)->active_layer;
+	ADJUSTMENT_LAYER *layer = active_layer->layer_data.adjustment_layer_p;
+	GtkWidget *setting;
+	GtkWidget *hbox;
+	GtkTreeModel *model;
+	GtkTreeIter iter;
+	char *value;
+
+	(void)memset(&layer->filter_data, 0, sizeof(layer->filter_data));
+
+	if(gtk_tree_selection_get_selected(GTK_TREE_SELECTION(tree),
+		&model, &iter) != FALSE)
+	{
+		int index = 0;
+
+		gtk_tree_model_get(model, &iter, 0, &value, -1);
+
+		if(strcmp(value, app->labels->menu.bright_contrast) == 0)
+		{
+			index = ADJUSTMENT_LAYER_TYPE_BRIGHT_CONTRAST;
+		}
+		else if(strcmp(value, app->labels->menu.hue_saturtion) == 0)
+		{
+			index = ADJUSTMENT_LAYER_TYPE_HUE_SATURATION;
+		}
+		
+		SetAdjustmentLayerType(layer, (eADJUSTMENT_LAYER_TYPE)index);
+	}
+
+	gtk_widget_destroy(GTK_WIDGET(g_object_get_data(G_OBJECT(tree), "setting_box")));
+	setting = gtk_vbox_new(FALSE, 0);
+	g_object_set_data(G_OBJECT(tree), "setting_box", setting);
+
+	hbox = GTK_WIDGET(g_object_get_data(G_OBJECT(tree), "hbox"));
+	AdjustmentLayerDetailSettingWidgetNew(setting, layer->self, app);
+	gtk_box_pack_start(GTK_BOX(hbox), setting, TRUE, TRUE, 0);
+
+	gtk_widget_show_all(setting);
+}
+
+static void OnChangedAdjustmentLayerTarget(GtkWidget* button, APPLICATION* app)
+{
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	LAYER *layer = window->active_layer;
+
+	SetAdjustmentLayerTarget(layer->layer_data.adjustment_layer_p,
+		(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE) ?
+			ADJUSTMENT_LAYER_TARGET_UNDER_MIXED : ADJUSTMENT_LAYER_TARGET_UNDER_MIXED);
+
+	layer->layer_data.adjustment_layer_p->update(layer->layer_data.adjustment_layer_p,
+		layer, window->mixed_layer, 0, 0, layer->width, layer->height);
+
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	gtk_widget_queue_draw(window->window);
+}
+
+gboolean AdjustmentLayerDetailWidgetConfigureEvent(GtkWidget* widget, GdkEventConfigure* event_info, GtkWidget* left_widget)
+{
+	GtkAllocation left, parent;
+
+	gtk_widget_get_allocation(gtk_widget_get_parent(widget), &parent);
+	gtk_widget_get_allocation(left_widget, &left);
+
+	gtk_widget_set_size_request(widget, parent.width - left.width, parent.height);
+
+	return FALSE;
+}
+
+void CreateAdjustmentLayerWidget(LAYER* layer)
+{
+	DRAW_WINDOW *canvas = layer->window;
+	APPLICATION *app = canvas->app;
+	GtkWidget *box;
+	GtkWidget *hbox;
+	GtkWidget *setting;
+	GtkWidget *tree_view;
+	GtkCellRenderer *renderer;
+	GtkTreeViewColumn *column;
+	GtkListStore *store;
+	GtkTreeIter iter, active;
+	GtkTreeSelection *selection;
+	GtkTreePath *path;
+
+	box = gtk_vbox_new(FALSE, 0);
+	hbox = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(box), hbox, TRUE, TRUE, 0);
+	layer->window->app->tool_window.brush_table = box;
+
+	tree_view = gtk_tree_view_new();
+
+	gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(tree_view), FALSE);
+
+	renderer = gtk_cell_renderer_text_new();
+	column = gtk_tree_view_column_new();
+	gtk_tree_view_column_pack_start(column, renderer, TRUE);
+	gtk_tree_view_column_add_attribute(column, renderer, "text", 0);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), column);
+
+	store = gtk_list_store_new(1, G_TYPE_STRING);
+
+	gtk_tree_view_set_model(GTK_TREE_VIEW(tree_view), GTK_TREE_MODEL(store));
+	g_object_unref(store);
+
+	store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(tree_view)));
+
+	gtk_list_store_append(store, &iter);
+	gtk_list_store_set(store, &iter, 0, app->labels->menu.bright_contrast, -1);
+	active = iter;
+	
+	gtk_list_store_append(store, &iter);
+	gtk_list_store_set(store, &iter, 0, app->labels->menu.hue_saturtion, -1);
+	if(layer->layer_data.adjustment_layer_p->type == ADJUSTMENT_LAYER_TYPE_HUE_SATURATION)
+	{
+		active = iter;
+	}
+
+	selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree_view));
+
+	setting = gtk_vbox_new(FALSE, 0);
+
+	g_object_set_data(G_OBJECT(selection), "setting_box", setting);
+	g_object_set_data(G_OBJECT(selection), "hbox", hbox);
+	(void)g_signal_connect(G_OBJECT(selection), "changed",
+		G_CALLBACK(AdjustmentLayerItemChanged), app);
+
+	gtk_box_pack_start(GTK_BOX(hbox), tree_view, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), hbox, TRUE, TRUE, 0);
+	(void)g_signal_connect(G_OBJECT(hbox), "configure_event",
+		G_CALLBACK(AdjustmentLayerDetailWidgetConfigureEvent), tree_view);
+
+	path = gtk_tree_model_get_path(GTK_TREE_MODEL(store), &active);
+	gtk_tree_view_row_activated(GTK_TREE_VIEW(tree_view), path,
+		gtk_tree_view_get_column(GTK_TREE_VIEW(tree_view), 0));
+
+	setting = gtk_radio_button_new_with_label(NULL, app->labels->layer_window.under_layer);
+	(void)g_signal_connect(G_OBJECT(setting), "toggled",
+		G_CALLBACK(OnChangedAdjustmentLayerTarget), app);
+	gtk_box_pack_start(GTK_BOX(box), setting, FALSE, FALSE, 0);
+
+	setting = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(setting)),
+		app->labels->layer_window.mixed_under_layer);
+	gtk_box_pack_start(GTK_BOX(box), setting, FALSE, FALSE, 0);
+}
+
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 static gboolean Redraw3D(GtkWidget* widget)
 {

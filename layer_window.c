@@ -896,6 +896,30 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	gtk_box_pack_end(GTK_BOX(hbox), window->change_bg_button, FALSE, FALSE, 0);
 
 	gtk_box_pack_start(GTK_BOX(hbox), window->layer_control.merge_box, FALSE, FALSE, 0);
+
+	// 新規調整レイヤーボタン
+	window->layer_control.new_adjustment = button = gtk_button_new();
+	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
+		G_CALLBACK(ExecuteMakeAdjustmentLayer), app);
+	file_path = g_build_filename(app->current_path, "image/new_adjustment.png", NULL);
+	image = gtk_image_new_from_file(file_path);
+	g_free(file_path);
+	gtk_container_add(GTK_CONTAINER(button), image);
+	gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, TRUE, 0);
+
+	if((app->flags & APPLICATION_INITIALIZED) == 0)
+	{
+		gtk_widget_set_sensitive(window->layer_control.new_adjustment, FALSE);
+		window->layer_control.new_adjustment_index = (uint16)app->menus.num_disable_if_no_open;
+		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = window->layer_control.new_adjustment;
+		app->menus.num_disable_if_no_open++;
+	}
+	else
+	{
+		gtk_widget_set_sensitive(window->layer_control.new_adjustment, app->window_num > 0);
+		app->menus.disable_if_no_open[window->layer_control.new_adjustment_index] = window->layer_control.new_adjustment;
+	}
+
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
 
 	if((app->flags & APPLICATION_INITIALIZED) == 0)
@@ -1283,6 +1307,21 @@ static gint LayerWidgetButtonPressCallBack(GtkWidget *widget, GdkEventButton* ev
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 			G_CALLBACK(ExecuteMakeLayerSet), layer->window->app);
+
+		menu_item = gtk_menu_item_new_with_label(
+			layer->window->app->labels->layer_window.add_adjustment_layer);
+		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+		(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+			G_CALLBACK(ExecuteMakeAdjustmentLayer), layer->window->app);
+
+		if(GetHas3DLayer(layer->window->app) != FALSE)
+		{
+			menu_item = gtk_menu_item_new_with_label(
+				layer->window->app->labels->layer_window.add_3d_modeling);
+			gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+			(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+				G_CALLBACK(ExecuteMake3DLayer), layer->window->app);
+		}
 
 		menu_item = gtk_separator_menu_item_new();
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);

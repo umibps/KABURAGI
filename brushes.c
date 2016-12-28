@@ -2,6 +2,7 @@
 	// 警告が出ないようにする
 #if defined _MSC_VER && _MSC_VER >= 1400
 # define _CRT_SECURE_NO_DEPRECATE
+# define _CRT_NONSTDC_NO_DEPRECATE
 #endif
 
 #include <string.h>
@@ -22944,9 +22945,6 @@ static void SmudgePressCallBack(
 		int start_x, start_y, width, height;
 		int counter_y;
 
-		smudge->before_r = ((smudge->flags & SMUDGE_PRESSURE_SIZE) != 0)
-			? smudge->r * pressure : smudge->r;
-
 		smudge->before_x = x;
 		smudge->before_y = y;
 
@@ -22983,12 +22981,13 @@ static void SmudgePressCallBack(
 		width = (int)(core->max_x - core->min_x);
 		height = (int)(core->max_y -core->min_y);
 
-		smudge->before_r = height;
-
 		if(width <= 0 || height <= 0)
 		{
+			smudge->flags &= ~(SMUDGE_DRAW_STARTED);
 			return;
 		}
+
+		smudge->before_r = (width < height) ? width : height;
 
 		(void)memcpy(window->work_layer->pixels, window->active_layer->pixels, window->pixel_buf_size);
 		window->work_layer->layer_mode = LAYER_BLEND_SOURCE;
@@ -23001,7 +23000,6 @@ static void SmudgePressCallBack(
 		}
 
 		smudge->flags |= SMUDGE_INITIALIZED;
-		smudge->flags &= ~(SMUDGE_DRAW_STARTED);
 	}
 }
 
@@ -23019,9 +23017,6 @@ static void SmudgeEditSelectionPressCallBack(
 		SMUDGE* smudge = (SMUDGE*)core->brush_data;
 		int start_x, start_y, width, height;
 		int counter_y;
-
-		smudge->before_r = ((smudge->flags & SMUDGE_PRESSURE_SIZE) != 0)
-			? smudge->r * pressure : smudge->r;
 
 		smudge->before_x = x;
 		smudge->before_y = y;
@@ -23057,8 +23052,13 @@ static void SmudgeEditSelectionPressCallBack(
 
 		if(width <= 0 || height <= 0)
 		{
+			smudge->flags &= ~(SMUDGE_DRAW_STARTED);
 			return;
 		}
+
+		smudge->flags |= SMUDGE_DRAW_STARTED;
+
+		smudge->before_r = (width < height) ? width : height;
 
 		(void)memcpy(window->work_layer->pixels, window->selection->pixels, window->width * window->height);
 		window->selection->layer_mode = SELECTION_BLEND_COPY;
@@ -23071,7 +23071,6 @@ static void SmudgeEditSelectionPressCallBack(
 		}
 
 		smudge->flags |= SMUDGE_INITIALIZED;
-		smudge->flags &= ~(SMUDGE_DRAW_STARTED);
 	}
 }
 
@@ -23099,7 +23098,7 @@ static void SmudgeMotionCallBack(
 		gdouble hardness = smudge->outline_hardness * 0.01f;
 		int before_size = (int)smudge->before_r;
 		int32 clear_x, clear_width, clear_y, clear_height;
-		int i, k;
+		int i;
 		// 作業レイヤーの幅
 		int layer_width = window->work_layer->width;
 		// 作業レイヤーの一行分のバイト数
@@ -23283,8 +23282,8 @@ static void SmudgeMotionCallBack(
 
 					for(i=0; i<clear_height; i++)
 					{
-						(void)memset(&window->temp_layer->pixels[(i+clear_y)*window->work_layer->stride+clear_x*window->work_layer->channel],
-							0x0, clear_width*window->work_layer->channel);
+						(void)memset(&window->temp_layer->pixels[(i+clear_y)*window->work_layer->stride+clear_x*4],
+							0x0, clear_width*4);
 					}
 
 					update_surface = cairo_surface_create_for_rectangle(
@@ -23454,18 +23453,18 @@ static void SmudgeMotionCallBack(
 					{
 						FLOAT_T c;
 						int index;
-						int j;
+						int j, k;
 						uint8 t;
 						uint8 before_alpha;
 						for(j=0; j<before_size; j++)
 						{
 							index = (clear_y+i)*layer_stride+(clear_x+j)*4;
-							t = mask[layer_width*(clear_y+i)+clear_x+j];
+							t = mask[layer_width*(clear_y+i)+(clear_x+j)];
 							before_alpha = work_pixel[index+3];
 							for(k=0; k<4; k++)
 							{
 								c = ((0xff-extention)*work_pixel[index+k]
-								+ extention*brush_buffer[i*before_size*4+j*4+k]) / 255.0 + 0.49;
+									+ extention*brush_buffer[i*before_size*4+j*4+k]) / 255.0 + 0.49;
 								work_pixel[index+k] =
 									(uint8)(((0xff-t)*work_pixel[index+k]
 										+t*c) / 255);
@@ -26652,10 +26651,13 @@ static cairo_surface_t* CreateCustomBrushSurface(
 		width = pattern->width;
 		height = pattern->height;
 
-		brush->brush_pixel = (uint8*)MEM_REALLOC_FUNC(
-			brush->brush_pixel, width * height * 4);
-		brush->temp_pixel = (uint8*)MEM_REALLOC_FUNC(
-			brush->temp_pixel, width * height * 4);
+		{
+			size_t allocate_size =
+				((width > brush->image_width) ? width : brush->image_width)
+					* ((height > brush->image_height) ? height : brush->image_height) * 4;
+			brush->brush_pixel = (uint8*)MEM_REALLOC_FUNC(brush->brush_pixel, allocate_size);
+			brush->temp_pixel = (uint8*)MEM_REALLOC_FUNC(brush->temp_pixel, allocate_size);
+		}
 
 		if(brush->brush_shape == CUSTOM_BRUSH_SHAPE_PATTERN)
 		{
@@ -27612,6 +27614,9 @@ static void CustomBrushImageFileSelected(GtkFileChooserButton* chooser, CUSTOM_B
 		&width, &height, &channel, NULL, NULL, NULL, NULL);
 	if(pixel != NULL)
 	{
+		MEM_FREE_FUNC(brush->image_path);
+		brush->image_path = MEM_STRDUP_FUNC(system_path);
+
 		brush->image_pixel = pixel;
 		brush->image_width = width;
 		brush->image_height = height;

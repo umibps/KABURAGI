@@ -374,7 +374,21 @@ void MixLayerSet(LAYER* bottom, LAYER** next, DRAW_WINDOW* window)
 					RenderTextLayer(window, layer, layer->layer_data.text_layer_p);
 				}
 
-				
+				while(layer->next != NULL && layer->next->layer_type == TYPE_ADJUSTMENT_LAYER)
+				{
+					if((layer->next->flags & LAYER_FLAG_INVISIBLE) != 0)
+					{
+						layer->next->layer_data.adjustment_layer_p->filter_func(
+							layer->layer_data.adjustment_layer_p, layer->pixels, layer->next->pixels,
+								layer->width * layer->height, layer);
+					}
+					layer->next->layer_data.adjustment_layer_p->update(
+						layer->layer_data.adjustment_layer_p, layer, window->mixed_layer,
+							0, 0, layer->width, layer->height);
+					blend_layer = layer->next;
+					layer = layer->next;
+				}
+
 				// 合成する対象と方法が確定したので合成を実行する
 				window->layer_blend_functions[blend_mode](blend_layer, layer->layer_set);
 				// 合成したらデータを元に戻す
@@ -473,6 +487,21 @@ void MixLayerSetActiveOver(LAYER* start, LAYER** next, DRAW_WINDOW* window)
 				{	// テキストレイヤーは
 						// テキストの内容をラスタライズ処理してから下のレイヤーと合成
 					RenderTextLayer(window, layer, layer->layer_data.text_layer_p);
+				}
+
+				while(layer->next != NULL && layer->next->layer_type == TYPE_ADJUSTMENT_LAYER)
+				{
+					if((layer->next->flags & LAYER_FLAG_INVISIBLE) != 0)
+					{
+						layer->next->layer_data.adjustment_layer_p->filter_func(
+							layer->layer_data.adjustment_layer_p, layer->pixels, layer->next->pixels,
+								layer->width * layer->height, layer);
+					}
+					layer->next->layer_data.adjustment_layer_p->update(
+						layer->layer_data.adjustment_layer_p, layer, window->mixed_layer,
+							0, 0, layer->width, layer->height);
+					blend_layer = layer->next;
+					layer = layer->next;
 				}
 
 				// サムネイル更新

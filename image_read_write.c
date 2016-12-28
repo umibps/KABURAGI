@@ -79,7 +79,10 @@ uint8* DecodeImageData(
 			&local_width, &local_height, &local_channel, &local_resolution,
 			icc_profile_name, icc_profile_data, icc_profile_size
 		);
-		local_channel = local_channel / local_width;
+		if(result != NULL)
+		{
+			local_channel = local_channel / local_width;
+		}
 	}
 	else if(strcmp(type, ".jpg") == 0 || strcmp(type, ".jpeg") == 0)
 	{
@@ -1493,6 +1496,9 @@ LAYER* ReadOriginalFormatLayers(
 
 				break;
 			}
+		case TYPE_ADJUSTMENT_LAYER:
+			ReadAdjustmentLayerData(stream, (stream_func_t)MemRead, layer->layer_data.adjustment_layer_p);
+			break;
 		default:
 			// PNG圧縮されたピクセルデータを展開して読み込む
 			(void)MemRead(&data_size, sizeof(data_size), 1, stream);
@@ -4187,6 +4193,9 @@ void WriteOriginalFormat(
 			break;
 #endif
 		case TYPE_LAYER_SET:	// レイヤーセット
+			break;
+		case TYPE_ADJUSTMENT_LAYER:	// 調整レイヤー
+			WriteAdjustmentLayerData(stream, write_func, layer->layer_data.adjustment_layer_p);
 			break;
 		}
 

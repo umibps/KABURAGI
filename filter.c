@@ -20,6 +20,7 @@
 #include "color.h"
 #include "bezier.h"
 #include "fractal_editor.h"
+#include "trace.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -3176,7 +3177,7 @@ void ExecuteChangeBrightContrastFilter(APPLICATION* app)
 	g_object_set_data(G_OBJECT(adjust), "pixel_data", pixel_data);
 	g_object_set_data(G_OBJECT(adjust), "layers", layers);
 	g_object_set_data(G_OBJECT(adjust), "num_layer", GINT_TO_POINTER(int_num_layer));
-	g_signal_connect(G_OBJECT(adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeBrightnessValueCallBack), &change_value);
 	label = gtk_label_new(app->labels->tool_box.brightness);
 	gtk_scale_set_digits(GTK_SCALE(scale), 0);
@@ -3192,7 +3193,7 @@ void ExecuteChangeBrightContrastFilter(APPLICATION* app)
 	g_object_set_data(G_OBJECT(adjust), "pixel_data", pixel_data);
 	g_object_set_data(G_OBJECT(adjust), "layers", layers);
 	g_object_set_data(G_OBJECT(adjust), "num_layer", GINT_TO_POINTER(int_num_layer));
-	g_signal_connect(G_OBJECT(adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 		G_CALLBACK(ChangeContrastValueCallBack), &change_value);
 	label = gtk_label_new(app->labels->tool_box.contrast);
 	gtk_scale_set_digits(GTK_SCALE(scale), 0);
@@ -8356,6 +8357,321 @@ void ExecuteFractal(APPLICATION* app)
 	gtk_widget_queue_draw(window->window);
 }
 
+typedef struct _EXECUTE_BITMAP_TRACE_FILTER_DATA
+{
+	BITMAP_TRACER tracer;
+	uint16 layer_name_length;
+	uint16 new_vector_layer_name_length;
+	char *layer_name;
+	char *new_vector_layer_name;
+	char *vector_layer_name;
+} EXECUTE_BITMAP_TRACE_FILTER_DATA;
+
+/*******************************************
+* TraceBitmapFilter関数                    *
+* ピクセルデータをベクトルデータに変換する *
+* 引数                                     *
+* window	: 描画領域の情報               *
+* layers	: 処理を行うレイヤー配列       *
+* num_layer	: 処理を行うレイヤーの数       *
+* data		: 色調整・取得範囲データ       *
+*******************************************/
+void TraceBitmapFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_layer, void* data)
+{
+	APPLICATION *app = window->app;
+	EXECUTE_BITMAP_TRACE_FILTER_DATA *execute_data = (EXECUTE_BITMAP_TRACE_FILTER_DATA*)data;
+	LAYER *target = SearchLayer(window->layer, execute_data->layer_name);
+	LAYER *new_layer;
+	char new_vector_layer_name[4096];
+	int counter = 1;
+
+	// 「ベクトル○」の○に入る数値を決定
+		// (レイヤー名の重複を避ける)
+	do
+	{
+		(void)sprintf(new_vector_layer_name, "%s %d", app->labels->layer_window.new_vector, counter);
+		counter++;
+	} while(CorrectLayerName(window->layer, new_vector_layer_name) == 0);
+
+	if(target == NULL)
+	{
+		return;
+	}
+
+	execute_data->tracer.trace_pixels =
+		(execute_data->tracer.trace_target == BITMAP_TRACE_TARGET_LAYER) ? target->pixels : target->window->mixed_layer->pixels;
+
+	if(TraceBitmap(&execute_data->tracer) == FALSE)
+	{
+		return;
+	}
+
+	AUTO_SAVE(window);
+
+	new_layer = CreateLayer(0, 0, window->width, window->height, 4, TYPE_VECTOR_LAYER,
+		target, target->next, new_vector_layer_name, window);
+	execute_data->new_vector_layer_name = new_layer->name;
+
+	// 局所キャンバスモードなら親キャンバスでもレイヤー作成
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		DRAW_WINDOW *parent = app->draw_window[app->active_window];
+		LAYER *parent_prev = SearchLayer(parent->layer, window->active_layer->name);
+		LAYER *parent_next = (parent_prev == NULL) ? parent->layer : parent_prev->next;
+		LAYER *parent_new = CreateLayer(0, 0, parent->width, parent->height, parent->channel,
+			(eLAYER_TYPE)new_layer->layer_type, parent_prev, parent_next, new_layer->name, parent);
+		parent->num_layer++;
+		AddNewLayerHistory(parent_new, parent_new->layer_type);
+	}
+
+	AdoptTraceBitmapResult(&execute_data->tracer, (void*)new_layer);
+
+	ReleaseBitmapTracer(&execute_data->tracer);
+
+	if(new_layer->layer_data.vector_layer_p->num_lines == 0)
+	{
+		DeleteLayer(&new_layer);
+		return;
+	}
+
+	// レイヤー数を更新
+	window->num_layer++;
+
+	// レイヤーウィンドウに登録してアクティブレイヤーに
+	LayerViewAddLayer(new_layer, window->layer,
+		app->layer_window.view, window->num_layer);
+	ChangeActiveLayer(window, new_layer);
+	LayerViewSetActiveLayer(new_layer, app->layer_window.view);
+
+	// キャンバスを更新
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+	gtk_widget_queue_draw(window->window);
+}
+
+static void TraceBitmapChangeMode(GtkWidget* button, BITMAP_TRACER* tracer)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
+	{
+		tracer->trace_mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "trace_mode"));
+	}
+}
+
+static void TraceBitmapUndo(DRAW_WINDOW* window, EXECUTE_BITMAP_TRACE_FILTER_DATA* data)
+{
+	uint8 *buff = (uint8*)data;
+	LAYER *target = SearchLayer(window->layer, (char*)&buff[sizeof(*data)]);
+
+	if(target == NULL)
+	{
+		return;
+	}
+
+	DeleteLayer(&target);
+	window->num_layer--;
+}
+
+static void TraceBitmapRedo(DRAW_WINDOW* window, EXECUTE_BITMAP_TRACE_FILTER_DATA* data)
+{
+	uint8 *buff = (uint8*)data;
+	LAYER *target = SearchLayer(window->layer, (char*)&buff[sizeof(*data)+data->layer_name_length]);
+
+	TraceBitmapFilter(window, &target, 1, (void*)data);
+}
+
+static void TraceBitmapChangeTarget(GtkWidget* button, BITMAP_TRACER* tracer)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
+	{
+		tracer->trace_target = (uint8)g_object_get_data(G_OBJECT(button), "trace_target");
+	}
+}
+
+static void TraceBitmapChangeBlackWhiteThreshold(GtkWidget* spin, BITMAP_TRACER* tracer)
+{
+	tracer->threshold_data.black_white_threshold =
+		gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin));
+}
+
+static void TraceBitmapChangeOpacityThreshold(GtkWidget* spin, BITMAP_TRACER* tracer)
+{
+	tracer->threshold_data.opacity_threshold =
+		gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin));
+}
+
+/*****************************************************
+* ExecuteTraceBitmap関数                             *
+* ピクセルデータのベクトルレイヤーへの変換を実行     *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+void ExecuteTraceBitmap(APPLICATION* app)
+{
+	// 設定データ
+	EXECUTE_BITMAP_TRACE_FILTER_DATA data = {0};
+	// 拡大するピクセル数を指定するダイアログ
+	GtkWidget* dialog = gtk_dialog_new_with_buttons(
+		app->labels->menu.trace_pixels,
+		GTK_WINDOW(app->window),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
+	);
+	// 処理する描画領域
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
+	// 履歴データ
+	MEMORY_STREAM *stream = CreateMemoryStream(4096);
+	// 設定変更用ウィジェット
+	GtkWidget *vbox, *hbox, *box;
+	GtkWidget *label;
+	GtkWidget *control;
+	GtkWidget *frame;
+	GtkWidget *buttons[3];
+	GtkWidget *color_button;
+	GdkColor color;
+	GtkAdjustment *adjustment;
+	// フィルターを適用するレイヤー
+	LAYER *target = window->active_layer;
+	char str[4096];
+	// for文用のカウンタ
+	int i;
+
+	// 設定データを初期化
+	InitializeBitmapTracer(&data.tracer, target->pixels, target->width, target->height);
+
+	vbox = gtk_vbox_new(FALSE, 0);
+
+	frame = gtk_frame_new(app->labels->unit.mode);
+	box = gtk_vbox_new(FALSE, 0);
+	buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->menu.gray_scale);
+	g_object_set_data(G_OBJECT(buttons[0]), "trace_mode", GINT_TO_POINTER(BITMAP_TRACE_MODE_GRAY_SCALE));
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled",
+		G_CALLBACK(TraceBitmapChangeMode), &data.tracer);
+	gtk_box_pack_start(GTK_BOX(box), buttons[0], FALSE, FALSE, 0);
+	buttons[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])),
+		app->labels->tool_box.select.rgb);
+	g_object_set_data(G_OBJECT(buttons[1]), "trace_mode", GINT_TO_POINTER(BITMAP_TRACE_MODE_COLOR));
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled",
+		G_CALLBACK(TraceBitmapChangeMode), &data.tracer);
+	gtk_box_pack_start(GTK_BOX(box), buttons[1], FALSE, FALSE, 0);
+	buttons[2] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])),
+		app->labels->tool_box.brightness);
+	g_object_set_data(G_OBJECT(buttons[2]), "trace_mode", GINT_TO_POINTER(BITMAP_TRACE_MODE_BRIGHTNESS));
+	(void)g_signal_connect(G_OBJECT(buttons[2]), "toggled",
+		G_CALLBACK(TraceBitmapChangeMode), &data.tracer);
+	gtk_box_pack_start(GTK_BOX(box), buttons[2], FALSE, FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(frame), box);
+	gtk_box_pack_start(GTK_BOX(vbox), frame, FALSE, FALSE, 0);
+
+	frame = gtk_frame_new(app->labels->tool_box.target);
+	box = gtk_vbox_new(FALSE, 0);
+	buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.select.active_layer);
+	g_object_set_data(G_OBJECT(buttons[0]), "trace_target", GINT_TO_POINTER(BITMAP_TRACE_TARGET_LAYER));
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled",
+		G_CALLBACK(TraceBitmapChangeTarget), &data.tracer);
+	gtk_box_pack_start(GTK_BOX(box), buttons[0], FALSE, FALSE, 0);
+	buttons[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])),
+		app->labels->tool_box.select.canvas);
+	g_object_set_data(G_OBJECT(buttons[1]), "trace_target", GINT_TO_POINTER(BITMAP_TRACE_TARGET_CANVAS));
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled",
+		G_CALLBACK(TraceBitmapChangeTarget), &data.tracer);
+	gtk_box_pack_start(GTK_BOX(box), buttons[1], FALSE, FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(frame), box);
+	gtk_box_pack_start(GTK_BOX(vbox), frame, FALSE, FALSE, 0);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", app->labels->tool_box.brightness);
+	label = gtk_label_new(str);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(data.tracer.threshold_data.black_white_threshold,
+		0, 255, 1, 1, 0));
+	control = gtk_spin_button_new(adjustment, 1, 0);
+	gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 0);
+	SetAdjustmentChangeValueCallBack(adjustment, NULL, NULL);
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(AdjustmentChangeValueCallBackInt), &data.tracer.threshold_data.black_white_threshold);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), control, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(vbox), gtk_hseparator_new(), FALSE, FALSE, 0);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(data.tracer.minimum_point_distance, 1, 1000, 1, 1, 0));
+	(void)sprintf(str, "%s : ", app->labels->tool_box.min_distance);
+	label = gtk_label_new(str);
+	control = gtk_spin_button_new(adjustment, 1, 0);
+	gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 0);
+	SetAdjustmentChangeValueCallBack(adjustment,NULL,NULL);
+	(void)g_signal_connect(G_OBJECT(adjustment),"value_changed",
+						   G_CALLBACK(AdjustmentChangeValueCallBackInt),&data.tracer.minimum_point_distance);
+	gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),control,FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(vbox),hbox,FALSE,FALSE,0);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", app->labels->layer_window.opacity);
+	label = gtk_label_new(str);
+	adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(data.tracer.threshold_data.opacity_threshold,
+		0, 255, 1, 1, 0));
+	control = gtk_spin_button_new(adjustment, 1, 0);
+	gtk_spin_button_set_digits(GTK_SPIN_BUTTON(control), 0);
+	SetAdjustmentChangeValueCallBack(adjustment, NULL, NULL);
+	(void)g_signal_connect(G_OBJECT(adjustment), "value_changed",
+		G_CALLBACK(AdjustmentChangeValueCallBackInt), &data.tracer.threshold_data.opacity_threshold);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), control, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	frame = gtk_frame_new(app->labels->tool_box.line_color);
+	hbox = gtk_hbox_new(FALSE, 0);
+	control = gtk_check_button_new_with_label("Specify Line Color");
+	gtk_box_pack_start(GTK_BOX(hbox), control, FALSE, FALSE, 0);
+	CheckButtonSetFlagsCallBack(control, &data.tracer.flags, (int)BITMAP_TRACE_FALGS_USE_SPECIFY_LINE_COLOR);
+	color.red = 0,	color.green = 0,	color.blue = 0;
+	color_button = gtk_color_button_new_with_color(&color);
+	gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(color_button), TRUE);
+	gtk_box_pack_start(GTK_BOX(hbox), color_button, FALSE, FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(frame), hbox);
+	gtk_box_pack_start(GTK_BOX(vbox), frame, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		vbox, TRUE, TRUE, 0);
+
+	gtk_widget_show_all(dialog);
+
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{
+		data.layer_name = window->active_layer->name;
+		TraceBitmapFilter(window, &target, 1, (void*)&data);
+
+		if(data.new_vector_layer_name != NULL)
+		{
+			gtk_color_button_get_color(GTK_COLOR_BUTTON(color_button), &color);
+#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+			data.tracer.line_color[2] = (uint8)(color.red << 8);
+			data.tracer.line_color[1] = (uint8)(color.green << 8);
+			data.tracer.line_color[0] = (uint8)(color.blue << 8);
+#else
+			data.tracer.line_color[0] = (uint8)(color.red << 8);
+			data.tracer.line_color[1] = (uint8)(color.green << 8);
+			data.tracer.line_color[2] = (uint8)(color.blue << 8);
+#endif
+			data.tracer.line_color[3] = (uint8)(gtk_color_button_get_alpha(GTK_COLOR_BUTTON(color_button)) << 8);
+			data.layer_name_length = (uint16)strlen(target->name)+1;
+			data.new_vector_layer_name_length = (uint16)strlen(data.new_vector_layer_name)+1;
+			(void)MemWrite(&data, sizeof(data), 1, stream);
+			(void)MemWrite(target->name, 1, data.layer_name_length, stream);
+			(void)MemWrite(data.new_vector_layer_name, 1, data.new_vector_layer_name_length, stream);
+
+			AddHistory(&window->history, app->labels->menu.trace_pixels, stream->buff_ptr,
+				stream->data_point, (history_func)TraceBitmapUndo, (history_func)TraceBitmapRedo);
+		}
+	}
+
+	(void)DeleteMemoryStream(stream);
+
+	gtk_widget_destroy(dialog);
+}
+
 /*****************************************
 * SetFilterFunctions関数                 *
 * フィルター関数ポインタ配列の中身を設定 *
@@ -8378,6 +8694,7 @@ void SetFilterFunctions(filter_func* functions)
 	functions[FILTER_FUNC_FILL_WITH_VECTOR] = FillWithVectorLineFilter;
 	functions[FILTER_FUNC_PERLIN_NOISE] = PerlinNoiseFilter;
 	functions[FILTER_FUNC_FRACTAL] = FractalFilter;
+	functions[FILTER_FUNC_TRACE] = TraceBitmapFilter;
 }
 
 /***********************************************************

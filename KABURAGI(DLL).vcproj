@@ -654,6 +654,10 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath=".\adjustment_layer.c"
+				>
+			</File>
+			<File
 				RelativePath=".\anti_alias.c"
 				>
 			</File>
@@ -871,6 +875,10 @@
 			</File>
 			<File
 				RelativePath=".\tool_box.c"
+				>
+			</File>
+			<File
+				RelativePath=".\trace.c"
 				>
 			</File>
 			<File
@@ -2660,6 +2668,10 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
+				RelativePath=".\adjustment_layer.h"
+				>
+			</File>
+			<File
 				RelativePath=".\anti_alias.h"
 				>
 			</File>
@@ -2861,6 +2873,10 @@
 			</File>
 			<File
 				RelativePath=".\tool_box.h"
+				>
+			</File>
+			<File
+				RelativePath=".\trace.h"
 				>
 			</File>
 			<File

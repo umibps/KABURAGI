@@ -533,9 +533,9 @@ static GtkWidget* CreateChooseThemeWidget(SET_PREFERENCE* preference, APPLICATIO
 	}
 	gtk_combo_box_set_active(GTK_COMBO_BOX(combo), combo_index);
 	g_object_set_data(G_OBJECT(combo), "first_list", first_list);
-	g_signal_connect(G_OBJECT(combo), "destroy",
+	(void)g_signal_connect(G_OBJECT(combo), "destroy",
 		G_CALLBACK(OnDestroySetThemeWidget), first_list);
-	g_signal_connect(G_OBJECT(combo), "changed",
+	(void)g_signal_connect(G_OBJECT(combo), "changed",
 		G_CALLBACK(SetTheme), preference);
 	gtk_box_pack_start(GTK_BOX(vbox), combo, FALSE, TRUE, 0);
 

@@ -134,7 +134,9 @@ void       icc_button_dialog_set_list_columns
                                         (IccButton   *button,
                                          guint16      list_columns);
 guint16    icc_button_dialog_get_list_columns (IccButton *button);
-
+void       icc_button_set_enable_empty (IccButton *button,
+                                         gboolean   enabled);
+                             
 /* Profile info of current selection */
 const gchar *icc_button_get_profile_desc  (IccButton *button);
 icProfileClassSignature

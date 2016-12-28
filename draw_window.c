@@ -54,6 +54,26 @@ gboolean TimerCallBack(DRAW_WINDOW* window)
 	return TRUE;
 }
 
+#if GTK_MAJOR_VERSION >= 3
+static gboolean FirstDrawCheckCallBack(DRAW_WINDOW* window)
+{
+	if((window->flags & DRAW_WINDOW_FIRST_DRAW) != 0)
+	{
+		return FALSE;
+	}
+
+	gtk_widget_set_size_request(window->window, window->disp_size + 1, window->disp_size + 1);
+	gtk_widget_show(window->window);
+	gtk_widget_queue_draw(window->window);
+	
+	gtk_widget_set_size_request(window->window, window->disp_size, window->disp_size);
+	gtk_widget_show(window->window);
+	gtk_widget_queue_draw(window->window);
+
+	return TRUE;
+}
+#endif
+
 static gboolean AutoSaveCallBack(DRAW_WINDOW* window)
 {
 	if(g_timer_elapsed(window->auto_save_timer, NULL) >= window->app->preference.auto_save_time)
@@ -606,6 +626,10 @@ DRAW_WINDOW* CreateDrawWindow(
 	//ret->timer_id = g_idle_add((GSourceFunc)TimerCallBack, ret);
 	ret->timer_id = g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, 1000 / FRAME_RATE,
 		(GSourceFunc)TimerCallBack, ret, NULL);
+#if GTK_MAJOR_VERSION >= 3
+	(void)g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, 1000 / FRAME_RATE,
+		(GSourceFunc)FirstDrawCheckCallBack, ret, NULL);
+#endif
 	ret->timer = g_timer_new();
 	g_timer_start(ret->timer);
 
@@ -1057,6 +1081,10 @@ void ReturnFromFocalMode(DRAW_WINDOW* parent_window)
 			{
 				parent_window->active_layer_set = dst_layer;
 			}
+			break;
+		case TYPE_ADJUSTMENT_LAYER:
+			src_layer->layer_data.adjustment_layer_p->update(src_layer->layer_data.adjustment_layer_p,
+				src_layer->prev, parent_window->mixed_layer, 0, 0, src_layer->width, src_layer->height);
 			break;
 		}
 		dst_layer = dst_layer->next;
@@ -2086,7 +2114,7 @@ void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_
 
 		(void)strcpy(str, app->labels->make_new.adopt_icc_profile);
 		copy_start = p = str;
-		next = g_utf8_next_char(p);
+		next = (char*)g_utf8_next_char(p);
 		while(*next != '\0')
 		{
 			if((uint8)*p == 0x5c && *(p+1) == 'n')
@@ -2094,7 +2122,7 @@ void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_
 				*p = '\n';
 				*(p+1) = '\0';
 				(void)strcat(label_str, copy_start);
-				copy_start = g_utf8_next_char(next);
+				copy_start = (char*)g_utf8_next_char(next);
 			}
 			else if((next - p) >= 2 && (uint8)*p == 0xc2
 				&& (uint8)(*(p+1)) == 0xa5 && (uint8)*next == 'n')
@@ -2102,11 +2130,11 @@ void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_
 				*p = '\n';
 				*(p+1) = '\0';
 				(void)strcat(label_str, copy_start);
-				copy_start = g_utf8_next_char(next);
+				copy_start = (char*)g_utf8_next_char(next);
 			}
 
 			p = next;
-			next = g_utf8_next_char(next);
+			next = (char*)g_utf8_next_char(next);
 		}
 		(void)strcat(label_str, copy_start);
 

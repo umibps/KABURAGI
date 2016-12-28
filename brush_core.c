@@ -1500,6 +1500,36 @@ void AdaptNormalBrush(
 	int layer_stride = window->work_layer->stride;
 	int i;
 
+	if(start_x < 0)
+	{
+		width += start_x;
+		if(width < 0)
+		{
+			return;
+		}
+		start_x = 0;
+	}
+
+	if(start_x + width > window->width)
+	{
+		width = window->width - start_x;
+	}
+
+	if(start_y < 0)
+	{
+		height += start_y;
+		if(height < 0)
+		{
+			return;
+		}
+		start_y = 0;
+	}
+
+	if(start_y + height > window->height)
+	{
+		height = window->height - start_y;
+	}
+
 #ifdef _OPENMP
 #pragma omp parallel for firstprivate(width, work_pixel, layer_stride, start_x, start_y, draw_pixel)
 #endif

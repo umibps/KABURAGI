@@ -1579,9 +1579,9 @@ static GtkWidget* CreateFuzzySelectDetailUI(APPLICATION* app, void* data)
 	buttons[2] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])),
 		app->labels->tool_box.select.alpha);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[fuzzy->select_mode]), TRUE);
-	g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(FuzzySelectSetModeRGB), data);
-	g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(FuzzySelectSetModeRGBA), data);
-	g_signal_connect(G_OBJECT(buttons[2]), "toggled", G_CALLBACK(FuzzySelectSetModeAlpha), data);
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(FuzzySelectSetModeRGB), data);
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(FuzzySelectSetModeRGBA), data);
+	(void)g_signal_connect(G_OBJECT(buttons[2]), "toggled", G_CALLBACK(FuzzySelectSetModeAlpha), data);
 
 	gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, TRUE, 0);
@@ -1590,7 +1590,7 @@ static GtkWidget* CreateFuzzySelectDetailUI(APPLICATION* app, void* data)
 
 	threshold_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
 		fuzzy->threshold, 0, 255, 1, 1, 0));
-	g_signal_connect(G_OBJECT(threshold_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(threshold_adjustment), "value_changed",
 		G_CALLBACK(FuzzySelectChangeThreshold), data);
 	threshold_scale = SpinScaleNew(threshold_adjustment,
 		app->labels->tool_box.select.threshold, 0);
@@ -1606,8 +1606,8 @@ static GtkWidget* CreateFuzzySelectDetailUI(APPLICATION* app, void* data)
 	buttons[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])),
 		app->labels->tool_box.select.canvas);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[fuzzy->select_target]), TRUE);
-	g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(FuzzySelectSetTargetActiveLayer), data);
-	g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(FuzzySelectSetTargetCanvas), data);
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(FuzzySelectSetTargetActiveLayer), data);
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(FuzzySelectSetTargetCanvas), data);
 
 	gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 2);
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, TRUE, 0);

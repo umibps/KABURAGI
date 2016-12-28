@@ -163,7 +163,7 @@ EXTERN COLOR_CHOOSER *CreateColorChooser(
 	uint8 (*pallete)[3],
 	uint8 *pallete_use,
 	const gchar* base_path,
-	APPLICATION_LABELS* labels
+	struct _APPLICATION_LABELS* labels
 );
 
 EXTERN void SetColorChooserPoint(COLOR_CHOOSER* chooser, HSV* set_hsv, gboolean add_history);

@@ -328,6 +328,15 @@ cairo_image_surface_create_from_png (const char	*filename)
 extern "C" {
 #endif
 
+#ifdef _DEBUG
+void AtExit(void)
+{
+	printf("Does have an error...?\n");
+}
+
+#endif
+
+#if 1 //!defined(_MSC_VER) || !defined(_DEBUG)
 int main(int argc, char** argv)
 {
 	static APPLICATION application = {0};
@@ -345,15 +354,15 @@ int main(int argc, char** argv)
 			"Copy", "Copy Visible", "Cut", "Paste", "Clipboard", "Transform", "Projection", "Canvas",
 			"Change Resolution", "Change Canvas Size", "Flip Canvas Horizontally", "Flip Canvas Vertically",
 			"Switch _BG Color", "Change 2nd _BG Color", "Change ICC Profile", "Layer", "_New Layer(Color)",
-			"_New Layer(Vector)", "_New Layer Set", "_New 3D Modeling Layer", "_Copy Layer", "_Delete Layer",
-			"Fill with _FG Color", "Fill with Pattern", "Rasterize Layer", "Merge Down", "_Flatten Image",
-			"_Visible to Layer", "Visible Copy", "Select", "None", "Invert", "All", "Grow", "Shrink", "View", "Zoom",
-			"Zoom _In", "Zoom _Out", "Actual Size", "Reverse Horizontally", "Rotate", "Reset Roatate",
-			"Display Filters", "Nothing", "Gray Scale", "Gray Scale (YIQ)", "Filters", "Blur", "Motion Blur",
-			"Gaussian Blur", "Brightness & Contrast", "Hue & Saturation", "Levels", "Tone Curve",
+			"_New Layer(Vector)", "_New Layer Set", "_New 3D Modeling Layer", "_New Adjustment Lyaer", "_Copy Layer",
+			"_Delete Layer", "Fill with _FG Color", "Fill with Pattern", "Rasterize Layer", "Merge Down",
+			"_Flatten Image", "_Visible to Layer", "Visible Copy", "Select", "None", "Invert", "All", "Grow",
+			"Shrink", "View", "Zoom", "Zoom _In", "Zoom _Out", "Actual Size", "Reverse Horizontally", "Rotate",
+			"Reset Roatate", "Display Filters", "Nothing", "Gray Scale", "Gray Scale (YIQ)", "Filters", "Blur",
+			"Motion Blur", "Gaussian Blur", "Brightness & Contrast", "Hue & Saturation", "Levels", "Tone Curve",
 			"Luminosity to Opacity", "Color to Alpha", "Colorize with Under Layer", "Gradation Map",
 			"Map with Detect Max Black Value", "Transparency as White", "Fill with Vector", "Render", "Cloud",
-			"Fractal", "Plug-in", "Script", "Help", "Version"
+			"Fractal", "Trace Pixels", "Plug-in", "Script", "Help", "Version"
 		},
 		{"New", "New Canvas", "Width", "Height", "2nd BG Color", "Adopt ICC Profile?", "Preset", "Add Preset",
 			"Swap Height and Width"},
@@ -385,10 +394,10 @@ int main(int argc, char** argv)
 				"Move Stroke", "Copy & Move Stroke", "Joint Stroke"},
 			{"Circle", "Eclipse", "Triangle", "Square", "Rhombus", "Hexagon", "Star", "Pattern", "Image"}
 		},
-		{"Layer", "Layer", "Vector", "Layer Set", "Text", "3D Modeling", "Add Layer", "Add Vector Layer",
-			"Add Layer Set", "Add 3D Modeling Layer", "Rename Layer", "Reorder Layer", "Opacity to Selection Area",
-			"Opacity Add Selection Area", "Pasted Layer", "Under Layer", "Mixed Under Layer", "Blend Mode", "Opacity",
-			"Masking with Under Layer", "Lock Opacity",
+		{"Layer", "Layer", "Vector", "Layer Set", "Text", "Adjustment", "3D Modeling", "Add Layer", "Add Vector Layer",
+			"Add Layer Set", "Add 3D Modeling Layer", "Add Adjustment Layer", "Rename Layer", "Reorder Layer",
+			"Opacity to Selection Area", "Opacity Add Selection Area", "Pasted Layer", "Under Layer",
+			"Mixed Under Layer", "Blend Mode", "Opacity", "Masking with Under Layer", "Lock Opacity",
 			{"Normal", "Add", "Multiply", "Screen", "Overlay", "Lighten", "Darken", "Dodge", "Burn",
 				"Hard Light", "Soft Light", "Difference", "Exclusion", "Hue", "Saturation", "Color",
 				"Luminosity", "Binalize"}},
@@ -427,6 +436,10 @@ int main(int argc, char** argv)
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	application.flags |= APPLICATION_HAS_3D_LAYER;
 	tbb = TbbObjectNew();
+#endif
+
+#ifdef _DEBUG
+	atexit(AtExit);
 #endif
 
 	{
@@ -487,6 +500,203 @@ int main(int argc, char** argv)
 
 	return 0;
 }
+
+#else
+
+#include <windows.h>
+#define INCLUDE_WIN_DEFAULT_API
+
+int test(char** argv)
+{
+	int argc = 1;
+	static APPLICATION application = {0};
+	
+	static APPLICATION_LABELS labels =
+	{
+		"English",
+		{"OK", "Apply", "Cancel", "Normal", "Reverse", "Edit Selection", "Window",
+			"Close Window", "Dock Left", "Dock Right", "Full Screen", "Reference Image Window",
+			"Move Top Left", "Hot Key", "Loading...", "Saving..."},
+		{"pixel", "Length", "Angle", "_BG", "Loop", "Preview", "Interval", "minute", "Detail", "Target",
+			"Clip Board", "Name", "Type", "Resolution", "Center", "Straight", "Grow", "Mode", "Red", "Green", "Blue",
+			"Cyan", "Magenta", "Yellow", "Key Plate", "Add", "Delete"},
+		{"File", "New", "Open", "Open as Layer", "Save", "Save as", "Close", "Quit", "Edit", "Undo", "Redo",
+			"Copy", "Copy Visible", "Cut", "Paste", "Clipboard", "Transform", "Projection", "Canvas",
+			"Change Resolution", "Change Canvas Size", "Flip Canvas Horizontally", "Flip Canvas Vertically",
+			"Switch _BG Color", "Change 2nd _BG Color", "Change ICC Profile", "Layer", "_New Layer(Color)",
+			"_New Layer(Vector)", "_New Layer Set", "_New 3D Modeling Layer", "_New Adjustment Lyaer", "_Copy Layer",
+			"_Delete Layer", "Fill with _FG Color", "Fill with Pattern", "Rasterize Layer", "Merge Down",
+			"_Flatten Image", "_Visible to Layer", "Visible Copy", "Select", "None", "Invert", "All", "Grow",
+			"Shrink", "View", "Zoom", "Zoom _In", "Zoom _Out", "Actual Size", "Reverse Horizontally", "Rotate",
+			"Reset Roatate", "Display Filters", "Nothing", "Gray Scale", "Gray Scale (YIQ)", "Filters", "Blur",
+			"Motion Blur", "Gaussian Blur", "Brightness & Contrast", "Hue & Saturation", "Levels", "Tone Curve",
+			"Luminosity to Opacity", "Color to Alpha", "Colorize with Under Layer", "Gradation Map",
+			"Map with Detect Max Black Value", "Transparency as White", "Fill with Vector", "Render", "Cloud",
+			"Fractal", "Trace Pixels", "Plug-in", "Script", "Help", "Version"
+		},
+		{"New", "New Canvas", "Width", "Height", "2nd BG Color", "Adopt ICC Profile?", "Preset", "Add Preset",
+			"Swap Height and Width"},
+		{"Tool Box", "Initialize", "New Brush", "Smooth", "Quality", "Rate", "Gaussian", "Average", "Magnification",
+			"Brush Size", "Scale", "Flow", "Pressure", "Extend Range", "Blur", "OutLine Hardness",
+			"Color Extends", "Start Distance of Drag and Move", "Anti Alias", "Change Text Color", "Horizonal",
+			"Vertical", "Style", "Normal", "Bold", "Italic", "Oblique", "Balloon", "Balloon Has Edge", "Line Color",
+			"Fill Color", "Line Width", "Change Line Width", "Manually Set", "Aspect Ratio", "Centering Horizontally",
+			"Centering Vertically", "Adjust Range to Text", "Number of Edge,", "Edge Size", "Edge Size Random",
+			"Edge Distance Random", "Number of Children", "Start Child Size", "End Child Size", "Reverse",
+			"Reverse Horizontally", "Reverse Vertically", "Blend Mode", "Hue", "Saturation", "Brightness", "Contrast",
+			"Distance", "Rotate Start", "Rotate Speed", "Random Rotate", "Rotate to Brush Direction", "Size Range",
+			"Rotate Range", "Random Size", "Clockwise", "Counter Clockwise", "Both Direction", "Minimum Degree",
+			"Minumum Distance", "Minimum Pressure", "Enter", "Out", "Enter & Out", "Mix", "Reverse FG BG",
+			"Devide Stroke", "Delete Stroke", "Target", "Stroke", "Prior Angle", "Control Point", "Free", "Scale",
+			"Free Shape", "Rotate", "Preference", "Name", "Copy Brush", "Change Brush", "Delete Brush", "Texture",
+			"Strength", "No Texture", "Add Color", "Delete Color", "Load Pallete", "Add Pallete", "Write Pallete",
+			"Clear Pallete", "Pick Mode", "Single Pixel", "Average Color", "Open Path", "Close Path", "Update",
+			"Frequency", "Cloud Color", "Persistence", "Random Seed", "Use Random", "Update Immediately",
+			"Number of Octaves", "Linear", "Cosine", "Cubic", "Colorize", "Start Editting 3D Model",
+			"Finish Editting 3D Model", "Scatter", "Scatter Size", "Scatter Range", "Random Size Scatter",
+			"Random Flow Scatter", "Bevel", "Round", "Mitter", "Normal Brush",
+			{"Pencil", "Hard Pen", "Air Brush", "Old Air Brush", "Water Color Brush", "Picker Brush", "Eraser", "Bucket",
+				"Pattern Fill", "Blur Tool", "Smudge", "Mix Brush", "Gradation", "Text Tool", "Stamp Tool",
+				"Image Brush", "Image Blend\nBrush", "Picker Image Brush", "Script Brush", "Custom Brush", "PLUG_IN"},
+			{"Detection Target", "Detect from ... ", "Pixels Color", "Pixel Color + Alpha",
+				"Alpha", "Active Layer", "Under Layer", "Canvas", "Threshold", "Detection Area", "Normal", "Large"},
+			{"Select/Release", "Move Control Point", "Change Pressure", "Delete Control Point",
+				"Move Stroke", "Copy & Move Stroke", "Joint Stroke"},
+			{"Circle", "Eclipse", "Triangle", "Square", "Rhombus", "Hexagon", "Star", "Pattern", "Image"}
+		},
+		{"Layer", "Layer", "Vector", "Layer Set", "Text", "Adjustment", "3D Modeling", "Add Layer", "Add Vector Layer",
+			"Add Layer Set", "Add 3D Modeling Layer", "Add Adjustment Layer", "Rename Layer", "Reorder Layer",
+			"Opacity to Selection Area", "Opacity Add Selection Area", "Pasted Layer", "Under Layer",
+			"Mixed Under Layer", "Blend Mode", "Opacity", "Masking with Under Layer", "Lock Opacity",
+			{"Normal", "Add", "Multiply", "Screen", "Overlay", "Lighten", "Darken", "Dodge", "Burn",
+				"Hard Light", "Soft Light", "Difference", "Exclusion", "Hue", "Saturation", "Color",
+				"Luminosity", "Binalize"}},
+		{"Random (Straight)", "Bidirection"},
+		{"Compress", "Quality", "Write Opacity Data", "Write ICC Profile Data", "Save before close the image?",
+			"There are some images with unsaved changes.", "There is Backup File.\nRecover it?"},
+		{"Navigtion"},
+		{"Preference", "Base Settings", "Auto Save", "Theme", "Default",
+			"There is a conflict to set a hot key.", "Language", "Backup File Directory",
+			"Show Preview Window on Taskbar", "Draw with Touch", "Scale Change and Move Canvas with Change",
+			"Set Back Ground Color"},
+		{"Execute Back Up..."}
+	};
+
+	static FRACTAL_LABEL fractal_labels =
+	{
+		"Triangle", "Transform", "Variations", "Colors", "Random",
+		"Weight", "Symmetry", "Linear", "Sinusoidal", "Spherical",
+		"Swirl", "Shorseshoe", "Polar", "Handkerchief", "Heart", "Disc",
+		"Spiral", "Hyperbolic", "Diamond", "Ex", "Julia", "Bent", "Waves",
+		"Fish Eye", "Pop Corn", "Preserve Weights", "Update", "Update Immediately",
+		"Adjust", "Rendering", "Gamma", "Brightness", "Vibrancy", "Camera", "Zoom",
+		"Option", "Oversample", "Filter Radius", "Forced Symmetry", "Type",
+		"Order", "None", "Bilateral", "Rotational", "Dihedral", "Mutation",
+		"Directions", "Controls", "Speed", "Trend", "Auto Zoom", "Add", "Delete",
+		"Flip Horizontal", "Flip Vertical", "Flip Horizontal All",
+		"Flip Vertical All", "Use Random", "Rest", "Create ID"
+	};
+
+	void *tbb = NULL;
+
+#if defined(CHECK_MEMORY_POOL) && CHECK_MEMORY_POOL != 0
+	_CrtSetDbgFlag(_CRTDBG_CHECK_ALWAYS_DF);
+#endif
+
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	application.flags |= APPLICATION_HAS_3D_LAYER;
+	tbb = TbbObjectNew();
+#endif
+
+#ifdef _DEBUG
+	atexit(AtExit);
+#endif
+
+	{
+		gchar *raw_path;
+
+		application.labels = &labels;
+		application.fractal_labels = &fractal_labels;
+
+#if GTK_MAJOR_VERSION <= 2
+		gtk_set_locale();
+#endif
+		gtk_init(&argc, &argv);
+
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+		gtk_gl_init(&argc, &argv);
+#endif
+
+		raw_path = g_locale_to_utf8(argv[0], -1, NULL, NULL, NULL);
+		application.current_path = g_path_get_dirname(raw_path);
+
+		InitializeApplication(&application, INITIALIZE_FILE_NAME);
+		g_free(raw_path);
+	}
+
+	/*
+	{
+		cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 500, 500);
+		cairo_t *cairo_p = cairo_create(surface);
+
+		cairo_scale(cairo_p, 1, 2);
+		cairo_arc(cairo_p, 100, 100, 50, 0, 2*G_PI);
+		cairo_fill(cairo_p);
+
+		cairo_surface_write_to_png(surface, "test.png");
+
+		cairo_destroy(cairo_p);
+	}
+	*/
+
+	if(argc > 1)
+	{
+		//gchar *file_path = g_locale_to_utf8(argv[1], -1, NULL, NULL, NULL);
+
+		//OpenFile(file_path, &application);
+
+		//g_free(file_path);
+
+#ifdef _PROFILING
+		return 0;
+#endif
+	}
+
+	gtk_main();
+
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	DeleteTbbObject(tbb);
+#endif
+
+	return 0;
+}
+
+int WINAPI main(int argc, char** argv)
+{
+	DWORD dwD;
+	MSG msg;
+	HANDLE id;
+	
+	id = CreateThread(NULL,0,test,(LPVOID)argv,0,&dwD);
+
+	while(1){// (GetMessage (&msg,NULL,0,0)) { /* メッセージループ */
+		DWORD code;
+		if(GetExitCodeThread(id, &code), code != STILL_ACTIVE)
+		{
+			(void)printf("Did have an error...?\n");
+			return 0;
+		}
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+
+	}
+	
+
+	return 0;
+
+}
+
+#endif
 
 #ifdef __cplusplus
 }

@@ -10,6 +10,7 @@
 #include "vector_layer.h"
 #include "text_layer.h"
 #include "layer_set.h"
+#include "adjustment_layer.h"
 #include "pattern.h"
 #include "texture.h"
 
@@ -36,6 +37,7 @@ typedef enum _eLAYER_TYPE
 	TYPE_TEXT_LAYER,
 	TYPE_LAYER_SET,
 	TYPE_3D_LAYER,
+	TYPE_ADJUSTMENT_LAYER,
 	NUM_LAYER_TYPE
 } eLAYER_TYPE;
 
@@ -107,9 +109,10 @@ typedef struct _LAYER
 		// ベクトルレイヤー、テキストレイヤーの情報を格納
 	union
 	{
-		VECTOR_LAYER* vector_layer_p;
-		TEXT_LAYER* text_layer_p;
-		LAYER_SET* layer_set_p;
+		VECTOR_LAYER *vector_layer_p;
+		TEXT_LAYER *text_layer_p;
+		LAYER_SET *layer_set_p;
+		ADJUSTMENT_LAYER *adjustment_layer_p;
 
 		// 3Dモデリング用データ
 		void *project;
@@ -160,6 +163,23 @@ typedef struct _RGBA_DATA
 } RGBA_DATA;
 
 // 関数のプロトタイプ宣言
+/*****************************************************
+* レイヤーのメモリ確保と初期化                       *
+* CreateLayer関数                                    *
+* 引数                                               *
+* x				: レイヤー左上のX座標                *
+* y				: レイヤー左上のY座標                *
+* width			: レイヤーの幅                       *
+* height		: レイヤーの高さ                     *
+* channel		: レイヤーのチャンネル数             *
+* layer_type	: レイヤーのタイプ                   *
+* prev_layer	: 追加するレイヤーの前のレイヤー     *
+* next_layer	: 追加するレイヤーの次のレイヤー     *
+* name			: 追加するレイヤーの名前             *
+* window		: 追加するレイヤーを管理する描画領域 *
+* 返り値                                             *
+*	初期化された構造体のアドレス                     *
+*****************************************************/
 EXTERN LAYER* CreateLayer(
 	int32 x,
 	int32 y,
@@ -421,6 +441,14 @@ EXTERN void LayerSetShowChildren(LAYER* layer_set, LAYER **prev);
 ***************************************************/
 EXTERN void LayerSetHideChildren(LAYER* layer_set, LAYER **prev);
 
+/****************************
+* DeleteAdjustmentLayer関数 *
+* 調整レイヤーを削除する    *
+* 引数                      *
+* layer	: 調整レイヤー      *
+****************************/
+EXTERN void DeleteAdjustmentLayer(LAYER* layer);
+
 /***********************************************
 * DeleteSelectAreaPixels関数                   *
 * 選択範囲のピクセルデータを削除する           *
@@ -514,6 +542,32 @@ EXTERN void FillTextureLayer(LAYER* layer, TEXTURES* textures);
 * color		: 取得した色を格納(4バイト分) *
 ******************************************/
 EXTERN void GetAverageColor(LAYER* target, int x, int y, int size, uint8 color[4]);
+
+/********************************************************************************
+* CreateAdjutmentLayer関数                                                      *
+* 調整レイヤーのメモリ確保と初期化                                              *
+* 引数                                                                          *
+* type			: 調整レイヤーのモード                                          *
+* target		: 調整レイヤーが適用する相手(直下のレイヤー/下のレイヤーの統合) *
+* target_layer	: 調整レイヤーを適用するレイヤー                                *
+* self			: 調整レイヤー自身のアドレス                                    *
+* 返り値                                                                        *
+*	初期化された構造体のアドレス                                                *
+********************************************************************************/
+EXTERN ADJUSTMENT_LAYER* CreateAdjustmentLayer(
+	eADJUSTMENT_LAYER_TYPE type,
+	eADJUSTMENT_LAYER_TARGET target,
+	LAYER* target_layer,
+	LAYER* self
+);
+
+/*************************************************
+* SetAdjustmentLayerTargetLayer関数              *
+* 調整レイヤーを適用するレイヤーを設定           *
+* layer			: 調整レイヤー                   *
+* target_layer	: 調整レイヤーを適用するレイヤー *
+*************************************************/
+EXTERN void SetAdjustmentLayerTargetLayer(ADJUSTMENT_LAYER* layer, LAYER* target_layer);
 
 #ifdef __cplusplus
 }

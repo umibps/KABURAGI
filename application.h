@@ -8,7 +8,7 @@
 #if MAJOR_VERSION == 1
 # define MINOR_VERSION 4
 # define RELEASE_VERSION 1
-# define BUILD_VERSION 2
+# define BUILD_VERSION 3
 #elif MAJOR_VERSION == 2
 # define MINOR_VERSION 0
 # define RELEASE_VERSION 1
@@ -295,6 +295,7 @@ typedef enum _eFILTER_FUNC_ID
 	FILTER_FUNC_FILL_WITH_VECTOR,
 	FILTER_FUNC_PERLIN_NOISE,
 	FILTER_FUNC_FRACTAL,
+	FILTER_FUNC_TRACE,
 	NUM_FILTER_FUNC
 } eFILTER_FUNC_ID;
 
@@ -516,6 +517,8 @@ EXTERN void CreateVectorBrushTable(
 	VECTOR_BRUSH_CORE brush_data[VECTOR_BRUSH_TABLE_HEIGHT][VECTOR_BRUSH_TABLE_WIDTH]
 );
 
+EXTERN void CreateAdjustmentLayerWidget(LAYER* layer);
+
 EXTERN void CreateChange3DLayerUI(
 	APPLICATION* app,
 	TOOL_WINDOW* window
@@ -637,6 +640,14 @@ EXTERN void ExecuteMakeVectorLayer(APPLICATION *app);
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
 EXTERN void ExecuteMakeLayerSet(APPLICATION *app);
+
+/*****************************************************
+* ExecuteMakeAdjustmentLayer関数                     *
+* 調整レイヤー作成を実行                             *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+EXTERN void ExecuteMakeAdjustmentLayer(APPLICATION *app);
 
 /*****************************************************
 * ExecuteMake3DLayer関数                             *

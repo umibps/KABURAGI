@@ -57,6 +57,10 @@ gboolean DisplayDrawWindow(
 	// 画面表示用Cairo情報
 	cairo_t *cairo_p;
 
+#if GTK_MAJOR_VERSION >= 3
+	window->flags |= DRAW_WINDOW_FIRST_DRAW;
+#endif
+
 	state = window->state;
 
 	// 選択範囲の編集中でなければ
@@ -223,6 +227,21 @@ gboolean DisplayDrawWindow(
 						RenderTextLayer(window, layer, layer->layer_data.text_layer_p);
 					}
 
+					while(layer->next != NULL && layer->next->layer_type == TYPE_ADJUSTMENT_LAYER)
+					{
+						if((layer->next->flags & LAYER_FLAG_INVISIBLE) != 0)
+						{
+							layer->next->layer_data.adjustment_layer_p->filter_func(
+								layer->next->layer_data.adjustment_layer_p, layer->pixels, layer->next->pixels,
+									layer->width * layer->height, layer);
+						}
+						layer->next->layer_data.adjustment_layer_p->update(
+							layer->next->layer_data.adjustment_layer_p, layer, window->mixed_layer,
+								0, 0, layer->width, layer->height);
+						blend_layer = layer->next;
+						layer = layer->next;
+					}
+
 					// サムネイル更新
 					if(layer->widget != NULL)
 					{
@@ -302,6 +321,45 @@ gboolean DisplayDrawWindow(
 					{	// テキストレイヤーは
 							// テキストの内容をラスタライズ処理してから下のレイヤーと合成
 						RenderTextLayer(window, layer, layer->layer_data.text_layer_p);
+					}
+
+					if(layer->next != NULL && layer->next->layer_type == TYPE_ADJUSTMENT_LAYER)
+					{
+						LAYER *src;
+						int start_x = (int)window->temp_update.x;
+						int start_y = (int)window->temp_update.y;
+						int update_width = (int)window->temp_update.width;
+						int update_height = (int)window->temp_update.height;
+						int update_stride = update_width * 4;
+
+						do
+						{
+							if((layer->next->flags & LAYER_FLAG_INVISIBLE) != 0)
+							{
+								int i;
+
+								src = (layer->next->layer_data.adjustment_layer_p->target == ADJUSTMENT_LAYER_TARGET_UNDER_LAYER) ?
+									layer : window->mixed_layer;
+								for(i=0; i<update_height; i++)
+								{
+									(void)memcpy(&window->mask_temp->pixels[i*update_stride],
+										&src->pixels[src->stride*i + start_x *4], update_stride);
+								}
+								layer->next->layer_data.adjustment_layer_p->filter_func(
+									layer->next->layer_data.adjustment_layer_p, window->mask_temp->pixels, window->mask->pixels,
+										update_width * update_height, layer);
+								for(i=0; i<update_height; i++)
+								{
+									(void)memcpy(&layer->next->pixels[src->stride*i + start_x *4],
+										&window->mask->pixels[i*update_stride], update_stride);
+								}
+							}
+							layer->next->layer_data.adjustment_layer_p->update(
+								layer->layer_data.adjustment_layer_p, layer, window->mixed_layer,
+									start_x, start_y, update_width, update_height);
+							blend_layer = layer->next;
+							layer = layer->next;
+						} while(layer->next != NULL && layer->next->layer_type == TYPE_ADJUSTMENT_LAYER);
 					}
 
 					// サムネイル更新
@@ -680,16 +738,36 @@ LAYER* MixLayerForSave(DRAW_WINDOW* window)
 		0, 0, window->width, window->height, 4,
 		TYPE_NORMAL_LAYER, NULL, NULL, NULL, window
 	);
-	LAYER* src = window->layer;
+	LAYER *src = window->layer;
+	LAYER *blend;
+	unsigned int blend_mode;
 
 	// 非表示でない全てのレイヤーを合成
 	while(src != NULL)
 	{
+		blend = src;
+		blend_mode = src->layer_mode;
+
 		if((src->flags & LAYER_FLAG_INVISIBLE) == 0 && src->layer_type != TYPE_LAYER_SET)
 		{
-			if(!(src->layer_set != NULL && (src->layer_set->flags & LAYER_FLAG_INVISIBLE) != 0))
+			while(src->next != NULL && src->next->layer_type == TYPE_ADJUSTMENT_LAYER)
 			{
-				window->layer_blend_functions[src->layer_mode](src, ret);
+				if((src->next->flags & LAYER_FLAG_INVISIBLE) != 0)
+				{
+					src->next->layer_data.adjustment_layer_p->filter_func(
+						src->layer_data.adjustment_layer_p, src->pixels, src->next->pixels,
+							src->width * src->height, src);
+				}
+				src->next->layer_data.adjustment_layer_p->update(
+					src->layer_data.adjustment_layer_p, src, ret,
+						0, 0, src->width, src->height);
+				blend = src->next;
+				src = src->next;
+			}
+
+			if(!(blend->layer_set != NULL && (blend->layer_set->flags & LAYER_FLAG_INVISIBLE) != 0))
+			{
+				window->layer_blend_functions[blend_mode](blend, ret);
 			}
 		}
 

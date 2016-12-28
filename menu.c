@@ -505,6 +505,15 @@ GtkWidget* GetMainMenu(
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
 
+	// 「新規調整レイヤー」
+	(void)sprintf(buff, "%s", app->labels->menu.new_adjustment_layer);
+	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteMakeAdjustmentLayer), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	app->menus.num_disable_if_no_open++;
+
 	// 「3Dレイヤー」
 	if(GetHas3DLayer(app) != FALSE)
 	{
@@ -823,6 +832,15 @@ GtkWidget* GetMainMenu(
 		menu_item = gtk_menu_item_new_with_mnemonic(buff);
 	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(ExecuteGradationMapFilter), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	app->menus.num_disable_if_no_open++;
+
+	// 「ピクセルをトレース」
+	(void)sprintf(buff, "%s", app->labels->menu.trace_pixels);
+	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteTraceBitmap), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_open++;
 
@@ -1796,6 +1814,72 @@ void ExecuteMakeLayerSet(APPLICATION *app)
 		window->height,
 		window->channel,
 		TYPE_LAYER_SET,
+		window->active_layer,
+		window->active_layer->next,
+		layer_name,
+		window
+	);
+
+	// 局所キャンバスモードなら親キャンバスでもレイヤー作成
+	if((window->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		DRAW_WINDOW *parent = app->draw_window[app->active_window];
+		LAYER *parent_prev = SearchLayer(parent->layer, window->active_layer->name);
+		LAYER *parent_next = (parent_prev == NULL) ? parent->layer : parent_prev->next;
+		LAYER *parent_new = CreateLayer(0, 0, parent->width, parent->height, parent->channel,
+			(eLAYER_TYPE)layer->layer_type, parent_prev, parent_next, layer->name, parent);
+		parent->num_layer++;
+		AddNewLayerHistory(parent_new, parent_new->layer_type);
+	}
+
+	// レイヤー数を更新
+	app->draw_window[app->active_window]->num_layer++;
+
+	// レイヤーウィンドウに登録してアクティブレイヤーに
+	LayerViewAddLayer(layer, window->layer,
+		app->layer_window.view, window->num_layer);
+	ChangeActiveLayer(window, layer);
+	LayerViewSetActiveLayer(layer, app->layer_window.view);
+
+	// 「新規ベクトルレイヤー」の履歴を登録
+	AddNewLayerHistory(layer, layer->layer_type);
+}
+
+/*****************************************************
+* ExecuteMakeAdjustmentLayer関数                     *
+* 調整レイヤー作成を実行                             *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+void ExecuteMakeAdjustmentLayer(APPLICATION *app)
+{
+	// アクティブな描画領域
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	// 新規作成したレイヤーのアドレスを受け取る
+	LAYER* layer;
+	// 作成するレイヤーの名前
+	char layer_name[MAX_LAYER_NAME_LENGTH];
+	// レイヤー名決定用のカウンタ
+	int counter = 1;
+
+	AUTO_SAVE(app->draw_window[app->active_window]);
+
+	// 「レイヤーセット○」の○に入る数値を決定
+		// (レイヤー名の重複を避ける)
+	do
+	{
+		(void)sprintf(layer_name, "%s %d", app->labels->layer_window.new_adjsutment_layer, counter);
+		counter++;
+	} while(CorrectLayerName(window->layer, layer_name) == 0);
+
+	// レイヤー作成
+	layer = CreateLayer(
+		0,
+		0,
+		window->width,
+		window->height,
+		window->channel,
+		TYPE_ADJUSTMENT_LAYER,
 		window->active_layer,
 		window->active_layer->next,
 		layer_name,

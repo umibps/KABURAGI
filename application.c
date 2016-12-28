@@ -3277,6 +3277,12 @@ void OpenFile(char *file_path, APPLICATION* app)
 			// 描画領域を新たに追加
 			app->draw_window[app->window_num] = CreateDrawWindow(
 				width, height, 4, file_name, app->note_book, app->window_num, app);
+			// ICCプロファイル用のダイアログが表示されるとexposeイベントが呼ばれてしまうので
+				// 一時的にシグナルを停止する
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+			g_signal_handlers_disconnect_by_func(app->draw_window[app->window_num]->gl_area,
+				G_CALLBACK(DisplayDrawWindow), app->draw_window[app->window_num]);
+#endif
 
 			app->active_window = app->window_num;
 			// ファイルパスを設定
@@ -3394,6 +3400,17 @@ void OpenFile(char *file_path, APPLICATION* app)
 
 				g_free(system_path);
 			}
+
+			// 一時停止していた表示用のシグナルを再接続
+#if GTK_MAJOR_VERSION >= 3
+			(void)g_signal_connect(G_OBJECT(app->draw_window[app->active_window]->window),
+				"draw", G_CALLBACK(DisplayDrawWindow), app->draw_window[app->active_window]
+			);
+#else
+			(void)g_signal_connect(G_OBJECT(app->draw_window[app->active_window]->window),
+				"expose_event", G_CALLBACK(DisplayDrawWindow), app->draw_window[app->active_window]
+			);
+#endif
 
 			// 描画領域のカウンタを更新
 			app->window_num++;

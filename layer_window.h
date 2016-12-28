@@ -44,12 +44,14 @@ typedef struct _LAYER_WINDOW
 	uint16 change_bg_index;
 	struct
 	{
-		GtkWidget* mode, *mask_width_under,
+		GtkWidget *mode, *mask_width_under,
 			*lock_opacity, *new_box, *up, *down,
-			*merge_box, *merge_down, *delete_layer;
+			*merge_box, *merge_down, *delete_layer,
+			*new_adjustment;
 		GtkAdjustment* opacity;
 		uint16 opacity_index, new_box_index, merge_index,
-			delete_menu_index, merge_down_menu_index, flatten_menu_index;
+			delete_menu_index, merge_down_menu_index, flatten_menu_index,
+			new_adjustment_index;
 	} layer_control;
 	DRAW_WINDOW* active_draw;
 	GdkPixbuf *eye, *pin;

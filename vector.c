@@ -2660,7 +2660,7 @@ static void AddTopSquareUndo(DRAW_WINDOW* window, void* p)
 	// 一番上の四角形を削除
 	square = (VECTOR_SQUARE*)layer->layer_data.vector_layer_p->top_data;
 	layer->layer_data.vector_layer_p->top_data = ((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
-	DeleteVectorShape(((VECTOR_BASE_DATA*)(&square)));
+	DeleteVectorShape(((VECTOR_BASE_DATA**)(&square)));
 
 	// 形状をラスタライズ
 	if(layer->layer_data.vector_layer_p->flags != VECTOR_LAYER_RASTERIZE_ACTIVE)
@@ -2847,7 +2847,7 @@ static void AddTopEclipseUndo(DRAW_WINDOW* window, void* p)
 	// 一番上の楕円を削除
 	square = (VECTOR_SQUARE*)layer->layer_data.vector_layer_p->top_data;
 	layer->layer_data.vector_layer_p->top_data = ((VECTOR_BASE_DATA*)layer->layer_data.vector_layer_p->top_data)->prev;
-	DeleteVectorShape(((VECTOR_BASE_DATA*)(&square)));
+	DeleteVectorShape(((VECTOR_BASE_DATA**)(&square)));
 
 	// 形状をラスタライズ
 	if(layer->layer_data.vector_layer_p->flags != VECTOR_LAYER_RASTERIZE_ACTIVE)

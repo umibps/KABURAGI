@@ -128,6 +128,14 @@ EXTERN void ExecutePerlinNoiseFilter(APPLICATION* app);
 *****************************************************/
 EXTERN void ExecuteFractal(APPLICATION* app);
 
+/*****************************************************
+* ExecuteTraceBitmap関数                             *
+* ピクセルデータのベクトルレイヤーへの変換を実行     *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+EXTERN void ExecuteTraceBitmap(APPLICATION* app);
+
 #ifdef __cplusplus
 }
 #endif
