@@ -13,6 +13,10 @@
 #include "utils.h"
 #include "memory.h"
 
+#if !defined(USE_QT) || (defined(USE_QT) && USE_QT != 0)
+# include "gui/GTK/utils_gtk.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

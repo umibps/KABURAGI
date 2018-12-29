@@ -22,6 +22,8 @@
 #include "LuaCairo/lcairo.h"
 #include "memory.h"
 
+#include "gui/GTK/gtk_widgets.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -825,7 +827,7 @@ void RasterizeVectorScript(
 		(void)sprintf(message, "Failed to rasterize script vector.\n%s",
 			lua_tostring(state, -1));
 		dialog = gtk_message_dialog_new(
-			GTK_WINDOW(window->app->window), GTK_DIALOG_MODAL,
+			GTK_WINDOW(window->app->widgets->window), GTK_DIALOG_MODAL,
 				GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, message);
 		gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
 		gtk_widget_show_all(dialog);
@@ -855,7 +857,7 @@ void RasterizeVectorScript(
 		(void)sprintf(message, "Failed to rasterize script vector.\n%s",
 			lua_tostring(state, -1));
 		dialog = gtk_message_dialog_new(
-			GTK_WINDOW(window->app->window), GTK_DIALOG_MODAL,
+			GTK_WINDOW(window->app->widgets->window), GTK_DIALOG_MODAL,
 				GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, message);
 		gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
 		gtk_widget_show_all(dialog);

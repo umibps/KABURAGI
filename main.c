@@ -142,7 +142,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #  ifdef _DEBUG
 #   pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
 #  else
-#   if _MSC_VER >= 1600
+#   if _MSC_VER >= 1600 && _MSC_VER < 1900
 #    pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
 #   endif
 #  endif
@@ -348,8 +348,8 @@ int main(int argc, char** argv)
 			"Close Window", "Dock Left", "Dock Right", "Full Screen", "Reference Image Window",
 			"Move Top Left", "Hot Key", "Loading...", "Saving..."},
 		{"pixel", "Length", "Angle", "_BG", "Loop", "Preview", "Interval", "minute", "Detail", "Target",
-			"Clip Board", "Name", "Type", "Resolution", "Center", "Straight", "Grow", "Mode", "Red", "Green", "Blue",
-			"Cyan", "Magenta", "Yellow", "Key Plate", "Add", "Delete"},
+			"Clip Board", "Name", "Type", "Resolution", "Center", "Key", "Straight", "Grow", "Mode", "Red", "Green",
+			"Blue", "Cyan", "Magenta", "Yellow", "Key Plate", "Add", "Delete"},
 		{"File", "New", "Open", "Open as Layer", "Save", "Save as", "Close", "Quit", "Edit", "Undo", "Redo",
 			"Copy", "Copy Visible", "Cut", "Paste", "Clipboard", "Transform", "Projection", "Canvas",
 			"Change Resolution", "Change Canvas Size", "Flip Canvas Horizontally", "Flip Canvas Vertically",
@@ -383,8 +383,9 @@ int main(int argc, char** argv)
 			"Clear Pallete", "Pick Mode", "Single Pixel", "Average Color", "Open Path", "Close Path", "Update",
 			"Frequency", "Cloud Color", "Persistence", "Random Seed", "Use Random", "Update Immediately",
 			"Number of Octaves", "Linear", "Cosine", "Cubic", "Colorize", "Start Editting 3D Model",
-			"Finish Editting 3D Model", "Scatter", "Scatter Size", "Scatter Range", "Random Size Scatter",
-			"Random Flow Scatter", "Bevel", "Round", "Mitter", "Normal Brush",
+			"Finish Editting 3D Model", "Scatter", "Scatter Amount", "Scatter Size", "Scatter Range", "Random Size Scatter",
+			"Random Flow Scatter", "Draw Scatter Only", "Bevel", "Round", "Mitter", "Normal Brush", "Brush Set",
+			"Change Brush Set Key",
 			{"Pencil", "Hard Pen", "Air Brush", "Old Air Brush", "Water Color Brush", "Picker Brush", "Eraser", "Bucket",
 				"Pattern Fill", "Blur Tool", "Smudge", "Mix Brush", "Gradation", "Text Tool", "Stamp Tool",
 				"Image Brush", "Image Blend\nBrush", "Picker Image Brush", "Script Brush", "Custom Brush", "PLUG_IN"},
@@ -394,10 +395,14 @@ int main(int argc, char** argv)
 				"Move Stroke", "Copy & Move Stroke", "Joint Stroke"},
 			{"Circle", "Eclipse", "Triangle", "Square", "Rhombus", "Hexagon", "Star", "Pattern", "Image"}
 		},
-		{"Layer", "Layer", "Vector", "Layer Set", "Text", "Adjustment", "3D Modeling", "Add Layer", "Add Vector Layer",
-			"Add Layer Set", "Add 3D Modeling Layer", "Add Adjustment Layer", "Rename Layer", "Reorder Layer",
-			"Opacity to Selection Area", "Opacity Add Selection Area", "Pasted Layer", "Under Layer",
-			"Mixed Under Layer", "Blend Mode", "Opacity", "Masking with Under Layer", "Lock Opacity",
+		{"Layer", "Normal Layer", "Vector Layer", "Text Layer", "Layer Set", "Adjustment Layer",
+			"3D Modeling Layer", "Layer Group", "Layer", "Vector", "Layer Set", "Text", "Adjustment",
+			"3D Modeling", "Add Layer", "Add Vector Layer", "Add Layer Set", "Add 3D Modeling Layer",
+			"Add Adjustment Layer", "Rename Layer", "Reorder Layer", "Opacity to Selection Area",
+			"Opacity Add Selection Area", "Pasted Layer", "Under Layer", "Mixed Under Layer",
+			"Blend Mode", "Opacity", "Masking with Under Layer", "Lock Opacity", "Add under Active Layer",
+			"Layer group must have name.", "Layer group name \"%s\" is already exists.",
+			"Each layer must have different name.",
 			{"Normal", "Add", "Multiply", "Screen", "Overlay", "Lighten", "Darken", "Dodge", "Burn",
 				"Hard Light", "Soft Light", "Difference", "Exclusion", "Hue", "Saturation", "Color",
 				"Luminosity", "Binalize"}},
@@ -408,7 +413,7 @@ int main(int argc, char** argv)
 		{"Preference", "Base Settings", "Auto Save", "Theme", "Default",
 			"There is a conflict to set a hot key.", "Language", "Backup File Directory",
 			"Show Preview Window on Taskbar", "Draw with Touch", "Scale Change and Move Canvas with Change",
-			"Set Back Ground Color"},
+			"Set Back Ground Color", "Layer Window's Scrollbar places Left", "GUI Scale", "Add Brush Set"},
 		{"Execute Back Up..."}
 	};
 
@@ -460,24 +465,9 @@ int main(int argc, char** argv)
 		raw_path = g_locale_to_utf8(argv[0], -1, NULL, NULL, NULL);
 		application.current_path = g_path_get_dirname(raw_path);
 
-		InitializeApplication(&application, INITIALIZE_FILE_NAME);
+		InitializeApplication(&application, argv, argc, INITIALIZE_FILE_NAME);
 		g_free(raw_path);
 	}
-
-	/*
-	{
-		cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 500, 500);
-		cairo_t *cairo_p = cairo_create(surface);
-
-		cairo_scale(cairo_p, 1, 2);
-		cairo_arc(cairo_p, 100, 100, 50, 0, 2*G_PI);
-		cairo_fill(cairo_p);
-
-		cairo_surface_write_to_png(surface, "test.png");
-
-		cairo_destroy(cairo_p);
-	}
-	*/
 
 	if(argc > 1)
 	{

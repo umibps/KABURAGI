@@ -16,6 +16,11 @@
 #include "display_filter.h"
 #include "tlg6_encode.h"
 
+#if !defined(USE_QT) || (defined(USE_QT) && USE_QT != 0)
+# include "gui/GTK/utils_gtk.h"
+# include "gui/GTK/gtk_widgets.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,7 +32,7 @@ void SaveAsPng(APPLICATION* app, DRAW_WINDOW* window, const gchar* file_name)
 	GtkWidget* radio_button[2];
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		"",
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -346,7 +351,7 @@ void SaveAsJpeg(APPLICATION* app, DRAW_WINDOW* window, const gchar* file_name)
 {
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		"",
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -490,17 +495,17 @@ void SaveAsOriginalFormat(APPLICATION* app, DRAW_WINDOW* window, const char* fil
 	}
 
 	// メッセージを表示
-	context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(app->status_bar), "Saving");
-	message_id = gtk_statusbar_push(GTK_STATUSBAR(app->status_bar),
+	context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(app->widgets->status_bar), "Saving");
+	message_id = gtk_statusbar_push(GTK_STATUSBAR(app->widgets->status_bar),
 		context_id, app->labels->window.saving);
-	gtk_widget_queue_draw(app->status_bar);
+	gtk_widget_queue_draw(app->widgets->status_bar);
 
 	WriteOriginalFormat((void*)fp, (stream_func_t)fwrite, window, 1, app->preference.compress);
 
 	(void)fclose(fp);
 
 	// メッセージ表示を終了
-	gtk_statusbar_remove(GTK_STATUSBAR(app->status_bar), context_id, message_id);
+	gtk_statusbar_remove(GTK_STATUSBAR(app->widgets->status_bar), context_id, message_id);
 }
 
 /*****************************************
@@ -546,7 +551,7 @@ void SaveAsTiff(APPLICATION* app, DRAW_WINDOW* window, const char* file_name)
 
 	dialog = gtk_dialog_new_with_buttons(
 		"",
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -610,7 +615,7 @@ void SaveAsTlg(APPLICATION* app, DRAW_WINDOW* window, const gchar* file_name)
 	GtkWidget *rgb_button;
 	GtkWidget *dialog = gtk_dialog_new_with_buttons(
 		"",
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL

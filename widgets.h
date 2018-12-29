@@ -41,7 +41,8 @@ EXTERN GtkWidget* CreateNotebookLabel(
 EXTERN GtkWidget *CreateImageButton(
 	const char* image_file_path,
 	const gchar* label,
-	const char* font_file
+	const char* font_file,
+	FLOAT_T scale
 );
 
 typedef enum _ICC_PROFILE_USAGE

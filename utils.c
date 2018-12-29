@@ -9,7 +9,6 @@
 #include <string.h>
 #include <math.h>
 #include <zlib.h>
-#include <gtk/gtk.h>
 #include "memory.h"
 #include "types.h"
 #include "utils.h"
@@ -132,6 +131,133 @@ char* StringStringIgnoreCase(const char* str, const char* search)
 	return (char*)ret;
 }
 
+/*******************************************
+* StringRemoveTargetString関数             *
+* 文字列から対象の文字列を削除する         *
+* 引数                                     *
+* str		: 対象の文字列を削除する文字列 *
+* target	: 削除する文字列               *
+* output	: 出力バッファ                 *
+*******************************************/
+void StringRemoveTargetString(char* str, const char* target, char* output)
+{
+	char *buffer;
+	char *current;
+	char *next;
+	char *for_buffer;
+	char *buffer_input;
+	char *temp_buffer;
+	char *in;
+	char *out;
+	size_t target_length;
+	int buffer_length;
+
+	if(str == NULL)
+	{
+		return;
+	}
+	else if(*str == '\0')
+	{
+		return;
+	}
+
+	temp_buffer = (char*)MEM_ALLOC_FUNC(strlen(str)+1);
+	out = temp_buffer;
+	target_length = strlen(target);
+	buffer = (char*)MEM_ALLOC_FUNC(strlen(str)+1);
+
+	if(output == NULL)
+	{
+		output = str;
+	}
+
+	current = str;
+	while(*current != '\0')
+	{
+		next = (char*)GetNextUtf8Character(current);
+
+		for_buffer = current;
+		buffer_input = buffer;
+
+		for(buffer_length = 0; *next != '\0';)
+		{
+			while(for_buffer < next)
+			{
+				*buffer_input = *for_buffer;
+				for_buffer++;
+				buffer_input++;
+				buffer_length++;
+			}
+
+			if(buffer_length < (int)target_length)
+			{
+				next = (char*)GetNextUtf8Character(next);
+			}
+			else
+			{
+				break;
+			}
+		}
+		*buffer_input = '\0';
+
+		if(buffer_length == target_length)
+		{
+			if(strcmp(buffer, target) != 0)
+			{
+				in = buffer;
+				while(*in != '\0')
+				{
+					*out = *in;
+					in++;
+					out++;
+				}
+			}
+		}
+		else
+		{
+			in = current;
+			while(in < next)
+			{
+				*out = *in;
+				in++;
+				out++;
+			}
+		}
+
+		current = next;
+	}
+	*out = '\0';
+
+	(void)strcpy(output, temp_buffer);
+	MEM_FREE_FUNC(temp_buffer);
+	MEM_FREE_FUNC(buffer);
+}
+
+/*************************************
+* GetNextUtf8Character関数           *
+* 次のUTF8の文字を取得する           *
+* 引数                               *
+* str	: 次の文字を取得したい文字列 *
+* 返り値                             *
+*	次の文字のアドレス               *
+*************************************/
+const char* GetNextUtf8Character(const char* str)
+{
+	static const unsigned char skips[256] =
+	{
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+		3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 1, 1
+	};
+
+	return str + skips[((unsigned char)*str)];
+}
+
 /*********************************
 * GetFileExtention関数           *
 * ファイル名から拡張子を取得する *
@@ -224,11 +350,6 @@ void StringRepalce(
 		(void)strcat(str, replace_to);
 		(void)strcat(str, work);
 	}
-}
-
-int ForFontFamilySearchCompare(const char* str, PangoFontFamily** font)
-{
-	return StringCompareIgnoreCase(str, pango_font_family_get_name(*font));
 }
 
 BYTE_ARRAY* ByteArrayNew(size_t block_size)
@@ -761,85 +882,6 @@ void StructArrayRemoveByIndex(
 	}
 }
 
-/*******************************************
-* FileRead関数                             *
-* Gtkの関数を利用してファイル読み込み      *
-* 引数                                     *
-* dst			: 読み込み先のアドレス     *
-* block_size	: 読み込むブロックのサイズ *
-* read_num		: 読み込むブロックの数     *
-* stream		: 読み込み元のストリーム   *
-* 返り値                                   *
-*	読み込んだブロック数                   *
-*******************************************/
-size_t FileRead(void* dst, size_t block_size, size_t read_num, GFileInputStream* stream)
-{
-	return g_input_stream_read(
-		G_INPUT_STREAM(stream), dst, block_size*read_num, NULL, NULL) / block_size;
-}
-
-/*******************************************
-* FileWrite関数                            *
-* Gtkの関数を利用してファイル書き込み      *
-* 引数                                     *
-* src			: 書き込み元のアドレス     *
-* block_size	: 書き込むブロックのサイズ *
-* read_num		: 書き込むブロックの数     *
-* stream		: 書き込み先のストリーム   *
-* 返り値                                   *
-*	書き込んだブロック数                   *
-*******************************************/
-size_t FileWrite(void* src, size_t block_size, size_t read_num, GFileOutputStream* stream)
-{
-	return g_output_stream_write(
-		G_OUTPUT_STREAM(stream), src, block_size*read_num, NULL, NULL) / block_size;
-}
-
-/********************************************
-* FileSeek関数                              *
-* Gtkの関数を利用してファイルシーク         *
-* 引数                                      *
-* stream	: シークを行うストリーム        *
-* offset	: 移動バイト数                  *
-* origin	: 移動開始位置(fseek関数と同等) *
-* 返り値                                    *
-*	正常終了(0), 異常終了(0以外)            *
-********************************************/
-int FileSeek(void* stream, long offset, int origin)
-{
-	GSeekType seek;
-
-	switch(origin)
-	{
-	case SEEK_SET:
-		seek = G_SEEK_SET;
-		break;
-	case SEEK_CUR:
-		seek = G_SEEK_CUR;
-		break;
-	case SEEK_END:
-		seek = G_SEEK_END;
-		break;
-	default:
-		return -1;
-	}
-
-	return !(g_seekable_seek(G_SEEKABLE(stream), offset, seek, NULL, NULL));
-}
-
-/************************************************
-* FileSeekTell関数                              *
-* Gtkの関数を利用してファイルのシーク位置を返す *
-* 引数                                          *
-* stream	: シーク位置を調べるストリーム      *
-* 返り値                                        *
-*	シーク位置                                  *
-************************************************/
-long FileSeekTell(void* stream)
-{
-	return (long)g_seekable_tell(G_SEEKABLE(stream));
-}
-
 /***********************************************
 * InvertMatrix関数                             *
 * 逆行列を計算する                             *
@@ -1010,166 +1052,6 @@ int IsPointInTriangle(FLOAT_T check[2], FLOAT_T triangle1[2], FLOAT_T triangle2[
 	return FALSE;
 }
 
-void AdjustmentChangeValueCallBackInt(GtkAdjustment* adjustment, int* store)
-{
-	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
-	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
-
-	*store = (int)gtk_adjustment_get_value(adjustment);
-
-	if(func != NULL)
-	{
-		func(func_data);
-	}
-}
-
-void AdjustmentChangeValueCallBackUint(GtkAdjustment* adjustment, unsigned int* store)
-{
-	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
-	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
-
-	*store = (unsigned int)gtk_adjustment_get_value(adjustment);
-
-	if(func != NULL)
-	{
-		func(func_data);
-	}
-}
-
-void AdjustmentChangeValueCallBackInt8(GtkAdjustment* adjustment, int8* store)
-{
-	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
-	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
-
-	*store = (int8)gtk_adjustment_get_value(adjustment);
-
-	if(func != NULL)
-	{
-		func(func_data);
-	}
-}
-
-void AdjustmentChangeValueCallBackUint8(GtkAdjustment* adjustment, uint8* store)
-{
-	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
-	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
-
-	*store = (uint8)gtk_adjustment_get_value(adjustment);
-
-	if(func != NULL)
-	{
-		func(func_data);
-	}
-}
-
-void AdjustmentChangeValueCallBackInt16(GtkAdjustment* adjustment, int16* store)
-{
-	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
-	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
-
-	*store = (int16)gtk_adjustment_get_value(adjustment);
-
-	if(func != NULL)
-	{
-		func(func_data);
-	}
-}
-
-void AdjustmentChangeValueCallBackUint16(GtkAdjustment* adjustment, uint16* store)
-{
-	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
-	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
-
-	*store = (uint16)gtk_adjustment_get_value(adjustment);
-
-	if(func != NULL)
-	{
-		func(func_data);
-	}
-}
-
-void AdjustmentChangeValueCallBackInt32(GtkAdjustment* adjustment, int32* store)
-{
-	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
-	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
-
-	*store = (int32)gtk_adjustment_get_value(adjustment);
-
-	if(func != NULL)
-	{
-		func(func_data);
-	}
-}
-
-void AdjustmentChangeValueCallBackUint32(GtkAdjustment* adjustment, uint32* store)
-{
-	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
-	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
-
-	*store = (uint32)gtk_adjustment_get_value(adjustment);
-
-	if(func != NULL)
-	{
-		func(func_data);
-	}
-}
-
-void AdjustmentChangeValueCallBackDouble(GtkAdjustment* adjustment, gdouble* value)
-{
-	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
-	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
-
-	*value = gtk_adjustment_get_value(adjustment);
-
-	if(func != NULL)
-	{
-		func(func_data);
-	}
-}
-
-void AdjustmentChangeValueCallBackDoubleRate(GtkAdjustment* adjustment, gdouble* value)
-{
-	void (*func)(void*) = g_object_get_data(G_OBJECT(adjustment), "changed_callback");
-	void *func_data = g_object_get_data(G_OBJECT(adjustment), "callback_data");
-
-	*value = gtk_adjustment_get_value(adjustment) * 0.01;
-
-	if(func != NULL)
-	{
-		func(func_data);
-	}
-}
-
-void SetAdjustmentChangeValueCallBack(
-	GtkAdjustment* adjustment,
-	void (*func)(void*),
-	void* func_data
-)
-{
-	g_object_set_data(G_OBJECT(adjustment), "changed_callback", func);
-	g_object_set_data(G_OBJECT(adjustment), "callback_data", func_data);
-}
-
-static void CheckButtonChangeFlags(GtkWidget* button, guint32* flags)
-{
-	guint32 flag_value = (guint32)GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button), "flag-value"));
-	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
-	{
-		*flags &= ~flag_value;
-	}
-	else
-	{
-		*flags |= flag_value;
-	}
-}
-
-void CheckButtonSetFlagsCallBack(GtkWidget* button, unsigned int* flags, unsigned int flag_value)
-{
-	g_object_set_data(G_OBJECT(button), "flag-value", GUINT_TO_POINTER(flag_value));
-	(void)g_signal_connect(G_OBJECT(button), "toggled",
-		G_CALLBACK(CheckButtonChangeFlags), flags);
-}
-
 /*******************************************************
 * InflateData関数                                      *
 * ZIP圧縮されたデータをデコードする                    *
@@ -1261,49 +1143,6 @@ int DeflateData(
 	(void)deflateEnd(&compress_stream);
 
 	return 0;
-}
-
-void UpdateWidget(GtkWidget* widget)
-{
-#define MAX_EVENTS 500
-	GdkEvent *queued_event;
-	int counter = 0;
-	// イベントを回してメッセージを表示
-
-	gdk_threads_enter();
-#if GTK_MAJOR_VERSION <= 2
-	gdk_window_process_updates(widget->window, TRUE);
-#else
-	gdk_window_process_updates(gtk_widget_get_window(widget), TRUE);
-#endif
-
-	g_usleep(1);
-
-	gdk_threads_leave();
-
-	while(gdk_events_pending() != FALSE && counter < MAX_EVENTS)
-	{
-		counter++;
-		queued_event = gdk_event_get();
-		gtk_main_iteration();
-		if(queued_event != NULL)
-		{
-#if GTK_MAJOR_VERSION <= 2
-			if(queued_event->any.window == widget->window
-#else
-			if(queued_event->any.window == gtk_widget_get_window(widget)
-#endif
-				&& queued_event->any.type == GDK_EXPOSE)
-			{
-				gdk_event_free(queued_event);
-				break;
-			}
-			else
-			{
-				gdk_event_free(queued_event);
-			}
-		}
-	}
 }
 
 /*****************************************

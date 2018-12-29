@@ -62,13 +62,13 @@ typedef struct _DRAW_WINDOW
 
 	int16 degree;		// 回転角(度数法)
 
-	gchar* file_name;	// ファイル名
+	char *file_name;	// ファイル名
 
-	gchar* file_path;	// ファイルパス
+	char *file_path;	// ファイルパス
 
 	// 時間で再描画を呼ぶ関数のID
-	guint timer_id;
-	guint auto_save_id;
+	unsigned int timer_id;
+	unsigned int auto_save_id;
 
 	// タブ切り替え前のレイヤービューの位置
 	int layer_view_position;
@@ -119,19 +119,19 @@ typedef struct _DRAW_WINDOW
 	uint8 *back_ground;		// 背景のピクセルデータ
 	uint8 *brush_buffer;	// ブラシ用のバッファ
 
-	LAYER* layer;			// 一番下のレイヤー
+	LAYER *layer;			// 一番下のレイヤー
 	// 表示用、エフェクト用、ブラシカーソル表示用の一時保存
-	LAYER* disp_layer, *effect, *disp_temp, *scaled_mixed;
+	LAYER *disp_layer, *effect, *disp_temp, *scaled_mixed;
 	// アクティブなレイヤー&レイヤーセットへのポインタ
 		// 及び表示レイヤーを合成したレイヤー
-	LAYER* active_layer, *active_layer_set, *mixed_layer;
+	LAYER *active_layer, *active_layer_set, *mixed_layer;
 	// 作業用、一時保存用、選択範囲、アクティブレイヤーより下のレイヤー
 	LAYER *work_layer, *temp_layer,
 		*selection, *under_active;
 	// マスクとマスク適用前の一時保存用
-	LAYER* mask, *mask_temp;
+	LAYER *mask, *mask_temp;
 	// テクスチャ用
-	LAYER* texture;
+	LAYER *texture;
 	// 表示用パターン
 	cairo_pattern_t *mixed_pattern;
 	// αチャンネルのみのマスク用サーフェース
@@ -164,16 +164,16 @@ typedef struct _DRAW_WINDOW
 	HISTORY history;
 
 	// 描画領域のウィジェット
-	GtkWidget* window;
+	GtkWidget *window;
 
 	// 描画領域のスクロール
-	GtkWidget* scroll;
+	GtkWidget *scroll;
 
 	// 表示更新等のフラグ
 	unsigned int flags;
 
 	// 変形処理用のデータ
-	struct _TRANSFORM_DATA* transform;
+	struct _TRANSFORM_DATA *transform;
 
 	// 2つめの背景色
 	uint8 second_back_ground[3];
@@ -192,6 +192,8 @@ typedef struct _DRAW_WINDOW
 
 	// 局所キャンバス
 	struct _DRAW_WINDOW *focal_window;
+	// ルーペモード前のスクロールバーの位置
+	int16 focal_x, focal_y;
 
 	// アプリケーション全体管理用構造体へのポインタ
 	struct _APPLICATION* app;

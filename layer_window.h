@@ -21,7 +21,8 @@ typedef enum _eLAYER_WINDOW_FLAGS
 	LAYER_WINDOW_IN_CHANGE_NAME = 0x04,
 	LAYER_WINDOW_DOCKED = 0x08,
 	LAYER_WINDOW_PLACE_RIGHT = 0x10,
-	LAYER_WINDOW_POP_UP = 0x20
+	LAYER_WINDOW_POP_UP = 0x20,
+	LAYER_WINDOW_SCROLLBAR_PLACE_LEFT = 0x40
 } eLAYER_WINDOW_FLAGS;
 
 typedef struct _LAYER_WINDOW
@@ -57,7 +58,7 @@ typedef struct _LAYER_WINDOW
 	GdkPixbuf *eye, *pin;
 	GdkPixbuf *open, *close;
 	cairo_surface_t *thumb_back;
-	uint8 thumb_back_pixels[LAYER_THUMBNAIL_SIZE*LAYER_THUMBNAIL_SIZE*4];
+	uint8 *thumb_back_pixels;
 	int flags;
 } LAYER_WINDOW;
 
@@ -67,9 +68,9 @@ typedef struct _LAYER_WIDGET
 	GtkWidget *box;
 	GtkWidget *parameters, *name,
 		*mode, *alpha, *alignment;
-	GtkWidget* frame;
-	GtkWidget* thumbnail;
-	cairo_surface_t* thumb_surface;
+	GtkWidget *frame;
+	GtkWidget *thumbnail;
+	cairo_surface_t *thumb_surface;
 	uint8 flags;
 	gint start_x, start_y;
 } LAYER_WIDGET;

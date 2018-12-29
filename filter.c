@@ -22,6 +22,11 @@
 #include "fractal_editor.h"
 #include "trace.h"
 
+#if !defined(USE_QT) || (defined(USE_QT) && USE_QT != 0)
+# include "gui/GTK/utils_gtk.h"
+# include "gui/GTK/gtk_widgets.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -691,7 +696,7 @@ void ExecuteBlurFilter(APPLICATION* app)
 
 	dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.blur,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -2308,7 +2313,7 @@ static void MotionBlurPrevewButtonClicked(MOTION_BLUR* filter_data)
 void ExecuteMotionBlurFilter(APPLICATION* app)
 {
 	MOTION_BLUR filter_data = {0};
-	DRAW_WINDOW *window = app->draw_window[app->active_window];
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	GtkWidget *dialog;
 	GtkWidget *radio_buttons[4];
 	GtkWidget *vbox;
@@ -2320,7 +2325,7 @@ void ExecuteMotionBlurFilter(APPLICATION* app)
 
 	dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.motion_blur,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_OK,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, NULL
@@ -2771,7 +2776,7 @@ void ExecuteGaussianBlurFilter(APPLICATION* app)
 	// 拡大するピクセル数を指定するダイアログ
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.gaussian_blur,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -2780,6 +2785,8 @@ void ExecuteGaussianBlurFilter(APPLICATION* app)
 	GtkWidget* label, *spin, *hbox, *size;
 	// ピクセル数指定スピンボタンのアジャスタ
 	GtkAdjustment* adjust;
+	// キャンバス
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	// ラベル用のバッファ
 	char str[4096];
 	// ダイアログの結果
@@ -2809,14 +2816,12 @@ void ExecuteGaussianBlurFilter(APPLICATION* app)
 
 	result = gtk_dialog_run(GTK_DIALOG(dialog));
 
-	if((app->draw_window[app->active_window]->flags & DRAW_WINDOW_EDIT_SELECTION) == 0)
+	if((window->flags & DRAW_WINDOW_EDIT_SELECTION) == 0)
 	{
-		if(app->draw_window[app->active_window]->active_layer->layer_type == TYPE_NORMAL_LAYER)
+		if(window->active_layer->layer_type == TYPE_NORMAL_LAYER)
 		{
 			if(result == GTK_RESPONSE_ACCEPT)
 			{	// O.K.ボタンが押された
-				DRAW_WINDOW* window =	// 処理する描画領域
-					app->draw_window[app->active_window];
 				// 繰り返す回数
 				BLUR_FILTER_DATA loop = {
 					(uint16)gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin)),
@@ -3136,13 +3141,13 @@ void ExecuteChangeBrightContrastFilter(APPLICATION* app)
 	// 拡大するピクセル数を指定するダイアログ
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.bright_contrast,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
 	);
 	// 処理する描画領域
-	DRAW_WINDOW* window = app->draw_window[app->active_window];
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
 	// 明るさコントラストの調整値
 	CHANGE_BRIGHT_CONTRAST change_value = {0, 0};
 	// 明るさコントラスト調整値指定用のウィジェット
@@ -3513,13 +3518,13 @@ void ExecuteChangeHueSaturationFilter(APPLICATION* app)
 	// 拡大するピクセル数を指定するダイアログ
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.bright_contrast,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
 	);
 	// 処理する描画領域
-	DRAW_WINDOW* window = app->draw_window[app->active_window];
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
 	// 明るさコントラストの調整値
 	CHANGE_HUE_SATURATION_DATA change_value = {0, 0, 0};
 	// 明るさコントラスト調整値指定用のウィジェット
@@ -4560,7 +4565,7 @@ void ExecuteColorLevelAdjust(APPLICATION* app)
 
 	dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.color_levels,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_OK,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
@@ -5880,7 +5885,7 @@ void ExecuteToneCurve(APPLICATION* app)
 
 	dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.tone_curve,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_OK,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
@@ -6100,7 +6105,7 @@ void Luminosity2OpacityFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 void ExecuteLuminosity2OpacityFilter(APPLICATION* app)
 {
 	DRAW_WINDOW* window =	// 処理する描画領域
-		app->draw_window[app->active_window];
+		GetActiveDrawWindow(app);
 	// ダミーデータ
 	int32 dummy = 0;
 	// レイヤーの数
@@ -6212,7 +6217,7 @@ static void Color2AlphaFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 void ExecuteColor2AlphaFilter(APPLICATION* app)
 {
 	DRAW_WINDOW* window =	// 処理する描画領域
-		app->draw_window[app->active_window];
+		GetActiveDrawWindow(app);
 	// フィルターの設定データ
 	COLOR2ALPHA filter_data = {0};
 	// 透明にする色
@@ -6230,7 +6235,7 @@ void ExecuteColor2AlphaFilter(APPLICATION* app)
 
 	dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.color2alpha,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_OK, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 		NULL
@@ -6464,7 +6469,7 @@ static void ColorizeWithUnderSetTarget(GtkWidget* radio_button, COLORIZE_WITH_UN
 void ExecuteColorizeWithUnderFilter(APPLICATION* app)
 {
 	DRAW_WINDOW* window =	// 処理する描画領域
-		app->draw_window[app->active_window];
+		GetActiveDrawWindow(app);
 	COLORIZE_WITH_UNDER filter_data =
 		{0, 0, 0, 5, COLORIZE_WITH_UNDER_LAYER};
 	LAYER *target = window->active_layer;
@@ -6489,7 +6494,7 @@ void ExecuteColorizeWithUnderFilter(APPLICATION* app)
 
 	dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.colorize_with_under,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -6752,7 +6757,7 @@ void ExecuteGradationMapFilter(APPLICATION* app)
 	// グラデーションの設定を指定するダイアログ
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.gradation_map,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -7288,7 +7293,7 @@ void FillWithVectorLineFilter(DRAW_WINDOW* window, LAYER** layers, uint16 num_la
 void ExecuteFillWithVectorLineFilter(APPLICATION* app)
 {
 	FILL_WITH_VECTOR_LINE fill_data = {0};
-	DRAW_WINDOW *window = app->draw_window[app->active_window];
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	LAYER *layers[256];
 	LAYER *layer = window->layer;
 	uint16 num_layer = 1;
@@ -7935,7 +7940,7 @@ void ExecutePerlinNoiseFilter(APPLICATION* app)
 	// パーリンノイズを指定するダイアログ
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.cloud,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_OK,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -8232,7 +8237,7 @@ void ExecuteFractal(APPLICATION* app)
 	// 拡大するピクセル数を指定するダイアログ
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.fractal,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_OK,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -8290,12 +8295,12 @@ void ExecuteFractal(APPLICATION* app)
 	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(scroll), vbox);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 #if GTK_MAJOR_VERSION <= 2
-	allocation = app->window->allocation;
+	allocation = app->widgets->window->allocation;
 #else
 	gtk_widget_get_allocation(app->window, &allocation);
 #endif
 	gtk_widget_set_size_request(scroll, allocation.width, allocation.height - 80);
-	gtk_window_get_position(GTK_WINDOW(app->window), &x, &y);
+	gtk_window_get_position(GTK_WINDOW(app->widgets->window), &x, &y);
 	gtk_window_move(GTK_WINDOW(dialog), x, y);
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
 		scroll, TRUE, TRUE, 0);
@@ -8511,7 +8516,7 @@ void ExecuteTraceBitmap(APPLICATION* app)
 	// 拡大するピクセル数を指定するダイアログ
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.trace_pixels,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_OK,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -8532,8 +8537,6 @@ void ExecuteTraceBitmap(APPLICATION* app)
 	// フィルターを適用するレイヤー
 	LAYER *target = window->active_layer;
 	char str[4096];
-	// for文用のカウンタ
-	int i;
 
 	// 設定データを初期化
 	InitializeBitmapTracer(&data.tracer, target->pixels, target->width, target->height);

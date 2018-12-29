@@ -24,15 +24,13 @@
 #ifndef SRGB_PROFILE_H
 #define SRGB_PROFILE_H
 
-#include <glib.h>
-
 #ifdef __SUNPRO_C
 #pragma align 4 ( sRGB_profile )
 #endif
 #ifdef __GNUC__
-static const guint8 sRGB_profile[] __attribute__ ((__aligned__ (4))) = {
+static const unsigned char sRGB_profile[] __attribute__ ((__aligned__ (4))) = {
 #else
-static const guint8 sRGB_profile[] = {
+static const unsigned char sRGB_profile[] = {
 #endif
   "\x00\x00\x0B\x0C\x6C\x63\x6D\x73\x02\x30\x00\x00\x6D\x6E\x74\x72"
   "\x52\x47\x42\x20\x58\x59\x5A\x20\x07\xDA\x00\x04\x00\x05\x00\x06"

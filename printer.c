@@ -3,6 +3,8 @@
 #include "memory.h"
 #include "configure.h"
 
+#include "./gui/GTK/gtk_widgets.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -91,7 +93,7 @@ void ExecutePrint(APPLICATION* app)
 		G_CALLBACK(DrawPage), app->draw_window[app->active_window]);
 
 	result = gtk_print_operation_run(printer,
-		GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG, GTK_WINDOW(app->window), NULL);
+		GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG, GTK_WINDOW(app->widgets->window), NULL);
 
 	if(result == GTK_PRINT_OPERATION_RESULT_APPLY)
 	{

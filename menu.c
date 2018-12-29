@@ -16,13 +16,15 @@
 #include "clip_board.h"
 #include "ini_file.h"
 #include "menu.h"
-#include "input.h"
 #include "display.h"
 #include "memory.h"
 #include "filter.h"
 #include "transform.h"
 #include "printer.h"
 #include "plug_in.h"
+
+#include "./gui/GTK/input_gtk.h"
+#include "./gui/GTK/gtk_widgets.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -138,13 +140,13 @@ GtkWidget* GetMainMenu(
 	app->menus.menu_start_disable_if_normal_layer = app->menus.num_disable_if_normal_layer;
 
 	// ショートカットキー登録の準備
-	if(app->hot_key == NULL)
+	if(app->widgets->hot_key == NULL)
 	{
-		app->hot_key = accel_group = gtk_accel_group_new();
+		app->widgets->hot_key = accel_group = gtk_accel_group_new();
 	}
 	else
 	{
-		accel_group = app->hot_key;
+		accel_group = app->widgets->hot_key;
 	}
 	gtk_window_add_accel_group(GTK_WINDOW(window), accel_group);
 
@@ -525,6 +527,15 @@ GtkWidget* GetMainMenu(
 			G_CALLBACK(ExecuteMake3DLayer), app);
 		app->menus.num_disable_if_no_open++;
 	}
+
+	// 「レイヤーグループ作成」
+	(void)sprintf(buff, "%s", app->labels->menu.new_layer_group);
+	app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteLayerGroupTemplateWindow), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	app->menus.num_disable_if_no_open++;
 
 	// 「レイヤーを複製」
 	(void)sprintf(buff, "%s", app->labels->menu.copy_layer);
@@ -1011,7 +1022,7 @@ GtkWidget* GetMainMenu(
 	app->menus.display_filter_menus[DISPLAY_FUNC_TYPE_NO_CONVERT] =
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		radio_top = gtk_radio_menu_item_new_with_mnemonic(NULL, buff);
-	(void)g_signal_connect_swapped(G_OBJECT(radio_top), "activate",
+	(void)g_signal_connect(G_OBJECT(radio_top), "activate",
 		G_CALLBACK(NoDisplayFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), radio_top);
 	app->menus.num_disable_if_no_open++;
@@ -1022,7 +1033,7 @@ GtkWidget* GetMainMenu(
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_radio_menu_item_new_with_mnemonic(
 		gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(radio_top)), buff);
-	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(GrayScaleDisplayFilter), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -1033,7 +1044,7 @@ GtkWidget* GetMainMenu(
 		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] =
 		menu_item = gtk_radio_menu_item_new_with_mnemonic(
 		gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(radio_top)), buff);
-	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+	(void)g_signal_connect(G_OBJECT(menu_item), "activate",
 		G_CALLBACK(GrayScaleDisplayFilterYIQ), app);
 	gtk_menu_shell_append(GTK_MENU_SHELL(sub_menu), menu_item);
 	app->menus.num_disable_if_no_open++;
@@ -1461,7 +1472,7 @@ static void ExecuteNew(APPLICATION* app)
 	GtkWidget *dialog =
 		gtk_dialog_new_with_buttons(
 			app->labels->make_new.title,
-			GTK_WINDOW(app->window),
+			GTK_WINDOW(app->widgets->window),
 			GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 			GTK_STOCK_OK,
 			GTK_RESPONSE_ACCEPT,
@@ -1577,7 +1588,7 @@ static void ExecuteNew(APPLICATION* app)
 		// 描画領域を作成
 		app->draw_window[app->window_num] =
 			CreateDrawWindow(width, height, 4, app->labels->make_new.name,
-			app->note_book, app->window_num, app);
+			app->widgets->note_book, app->window_num, app);
 		app->active_window = app->window_num;
 		app->draw_window[app->active_window]->resolution =
 			(uint16)gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(add_make_new.resolution));
@@ -2324,7 +2335,7 @@ void ExecuteDisplayReverseHorizontally(GtkWidget* menu_item, APPLICATION* app)
 	if((app->flags & APPLICATION_IN_REVERSE_OPERATION) == 0)
 	{
 		app->flags |= APPLICATION_IN_REVERSE_OPERATION;
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->reverse_button), state);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->widgets->reverse_button), state);
 		app->flags &= ~(APPLICATION_IN_REVERSE_OPERATION);
 	}
 
@@ -2374,13 +2385,13 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 	}
 
 	// ペーンの座標を記憶
-	if(gtk_paned_get_child1(GTK_PANED(app->left_pane)) != NULL)
+	if(gtk_paned_get_child1(GTK_PANED(app->widgets->left_pane)) != NULL)
 	{
-		app->left_pane_position = gtk_paned_get_position(GTK_PANED(app->left_pane));
+		app->left_pane_position = gtk_paned_get_position(GTK_PANED(app->widgets->left_pane));
 	}
-	if(gtk_paned_get_child2(GTK_PANED(app->right_pane)) != NULL)
+	if(gtk_paned_get_child2(GTK_PANED(app->widgets->right_pane)) != NULL)
 	{
-		app->right_pane_position = gtk_paned_get_position(GTK_PANED(app->right_pane));
+		app->right_pane_position = gtk_paned_get_position(GTK_PANED(app->widgets->right_pane));
 	}
 
 	// 現在の色を記憶
@@ -2406,7 +2417,7 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 			}
 
 			app->tool_window.flags &= ~(TOOL_DOCKED | TOOL_POP_UP);
-			app->tool_window.window = CreateToolBoxWindow(app, app->window);
+			app->tool_window.window = CreateToolBoxWindow(app, app->widgets->window);
 
 			gtk_widget_show_all(app->tool_window.window);
 		}
@@ -2425,7 +2436,7 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 		app->tool_window.flags |= TOOL_DOCKED;
 		app->tool_window.flags &= ~(TOOL_PLACE_RIGHT | TOOL_POP_UP);
 
-		app->tool_window.window = CreateToolBoxWindow(app, app->window);
+		app->tool_window.window = CreateToolBoxWindow(app, app->widgets->window);
 		gtk_widget_show_all(app->tool_window.ui);
 
 		break;
@@ -2444,7 +2455,7 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 		app->tool_window.flags |= TOOL_PLACE_RIGHT;
 		app->tool_window.flags &= ~(TOOL_POP_UP);
 
-		app->tool_window.window = CreateToolBoxWindow(app, app->window);
+		app->tool_window.window = CreateToolBoxWindow(app, app->widgets->window);
 		gtk_widget_show_all(app->tool_window.ui);
 
 		break;
@@ -2459,7 +2470,7 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 
 			app->tool_window.flags |= TOOL_POP_UP;
 			app->tool_window.flags &= ~(TOOL_DOCKED | TOOL_PLACE_RIGHT);
-			app->tool_window.window = CreateToolBoxWindow(app, app->window);
+			app->tool_window.window = CreateToolBoxWindow(app, app->widgets->window);
 
 			gtk_widget_show_all(app->tool_window.window);
 		}
@@ -2475,7 +2486,7 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 
 			app->tool_window.flags |= TOOL_POP_UP | TOOL_PLACE_RIGHT;
 			app->tool_window.flags &= ~(TOOL_DOCKED);
-			app->tool_window.window = CreateToolBoxWindow(app, app->window);
+			app->tool_window.window = CreateToolBoxWindow(app, app->widgets->window);
 
 			gtk_widget_show_all(app->tool_window.window);
 		}
@@ -2515,7 +2526,7 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 	(void)memcpy(app->tool_window.color_chooser->rgb, fg_color, 3);
 	SetColorChooserPoint(app->tool_window.color_chooser, &hsv, TRUE);
 
-	box = gtk_paned_get_child1(GTK_PANED(app->left_pane));
+	box = gtk_paned_get_child1(GTK_PANED(app->widgets->left_pane));
 	if(box != NULL)
 	{
 		GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2526,7 +2537,7 @@ void ExecuteChangeToolWindowPlace(GtkWidget* menu_item, APPLICATION* app)
 		g_list_free(child);
 	}
 
-	box = gtk_paned_get_child2(GTK_PANED(app->right_pane));
+	box = gtk_paned_get_child2(GTK_PANED(app->widgets->right_pane));
 	if(box != NULL)
 	{
 		GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2557,13 +2568,13 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 	}
 
 	// ペーンの座標を記憶
-	if(gtk_paned_get_child1(GTK_PANED(app->left_pane)) != NULL)
+	if(gtk_paned_get_child1(GTK_PANED(app->widgets->left_pane)) != NULL)
 	{
-		app->left_pane_position = gtk_paned_get_position(GTK_PANED(app->left_pane));
+		app->left_pane_position = gtk_paned_get_position(GTK_PANED(app->widgets->left_pane));
 	}
-	if(gtk_paned_get_child2(GTK_PANED(app->right_pane)) != NULL)
+	if(gtk_paned_get_child2(GTK_PANED(app->widgets->right_pane)) != NULL)
 	{
-		app->right_pane_position = gtk_paned_get_position(GTK_PANED(app->right_pane));
+		app->right_pane_position = gtk_paned_get_position(GTK_PANED(app->widgets->right_pane));
 	}
 
 	if(menu_item != NULL)
@@ -2577,15 +2588,15 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 		app->layer_window.flags &= ~(LAYER_WINDOW_DOCKED | LAYER_WINDOW_PLACE_RIGHT | LAYER_WINDOW_POP_UP);
 		if(app->layer_window.window == NULL)
 		{
-			if(app->navi_layer_pane != NULL)
+			if(app->widgets->navi_layer_pane != NULL)
 			{
 				app->layer_window.pane_position = gtk_paned_get_position(
-					GTK_PANED(app->navi_layer_pane));
-				gtk_widget_destroy(app->navi_layer_pane);
-				app->navi_layer_pane = NULL;
+					GTK_PANED(app->widgets->navi_layer_pane));
+				gtk_widget_destroy(app->widgets->navi_layer_pane);
+				app->widgets->navi_layer_pane = NULL;
 			}
 
-			app->layer_window.window = CreateLayerWindow(app, app->window, &app->layer_window.view);
+			app->layer_window.window = CreateLayerWindow(app, app->widgets->window, &app->layer_window.view);
 			gtk_widget_show_all(app->layer_window.window);
 		}
 
@@ -2594,7 +2605,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 			InitializeNavigation(&app->navigation_window, app, NULL);
 		}
 
-		box = gtk_paned_get_child1(GTK_PANED(app->left_pane));
+		box = gtk_paned_get_child1(GTK_PANED(app->widgets->left_pane));
 		if(box != NULL)
 		{
 			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2605,7 +2616,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 			g_list_free(child);
 		}
 
-		box = gtk_paned_get_child2(GTK_PANED(app->right_pane));
+		box = gtk_paned_get_child2(GTK_PANED(app->widgets->right_pane));
 		if(box != NULL)
 		{
 			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2631,31 +2642,31 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 			gtk_widget_destroy(app->navigation_window.window);
 		}
 
-		if(app->navi_layer_pane != NULL)
+		if(app->widgets->navi_layer_pane != NULL)
 		{
 			app->layer_window.pane_position = gtk_paned_get_position(
-					GTK_PANED(app->navi_layer_pane));
-			gtk_widget_destroy(app->navi_layer_pane);
+					GTK_PANED(app->widgets->navi_layer_pane));
+			gtk_widget_destroy(app->widgets->navi_layer_pane);
 		}
 
-		app->navi_layer_pane = gtk_vpaned_new();
-		gtk_paned_set_position(GTK_PANED(app->navi_layer_pane), app->layer_window.pane_position);
-		InitializeNavigation(&app->navigation_window, app, app->navi_layer_pane);
-		app->layer_window.window = CreateLayerWindow(app, app->window, &app->layer_window.view);
+		app->widgets->navi_layer_pane = gtk_vpaned_new();
+		gtk_paned_set_position(GTK_PANED(app->widgets->navi_layer_pane), app->layer_window.pane_position);
+		InitializeNavigation(&app->navigation_window, app, app->widgets->navi_layer_pane);
+		app->layer_window.window = CreateLayerWindow(app, app->widgets->window, &app->layer_window.view);
 
-		box = gtk_paned_get_child1(GTK_PANED(app->left_pane));
+		box = gtk_paned_get_child1(GTK_PANED(app->widgets->left_pane));
 		if(box == NULL)
 		{
 			box = gtk_hbox_new(FALSE, 0);
-			gtk_paned_pack1(GTK_PANED(app->left_pane), box, TRUE, FALSE);
+			gtk_paned_pack1(GTK_PANED(app->widgets->left_pane), box, TRUE, FALSE);
 			gtk_widget_show_all(box);
 		}
-		gtk_box_pack_start(GTK_BOX(box), app->navi_layer_pane, TRUE, TRUE, 0);
-		gtk_box_reorder_child(GTK_BOX(box), app->navi_layer_pane, 0);
+		gtk_box_pack_start(GTK_BOX(box), app->widgets->navi_layer_pane, TRUE, TRUE, 0);
+		gtk_box_reorder_child(GTK_BOX(box), app->widgets->navi_layer_pane, 0);
 
-		gtk_widget_show_all(app->navi_layer_pane);
+		gtk_widget_show_all(app->widgets->navi_layer_pane);
 
-		box = gtk_paned_get_child1(GTK_PANED(app->left_pane));
+		box = gtk_paned_get_child1(GTK_PANED(app->widgets->left_pane));
 		if(box != NULL)
 		{
 			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2666,7 +2677,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 			g_list_free(child);
 		}
 
-		box = gtk_paned_get_child2(GTK_PANED(app->right_pane));
+		box = gtk_paned_get_child2(GTK_PANED(app->widgets->right_pane));
 		if(box != NULL)
 		{
 			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2692,31 +2703,31 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 			gtk_widget_destroy(app->navigation_window.window);
 		}
 
-		if(app->navi_layer_pane != NULL)
+		if(app->widgets->navi_layer_pane != NULL)
 		{
 			app->layer_window.pane_position = gtk_paned_get_position(
-					GTK_PANED(app->navi_layer_pane));
-			gtk_widget_destroy(app->navi_layer_pane);
+					GTK_PANED(app->widgets->navi_layer_pane));
+			gtk_widget_destroy(app->widgets->navi_layer_pane);
 		}
 
-		box = gtk_paned_get_child2(GTK_PANED(app->right_pane));
+		box = gtk_paned_get_child2(GTK_PANED(app->widgets->right_pane));
 		if(box == NULL)
 		{
 			box = gtk_hbox_new(FALSE, 0);
-			gtk_paned_pack2(GTK_PANED(app->right_pane), box, TRUE, FALSE);
+			gtk_paned_pack2(GTK_PANED(app->widgets->right_pane), box, TRUE, FALSE);
 			gtk_widget_show_all(box);
 		}
 
-		app->navi_layer_pane = gtk_vpaned_new();
-		gtk_paned_set_position(GTK_PANED(app->navi_layer_pane), app->layer_window.pane_position);
-		InitializeNavigation(&app->navigation_window, app, app->navi_layer_pane);
-		app->layer_window.window = CreateLayerWindow(app, app->window, &app->layer_window.view);
+		app->widgets->navi_layer_pane = gtk_vpaned_new();
+		gtk_paned_set_position(GTK_PANED(app->widgets->navi_layer_pane), app->layer_window.pane_position);
+		InitializeNavigation(&app->navigation_window, app, app->widgets->navi_layer_pane);
+		app->layer_window.window = CreateLayerWindow(app, app->widgets->window, &app->layer_window.view);
 
-		gtk_box_pack_end(GTK_BOX(box), app->navi_layer_pane, TRUE, TRUE, 0);
+		gtk_box_pack_end(GTK_BOX(box), app->widgets->navi_layer_pane, TRUE, TRUE, 0);
 
-		gtk_widget_show_all(app->navi_layer_pane);
+		gtk_widget_show_all(app->widgets->navi_layer_pane);
 
-		box = gtk_paned_get_child1(GTK_PANED(app->left_pane));
+		box = gtk_paned_get_child1(GTK_PANED(app->widgets->left_pane));
 		if(box != NULL)
 		{
 			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2727,7 +2738,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 			g_list_free(child);
 		}
 
-		box = gtk_paned_get_child2(GTK_PANED(app->right_pane));
+		box = gtk_paned_get_child2(GTK_PANED(app->widgets->right_pane));
 		if(box != NULL)
 		{
 			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2744,15 +2755,15 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 		app->layer_window.flags &= ~(LAYER_WINDOW_DOCKED | LAYER_WINDOW_PLACE_RIGHT);
 		if(app->layer_window.window == NULL)
 		{
-			if(app->navi_layer_pane != NULL)
+			if(app->widgets->navi_layer_pane != NULL)
 			{
 				app->layer_window.pane_position = gtk_paned_get_position(
-					GTK_PANED(app->navi_layer_pane));
-				gtk_widget_destroy(app->navi_layer_pane);
-				app->navi_layer_pane = NULL;
+					GTK_PANED(app->widgets->navi_layer_pane));
+				gtk_widget_destroy(app->widgets->navi_layer_pane);
+				app->widgets->navi_layer_pane = NULL;
 			}
 
-			app->layer_window.window = CreateLayerWindow(app, app->window, &app->layer_window.view);
+			app->layer_window.window = CreateLayerWindow(app, app->widgets->window, &app->layer_window.view);
 			gtk_widget_show_all(app->layer_window.window);
 		}
 
@@ -2761,7 +2772,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 			InitializeNavigation(&app->navigation_window, app, NULL);
 		}
 
-		box = gtk_paned_get_child1(GTK_PANED(app->left_pane));
+		box = gtk_paned_get_child1(GTK_PANED(app->widgets->left_pane));
 		if(box != NULL)
 		{
 			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2772,7 +2783,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 			g_list_free(child);
 		}
 
-		box = gtk_paned_get_child2(GTK_PANED(app->right_pane));
+		box = gtk_paned_get_child2(GTK_PANED(app->widgets->right_pane));
 		if(box != NULL)
 		{
 			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2789,15 +2800,15 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 		app->layer_window.flags &= ~(LAYER_WINDOW_DOCKED);
 		if(app->layer_window.window == NULL)
 		{
-			if(app->navi_layer_pane != NULL)
+			if(app->widgets->navi_layer_pane != NULL)
 			{
 				app->layer_window.pane_position = gtk_paned_get_position(
-					GTK_PANED(app->navi_layer_pane));
-				gtk_widget_destroy(app->navi_layer_pane);
-				app->navi_layer_pane = NULL;
+					GTK_PANED(app->widgets->navi_layer_pane));
+				gtk_widget_destroy(app->widgets->navi_layer_pane);
+				app->widgets->navi_layer_pane = NULL;
 			}
 
-			app->layer_window.window = CreateLayerWindow(app, app->window, &app->layer_window.view);
+			app->layer_window.window = CreateLayerWindow(app, app->widgets->window, &app->layer_window.view);
 			gtk_widget_show_all(app->layer_window.window);
 		}
 
@@ -2806,7 +2817,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 			InitializeNavigation(&app->navigation_window, app, NULL);
 		}
 
-		box = gtk_paned_get_child1(GTK_PANED(app->left_pane));
+		box = gtk_paned_get_child1(GTK_PANED(app->widgets->left_pane));
 		if(box != NULL)
 		{
 			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2817,7 +2828,7 @@ void ExecuteChangeNavigationLayerWindowPlace(GtkWidget* menu_item, APPLICATION* 
 			g_list_free(child);
 		}
 
-		box = gtk_paned_get_child2(GTK_PANED(app->right_pane));
+		box = gtk_paned_get_child2(GTK_PANED(app->widgets->right_pane));
 		if(box != NULL)
 		{
 			GList *child = gtk_container_get_children(GTK_CONTAINER(box));
@@ -2876,11 +2887,11 @@ static void ExecuteSwitchFullScreen(GtkWidget* menu_item, APPLICATION* app)
 {
 	if(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menu_item)) == FALSE)
 	{
-		gtk_window_unfullscreen(GTK_WINDOW(app->window));
+		gtk_window_unfullscreen(GTK_WINDOW(app->widgets->window));
 	}
 	else
 	{
-		gtk_window_fullscreen(GTK_WINDOW(app->window));
+		gtk_window_fullscreen(GTK_WINDOW(app->widgets->window));
 	}
 }
 

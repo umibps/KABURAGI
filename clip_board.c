@@ -9,6 +9,8 @@
 #include "application.h"
 #include "display.h"
 
+#include "./gui/GTK/gtk_widgets.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -77,7 +79,7 @@ static void ClipBoardImageRecieveCallBack(
 		// 描画領域を新たに追加
 		app->active_window = app->window_num;
 		app->draw_window[app->window_num] = CreateDrawWindow(
-			width, height, 4, app->labels->menu.clip_board, app->note_book, app->window_num, app);
+			width, height, 4, app->labels->menu.clip_board, app->widgets->note_book, app->window_num, app);
 
 		// 画像データを一番下のレイヤーにコピー
 		for(i=0; i<height; i++)

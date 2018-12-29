@@ -15,6 +15,11 @@
 #include "bezier.h"
 #include "memory.h"
 
+#if !defined(USE_QT) || (defined(USE_QT) && USE_QT != 0)
+# include "gui/GTK/utils_gtk.h"
+# include "gui/GTK/gtk_widgets.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1436,7 +1441,7 @@ gboolean TextFieldFocusIn(GtkWidget* text_field, GdkEventFocus* focus, APPLICATI
 	if(app->tool_window.window == NULL)
 	{
 		app->flags |= APPLICATION_REMOVE_ACCELARATOR;
-		gtk_window_remove_accel_group(GTK_WINDOW(app->window), app->hot_key);
+		gtk_window_remove_accel_group(GTK_WINDOW(app->widgets->window), app->widgets->hot_key);
 	}
 
 	return FALSE;
@@ -1459,7 +1464,7 @@ gboolean TextFieldFocusOut(GtkWidget* text_field, GdkEventFocus* focus, APPLICAT
 		&& (app->flags & APPLICATION_REMOVE_ACCELARATOR) != 0)
 	{
 		app->flags &= ~(APPLICATION_REMOVE_ACCELARATOR);
-		gtk_window_add_accel_group(GTK_WINDOW(app->window), app->hot_key);
+		gtk_window_add_accel_group(GTK_WINDOW(app->widgets->window), app->widgets->hot_key);
 	}
 
 	return FALSE;
@@ -1478,7 +1483,7 @@ void OnDestroyTextField(GtkWidget* text_field, APPLICATION* app)
 	if((app->flags & APPLICATION_REMOVE_ACCELARATOR) != 0)
 	{
 		app->flags &= ~(APPLICATION_REMOVE_ACCELARATOR);
-		gtk_window_add_accel_group(GTK_WINDOW(app->window), app->hot_key);
+		gtk_window_add_accel_group(GTK_WINDOW(app->widgets->window), app->widgets->hot_key);
 	}
 }
 

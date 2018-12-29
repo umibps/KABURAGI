@@ -15,11 +15,26 @@
 #include "memory.h"
 #include "utils.h"
 
+#if !defined(USE_QT) || (defined(USE_QT) && USE_QT != 0)
+# include "gui/GTK/utils_gtk.h"
+# include "gui/GTK/gtk_widgets.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define NUM_SETTING_ITEM 2
+
+typedef struct _SET_BRUSH_CHAIN
+{
+	GList *chain_list;
+} SET_BRUSH_CHAIN;
+
+typedef struct _EDIT_BRUSH_CHAIN
+{
+	GList *edit_chain;
+} EDIT_BRUSH_CHAIN;
 
 typedef struct _SET_PREFERENCE
 {
@@ -32,6 +47,9 @@ typedef struct _SET_PREFERENCE
 	char *language_name;
 	char *language_path;
 	char *backup_path;
+	GtkWidget *preference_dialog;
+	APPLICATION *app;
+	FLOAT_T gui_scale;
 	uint32 flags;
 } SET_PREFERENCE;
 
@@ -48,7 +66,8 @@ typedef enum _eSET_PREFERENCE_FLAGS
 	SET_PREFERENCE_CHANGE_THEME = 0x01,
 	SET_PREFERENCE_DRAW_WITH_TOUCH = 0x02,
 	SET_PREFERENCE_CHANGE_BACK_GROUND_COLOR = 0x04,
-	SET_PREFERENCE_SHOW_PREVIEW_ON_TASK_BAR = 0x08
+	SET_PREFERENCE_SHOW_PREVIEW_ON_TASK_BAR = 0x08,
+	SET_PREFERENCE_LAYER_WINDOW_SCROLLBAR_PLACE_LEFT = 0x10
 } eSET_PREFERENCE_FLAGS;
 
 typedef enum _eSET_PREFERENCE_TOUCH_MODE
@@ -164,6 +183,19 @@ static void ChangeTouchMode(GtkWidget* radio_button, SET_PREFERENCE* setting)
 }
 #endif
 
+static void SetLayerWindowScrollbarPlaceLeftFlag(GtkWidget* button,SET_PREFERENCE* setting)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
+	{
+		setting->flags &= ~(SET_PREFERENCE_LAYER_WINDOW_SCROLLBAR_PLACE_LEFT);
+	}
+	else
+	{
+		setting->flags |= SET_PREFERENCE_LAYER_WINDOW_SCROLLBAR_PLACE_LEFT;
+	}
+}
+
+
 static void SetChangeBackGroundColorFlag(GtkWidget* button, SET_PREFERENCE* setting)
 {
 	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
@@ -196,6 +228,408 @@ static void SetShowPreviewWindowOnTaskbar(GtkWidget* button, SET_PREFERENCE* set
 	{
 		setting->flags |= SET_PREFERENCE_SHOW_PREVIEW_ON_TASK_BAR;
 	}
+}
+
+static void OnChangeUserInterfaceScale(GtkWidget* spin, SET_PREFERENCE* setting)
+{
+	setting->gui_scale = gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin)) * 0.01;
+}
+
+#if defined(GTK_MAJOR_VERSION) && GTK_MAJOR_VERSION <= 2
+static void OnClickInputSettingButton(void* dummy)
+{
+	GtkWidget *dialog;
+	dialog = gtk_input_dialog_new();
+	(void)gtk_dialog_run(GTK_DIALOG(dialog));
+	gtk_widget_destroy(dialog);
+}
+#endif
+
+static void OnBrushChainKeyChanged(GtkWidget* editable, BRUSH_CHAIN* brush_chain)
+{
+	brush_chain->key = ((const char*)gtk_entry_get_text(GTK_ENTRY(editable)))[0];
+}
+
+static void OnChangeBrushChainKeyChanged(GtkWidget* editable, BRUSH_CHAIN* brush_chain)
+{
+	brush_chain->change_key = ((const char*)gtk_entry_get_text(GTK_ENTRY(editable)))[0];
+}
+
+static void OnEditBrushChainItemButtonPressed(GtkWidget* button, SET_PREFERENCE* setting)
+{
+	GtkWidget *parent_dialog;
+	GtkWidget *dialog;
+	GtkWidget *label;
+	GtkWidget *vbox;
+	GtkWidget *select;
+	POINTER_ARRAY *brush_names;
+	char buffer[4096];
+	const char *current;
+	int num_selectable = 0;
+	int x, y;
+
+	parent_dialog = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "chain_dialog"));
+	label = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "label_widget"));
+	brush_names = PointerArrayNew(BRUSH_TABLE_HEIGHT*BRUSH_TABLE_WIDTH+1);
+
+	current = gtk_label_get_text(GTK_LABEL(label));
+
+	dialog = gtk_dialog_new_with_buttons("", GTK_WINDOW(parent_dialog),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		NULL
+	);
+
+	vbox = gtk_vbox_new(FALSE, 0);
+
+#if GTK_MAJOR_VERSION <= 2
+	select = gtk_combo_box_new_text();
+#else
+	select = gtk_combo_box_text_new();
+#endif
+
+	for(y=0; y<BRUSH_TABLE_HEIGHT; y++)
+	{
+		for(x=0; x<BRUSH_TABLE_WIDTH; x++)
+		{
+			if(setting->app->tool_window.brushes[y][x].name != NULL)
+			{
+				PointerArrayAppend(brush_names, setting->app->tool_window.brushes[y][x].name);
+				StringRemoveTargetString(setting->app->tool_window.brushes[y][x].name, "\\n", buffer);
+#if GTK_MAJOR_VERSION <= 2
+				gtk_combo_box_append_text(GTK_COMBO_BOX(select),
+#else
+				gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(select),
+#endif
+					buffer);
+				if(current != NULL)
+				{
+					if(strcmp(current, buffer) == 0)
+					{
+						gtk_combo_box_set_active(GTK_COMBO_BOX(select), num_selectable);
+					}
+				}
+				num_selectable++;
+			}
+		}
+	}
+	gtk_box_pack_start(GTK_BOX(vbox), select, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), vbox, FALSE, FALSE, 0);
+	gtk_widget_show_all(dialog);
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{
+		int active = gtk_combo_box_get_active(GTK_COMBO_BOX(select));
+		char *name = MEM_STRDUP_FUNC((const char*)brush_names->buffer[active]);
+		char **item_name = (char**)g_object_get_data(G_OBJECT(button), "brush_name");
+
+		MEM_FREE_FUNC(*item_name);
+		*item_name = name;
+
+		label = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "label_widget"));
+		gtk_label_set_label(GTK_LABEL(label),
+#if GTK_MAJOR_VERSION <= 2
+			gtk_combo_box_get_active_text(GTK_COMBO_BOX(select))
+#else
+			gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(select))
+#endif
+		);
+		g_object_set_data(G_OBJECT(g_object_get_data(G_OBJECT(button), "delete_button")),
+			"delete_name", name);
+	}
+
+	PointerArrayDestroy(&brush_names, NULL);
+
+	gtk_widget_destroy(dialog);
+}
+
+static void OnDeleteChainItemButtonPressed(GtkWidget* button, GtkWidget* box)
+{
+	BRUSH_CHAIN_ITEM *item = (BRUSH_CHAIN_ITEM*)g_object_get_data(G_OBJECT(button), "brush_chain_item");
+	char *delete_name = (char*)g_object_get_data(G_OBJECT(button), "delete_name");
+
+	PointerArrayRemoveByData(item->names, delete_name, NULL);
+	gtk_widget_destroy(box);
+}
+
+static void OnAddBrushChainItemButtonPressed(GtkWidget* button, SET_PREFERENCE* setting)
+{
+	GtkWidget *parent_dialog;
+	GtkWidget *dialog;
+	GtkWidget *chains_vbox;
+	GtkWidget *table_vbox;
+	GtkWidget *vbox;
+	GtkWidget *hbox;
+	GtkWidget *select;
+	GtkWidget *label;
+	GtkWidget *edit_button;
+	GtkWidget *delete_button;
+	BRUSH_CHAIN_ITEM *item = (BRUSH_CHAIN_ITEM*)g_object_get_data(G_OBJECT(button), "chain_item");
+	POINTER_ARRAY *brush_names;
+	char buffer[4096];
+	char *current = NULL;
+	int num_selectable = 0;
+	int x, y;
+
+	if(item == NULL)
+	{
+		return;
+	}
+
+	chains_vbox = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "chains_vbox"));
+	table_vbox = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "table_vbox"));
+	parent_dialog = GTK_WIDGET(g_object_get_data(G_OBJECT(chains_vbox), "chain_dialog"));
+	brush_names = PointerArrayNew(BRUSH_TABLE_HEIGHT*BRUSH_TABLE_WIDTH+1);
+
+	dialog = gtk_dialog_new_with_buttons("", GTK_WINDOW(parent_dialog),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		NULL
+	);
+
+	vbox = gtk_vbox_new(FALSE, 0);
+
+#if GTK_MAJOR_VERSION <= 2
+	select = gtk_combo_box_new_text();
+#else
+	select = gtk_combo_box_text_new();
+#endif
+
+	for(y=0; y<BRUSH_TABLE_HEIGHT; y++)
+	{
+		for(x=0; x<BRUSH_TABLE_WIDTH; x++)
+		{
+			if(setting->app->tool_window.brushes[y][x].name != NULL)
+			{
+				PointerArrayAppend(brush_names, setting->app->tool_window.brushes[y][x].name);
+				StringRemoveTargetString(setting->app->tool_window.brushes[y][x].name, "\\n", buffer);
+#if GTK_MAJOR_VERSION <= 2
+				gtk_combo_box_append_text(GTK_COMBO_BOX(select),
+#else
+				gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(select),
+#endif
+					buffer);
+				if(current != NULL)
+				{
+					if(strcmp(current, buffer) == 0)
+					{
+						gtk_combo_box_set_active(GTK_COMBO_BOX(select), num_selectable);
+					}
+				}
+				num_selectable++;
+			}
+		}
+	}
+	if(current == NULL)
+	{
+		gtk_combo_box_set_active(GTK_COMBO_BOX(select), 0);
+	}
+	gtk_box_pack_start(GTK_BOX(vbox), select, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), vbox, FALSE, FALSE, 0);
+	gtk_widget_show_all(dialog);
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{
+		int active = gtk_combo_box_get_active(GTK_COMBO_BOX(select));
+		char *name = MEM_STRDUP_FUNC((const char*)brush_names->buffer[active]);
+		PointerArrayAppend(item->names, name);
+
+		hbox = gtk_hbox_new(FALSE, 0);
+		label = gtk_label_new(
+#if GTK_MAJOR_VERSION <= 2
+			gtk_combo_box_get_active_text(GTK_COMBO_BOX(select))
+#else
+			gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(select))
+#endif
+		);
+		edit_button = gtk_button_new_with_label(setting->app->labels->menu.edit);
+		g_object_set_data(G_OBJECT(edit_button), "brush_name", &item->names[item->names->num_data-1]);
+		g_object_set_data(G_OBJECT(edit_button), "chain_dialog", (void*)parent_dialog);
+		g_object_set_data(G_OBJECT(edit_button), "label_widget", (void*)label);
+		(void)g_signal_connect(G_OBJECT(edit_button), "clicked",
+			G_CALLBACK(OnEditBrushChainItemButtonPressed), setting);
+		delete_button = gtk_button_new_with_label(setting->app->labels->unit._delete);
+		g_object_set_data(G_OBJECT(delete_button), "brush_chain_item", item);
+		g_object_set_data(G_OBJECT(delete_button), "delete_name", name);
+		(void)g_signal_connect(G_OBJECT(delete_button), "clicked",
+			G_CALLBACK(OnDeleteChainItemButtonPressed), hbox);
+		g_object_set_data(G_OBJECT(edit_button), "delete_button", delete_button);
+		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(hbox), edit_button, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(hbox), delete_button, FALSE, FALSE, 0);
+
+		gtk_box_pack_start(GTK_BOX(table_vbox), hbox, FALSE, FALSE, 0);
+		gtk_widget_show_all(hbox);
+	}
+
+	PointerArrayDestroy(&brush_names, NULL);
+
+	gtk_widget_destroy(dialog);
+}
+
+static void OnDeleteBrushChainButtonPressed(GtkWidget* button, SET_PREFERENCE* setting)
+{
+	BRUSH_CHAIN_ITEM *item = (BRUSH_CHAIN_ITEM*)g_object_get_data(G_OBJECT(button), "delete_item");
+
+	PointerArrayDestroy(&item->names, MEM_FREE_FUNC);
+	PointerArrayRemoveByData(setting->app->tool_window.brush_chain.chains, item, NULL);
+
+	gtk_widget_destroy(GTK_WIDGET(g_object_get_data(G_OBJECT(button), "delete_box")));
+}
+
+static void OnAddBrushChainButtonPressed(GtkWidget* button, SET_PREFERENCE* setting)
+{
+	GtkWidget *chains_vbox;
+	GtkWidget *table_vbox;
+	GtkWidget *hbox;
+	GtkWidget *add_button;
+	GtkWidget *delete_button;
+	BRUSH_CHAIN_ITEM *item;
+
+	chains_vbox = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "chains_vbox"));
+
+	item = (BRUSH_CHAIN_ITEM*)MEM_ALLOC_FUNC(sizeof(*item));
+	InitializeBrushChainItem(item);
+	PointerArrayAppend(setting->app->tool_window.brush_chain.chains, item);
+
+	table_vbox = gtk_vbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(chains_vbox), table_vbox, FALSE, FALSE, 0);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	add_button = gtk_button_new_with_label(setting->app->labels->unit.add);
+	g_object_set_data(G_OBJECT(add_button), "chain_item", (void*)item);
+	g_object_set_data(G_OBJECT(add_button), "chains_vbox", (void*)chains_vbox);
+	g_object_set_data(G_OBJECT(add_button), "table_vbox", (void*)table_vbox);
+	(void)g_signal_connect(G_OBJECT(add_button), "clicked",
+		G_CALLBACK(OnAddBrushChainItemButtonPressed), setting);
+	delete_button = gtk_button_new_with_label(setting->app->labels->unit._delete);
+	g_object_set_data(G_OBJECT(delete_button), "delete_item", (void*)item);
+	g_object_set_data(G_OBJECT(delete_button), "delete_box", (void*)table_vbox);
+	(void)g_signal_connect(G_OBJECT(delete_button), "clicked",
+		G_CALLBACK(OnDeleteBrushChainButtonPressed), setting);
+	gtk_box_pack_start(GTK_BOX(hbox), add_button, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), delete_button, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(chains_vbox), hbox, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(chains_vbox), gtk_hseparator_new(), FALSE, FALSE, 3);
+
+	gtk_widget_show_all(chains_vbox);
+}
+
+static void OnBrushChainButtonPressed(GtkWidget* button, SET_PREFERENCE* setting)
+{
+	GtkWidget *dialog = gtk_dialog_new_with_buttons(setting->app->labels->tool_box.brush_chain, GTK_WINDOW(setting->preference_dialog),
+		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_STOCK_OK, GTK_RESPONSE_OK, NULL);
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
+	GtkWidget *chains_vbox = gtk_vbox_new(FALSE, 0);
+	GtkWidget *chain_vbox;
+	GtkWidget *table_vbox;
+	GtkWidget *add_button;
+	GtkWidget *delete_button;
+	GtkWidget *edit_button;
+	GtkWidget *entry;
+	GtkWidget *hbox;
+	GtkWidget *label;
+	GtkWidget *add_chain_button = gtk_button_new_with_label(setting->app->labels->preference.add_brush_chain);
+	char str[4096] = {0};
+	int i, j;
+
+	(void)g_signal_connect(G_OBJECT(add_chain_button), "clicked",
+		G_CALLBACK(OnAddBrushChainButtonPressed), setting);
+	g_object_set_data(G_OBJECT(chains_vbox), "chain_dialog", (void*)dialog);
+
+	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), vbox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), chains_vbox, FALSE, FALSE, 0);
+
+	entry = gtk_entry_new();
+	str[0] = (char)setting->app->tool_window.brush_chain.key;
+	gtk_entry_set_text(GTK_ENTRY(entry), str);
+	gtk_entry_set_max_length(GTK_ENTRY(entry), 1);
+	label = gtk_label_new("Key : ");
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)g_signal_connect(G_OBJECT(entry), "changed",
+		G_CALLBACK(OnBrushChainKeyChanged), &setting->app->tool_window.brush_chain);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), entry, FALSE, FALSE, 3);
+	(void)sprintf(str, "%s : ", setting->app->labels->tool_box.change_brush_chain_key);
+	label = gtk_label_new(str);
+	str[0] = (char)setting->app->tool_window.brush_chain.change_key;
+	str[1] = str[2] = str[3] = 0;
+	entry = gtk_entry_new();
+	gtk_entry_set_text(GTK_ENTRY(entry), str);
+	gtk_entry_set_max_length(GTK_ENTRY(entry), 1);
+	(void)g_signal_connect(G_OBJECT(entry), "changed",
+		G_CALLBACK(OnChangeBrushChainKeyChanged), &setting->app->tool_window.brush_chain);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), entry, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(chains_vbox), hbox, FALSE, FALSE, 3);
+
+	for(i=0; i<(int)setting->app->tool_window.brush_chain.chains->num_data; i++)
+	{
+		BRUSH_CHAIN_ITEM *item;
+		chain_vbox = gtk_vbox_new(FALSE, 0);
+		table_vbox = gtk_vbox_new(FALSE, 0);
+
+		gtk_box_pack_start(GTK_BOX(chains_vbox), chain_vbox, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(chain_vbox), table_vbox, FALSE, FALSE, 0);
+
+		item = (BRUSH_CHAIN_ITEM*)setting->app->tool_window.brush_chain.chains->buffer[i];
+		for(j=0; j<(int)item->names->num_data; j++)
+		{
+			hbox = gtk_hbox_new(FALSE, 0);
+			StringRemoveTargetString((char*)item->names->buffer[j], "\\n", str);
+			label = gtk_label_new(str);
+			edit_button = gtk_button_new_with_label(setting->app->labels->menu.edit);
+			g_object_set_data(G_OBJECT(edit_button), "brush_name", &item->names[item->names->num_data-1]);
+			g_object_set_data(G_OBJECT(edit_button), "chain_dialog", (void*)dialog);
+			g_object_set_data(G_OBJECT(edit_button), "label_widget", (void*)label);
+			(void)g_signal_connect(G_OBJECT(edit_button), "clicked",
+				G_CALLBACK(OnEditBrushChainItemButtonPressed), setting);
+			delete_button = gtk_button_new_with_label(setting->app->labels->unit._delete);
+			g_object_set_data(G_OBJECT(delete_button), "brush_chain_item", item);
+			g_object_set_data(G_OBJECT(delete_button), "delete_name", item->names->buffer[j]);
+			(void)g_signal_connect(G_OBJECT(delete_button), "clicked",
+				G_CALLBACK(OnDeleteChainItemButtonPressed), hbox);
+			g_object_set_data(G_OBJECT(edit_button), "delete_button", delete_button);
+			gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+			gtk_box_pack_start(GTK_BOX(hbox), edit_button, FALSE, FALSE, 0);
+			gtk_box_pack_start(GTK_BOX(hbox), delete_button, FALSE, FALSE, 0);
+			gtk_box_pack_start(GTK_BOX(table_vbox), hbox, FALSE, FALSE, 0);
+		}
+
+		hbox = gtk_hbox_new(FALSE, 0);
+		add_button = gtk_button_new_with_label(setting->app->labels->unit.add);
+		g_object_set_data(G_OBJECT(add_button), "chain_item", (void*)item);
+		g_object_set_data(G_OBJECT(add_button), "chains_vbox", (void*)chains_vbox);
+		g_object_set_data(G_OBJECT(add_button), "table_vbox", (void*)table_vbox);
+		(void)g_signal_connect(G_OBJECT(add_button), "clicked",
+			G_CALLBACK(OnAddBrushChainItemButtonPressed), setting);
+		gtk_box_pack_start(GTK_BOX(hbox), add_button, FALSE, FALSE, 0);
+		delete_button = gtk_button_new_with_label(setting->app->labels->unit._delete);
+		g_object_set_data(G_OBJECT(delete_button), "delete_item", (void*)item);
+		g_object_set_data(G_OBJECT(delete_button), "delete_box", (void*)table_vbox);
+		(void)g_signal_connect(G_OBJECT(delete_button), "clicked",
+			G_CALLBACK(OnDeleteBrushChainButtonPressed), setting);
+		gtk_box_pack_start(GTK_BOX(hbox), delete_button, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(chain_vbox), hbox, FALSE, FALSE, 0);
+
+		gtk_box_pack_start(GTK_BOX(chains_vbox), gtk_hseparator_new(), FALSE, FALSE, 3);
+	}
+
+	g_object_set_data(G_OBJECT(add_chain_button), "chains_vbox", (void*)chains_vbox);
+	hbox = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(hbox), add_chain_button, FALSE, FALSE, 0);
+	delete_button = gtk_button_new_with_label(setting->app->labels->unit._delete);
+	gtk_box_pack_start(GTK_BOX(hbox), delete_button, FALSE, FALSE, 0);
+	gtk_box_pack_end(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+	gtk_widget_show_all(dialog);
+	(void)gtk_dialog_run(GTK_DIALOG(dialog));
+
+	gtk_widget_destroy(dialog);
 }
 
 static GtkWidget* CreateSettingWidget(SET_PREFERENCE *setting)
@@ -241,9 +675,9 @@ static GtkWidget* CreateSettingWidget(SET_PREFERENCE *setting)
 			gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, TRUE, 0);
 			label = gtk_label_new(app->labels->unit.minute);
 			gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-			g_signal_connect(G_OBJECT(adjust), "value_changed",
+			(void)g_signal_connect(G_OBJECT(adjust), "value_changed",
 				G_CALLBACK(AutoSaveSetInterval), setting);
-			g_signal_connect(G_OBJECT(button), "toggled",
+			(void)g_signal_connect(G_OBJECT(button), "toggled",
 				G_CALLBACK(AutoSaveCheckButtonClicked), setting);
 			gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 2);
 
@@ -284,6 +718,18 @@ static GtkWidget* CreateSettingWidget(SET_PREFERENCE *setting)
 				G_CALLBACK(SetShowPreviewWindowOnTaskbar), setting);
 			gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, TRUE, 3);
 
+			hbox = gtk_hbox_new(FALSE, 0);
+			(void)sprintf(str, "%s : ", app->labels->preference.gui_scale);
+			label = gtk_label_new(str);
+			spin = gtk_spin_button_new_with_range(50, 300, 1);
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), app->gui_scale * 100);
+			gtk_spin_button_set_digits(GTK_SPIN_BUTTON(spin), 0);
+			(void)g_signal_connect(G_OBJECT(spin), "value-changed",
+				G_CALLBACK(OnChangeUserInterfaceScale), setting);
+			gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+			gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, FALSE, 0);
+			gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 3);
+
 #if GTK_MAJOR_VERSION >= 3
 			{
 				GtkWidget *radio_buttons[2];
@@ -305,16 +751,33 @@ static GtkWidget* CreateSettingWidget(SET_PREFERENCE *setting)
 				{
 					gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio_buttons[1]), TRUE);
 				}
-				g_signal_connect(G_OBJECT(radio_buttons[0]), "toggled",
+				(void)g_signal_connect(G_OBJECT(radio_buttons[0]), "toggled",
 					G_CALLBACK(ChangeTouchMode), setting);
-				g_signal_connect(G_OBJECT(radio_buttons[1]), "toggled",
+				(void)g_signal_connect(G_OBJECT(radio_buttons[1]), "toggled",
 					G_CALLBACK(ChangeTouchMode), setting);
 
 				gtk_box_pack_start(GTK_BOX(hbox), radio_buttons[0], FALSE, FALSE, 0);
 				gtk_box_pack_start(GTK_BOX(hbox), radio_buttons[1], FALSE, FALSE, 0);
 				gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
 			}
+#else
+			{
+				GtkWidget *input_button;
+				input_button = gtk_button_new_with_label("Input Setting");
+				(void)g_signal_connect_swapped(G_OBJECT(input_button), "clicked",
+					G_CALLBACK(OnClickInputSettingButton), NULL);
+				gtk_box_pack_start(GTK_BOX(vbox), input_button, FALSE, FALSE, 0);
+			}
 #endif
+			button = gtk_button_new_with_label(setting->app->labels->tool_box.brush_chain);
+			(void)g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(OnBrushChainButtonPressed), setting);
+			gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
+
+			button = gtk_check_button_new_with_label(app->labels->preference.layer_window_scrollbar_place_left);
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), setting->flags & SET_PREFERENCE_LAYER_WINDOW_SCROLLBAR_PLACE_LEFT);
+			(void)g_signal_connect(G_OBJECT(button), "toggled",
+				G_CALLBACK(SetLayerWindowScrollbarPlaceLeftFlag), setting);
+			gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
 /*
 			button = gtk_button_new_with_label("Input Device");
 			g_signal_connect(button, "clicked", G_CALLBACK(InputDeviceButtonClicked), setting);
@@ -809,7 +1272,7 @@ void ExecuteSetPreference(APPLICATION* app)
 	GtkWidget *dialog =
 		gtk_dialog_new_with_buttons(
 			app->labels->preference.title,
-			GTK_WINDOW(app->window),
+			GTK_WINDOW(app->widgets->window),
 			GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 			GTK_STOCK_OK,
 			GTK_RESPONSE_ACCEPT,
@@ -831,6 +1294,9 @@ void ExecuteSetPreference(APPLICATION* app)
 
 	tree_view = gtk_tree_view_new();
 	SetPreferenceTreeView(tree_view, &setting, app);
+	setting.preference_dialog = dialog;
+	setting.app = app;
+	setting.gui_scale = app->gui_scale;
 
 	setting.preference = app->preference;
 	if(app->input_icc_path != NULL)
@@ -840,6 +1306,11 @@ void ExecuteSetPreference(APPLICATION* app)
 	else
 	{
 		setting.input_icc_path = NULL;
+	}
+
+	if((app->layer_window.flags & SET_PREFERENCE_LAYER_WINDOW_SCROLLBAR_PLACE_LEFT) != 0)
+	{
+		setting.flags |= SET_PREFERENCE_LAYER_WINDOW_SCROLLBAR_PLACE_LEFT;
 	}
 
 	if(app->output_icc_path != NULL)
@@ -883,7 +1354,8 @@ void ExecuteSetPreference(APPLICATION* app)
 	while(1)
 	{
 		setting.flags &=
-			SET_PREFERENCE_CHANGE_BACK_GROUND_COLOR | SET_PREFERENCE_SHOW_PREVIEW_ON_TASK_BAR;
+			SET_PREFERENCE_CHANGE_BACK_GROUND_COLOR | SET_PREFERENCE_SHOW_PREVIEW_ON_TASK_BAR
+				| SET_PREFERENCE_LAYER_WINDOW_SCROLLBAR_PLACE_LEFT;
 		ret = gtk_dialog_run(GTK_DIALOG(dialog));
 
 		if(ret == GTK_RESPONSE_APPLY)
@@ -921,7 +1393,17 @@ void ExecuteSetPreference(APPLICATION* app)
 				app->flags |= APPLICATION_SHOW_PREVIEW_ON_TASK_BAR;
 			}
 
+			if((setting.flags & SET_PREFERENCE_LAYER_WINDOW_SCROLLBAR_PLACE_LEFT) == 0)
+			{
+				app->layer_window.flags &= ~(LAYER_WINDOW_SCROLLBAR_PLACE_LEFT);
+			}
+			else
+			{
+				app->layer_window.flags |= LAYER_WINDOW_SCROLLBAR_PLACE_LEFT;
+			}
+
 			app->preference = setting.preference;
+			app->gui_scale = setting.gui_scale;
 			if(app->preference.theme != NULL)
 			{
 				setting.preference.theme = MEM_STRDUP_FUNC(app->preference.theme);
@@ -1072,6 +1554,7 @@ void ExecuteSetPreference(APPLICATION* app)
 				}
 
 				app->preference = setting.preference;
+				app->gui_scale = setting.gui_scale;
 
 				if(app->labels->language_name != setting.language_name)
 				{
@@ -1163,37 +1646,46 @@ void ExecuteSetPreference(APPLICATION* app)
 				}
 
 				cmsCloseProfile(monitor_icc);
+
+				if((setting.flags & SET_PREFERENCE_DRAW_WITH_TOUCH) != 0)
+				{
+					app->flags |= APPLICATION_DRAW_WITH_TOUCH;
+				}
+				else
+				{
+					app->flags &= ~(APPLICATION_DRAW_WITH_TOUCH);
+				}
+
+				if((setting.flags & SET_PREFERENCE_CHANGE_BACK_GROUND_COLOR) == 0)
+				{
+					app->flags &= ~(APPLICATION_SET_BACK_GROUND_COLOR);
+				}
+				else
+				{
+					app->flags |= APPLICATION_SET_BACK_GROUND_COLOR;
+				}
+
+				if((setting.flags & SET_PREFERENCE_SHOW_PREVIEW_ON_TASK_BAR) == 0)
+				{
+					app->flags &= ~(APPLICATION_SHOW_PREVIEW_ON_TASK_BAR);
+				}
+				else
+				{
+					app->flags |= APPLICATION_SHOW_PREVIEW_ON_TASK_BAR;
+				}
+
+				if((setting.flags & SET_PREFERENCE_LAYER_WINDOW_SCROLLBAR_PLACE_LEFT) == 0)
+				{
+					app->layer_window.flags &= ~(LAYER_WINDOW_SCROLLBAR_PLACE_LEFT);
+				}
+				else
+				{
+					app->layer_window.flags |= LAYER_WINDOW_SCROLLBAR_PLACE_LEFT;
+				}
 			}
 			else
 			{
 				MEM_FREE_FUNC(setting.preference.theme);
-			}
-
-			if((setting.flags & SET_PREFERENCE_DRAW_WITH_TOUCH) != 0)
-			{
-				app->flags |= APPLICATION_DRAW_WITH_TOUCH;
-			}
-			else
-			{
-				app->flags &= ~(APPLICATION_DRAW_WITH_TOUCH);
-			}
-
-			if((setting.flags & SET_PREFERENCE_CHANGE_BACK_GROUND_COLOR) == 0)
-			{
-				app->flags &= ~(APPLICATION_SET_BACK_GROUND_COLOR);
-			}
-			else
-			{
-				app->flags |= APPLICATION_SET_BACK_GROUND_COLOR;
-			}
-
-			if((setting.flags & SET_PREFERENCE_SHOW_PREVIEW_ON_TASK_BAR) == 0)
-			{
-				app->flags &= ~(APPLICATION_SHOW_PREVIEW_ON_TASK_BAR);
-			}
-			else
-			{
-				app->flags |= APPLICATION_SHOW_PREVIEW_ON_TASK_BAR;
 			}
 
 			gtk_widget_destroy(dialog);

@@ -8,6 +8,8 @@
 #include "application.h"
 #include "brushes.h"
 
+#include "gui/GTK/gtk_widgets.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1134,7 +1136,7 @@ void ExtendSelectionArea(APPLICATION* app)
 	// 拡大するピクセル数を指定するダイアログ
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.selection_extend,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -1160,7 +1162,7 @@ void ExtendSelectionArea(APPLICATION* app)
 	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT)
 	{	// O.K.ボタンが押された
 		DRAW_WINDOW* window =	// 処理する描画領域
-			app->draw_window[app->active_window];
+			GetActiveDrawWindow(app);
 		int copy_size =	// コピーするバイト数
 			window->selection->width*window->selection->height;
 		// 繰り返す回数
@@ -1376,7 +1378,7 @@ void ReductSelectionArea(APPLICATION* app)
 	// 拡大するピクセル数を指定するダイアログ
 	GtkWidget* dialog = gtk_dialog_new_with_buttons(
 		app->labels->menu.selection_reduct,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT, NULL
@@ -1402,7 +1404,7 @@ void ReductSelectionArea(APPLICATION* app)
 	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT)
 	{	// O.K.ボタンが押された
 		DRAW_WINDOW* window =	// 処理する描画領域
-			app->draw_window[app->active_window];
+			GetActiveDrawWindow(app);
 		int copy_size =	// コピーするバイト数
 			window->selection->width*window->selection->height;
 		// 繰り返す回数
@@ -1453,7 +1455,7 @@ void ChangeEditSelectionMode(GtkWidget* menu_item, APPLICATION* app)
 	if((app->flags & APPLICATION_IN_EDIT_SELECTION) == 0)
 	{
 		app->flags |= APPLICATION_IN_REVERSE_OPERATION;
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->edit_selection), state);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->widgets->edit_selection), state);
 		app->flags &= ~(APPLICATION_IN_EDIT_SELECTION);
 	}
 

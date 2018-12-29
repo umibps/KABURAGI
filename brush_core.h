@@ -6,6 +6,7 @@
 #include "draw_window.h"
 #include "types.h"
 #include "configure.h"
+#include "utils.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,15 +49,15 @@ typedef enum _eBRUSH_TYPE
 	NUM_BRUSH_TYPE
 } eBRUSH_TYPE;
 
-typedef void (*brush_core_func)(DRAW_WINDOW* window, gdouble x, gdouble y,
-	gdouble pressure, struct _BRUSH_CORE* core, void* state);
+typedef void (*brush_core_func)(DRAW_WINDOW* window, FLOAT_T x, FLOAT_T y,
+	FLOAT_T pressure, struct _BRUSH_CORE* core, void* state);
 
-typedef void (*brush_update_func)(DRAW_WINDOW* window, gdouble x, gdouble y, void* data);
+typedef void (*brush_update_func)(DRAW_WINDOW* window, FLOAT_T x, FLOAT_T y, void* data);
 
 typedef struct _BRUSH_CORE
 {
 	struct _APPLICATION *app;
-	gdouble max_x, max_y, min_x, min_y;
+	FLOAT_T max_x, max_y, min_x, min_y;
 	uint32 flags;
 	size_t detail_data_size;
 
@@ -78,7 +79,7 @@ typedef struct _BRUSH_CORE
 	void* brush_data;
 	brush_core_func press_func, motion_func, release_func;
 	void (*key_press_func)(DRAW_WINDOW* window, GdkEventKey* key, void* data);
-	void (*draw_cursor)(DRAW_WINDOW* window, gdouble x, gdouble y, void* data);
+	void (*draw_cursor)(DRAW_WINDOW* window, FLOAT_T x, FLOAT_T y, void* data);
 	brush_update_func button_update, motion_update;
 	GtkWidget* (*create_detail_ui)(struct _APPLICATION *app, struct _BRUSH_CORE* core);
 	void (*color_change)(const uint8 color[3], void* data);
@@ -105,6 +106,21 @@ typedef struct _BRUSH_UPDATE_AREA
 	// 初期化済みフラグ
 	int initialized;
 } BRUSH_UPDATE_AREA;
+
+typedef struct _BRUSH_CHAIN_ITEM
+{
+	POINTER_ARRAY *names;
+} BRUSH_CHAIN_ITEM;
+
+typedef struct _BRUSH_CHAIN
+{
+	int key;
+	int current;
+	int change_key;
+	unsigned int timer_id;
+	int bursh_button_stop;
+	POINTER_ARRAY *chains;
+} BRUSH_CHAIN;
 
 EXTERN void ChangeBrush(
 	BRUSH_CORE* core,
@@ -190,13 +206,13 @@ EXTERN void BrushCoreUndoRedo(DRAW_WINDOW* window, void* p);
 EXTERN void DrawCircleBrush(
 	DRAW_WINDOW* window,
 	BRUSH_CORE* core,
-	gdouble x,
-	gdouble y,
-	gdouble width,
-	gdouble height,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T width,
+	FLOAT_T height,
 	uint8** mask,
-	gdouble zoom,
-	gdouble alpha,
+	FLOAT_T zoom,
+	FLOAT_T alpha,
 	uint16 blend_mode
 );
 
@@ -217,13 +233,13 @@ EXTERN void DrawCircleBrush(
 EXTERN void DrawCircleBrushWorkLayer(
 	DRAW_WINDOW* window,
 	BRUSH_CORE* core,
-	gdouble x,
-	gdouble y,
-	gdouble width,
-	gdouble height,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T width,
+	FLOAT_T height,
 	uint8** mask,
-	gdouble zoom,
-	gdouble alpha
+	FLOAT_T zoom,
+	FLOAT_T alpha
 );
 
 /*************************************************
@@ -248,17 +264,17 @@ EXTERN void DrawCircleBrushWorkLayer(
 EXTERN void DrawImageBrush(
 	DRAW_WINDOW* window,
 	BRUSH_CORE* core,
-	gdouble x,
-	gdouble y,
-	gdouble width,
-	gdouble height,
-	gdouble scale,
-	gdouble size,
-	gdouble angle,
-	gdouble image_width,
-	gdouble image_height,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T width,
+	FLOAT_T height,
+	FLOAT_T scale,
+	FLOAT_T size,
+	FLOAT_T angle,
+	FLOAT_T image_width,
+	FLOAT_T image_height,
 	uint8** mask,
-	gdouble alpha,
+	FLOAT_T alpha,
 	uint16 blend_mode
 );
 
@@ -283,17 +299,17 @@ EXTERN void DrawImageBrush(
 EXTERN void DrawImageBrushWorkLayer(
 	DRAW_WINDOW* window,
 	BRUSH_CORE* core,
-	gdouble x,
-	gdouble y,
-	gdouble width,
-	gdouble height,
-	gdouble scale,
-	gdouble size,
-	gdouble angle,
-	gdouble image_width,
-	gdouble image_height,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T width,
+	FLOAT_T height,
+	FLOAT_T scale,
+	FLOAT_T size,
+	FLOAT_T angle,
+	FLOAT_T image_width,
+	FLOAT_T image_height,
 	uint8** mask,
-	gdouble alpha
+	FLOAT_T alpha
 );
 
 /*************************************************
@@ -433,7 +449,7 @@ EXTERN void UpdateBrushScatterDrawArea(
 * y			: マウスカーソルのY座標    *
 * dummy		: ダミーポインタ           *
 ***************************************/
-EXTERN void DefaultToolUpdate(DRAW_WINDOW* window, gdouble x, gdouble y, void* dummy);
+EXTERN void DefaultToolUpdate(DRAW_WINDOW* window, FLOAT_T x, FLOAT_T y, void* dummy);
 
 /***************************************************
 * UpdateBrushPreviewWindow関数                     *
@@ -584,6 +600,22 @@ EXTERN void BlendWaterBrush(
 	uint8 mix,
 	uint8 extend
 );
+
+/*****************************************
+* InitializeBrushChain関数               *
+* 簡易ブラシ切り替えのデータを初期化する *
+* 引数                                   *
+* chain	: 簡易ブラシ切り替えのデータ     *
+*****************************************/
+void InitializeBrushChain(BRUSH_CHAIN* chain);
+
+/********************************************
+* InitializeBrushChainItem関数              *
+* 簡易ブラシ切り替えの1セット分を初期化する *
+* 引数                                      *
+* item	: 簡易ブラシ切り替えの1セット       *
+********************************************/
+void InitializeBrushChainItem(BRUSH_CHAIN_ITEM* item);
 
 #ifdef __cplusplus
 }

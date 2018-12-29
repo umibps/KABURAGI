@@ -1,8 +1,10 @@
 #include <string.h>
 #include "preview_window.h"
 #include "application.h"
-#include "input.h"
 #include "memory.h"
+
+#include "./gui/GTK/input_gtk.h"
+#include "./gui/GTK/gtk_widgets.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -194,7 +196,7 @@ void InitializePreviewWindow(PREVIEW_WINDOW* preview, APPLICATION* app)
 		gtk_window_set_skip_taskbar_hint(GTK_WINDOW(preview->window), TRUE);
 		// 親ウィンドウを登録
 		gtk_window_set_transient_for(
-			GTK_WINDOW(preview->window), GTK_WINDOW(app->window));
+			GTK_WINDOW(preview->window), GTK_WINDOW(app->widgets->window));
 	}
 	else
 	{
@@ -205,7 +207,7 @@ void InitializePreviewWindow(PREVIEW_WINDOW* preview, APPLICATION* app)
 	// ウィンドウタイトルを設定
 	gtk_window_set_title(GTK_WINDOW(preview->window), app->labels->unit.preview);
 	// ショートカットキーを登録
-	gtk_window_add_accel_group(GTK_WINDOW(preview->window), app->hot_key);
+	gtk_window_add_accel_group(GTK_WINDOW(preview->window), app->widgets->hot_key);
 	// ウィンドウの位置を設定
 	if(preview->window_x < - (int)0x80000000 || preview->window_x > 0x80000000)
 	{

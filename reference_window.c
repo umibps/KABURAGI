@@ -14,6 +14,8 @@
 #include "widgets.h"
 #include "memory.h"
 
+#include "./gui/GTK/gtk_widgets.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -436,14 +438,14 @@ void OpenAsReferenceImage(char* file_path, REFERENCE_WINDOW* reference)
 		}
 
 		// 読込中のメッセージを表示
-		context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(app->status_bar), "Loading");
-		message_id = gtk_statusbar_push(GTK_STATUSBAR(app->status_bar),
+		context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(app->widgets->status_bar), "Loading");
+		message_id = gtk_statusbar_push(GTK_STATUSBAR(app->widgets->status_bar),
 			context_id, app->labels->window.loading);
 		// イベントを回してメッセージを表示
 #if GTK_MAJOR_VERSION <= 2
-		gdk_window_process_updates(app->status_bar->window, TRUE);
+		gdk_window_process_updates(app->widgets->status_bar->window, TRUE);
 #else
-		gdk_window_process_updates(gtk_widget_get_window(app->status_bar), TRUE);
+		gdk_window_process_updates(gtk_widget_get_window(app->widgets->status_bar), TRUE);
 #endif
 
 		while(gdk_events_pending() != FALSE)
@@ -453,9 +455,9 @@ void OpenAsReferenceImage(char* file_path, REFERENCE_WINDOW* reference)
 			if(queued_event != NULL)
 			{
 #if GTK_MAJOR_VERSION <= 2
-				if(queued_event->any.window == app->status_bar->window
+				if(queued_event->any.window == app->widgets->status_bar->window
 #else
-				if(queued_event->any.window == gtk_widget_get_window(app->status_bar)
+				if(queued_event->any.window == gtk_widget_get_window(app->widgets->status_bar)
 #endif
 					&& queued_event->any.type == GDK_EXPOSE)
 				{
@@ -961,7 +963,7 @@ void InitializeReferenceWindow(REFERENCE_WINDOW* reference, struct _APPLICATION*
 		G_CALLBACK(ReferenceWindowButtonPress), reference);
 	gtk_window_set_title(GTK_WINDOW(reference->data->window), app->labels->window.reference);
 	gtk_window_set_type_hint(GTK_WINDOW(reference->data->window), GDK_WINDOW_TYPE_HINT_UTILITY);
-	gtk_window_set_transient_for(GTK_WINDOW(reference->data->window), GTK_WINDOW(app->window));
+	gtk_window_set_transient_for(GTK_WINDOW(reference->data->window), GTK_WINDOW(app->widgets->window));
 	// タスクバーには表示しない
 	gtk_window_set_skip_taskbar_hint(GTK_WINDOW(reference->data->window), TRUE);
 

@@ -23,6 +23,9 @@
 #include "display.h"
 #include "application.h"
 
+#include "gui/GTK/utils_gtk.h"
+#include "gui/GTK/gtk_widgets.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1547,13 +1550,13 @@ LAYER* ReadOriginalFormatLayers(
 
 		// 進捗状況を更新
 		current_progress += progress_step;
-		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), current_progress);
+		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->widgets->progress), current_progress);
 		(void)sprintf(show_text, "%.0f%%", current_progress * 100);
-		gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->progress), show_text);
+		gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->widgets->progress), show_text);
 #if GTK_MAJOR_VERSION <= 2
-		gdk_window_process_updates(app->progress->window, FALSE);
+		gdk_window_process_updates(app->widgets->progress->window, FALSE);
 #else
-		gdk_window_process_updates(gtk_widget_get_window(app->progress), FALSE);
+		gdk_window_process_updates(gtk_widget_get_window(app->widgets->progress), FALSE);
 #endif
 		while(gdk_events_pending() != FALSE)
 		{
@@ -1563,9 +1566,9 @@ LAYER* ReadOriginalFormatLayers(
 			if(queued_event != NULL)
 			{
 #if GTK_MAJOR_VERSION <= 2
-				if(queued_event->any.window == app->progress->window
+				if(queued_event->any.window == app->widgets->progress->window
 #else
-				if(queued_event->any.window == gtk_widget_get_window(app->progress)
+				if(queued_event->any.window == gtk_widget_get_window(app->widgets->progress)
 #endif
 					&& queued_event->any.type == GDK_EXPOSE
 					|| redraw_counter >= MAX_REDRAW_TRY)
@@ -1938,13 +1941,13 @@ LAYER* ReadOriginalFormatLayersOldVersion5(
 
 		// 進捗状況を更新
 		current_progress += progress_step;
-		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), current_progress);
+		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->widgets->progress), current_progress);
 		(void)sprintf(show_text, "%.0f%%", current_progress * 100);
-		gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->progress), show_text);
+		gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->widgets->progress), show_text);
 #if GTK_MAJOR_VERSION <= 2
-		gdk_window_process_updates(app->progress->window, FALSE);
+		gdk_window_process_updates(app->widgets->progress->window, FALSE);
 #else
-		gdk_window_process_updates(gtk_widget_get_window(app->progress), FALSE);
+		gdk_window_process_updates(gtk_widget_get_window(app->widgets->progress), FALSE);
 #endif
 		while(gdk_events_pending() != FALSE)
 		{
@@ -1954,9 +1957,9 @@ LAYER* ReadOriginalFormatLayersOldVersion5(
 			if(queued_event != NULL)
 			{
 #if GTK_MAJOR_VERSION <= 2
-				if(queued_event->any.window == app->progress->window
+				if(queued_event->any.window == app->widgets->progress->window
 #else
-				if(queued_event->any.window == gtk_widget_get_window(app->progress)
+				if(queued_event->any.window == gtk_widget_get_window(app->widgets->progress)
 #endif
 					&& queued_event->any.type == GDK_EXPOSE
 					|| redraw_counter >= MAX_REDRAW_TRY)
@@ -2310,13 +2313,13 @@ LAYER* ReadOriginalFormatLayersOldVersion4(
 
 		// 進捗状況を更新
 		current_progress += progress_step;
-		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), current_progress);
+		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->widgets->progress), current_progress);
 		(void)sprintf(show_text, "%.0f%%", current_progress * 100);
-		gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->progress), show_text);
+		gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->widgets->progress), show_text);
 #if GTK_MAJOR_VERSION <= 2
-		gdk_window_process_updates(app->progress->window, FALSE);
+		gdk_window_process_updates(app->widgets->progress->window, FALSE);
 #else
-		gdk_window_process_updates(gtk_widget_get_window(app->progress), FALSE);
+		gdk_window_process_updates(gtk_widget_get_window(app->widgets->progress), FALSE);
 #endif
 		while(gdk_events_pending() != FALSE)
 		{
@@ -2326,9 +2329,9 @@ LAYER* ReadOriginalFormatLayersOldVersion4(
 			if(queued_event != NULL)
 			{
 #if GTK_MAJOR_VERSION <= 2
-				if(queued_event->any.window == app->progress->window
+				if(queued_event->any.window == app->widgets->progress->window
 #else
-				if(queued_event->any.window == gtk_widget_get_window(app->progress)
+				if(queued_event->any.window == gtk_widget_get_window(app->widgets->progress)
 #endif
 					&& queued_event->any.type == GDK_EXPOSE
 					|| redraw_counter >= MAX_REDRAW_TRY)
@@ -3291,7 +3294,7 @@ DRAW_WINDOW* ReadOriginalFormat(
 	// 描画領域作成
 	window = CreateDrawWindow(
 		original_width, original_height, channel, data_name,
-		app->note_book, app->window_num, app
+		app->widgets->note_book, app->window_num, app
 	);
 	if(GetHas3DLayer(app) != FALSE)
 	{
@@ -3319,12 +3322,12 @@ DRAW_WINDOW* ReadOriginalFormat(
 		gchar show_text[16];
 
 		progress_step = 1.0 / (num_layer + 1);
-		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), progress_step);
+		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->widgets->progress), progress_step);
 		(void)sprintf(show_text, "%.0f%%", progress_step * 100);
 #if GTK_MAJOR_VERSION <= 2
-		gdk_window_process_updates(app->progress->window, FALSE);
+		gdk_window_process_updates(app->widgets->progress->window, FALSE);
 #else
-		gdk_window_process_updates(gtk_widget_get_window(app->progress), FALSE);
+		gdk_window_process_updates(gtk_widget_get_window(app->widgets->progress), FALSE);
 #endif
 		while(gdk_events_pending() != FALSE)
 		{
@@ -3333,9 +3336,9 @@ DRAW_WINDOW* ReadOriginalFormat(
 			if(queued_event != NULL)
 			{
 #if GTK_MAJOR_VERSION <= 2
-				if(queued_event->any.window == app->progress->window
+				if(queued_event->any.window == app->widgets->progress->window
 #else
-				if(queued_event->any.window == gtk_widget_get_window(app->progress)
+				if(queued_event->any.window == gtk_widget_get_window(app->widgets->progress)
 #endif
 					&& queued_event->any.type == GDK_EXPOSE)
 				{
@@ -3417,8 +3420,8 @@ DRAW_WINDOW* ReadOriginalFormat(
 	}
 
 	// プログレスバーをリセット
-	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), 0);
-	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->progress), "");
+	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->widgets->progress), 0);
+	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->widgets->progress), "");
 
 	//SetDrawWindowCallbacks(window->window, window);
 	gtk_widget_show(window->window);
@@ -3521,7 +3524,7 @@ LAYER* ReadOriginalFormatMixedData(
 	// 描画領域作成
 	window = CreateTempDrawWindow(
 		original_width, original_height, channel, data_name,
-		app->note_book, app->window_num, app
+		app->widgets->note_book, app->window_num, app
 	);
 
 	// 背景画像データを読み込む
@@ -3544,12 +3547,12 @@ LAYER* ReadOriginalFormatMixedData(
 		gchar show_text[16];
 
 		progress_step = 1.0 / (num_layer + 1);
-		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), progress_step);
+		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->widgets->progress), progress_step);
 		(void)sprintf(show_text, "%.0f%%", progress_step * 100);
 #if GDK_MAJOR_VERSION <= 2
-		gdk_window_process_updates(app->progress->window, FALSE);
+		gdk_window_process_updates(app->widgets->progress->window, FALSE);
 #else
-		gdk_window_process_updates(gtk_widget_get_window(app->progress), FALSE);
+		gdk_window_process_updates(gtk_widget_get_window(app->widgets->progress), FALSE);
 #endif
 		while(gdk_events_pending() != FALSE)
 		{
@@ -3558,9 +3561,9 @@ LAYER* ReadOriginalFormatMixedData(
 			if(queued_event != NULL)
 			{
 #if GDK_MAJOR_VERSION <= 2
-				if(queued_event->any.window == app->progress->window
+				if(queued_event->any.window == app->widgets->progress->window
 #else
-				if(queued_event->any.window == gtk_widget_get_window(app->progress)
+				if(queued_event->any.window == gtk_widget_get_window(app->widgets->progress)
 #endif
 					&& queued_event->any.type == GDK_EXPOSE)
 				{
@@ -3616,8 +3619,8 @@ LAYER* ReadOriginalFormatMixedData(
 	(void)DeleteMemoryStream(mem_stream);
 
 	// プログレスバーをリセット
-	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress), 0);
-	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->progress), "");
+	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->widgets->progress), 0);
+	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(app->widgets->progress), "");
 
 	DeleteDrawWindow(&window);
 
@@ -3863,15 +3866,15 @@ void WriteOriginalFormat(
 	int i;	// for文用のカウンタ
 
 	// 進捗パーセンテージを表示
-	progress = window->app->progress;
+	progress = window->app->widgets->progress;
 	(void)sprintf(show_text, "0%%");
 	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(progress), show_text);
 
 	// イベントを回してメッセージを表示
 #if GTK_MAJOR_VERSION <= 2
-	gdk_window_process_updates(window->app->status_bar->window, TRUE);
+	gdk_window_process_updates(window->app->widgets->status_bar->window, TRUE);
 #else
-	gdk_window_process_updates(gtk_widget_get_window(window->app->status_bar), TRUE);
+	gdk_window_process_updates(gtk_widget_get_window(window->app->widgets->status_bar), TRUE);
 #endif
 	while(gdk_events_pending() != FALSE)
 	{
@@ -3880,9 +3883,9 @@ void WriteOriginalFormat(
 		if(queued_event != NULL)
 		{
 #if GTK_MAJOR_VERSION <= 2
-			if(queued_event->any.window == window->app->status_bar->window
+			if(queued_event->any.window == window->app->widgets->status_bar->window
 #else
-			if(queued_event->any.window == gtk_widget_get_window(window->app->status_bar)
+			if(queued_event->any.window == gtk_widget_get_window(window->app->widgets->status_bar)
 #endif
 				&& queued_event->any.type == GDK_EXPOSE)
 			{

@@ -245,7 +245,7 @@ gboolean DisplayDrawWindow(
 					// サムネイル更新
 					if(layer->widget != NULL)
 					{
-						gtk_widget_queue_draw(layer->widget->thumbnail);
+						UpdateLayerThumbnailWidget(layer);
 					}
 				}
 
@@ -363,7 +363,7 @@ gboolean DisplayDrawWindow(
 					}
 
 					// サムネイル更新
-					gtk_widget_queue_draw(layer->widget->thumbnail);
+					UpdateLayerThumbnailWidget(layer);
 				}
 
 				// 合成する対象と方法が確定したので合成を実行する
@@ -434,7 +434,6 @@ gboolean DisplayDrawWindow(
 		cairo_set_source(window->scaled_mixed->cairo_p, window->mixed_pattern);
 		cairo_paint(window->scaled_mixed->cairo_p);
 		cairo_restore(window->scaled_mixed->cairo_p);
-		//ScaleNearest(window);
 
 		cairo_surface_destroy(window->update.surface_p);
 		cairo_destroy(window->update.cairo_p);

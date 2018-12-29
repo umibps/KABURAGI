@@ -7,8 +7,8 @@
 
 #if MAJOR_VERSION == 1
 # define MINOR_VERSION 4
-# define RELEASE_VERSION 1
-# define BUILD_VERSION 3
+# define RELEASE_VERSION 2
+# define BUILD_VERSION 0
 #elif MAJOR_VERSION == 2
 # define MINOR_VERSION 0
 # define RELEASE_VERSION 1
@@ -52,6 +52,10 @@
 #include "MikuMikuGtk+/mikumikugtk.h"
 #include "MikuMikuGtk+/ui_label.h"
 
+#if !defined(USE_QT) || (defined(USE_QT) && USE_QT != 0)
+# include "gui/GTK/color_gtk.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -81,7 +85,9 @@ typedef enum _eTOOL_WINDOW_FLAGS
 	TOOL_PLACE_RIGHT = 0x04,
 	TOOL_SHOW_COLOR_CIRCLE = 0x08,
 	TOOL_SHOW_COLOR_PALLETE = 0x10,
-	TOOL_POP_UP = 0x20
+	TOOL_POP_UP = 0x20,
+	TOOL_CHANGING_BRUSH = 0x40,
+	TOOL_BUTTON_STOPPED = 0x80
 } eTOOL_WINDOW_FLAGS;
 
 /*************************************************
@@ -106,7 +112,7 @@ typedef enum _eAPPLICATION_FLAGS
 	APPLICATION_SHOW_PREVIEW_ON_TASK_BAR = 0x2000,		// プレビューウィンドウをタスクバーに表示する
 	APPLICATION_IN_SWITCH_DRAW_WINDOW = 0x4000,			// 描画領域の切替中
 	APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY = 0x8000,	// ファイルの書出しをProgram Dataフェオルダにする
-	APPLICATION_HAS_3D_LAYER = 0x10000					// 3Dモデリングの使用可否
+	APPLICATION_HAS_3D_LAYER = 0x10000,					// 3Dモデリングの使用可否
 } eAPPLICATION_FLAGS;
 
 #define DND_THRESHOLD 20
@@ -135,6 +141,11 @@ typedef enum _eINPUT_DEVICE
 	INPUT_PEN,
 	INPUT_ERASER
 } eINPUT_DEVICE;
+
+typedef struct _INITIALIZE_DATA
+{
+	uint8 fg_color[3], bg_color[3];
+} INITIALIZE_DATA;
 
 /*************************
 * TOOL_WINDOW構造体      *
@@ -206,6 +217,8 @@ typedef struct _TOOL_WINDOW
 #if GTK_MAJOR_VERSION >= 3
 	SMOOTHER touch_smoother[MAX_TOUCH];
 #endif
+	// 簡易ブラシ切り替えのデータ
+	BRUSH_CHAIN brush_chain;
 	// パレットの情報
 	uint8 pallete[(PALLETE_WIDTH*PALLETE_HEIGHT)][3];
 	uint8 pallete_use[((PALLETE_WIDTH*PALLETE_HEIGHT)+7)/8];
@@ -303,30 +316,30 @@ typedef void (*filter_func)(struct _DRAW_WINDOW* window, struct _LAYER** layers,
 							uint16 num_layer, void* data);
 typedef void (*selection_filter_func)(struct _DRAW_WINDOW* window, void* data);
 
+typedef struct _MAIN_WINDOW_WIDGETS* MAIN_WINDOW_WIDGETS_PTR;
+
+typedef struct _WRITE_APPLICATION_DATA
+{
+	int main_window_x, main_window_y;
+	int main_window_width, main_window_height;
+} WRITE_APPLICATIOIN_DATA;
+
 /*************************************
 * APPLICATION構造体                  *
 * アプリケーション全体のデータを管理 *
 *************************************/
 typedef struct _APPLICATION
 {
-	// ウィンドウ、メニュー、タブを入れるパッキングボックス、タブ
-	GtkWidget *window, *vbox, *note_book;
-	// メニューバー
-	GtkWidget *menu_bar;
-	// ステータスバー
-	GtkWidget *status_bar;
-	// 保存、フィルター等の進捗状況を表すプログレスバー
-	GtkWidget *progress;
-	// シングルウィンドウ用にツールを入れる左右のペーン
-	GtkWidget *left_pane, *right_pane;
-	// ナビゲーションとレイヤービューをドッキングするためのボックス
-	GtkWidget *navi_layer_pane;
+	// OpenMPの最大スレッド数
+	int max_threads;
+	// メインウィンドウのGUIウィジェット
+	MAIN_WINDOW_WIDGETS_PTR widgets;
 	// ウィンドウの位置、サイズ
 	int window_x, window_y, window_width, window_height;
 	// 左右ペーンの位置
-	gint left_pane_position, right_pane_position;
-	// ショートカットキー
-	GtkAccelGroup *hot_key;
+	int left_pane_position, right_pane_position;
+	// GUIの拡大率
+	FLOAT_T gui_scale;
 	// 入力デバイス
 	eINPUT_DEVICE input;
 	// 描画領域
@@ -359,12 +372,13 @@ typedef struct _APPLICATION
 
 	// ブラシテクスチャ用
 	TEXTURES textures;
-	// 使用テクスチャのラベル
-	GtkWidget *texture_label;
 
 	// UIに表示する文字列
 	APPLICATION_LABELS *labels;
 	FRACTAL_LABEL *fractal_labels;
+
+	// レイヤーをまとめて作成するデータ
+	LAYER_GROUP_TEMPLATES layer_group_templates;
 
 	// システムのコード
 	char *system_code;
@@ -396,12 +410,6 @@ typedef struct _APPLICATION
 
 	// 新規作成などのメニューで扱うデータ
 	MENU_DATA menu_data;
-
-	// 左右反転のボタンとラベル
-	GtkWidget *reverse_button, *reverse_label;
-
-	// 選択範囲編集のボタン
-	GtkWidget *edit_selection;
 
 	// ファイルオープン中等の操作中に立つフラグ
 	unsigned int flags;
@@ -473,10 +481,42 @@ typedef struct _APPLICATION
 * アプリケーションの初期化                                           *
 * 引数                                                               *
 * app				: アプリケーション全体を管理する構造体のアドレス *
+* argv				: main関数の第一引数                             *
+* argc				: main関数の第二引数                             *
 * init_file_name	: 初期化ファイルの名前                           *
 *********************************************************************/
-EXTERN void InitializeApplication(APPLICATION* app, char* init_file_name);
- 
+EXTERN void InitializeApplication(APPLICATION* app, char** argv, int argc, char* init_file_name);
+
+/*********************************************************
+* CreateMainWindowWidgets関数                            *
+* アプリケーションのメインウィンドウを作成する           *
+* 引数                                                   *
+* app	: アプリケーション全体を管理する構造体のアドレス *
+* 返り値                                                 *
+*	作成したメインウィンドウウィジェットデータのアドレス *
+*********************************************************/
+EXTERN MAIN_WINDOW_WIDGETS_PTR CreateMainWindowWidgets(APPLICATION* app);
+
+/*************************************************************************
+* GetWriteMainWindowData関数                                             *
+* 初期化ファイルに書き出すメインウィンドウウィジェットのデータを取得する *
+* 引数                                                                   *
+* write_data	: 初期化ファイルへの書き出し専用データのアドレス         *
+* app			: アプリケーション全体を管理する構造体のアドレス         *
+*************************************************************************/
+EXTERN void GetWriteMainWindowData(WRITE_APPLICATIOIN_DATA* write_data, APPLICATION* app);
+
+/*********************************************************
+* ReadInitializeFile関数                                 *
+* 初期化ファイルを読み込む                               *
+* 引数                                                   *
+* app		: アプリケーションを管理する構造体のアドレス *
+* file_path	: 初期化ファイルのパス                       *
+* 返り値                                                 *
+*	正常終了:0	失敗:負の値                              *
+*********************************************************/
+EXTERN int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA* init_data);
+
 /*********************************************************************
 * UpdateWindowTitle関数                                              *
 * ウインドウタイトルの更新                                           *
@@ -1146,6 +1186,14 @@ EXTERN void ReturnFromLoupeMode(APPLICATION* app);
 *********************************************************/
 EXTERN void LayerViewSetDrawWindow(LAYER_WINDOW* layer_window, DRAW_WINDOW* draw_window);
 
+/***********************************************
+* ExecuteLayerGroupTemplateWindow関数          *
+* レイヤーをまとめて作成する                   *
+* 引数                                         *
+* app	: アプリケーション全体を管理するデータ *
+***********************************************/
+EXTERN void ExecuteLayerGroupTemplateWindow(APPLICATION* app);
+
 /*****************************************************************
 * LoupeButtonToggled関数                                         *
 * ルーペモード切り替えボタンがクリックされた時のコールバック関数 *
@@ -1246,6 +1294,16 @@ EXTERN int GetHas3DLayer(APPLICATION* app);
 * lang_file_path	: ラベルのテキストデータファイルのパス       *
 *****************************************************************/
 EXTERN void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path);
+
+/***********************************************************
+* SetActiveBrushTableButton関数                            *
+* 通常レイヤー時のアクティブなブラシのボタン状態を設定する *
+* (詳細設定は変更しない)                                   *
+* 引数                                                     *
+* tool			: ツールボックスの情報                     *
+* brush_core	: アクティブにするブラシのデータ           *
+***********************************************************/
+EXTERN void SetActiveBrushTableButton(TOOL_WINDOW* tool, void* brush_core);
 
 #ifdef __cplusplus
 }

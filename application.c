@@ -20,7 +20,6 @@
 #include "menu.h"
 #include "labels.h"
 #include "tool_box.h"
-#include "input.h"
 #include "display.h"
 #include "save.h"
 #include "utils.h"
@@ -30,28 +29,13 @@
 #include "brushes.h"
 #include "tlg.h"
 
+#include "./gui/GTK/input_gtk.h"
+#include "./gui/GTK/utils_gtk.h"
+#include "./gui/GTK/gtk_widgets.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef struct _SPLASH_WINDOW
-{
-	APPLICATION *app;
-	GtkWidget *window;
-	GtkWidget *image;
-	guint timer_id;
-} SPLASH_WINDOW;
-
-typedef struct _INITIALIZE_DATA
-{
-	uint8 fg_color[3], bg_color[3];
-} INITIALIZE_DATA;
-
-typedef struct _REALIZE_DATA
-{
-	guint signal_id;
-	APPLICATION *app;
-} REALIZE_DATA;
 
 /*********************************************************
 * GetActiveDrawWindow関数                                *
@@ -74,21 +58,6 @@ DRAW_WINDOW* GetActiveDrawWindow(APPLICATION* app)
 		return ret->focal_window;
 	}
 	return ret;
-}
-
-/*********************************************************
-* SplashWindowTimeOut関数                                *
-* 一定時間スプラッシュウィンドウを表示したら呼び出される *
-* 引数                                                   *
-* window	: スプラッシュウィンドウウィジェット         *
-* 返り値                                                 *
-*	FALSE(関数呼び出し終了)                              *
-*********************************************************/
-static int SplashWindowTimeOut(GtkWidget* window)
-{
-	gtk_widget_destroy(window);
-
-	return FALSE;
 }
 
 /*****************************************************
@@ -117,46 +86,6 @@ static void SetLayerBlendModeArray(APPLICATION* app)
 	app->layer_blend_operators[15] = CAIRO_OPERATOR_HSL_SATURATION;
 	app->layer_blend_operators[16] = CAIRO_OPERATOR_HSL_COLOR;
 	app->layer_blend_operators[17] = CAIRO_OPERATOR_HSL_LUMINOSITY;
-}
-
-/*********************************************************
-* InitializeSplashWindow関数                             *
-* スプラッシュウィンドウの初期化&表示                    *
-* 引数                                                   *
-* window		: スプラッシュウィンドウのデータアドレス *
-*********************************************************/
-void InitializeSplashWindow(SPLASH_WINDOW* window)
-{
-	// イメージ画像のパス(Mac対策)
-	gchar *file_path;
-	// ウィンドウに設定するタイトル
-	char title[256];
-
-	// ウィンドウ作成
-	window->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	// ウィンドウタイトルを設定
-	(void)sprintf(title, "Paint Soft %s", (GetHas3DLayer(window->app) == FALSE) ? "KABURAGI" : "MIKADO");
-	gtk_window_set_title(GTK_WINDOW(window->window), title);
-	// スプラッシュウィンドウへ
-	gtk_window_set_type_hint(GTK_WINDOW(window->window), GDK_WINDOW_TYPE_HINT_SPLASHSCREEN);
-	// イメージをロード
-	file_path = g_build_filename(window->app->current_path, "image/splash.png", NULL);
-	window->image = gtk_image_new_from_file(file_path);
-	g_free(file_path);
-
-	gtk_container_add(GTK_CONTAINER(window->window), window->image);
-
-	// ウィンドウを表示
-	gtk_widget_show_all(window->window);
-
-	// 待機中のイベントを処理する
-	while(gtk_events_pending() != FALSE)
-	{
-		gtk_main_iteration();
-	}
-
-	// 時間で消去
-	window->timer_id = g_timeout_add(2000, (GSourceFunc)SplashWindowTimeOut, window->window);
 }
 
 /*************************************************************************
@@ -279,11 +208,153 @@ gboolean WriteMakeNewData(APPLICATION* app, const char* make_new_file_path)
 	return TRUE;
 }
 
-typedef enum _eDROP_LIST
+#define LAYER_GROUP_TEMPLATE_SECTION_NAME "LAYER_GROUP_TEMPLATE"
+/*************************************************
+* ReadLayerGroupTemplateData関数                 *
+* レイヤーをまとめて作成する際のデータを読み込む *
+* 引数                                           *
+* app	: アプリケーション全体を管理するデータ   *
+* file	: 読み込む初期化ファイル                 *
+*************************************************/
+static void ReadLayerGroupTemplateData(APPLICATION* app, INI_FILE* file)
 {
-	DROP_URI = 10,
-	NUM_DROP_LIST = 1
-} eDROP_LIST;
+	LAYER_GROUP_TEMPLATE_NODE *target;
+	char name[MAX_LAYER_NAME_LENGTH];
+	char str[MAX_LAYER_NAME_LENGTH];
+	char *text;
+	int num_templates = 0;
+	int counter;
+	int i, j;
+
+	counter = 1;
+	while(1)
+	{
+		(void)memset(str, 0, sizeof(str));
+		(void)sprintf(name, "GROUP_NAME%d", counter);
+		(void)IniFileGetString(file, LAYER_GROUP_TEMPLATE_SECTION_NAME,
+			name, str, sizeof(str));
+		if(str[0] != '\0')
+		{
+			num_templates++;
+		}
+		else
+		{
+			break;
+		}
+		counter++;
+	}
+
+	app->layer_group_templates.num_templates = num_templates;
+	app->layer_group_templates.templates
+		= (LAYER_GROUP_TEMPLATE*)MEM_ALLOC_FUNC(sizeof(*app->layer_group_templates.templates)*num_templates);
+	(void)memset(app->layer_group_templates.templates, 0, sizeof(*app->layer_group_templates.templates)*num_templates);
+
+	for(i=0; i<num_templates; i++)
+	{
+		(void)sprintf(name, "GROUP_NAME%d", i+1);
+		(void)IniFileGetString(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name, str, sizeof(str));
+		text = g_convert(str, strlen(str), "UTF-8", app->system_code, NULL, NULL, NULL);
+		app->layer_group_templates.templates[i].group_name = MEM_STRDUP_FUNC(text);
+		g_free(text);
+		(void)sprintf(name, "NUM_LAYERS%d", i+1);
+		app->layer_group_templates.templates[i].num_layers =
+			IniFileGetInteger(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name);
+		(void)sprintf(name, "ADD_LAYER_SET%d", i+1);
+		if(IniFileGetInteger(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name) != 0)
+		{
+			app->layer_group_templates.templates[i].flags |= LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET;
+		}
+		(void)sprintf(name, "ADD_UNDER_ACTIVE_LAYER%d", i+1);
+		if(IniFileGetInteger(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name) != 0)
+		{
+			app->layer_group_templates.templates[i].flags |= LAYER_GROUP_TEMPLATE_FLAG_ADD_UNDER_ACTIVE_LAYER;
+		}
+
+		if(app->layer_group_templates.templates[i].num_layers > 0)
+		{
+			app->layer_group_templates.templates[i].names = target =
+				(LAYER_GROUP_TEMPLATE_NODE*)MEM_ALLOC_FUNC(sizeof(*target) * app->layer_group_templates.templates[i].num_layers);
+			(void)memset(target, 0, sizeof(*target) * app->layer_group_templates.templates[i].num_layers);
+			for(j=0; j<app->layer_group_templates.templates[i].num_layers - 1; j++)
+			{
+				target->next = &app->layer_group_templates.templates[i].names[j+1];
+				target = target->next;
+			}
+			target = app->layer_group_templates.templates[i].names;
+			app->layer_group_templates.templates[i].add_flags =
+				(uint8*)MEM_ALLOC_FUNC((app->layer_group_templates.templates[i].num_layers+7)/8);
+			for(j=0; j<app->layer_group_templates.templates[i].num_layers; j++)
+			{
+				(void)sprintf(name, "LAYER_NAME%d_%d", i+1, j+1);
+				(void)IniFileGetString(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name, str, sizeof(str));
+				text = g_convert(str, strlen(str), "UTF-8", app->system_code, NULL, NULL, NULL);
+				target->name = MEM_STRDUP_FUNC(text);
+				g_free(text);
+				(void)sprintf(name, "LAYER_TYPE%d_%d", i+1, j+1);
+				(void)IniFileGetString(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name,
+					str, sizeof(str));
+				target->layer_type = GetLayerTypeFromString(str);
+				(void)sprintf(name, "LAYER_ADD_FLAG%d_%d", i+1, j+1);
+				if(IniFileGetInteger(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name) != 0)
+				{
+					FLAG_ON(app->layer_group_templates.templates[i].add_flags, j);
+				}
+				target = target->next;
+			}
+		}
+	}
+}
+
+/*************************************************
+* WriteLayerGroupTemplateData関数                *
+* レイヤーをまとめて作成する際のデータを書き込む *
+* 引数                                           *
+* app	: アプリケーション全体を管理するデータ   *
+* file	: 書き込む初期化ファイル                 *
+*************************************************/
+static void WriteLayerGroupTemplateData(APPLICATION* app, INI_FILE* file)
+{
+	LAYER_GROUP_TEMPLATE_NODE *target;
+	char name[MAX_LAYER_NAME_LENGTH];
+	char *text;
+	int num_templates;
+	int i, j;
+
+	num_templates = app->layer_group_templates.num_templates;
+
+	for(i=0; i<num_templates; i++)
+	{
+		(void)sprintf(name, "GROUP_NAME%d", i+1);
+		text = g_convert(app->layer_group_templates.templates[i].group_name,
+			strlen(app->layer_group_templates.templates[i].group_name), app->system_code, "UTF-8", NULL, NULL, NULL);
+		(void)IniFileAddString(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name, text);
+		g_free(text);
+		(void)sprintf(name, "NUM_LAYERS%d", i+1);
+		(void)IniFileAddInteger(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name,
+			app->layer_group_templates.templates[i].num_layers, 10);
+		(void)sprintf(name, "ADD_LAYER_SET%d", i+1);
+		(void)IniFileAddInteger(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name,
+			(app->layer_group_templates.templates[i].flags & LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET) == 0 ? 0 : 1, 10);
+		(void)sprintf(name, "ADD_UNDER_ACTIVE_LAYER%d", i+1);
+		(void)IniFileAddInteger(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name,
+			(app->layer_group_templates.templates[i].flags & LAYER_GROUP_TEMPLATE_FLAG_ADD_UNDER_ACTIVE_LAYER) == 0 ? 0 : 1, 10);
+
+		for(target=app->layer_group_templates.templates[i].names, j=0;
+			target != NULL; target = target->next, j++)
+		{
+			(void)sprintf(name, "LAYER_NAME%d_%d", i+1, j+1);
+			text = g_convert(target->name, strlen(target->name), app->system_code, "UTF-8", NULL, NULL, NULL);
+			(void)IniFileAddString(file, LAYER_GROUP_TEMPLATE_SECTION_NAME, name, text);
+			g_free(text);
+			(void)sprintf(name, "LAYER_TYPE%d_%d", i+1, j+1);
+			(void)IniFileAddString(file, LAYER_GROUP_TEMPLATE_SECTION_NAME,
+				name, GetLayerTypeString(target->layer_type));
+			(void)sprintf(name, "LAYER_ADD_FLAG%d_%d", i+1, j+1);
+			IniFileAddInteger(file, LAYER_GROUP_TEMPLATE_SECTION_NAME,
+				name, (FLAG_CHECK(app->layer_group_templates.templates[i].add_flags, j)) == 0 ? 0 : 1, 10);
+		}
+	}
+}
 
 /*********************************************************
 * ReadInitializeFile関数                                 *
@@ -368,6 +439,11 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	{
 		app->flags |= APPLICATION_WINDOW_MAXIMIZE;
 	}
+	app->gui_scale = IniFileGetInteger(file, "WINDOW", "GUI_SCALE") * (FLOAT_T)0.01;
+	if(app->gui_scale < (FLOAT_T)0.5)
+	{
+		app->gui_scale = (FLOAT_T)1.0;
+	}
 
 	// RCファイルのパスを読み込む
 	app->preference.theme = IniFileStrdup(file, "WINDOW", "RC_FILE");
@@ -385,6 +461,24 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 		{
 			gtk_rc_parse(app->preference.theme);
 		}
+	}
+
+	// GUIのスケーリングを読み込む
+	if(app->gui_scale != 1.0)
+	{
+		GtkStyle *style;
+		char rc_str[1024];
+		const char *family;
+		int size;
+
+		style = gtk_widget_get_default_style();
+		family = pango_font_description_get_family(style->font_desc);
+		size = (pango_font_description_get_size_is_absolute(style->font_desc) == 0) ?
+			pango_font_description_get_size(style->font_desc) : pango_font_description_get_size(style->font_desc);
+		(void)sprintf(rc_str, "style \"font\" {\nfont_name = \"%s %d\"\n}\n\nclass \"*\" style \"font\"\n"
+			"style \"checkbutton\" {\nGtkCheckButton::indicator-size = %d\n}\n\nclass \"GtkCheckButton\" style \"checkbutton\"\n",
+				family, (int)(size * app->gui_scale / (10240 / 12.0)), (int)(13 * app->gui_scale));
+		gtk_rc_parse_string(rc_str);
 	}
 
 	// ツールボックスウィンドウの位置とサイズを読み込む
@@ -458,6 +552,50 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 		break;
 	}
 
+	// 簡易ブラシ切り替えのデータの初期化と読み込み
+	InitializeBrushChain(&app->tool_window.brush_chain);
+	{
+		int num_brush_chain = IniFileGetInteger(file, "BRUSH_SET", "NUM_BRUSH_SET");
+		int num_item;
+		char section_name[1024];
+		char key;
+		int i, j;
+
+		if(IniFileGetString(file, "BRUSH_SET", "KEY", str, sizeof(str)) > 0)
+		{
+			(void)sscanf(str, "%c", &key);
+		}
+		else
+		{
+			key = '\0';
+		}
+		app->tool_window.brush_chain.key = key;
+		if(IniFileGetString(file, "BRUSH_SET", "CHANGE_KEY", str, sizeof(str)) > 0)
+		{
+			(void)sscanf(str, "%c", &key);
+		}
+		else
+		{
+			key = '\0';
+		}
+		app->tool_window.brush_chain.change_key = key;
+
+		for(i=1; i<=num_brush_chain; i++)
+		{
+			BRUSH_CHAIN_ITEM *item = (BRUSH_CHAIN_ITEM*)MEM_ALLOC_FUNC(sizeof(*item));
+			InitializeBrushChainItem(item);
+
+			PointerArrayAppend(app->tool_window.brush_chain.chains, item);
+			(void)sprintf(section_name, "BRUSH_SET%d", i);
+			num_item = IniFileGetInteger(file, section_name, "NUM_ITEM");
+			for(j=1; j<=num_item; j++)
+			{
+				(void)sprintf(str, "BRUSH_NAME%d", j);
+				PointerArrayAppend(item->names, IniFileStrdup(file, section_name, str));
+			}
+		}
+	}
+
 	// レイヤービューウィンドウの位置とサイズを読み込む
 	app->layer_window.window_x = IniFileGetInteger(file, "LAYER_VIEW", "X");
 	app->layer_window.window_y = IniFileGetInteger(file, "LAYER_VIEW", "Y");
@@ -465,6 +603,11 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	app->layer_window.window_height = IniFileGetInteger(file, "LAYER_VIEW", "HEIGHT");
 	app->layer_window.place = IniFileGetInteger(file, "LAYER_VIEW", "PLACE");
 	app->layer_window.pane_position = IniFileGetInteger(file, "LAYER_VIEW", "POSITION");
+	(void)IniFileGetString(file, "LAYER_VIEW", "SCROLLBAR_PLACEMENT", str, sizeof(str));
+	if(strcmp(str, "LEFT") == 0)
+	{
+		app->layer_window.flags |= LAYER_WINDOW_SCROLLBAR_PLACE_LEFT;
+	}
 
 	switch(app->layer_window.place)
 	{
@@ -640,6 +783,9 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 		app->backup_directory_path = g_strdup("./");
 	}
 
+	// レイヤーをまとめて作成するデータを読み込む
+	ReadLayerGroupTemplateData(app, file);
+
 	// ファイル読み込みデータを破棄
 	file->delete_func(file);
 
@@ -651,16 +797,17 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	return 0;
 }
 
-/*********************************************************
-* WriteInitializeFile関数                                *
-* 初期化ファイルを書き込む                               *
-* 引数                                                   *
-* app		: アプリケーションを管理する構造体のアドレス *
-* file_path	: 初期化ファイルのパス                       *
-* 返り値                                                 *
-*	正常終了:0	失敗:負の値                              *
-*********************************************************/
-int WriteInitializeFile(APPLICATION* app, const char* file_path)
+/**************************************************************
+* WriteInitializeFile関数                                     *
+* 初期化ファイルを書き込む                                    *
+* 引数                                                        *
+* app		: アプリケーションを管理する構造体のアドレス      *
+* write_app	: アプリケーションのGUIデータを書き出す為のデータ *
+* file_path	: 初期化ファイルのパス                            *
+* 返り値                                                      *
+*	正常終了:0	失敗:負の値                                   *
+**************************************************************/
+int WriteInitializeFile(APPLICATION* app, WRITE_APPLICATIOIN_DATA* write_app, const char* file_path)
 {
 	GFile* fp = g_file_new_for_path(file_path);
 	GFileOutputStream* stream =
@@ -692,6 +839,32 @@ int WriteInitializeFile(APPLICATION* app, const char* file_path)
 	write_path = g_convert(app->brush_file_path, -1, app->system_code, "UTF-8", NULL, NULL, NULL);
 	(void)IniFileAddString(file, "BRUSH_DATA", "PATH", write_path);
 	g_free(write_path);
+	// 簡易ブラシ切り替えのデータを書き込む
+	{
+		char section_name[1024];
+		char key_name[1024];
+		int i, j;
+
+		(void)IniFileAddInteger(file, "BRUSH_SET", "NUM_BRUSH_SET", (int)app->tool_window.brush_chain.chains->num_data, 10);
+		(void)sprintf(str, "%c", (char)app->tool_window.brush_chain.key);
+		(void)IniFileAddString(file, "BRUSH_SET", "KEY", str);
+		(void)sprintf(str, "%c", (char)app->tool_window.brush_chain.change_key);
+		(void)IniFileAddString(file, "BRUSH_SET", "CHANGE_KEY", str);
+
+		for(i=0; i<(int)app->tool_window.brush_chain.chains->num_data; i++)
+		{
+			BRUSH_CHAIN_ITEM *item = (BRUSH_CHAIN_ITEM*)app->tool_window.brush_chain.chains->buffer[i];
+
+			(void)sprintf(section_name, "BRUSH_SET%d", i+1);
+			(void)IniFileAddInteger(file, section_name, "NUM_ITEM", (int)item->names->num_data, 10);
+
+			for(j=0; j<(int)item->names->num_data; j++)
+			{
+				(void)sprintf(key_name, "BRUSH_NAME%d", j+1);
+				(void)IniFileAddString(file, section_name, key_name, (const char*)item->names->buffer[j]);
+			}
+		}
+	}
 	// ベクトルレイヤーのブラシ
 	write_path = g_convert(app->vector_brush_file_path, -1, app->system_code, "UTF-8", NULL, NULL, NULL);
 	(void)IniFileAddString(file, "VECTOR_BRUSH_DATA", "PATH", write_path);
@@ -712,17 +885,9 @@ int WriteInitializeFile(APPLICATION* app, const char* file_path)
 
 	// ウィンドウの位置とサイズを書き込む
 	{
-		gint x, y, width, height;
-		if((app->flags & (APPLICATION_FULL_SCREEN | APPLICATION_WINDOW_MAXIMIZE)) == 0)
-		{
-			gtk_window_get_position(GTK_WINDOW(app->window), &x, &y);
-			gtk_window_get_size(GTK_WINDOW(app->window), &width, &height);
-		}
-		else
-		{
-			x = app->window_x,	y = app->window_y;
-			width = app->window_width,	height = app->window_height;
-		}
+		int x, y, width, height;
+		x = write_app->main_window_x,	y = write_app->main_window_y;
+		width = write_app->main_window_width,	height = write_app->main_window_height;
 		(void)IniFileAddInteger(file, "WINDOW", "X", x, 10);
 		(void)IniFileAddInteger(file, "WINDOW", "Y", y, 10);
 		(void)IniFileAddInteger(file, "WINDOW", "WIDTH", width, 10);
@@ -731,19 +896,12 @@ int WriteInitializeFile(APPLICATION* app, const char* file_path)
 			((app->flags & APPLICATION_FULL_SCREEN) != 0) ? 1 : 0, 10);
 		(void)IniFileAddInteger(file, "WINDOW", "MAXIMIZE",
 			((app->flags & APPLICATION_WINDOW_MAXIMIZE) != 0) ? 1 : 0, 10);
+		(void)IniFileAddInteger(file, "WINDOW", "GUI_SCALE", (int)(app->gui_scale * 100), 10);
 		if(app->preference.theme != NULL)
 		{
 			(void)IniFileAddString(file, "WINDOW", "RC_FILE", app->preference.theme);
 		}
 
-		if(gtk_paned_get_child1(GTK_PANED(app->left_pane)) != NULL)
-		{
-			app->left_pane_position = gtk_paned_get_position(GTK_PANED(app->left_pane));
-		}
-		if(gtk_paned_get_child2(GTK_PANED(app->right_pane)) != NULL)
-		{
-			app->right_pane_position = gtk_paned_get_position(GTK_PANED(app->right_pane));
-		}
 		(void)IniFileAddInteger(file, "WINDOW", "LEFT_PANE", app->left_pane_position, 10);
 		(void)IniFileAddInteger(file, "WINDOW", "RIGHT_PANE", app->right_pane_position, 10);
 
@@ -814,16 +972,8 @@ int WriteInitializeFile(APPLICATION* app, const char* file_path)
 		(void)IniFileAddInteger(file, "LAYER_VIEW", "WIDTH", width, 10);
 		(void)IniFileAddInteger(file, "LAYER_VIEW", "HEIGHT", height, 10);
 		(void)IniFileAddInteger(file, "LAYER_VIEW", "PLACE", app->layer_window.place, 10);
-		if(app->navi_layer_pane != NULL)
-		{
-			(void)IniFileAddInteger(file, "LAYER_VIEW", "POSITION",
-				gtk_paned_get_position(GTK_PANED(app->navi_layer_pane)), 10);
-		}
-		else
-		{
-			(void)IniFileAddInteger(file, "LAYER_VIEW", "POSITION",
-				app->layer_window.pane_position, 10);
-		}
+		(void)IniFileAddInteger(file, "LAYER_VIEW", "POSITION",
+			app->layer_window.pane_position, 10);
 
 		if(app->navigation_window.window != NULL)
 		{
@@ -835,6 +985,9 @@ int WriteInitializeFile(APPLICATION* app, const char* file_path)
 			x = app->navigation_window.window_x, y = app->navigation_window.window_y;
 			width = app->navigation_window.window_width, y = app->navigation_window.window_height;
 		}
+
+		(void)IniFileAddString(file, "LAYER_VIEW", "SCROLLBAR_PLACEMENT",
+			((app->layer_window.flags & LAYER_WINDOW_SCROLLBAR_PLACE_LEFT) == 0) ? "RIGHT" : "LEFT");
 
 		(void)IniFileAddInteger(file, "NAVIGATION", "X", x, 10);
 		(void)IniFileAddInteger(file, "NAVIGATION", "Y", y, 10);
@@ -905,6 +1058,9 @@ int WriteInitializeFile(APPLICATION* app, const char* file_path)
 		g_free(path);
 	}
 
+	// レイヤーをまとめて作成するデータを書き込む
+	WriteLayerGroupTemplateData(app, file);
+
 	// 作成したデータをファイルに書き込む
 	(void)WriteIniFile(file, (size_t (*)(void*, size_t, size_t, void*))FileWrite);
 
@@ -928,12 +1084,16 @@ int WriteInitializeFile(APPLICATION* app, const char* file_path)
 *******************************************************/
 gboolean OnQuitApplication(APPLICATION* app)
 {
+	// GUIのデータ書き出し用
+	WRITE_APPLICATIOIN_DATA write_data;
 	// 自動保存ファイル削除用
 	GDir *dir;
 	// フォルダへのパス(AppData作成用)
 	gchar *dir_path;
 	// ファイルへのパス(Mac対策)
 	gchar *file_path;
+	// OSの文字コードのパス
+	char *system_path;
 	// アプリケーションデータディレクトリにデータ作成するフラグ
 	gboolean make_app_dir = FALSE;
 	// for文用のカウンタ
@@ -945,7 +1105,7 @@ gboolean OnQuitApplication(APPLICATION* app)
 		{	// 保存するかどうかのダイアログを表示
 			GtkWidget* dialog = gtk_dialog_new_with_buttons(
 				NULL,
-				GTK_WINDOW(app->window),
+				GTK_WINDOW(app->widgets->window),
 				GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 				GTK_STOCK_SAVE,
 				GTK_RESPONSE_ACCEPT,
@@ -993,7 +1153,8 @@ gboolean OnQuitApplication(APPLICATION* app)
 	if(app->common_tool_file_path[0] == '.' && app->common_tool_file_path[1] == '/')
 	{
 		file_path = g_build_filename(app->current_path, &app->common_tool_file_path[2], NULL);
-		if(WriteCommonToolData(&app->tool_window, file_path, app) < 0)
+		system_path = g_locale_from_utf8(file_path, -1, NULL, NULL, NULL);
+		if(WriteCommonToolData(&app->tool_window, system_path, app) < 0)
 		{
 			app->flags |= APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY;
 
@@ -1042,6 +1203,8 @@ gboolean OnQuitApplication(APPLICATION* app)
 		{
 			g_free(file_path);
 		}
+
+		g_free(system_path);
 	}
 	else
 	{
@@ -1108,7 +1271,8 @@ gboolean OnQuitApplication(APPLICATION* app)
 	if(app->vector_brush_file_path[0] == '.' && app->vector_brush_file_path[1] == '/')
 	{
 		file_path = g_build_filename(app->current_path, &app->vector_brush_file_path[2], NULL);
-		if(WriteVectorBrushData(&app->tool_window, file_path, app) < 0)
+		system_path = g_locale_from_utf8(file_path, -1, NULL, NULL, NULL);
+		if(WriteVectorBrushData(&app->tool_window, system_path, app) < 0)
 		{
 			app->flags |= APPLICATION_WRITE_PROGRAM_DATA_DIRECTORY;
 
@@ -1253,11 +1417,12 @@ gboolean OnQuitApplication(APPLICATION* app)
 	}
 
 	file_path = g_build_filename(dir_path, INITIALIZE_FILE_NAME, NULL);
-	if(WriteInitializeFile(app, file_path) != 0)
+	GetWriteMainWindowData(&write_data, app);
+	if(WriteInitializeFile(app, &write_data, file_path) != 0)
 	{
 		g_free(file_path);
 		file_path = g_build_filename(app->current_path, INITIALIZE_FILE_NAME, NULL);
-		(void)WriteInitializeFile(app, file_path);
+		(void)WriteInitializeFile(app, &write_data, file_path);
 	}
 	g_free(file_path);
 
@@ -1306,1211 +1471,6 @@ gboolean OnQuitApplication(APPLICATION* app)
 	return FALSE;
 }
 
-/*********************************************************
-* OnCloseMainWindow関数                                  *
-* メインウィンドウが閉じられるときのコールバック関数     *
-* 引数                                                   *
-* window	: ウィンドウウィジェット                     *
-* event		: ウィジェット削除のイベント情報             *
-* app		: アプリケーションを管理する構造体のアドレス *
-* 返り値                                                 *
-*	終了中止:TRUE	終了続行:FALSE                       *
-*********************************************************/
-static gboolean OnCloseMainWindow(
-	GtkWindow* window,
-	GdkEvent* event,
-	APPLICATION* app
-)
-{
-	return OnQuitApplication(app);
-}
-
-/*********************************************************
-* OnChangeMainWindowState関数                            *
-* ウィンドウのフルスクリーン・最大化が切り替わった時に   *
-*   呼び出されるコールバック関数                         *
-* window                                                 *
-* state                                                  *
-* app		: アプリケーションを管理する構造体のアドレス *
-* 返り値                                                 *
-*	常にFALSE                                            *
-*********************************************************/
-static gboolean OnChangeMainWindowState(
-	GtkWindow* window,
-	GdkEventWindowState* state,
-	APPLICATION* app
-)
-{
-	if((state->new_window_state & GDK_WINDOW_STATE_FULLSCREEN) != 0)
-	{
-		app->flags |= APPLICATION_FULL_SCREEN;
-	}
-	else
-	{
-		app->flags &= ~(APPLICATION_FULL_SCREEN);
-	}
-
-	if((state->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) != 0)
-	{
-		app->flags |= APPLICATION_WINDOW_MAXIMIZE;
-	}
-	else
-	{
-		app->flags &= ~(APPLICATION_WINDOW_MAXIMIZE);
-	}
-
-	return FALSE;
-}
-
-/*************************************************************
-* Move2ActiveLayer                                           *
-* レイヤービューをアクティブなレイヤーにスクロール           *
-* widget		: アクティブレイヤーのウィジェット           *
-* allocation	: ウィジェットに割り当てられたサイズ         *
-* app			: アプリケーションを管理する構造体のアドレス *
-*************************************************************/
-void Move2ActiveLayer(GtkWidget* widget, GdkRectangle* allocation, APPLICATION* app)
-{
-	GtkAllocation place;
-	LAYER *top, *layer;
-
-	top = app->draw_window[app->active_window]->layer;
-	while(top->next != NULL)
-	{
-		top = top->next;
-	}
-	layer = top;
-
-	while(layer != NULL)
-	{
-		if(layer->layer_type == TYPE_LAYER_SET && (layer->flags & LAYER_SET_CLOSE) != 0)
-		{
-			LAYER *prev = layer->prev;
-			LayerSetHideChildren(layer, &prev);
-			layer = prev;
-		}
-		else
-		{
-			layer = layer->prev;
-		}
-	}
-
-	gtk_widget_get_allocation(widget, &place);
-	gtk_range_set_value(GTK_RANGE(gtk_scrolled_window_get_vscrollbar(
-		GTK_SCROLLED_WINDOW(app->layer_window.scrolled_window))), place.y);
-	g_signal_handler_disconnect(G_OBJECT(widget),
-		GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(widget), "signal_id")));
-}
-
-/*****************************************************************
-* OnChangeCurrentTab関数                                         *
-* 描画領域のタブが変わった時の関数                               *
-* 引数                                                           *
-* note_book			: タブウィジェット                           *
-* note_book_page	: タブの情報                                 *
-* page				: タブのID                                   *
-* app				: アプリケーションを管理する構造体のアドレス *
-*****************************************************************/
-static void OnChangeCurrentTab(
-	GtkNotebook* note_book,
-	GtkWidget* note_book_page,
-	gint page,
-	APPLICATION* app
-)
-{
-	// レイヤービューのウィジェットを全て削除
-		// レイヤービューのリスト
-	ClearLayerView(&app->layer_window);
-
-	// 描画領域変更中のフラグを立てる
-	app->flags |= APPLICATION_IN_SWITCH_DRAW_WINDOW;
-
-	// 描画領域の新規作成中でなければ新たにアクティブになる描画領域のレイヤーをビューに追加
-	if((app->flags & APPLICATION_IN_MAKE_NEW_DRAW_AREA) == 0)
-	{
-		DRAW_WINDOW* window;	// アクティブにする描画領域
-		LAYER* layer;			// ビューに追加するレイヤー
-		int i;					// for文用のカウンタ
-
-		// アクティブな描画領域をセット
-		app->active_window = (int16)page;
-		window = GetActiveDrawWindow(app);
-
-		if(window->focal_window != NULL)
-		{
-			window = window->focal_window;
-		}
-
-		// 一番下のレイヤーを設定
-		layer = window->layer;
-
-		// ビューに全てのレイヤーを追加
-		for(i=0; i<window->num_layer && layer != NULL; i++)
-		{
-			LayerViewAddLayer(layer, window->layer,
-				app->layer_window.view, i+1);
-			layer = layer->next;
-		}
-		window->num_layer = (uint16)i;
-
-		// アクティブレイヤーをセット
-		LayerViewSetActiveLayer(window->active_layer, app->layer_window.view);
-
-		// ナビゲーションの拡大縮小率を変更
-		gtk_adjustment_set_value(app->navigation_window.zoom_slider,
-			window->zoom);
-
-		// 表示を反転の設定
-		gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(app->menu_data.reverse_horizontally),
-			window->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE);
-
-		// 背景色変更のメニューの状態を設定
-		gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(app->menus.change_back_ground_menu),
-			window->flags & DRAW_WINDOW_SECOND_BG);
-		if(app->layer_window.change_bg_button != NULL)
-		{
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->layer_window.change_bg_button),
-				window->flags & DRAW_WINDOW_SECOND_BG);
-		}
-
-		// 描画領域があればナビゲーション、レイヤーウィンドウを更新
-		if(app->window_num > 0)
-		{
-			ChangeNavigationDrawWindow(&app->navigation_window, window);
-			FillTextureLayer(window->texture, &app->textures);
-			g_object_set_data(G_OBJECT(window->active_layer->widget->box), "signal_id",
-				GUINT_TO_POINTER(g_signal_connect(G_OBJECT(window->active_layer->widget->box), "size-allocate",
-					G_CALLBACK(Move2ActiveLayer), app)));
-			ChangeActiveLayer(window, window->active_layer);
-			UpdateWindowTitle(app);
-
-			// 表示用フィルターの状態を設定
-			app->display_filter.filter_func = app->tool_window.color_chooser->filter_func =
-				g_display_filter_funcs[window->display_filter_mode];
-			app->display_filter.filter_data = app->tool_window.color_chooser->filter_data = (void*)app;
-
-			gtk_widget_queue_draw(app->tool_window.color_chooser->widget);
-			UpdateColorBox(app->tool_window.color_chooser);
-			gtk_widget_queue_draw(app->tool_window.color_chooser->pallete_widget);
-
-			gtk_check_menu_item_set_active(
-				GTK_CHECK_MENU_ITEM(app->menus.display_filter_menus[window->display_filter_mode]),
-				TRUE
-			);
-		}
-		else
-		{	// 描画領域が無ければメインウィンドウのキャプションを変更
-			char window_title[512];
-			(void)sprintf(window_title, "Paint Soft %s %d.%d.%d.%d",
-				(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIAKDO",
-					MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
-			gtk_window_set_title(GTK_WINDOW(app->window), window_title);
-		}
-	}
-
-	// 描画領域切り替え終了
-	app->flags &= ~(APPLICATION_IN_SWITCH_DRAW_WINDOW);
-}
-
-/*******************************
-* CompareFontFamilyName関数    *
-* フォントソート用の比較関数   *
-* 引数                         *
-* font1	: フォントデータ1      *
-* font2	: フォントデータ2      *
-* 返り値                       *
-*	フォント名文字列比較の結果 *
-*******************************/
-static int CompareFontFamilyName(PangoFontFamily** font1, PangoFontFamily** font2)
-{
-	// フォントからフォントの名前を取り出す
-	const gchar* font_name1, *font_name2;
-	font_name1 = pango_font_family_get_name(*font1);
-	font_name2 = pango_font_family_get_name(*font2);
-
-	// どちらかがNULLなら終了
-	if(font_name1 == NULL)
-	{
-		return 1;
-	}
-	if(font_name2 == NULL)
-	{
-		return -1;
-	}
-
-	return strcmp(font_name1, font_name2);
-}
-
-/***********************************************************
-* ChangeSmoothMethod関数                                   *
-* 手ブレ補正の方式を変更するラジオボタンのコールバック関数 *
-* 引数                                                     *
-* button	: ラジオボタンウィジェット                     *
-* smoother	: 手ブレ補正の情報を管理する構造体のアドレス   *
-***********************************************************/
-static void ChangeSmoothMethod(GtkRadioButton* button, SMOOTHER* smoother)
-{
-	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
-	{
-		smoother->mode = GPOINTER_TO_INT(g_object_get_data(
-			G_OBJECT(button), "smooth_method"));
-	}
-}
-
-/***********************************************************
-* ChangeSmootherQuality関数                                *
-* 手ブレ補正に使用するサンプル数変更時のコールバック関数   *
-* 引数                                                     *
-* spin		: 手ブレ補正の品質変更ウィジェットのアジャスタ *
-* smoother	: 手ブレ補正の情報を管理する構造体のアドレス   *
-***********************************************************/
-static void ChangeSmootherQuality(GtkAdjustment* spin, SMOOTHER* smoother)
-{
-	smoother->num_use = (int)gtk_adjustment_get_value(spin);
-
-#if GTK_MAJOR_VERSION >= 3
-	{
-		APPLICATION *app = (APPLICATION*)g_object_get_data(
-			G_OBJECT(spin), "application");
-		int i;
-		for(i=0; i<MAX_TOUCH; i++)
-		{
-			app->tool_window.touch_smoother[i].num_use = smoother->num_use;
-		}
-	}
-#endif
-}
-
-/***************************************************************
-* ChangeSmootherRate関数                                       *
-* 手ブレ補正の適用割合変更時のコールバック関数                 *
-* 引数                                                         *
-* spin		: 手ブレ補正の適用割合変更ウィジェットのアジャスタ *
-* smoother	: 手ブレ補正の情報を管理する構造体のアドレス       *
-***************************************************************/
-static void ChangeSmootherRate(GtkAdjustment* spin, SMOOTHER* smoother)
-{
-	smoother->rate = gtk_adjustment_get_value(spin);
-
-#if GTK_MAJOR_VERSION >= 3
-	{
-		APPLICATION *app = (APPLICATION*)g_object_get_data(
-			G_OBJECT(spin), "application");
-		int i;
-		for(i=0; i<MAX_TOUCH; i++)
-		{
-			app->tool_window.touch_smoother[i].rate = smoother->rate;
-		}
-	}
-#endif
-}
-
-/*********************************************************
-* DisplayReverseButtonClicked関数                        *
-* 左右反転表示ボタンがクリックされた時のコールバック関数 *
-* 引数                                                   *
-* button	: 左右反転表示ボタン                         *
-* app		: アプリケーションを管理する構造体のアドレス *
-*********************************************************/
-static void DisplayReverseButtonClicked(GtkWidget* button, APPLICATION* app)
-{
-	gboolean state = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button));
-	char mark_up_buff[256];
-
-	if((app->flags & APPLICATION_IN_REVERSE_OPERATION) == 0)
-	{
-		app->flags |= APPLICATION_IN_REVERSE_OPERATION;
-
-		gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(app->menu_data.reverse_horizontally), state);
-
-		app->flags &= ~(APPLICATION_IN_REVERSE_OPERATION);
-	}
-
-	if(state == FALSE)
-	{
-		(void)sprintf(mark_up_buff, "%s", app->labels->window.normal);
-	}
-	else
-	{
-		(void)sprintf(mark_up_buff, "<span color=\"red\">%s</span>", app->labels->window.reverse);
-	}
-
-	gtk_label_set_markup(GTK_LABEL(app->reverse_label), mark_up_buff);
-}
-
-/*********************************************************
-* DisplayEditSelectionButtonClicked関数                  *
-* 選択範囲編集ボタンがクリックされた時のコールバック関数 *
-* 引数                                                   *
-* button	: 選択範囲編集ボタン                         *
-* app		: アプリケーションを管理する構造体のアドレス *
-*********************************************************/
-static void DisplayEditSelectionButtonClicked(GtkWidget* button, APPLICATION* app)
-{
-	gboolean state = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button));
-
-	if((app->flags & APPLICATION_IN_EDIT_SELECTION) == 0)
-	{
-
-		app->flags |= APPLICATION_IN_EDIT_SELECTION;
-
-		gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(app->menu_data.edit_selection), state);
-
-		app->flags &= ~(APPLICATION_IN_EDIT_SELECTION);
-	}
-
-	app->draw_window[app->active_window]->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
-}
-
-/**********************************************************************
-* DragDataRecieveCallBack関数                                         *
-* ファイルがドラッグ&ドロップされたときに呼び出されるコールバック関数 *
-* 引数                                                                *
-* widget			: ドロップ先のウィジェット                        *
-* context			: ドラッグ&ドロップの情報                         *
-* x					: ドロップされたときのマウスのX座標               *
-* y					: ドロップされたときのマウスのY座標               *
-* selection_data	: ドラッグ&ドロップのデータ                       *
-* target_type		: ドロップされたデータのタイプ                    *
-* time_stamp		: ドロップされた時間                              *
-* app				: アプリケーションを管理する構造体のアドレス      *
-**********************************************************************/
-static void DragDataRecieveCallBack(
-	GtkWidget* widget,
-	GdkDragContext* context,
-	gint x,
-	gint y,
-	GtkSelectionData* selection_data,
-	guint target_type,
-	guint time_stamp,
-	APPLICATION* app
-)
-{
-	if((selection_data != NULL) && (gtk_selection_data_get_length(selection_data) >= 0))
-	{
-		if(target_type == DROP_URI)
-		{
-			gchar *uri = (gchar*)gtk_selection_data_get_data(selection_data);
-			gchar *file_path = g_filename_from_uri(uri, NULL, NULL);
-			gchar *c = file_path;
-
-			while(*c != '\0')
-			{
-				if(*c == '\r')
-				{
-					*c = '\0';
-					break;
-				}
-				c = g_utf8_next_char(c);
-			}
-
-			OpenFile(file_path, app);
-
-			g_free(file_path);
-		}
-
-		gtk_drag_finish(context, TRUE, TRUE, time_stamp);
-	}
-}
-
-/***************************************************************
-* MainWindowRealizeCallBack関数                                *
-* メインウィンドウが表示された時に呼び出されるコールバック関数 *
-* 引数                                                         *
-* window		: ウィンドウウィジェット                       *
-* allocation	: ウィンドウのサイズ                           *
-* realize_data	: 処理用のデータ                               *
-***************************************************************/
-static void MainWindowRealizeCallBack(
-	GtkWidget* window,
-	GdkRectangle* allocation,
-	REALIZE_DATA* realize_data
-)
-{
-	GtkWidget *child;
-	APPLICATION *app = realize_data->app;
-
-	child = gtk_paned_get_child1(GTK_PANED(app->left_pane));
-	if(child != NULL)
-	{
-		gtk_paned_set_position(GTK_PANED(app->left_pane), app->left_pane_position);
-	}
-
-	child = gtk_paned_get_child2(GTK_PANED(app->right_pane));
-	if(child != NULL)
-	{
-		gtk_paned_set_position(GTK_PANED(app->right_pane), app->right_pane_position);
-	}
-
-	gtk_paned_set_position(GTK_PANED(app->tool_window.pane), app->tool_window.pane_position);
-
-	g_signal_handler_disconnect(G_OBJECT(window), realize_data->signal_id);
-
-	MEM_FREE_FUNC(realize_data);
-}
-
-/*********************************************************************
-* InitializeApplication関数                                          *
-* アプリケーションの初期化                                           *
-* 引数                                                               *
-* app				: アプリケーション全体を管理する構造体のアドレス *
-* init_file_name	: 初期化ファイルの名前                           *
-*********************************************************************/
-void InitializeApplication(APPLICATION* app, char* init_file_name)
-{
-	// 各種ディレクトリへのパス(Mac対策)
-	gchar *file_path;
-	// スプラッシュウィンドウのデータ
-	SPLASH_WINDOW splash = {app, NULL, NULL, 0};
-	// 初期化データ
-	INITIALIZE_DATA init_data;
-	// メニューバー
-	GtkWidget* menu;
-	// フォントソート用
-	PangoContext* context;
-	// ファイルドロップ対応用
-	GtkTargetEntry target_list[] = {{"text/uri-list", 0, DROP_URI}};
-	// シングルウィンドウ用の左右のパッキングボックス
-	GtkWidget *left_box, *right_box;
-	// ウィンドウのタイトル
-	char window_title[512];
-	// アプリケーションデータのディレクトリ
-	char *app_dir_path;
-
-	app_dir_path = g_build_filename(g_get_user_config_dir(), "KABURAGI", NULL);
-
-	// 初期化ファイルを読み込む
-		// まずはアプリケーションデータのディレクトリから
-	file_path = g_build_filename(app_dir_path, init_file_name, NULL);
-	if(ReadInitializeFile(app, file_path, &init_data) != 0)
-	{	// 失敗したらプログラムファイルのディレクトリ
-		g_free(file_path);
-		file_path =  g_build_filename(app->current_path, init_file_name, NULL);
-		if(ReadInitializeFile(app, file_path, &init_data) != 0)
-		{	// それも失敗したら終了
-			GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL,
-				GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "Failed to read data file.");
-			exit(EXIT_FAILURE);
-		}
-	}
-	g_free(file_path);
-
-	// トップレベルウィンドウを作成
-	app->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-#if GTK_MAJOR_VERSION >= 3
-	gtk_container_set_reallocate_redraws(GTK_CONTAINER(app->window), TRUE);
-#endif
-
-	// スプラッシュウィンドウ表示でスタートアップが
-		// 終了しないようにする
-	gtk_window_set_auto_startup_notification(FALSE);
-	// スプラッシュウィンドウを表示
-	InitializeSplashWindow(&splash);
-	// スプラッシュウィンドウを表示したのでスタートアップの
-		// 設定を元に戻す
-	gtk_window_set_auto_startup_notification(TRUE);
-
-	// アプリケーション名の設定
-	(void)sprintf(window_title, "Paint Soft %s",
-		(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIKADO");
-	g_set_application_name(window_title);
-
-	// フルスクリーンの設定
-	if((app->flags & APPLICATION_FULL_SCREEN) != 0)
-	{
-		gtk_window_fullscreen(GTK_WINDOW(app->window));
-	}
-	// 最大化の設定
-	if((app->flags & APPLICATION_WINDOW_MAXIMIZE) != 0)
-	{
-		gtk_window_maximize(GTK_WINDOW(app->window));
-	}
-
-	file_path = g_build_filename(app->current_path, "image/icon.png", NULL);
-	gtk_window_set_default_icon_from_file(file_path, NULL);
-	g_free(file_path);
-
-	(void)sprintf(window_title, "Paint Soft %s %d.%d.%d.%d",
-		(GetHas3DLayer(app) == FALSE) ? "KABURAGI" : "MIAKDO",
-			MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
-			
-	// ラベルの文字列を読み込む
-	if(app->language_file_path != NULL)
-	{
-		if(app->language_file_path[0] == '.'
-			&& app->language_file_path[1] == '/')
-		{
-			file_path = g_build_filename(app->current_path,
-				&app->language_file_path[2], NULL);
-			LoadLabels(app->labels, app->fractal_labels, file_path);
-			g_free(file_path);
-		}
-		else
-		{
-			LoadLabels(app->labels, app->fractal_labels, app->language_file_path);
-		}
-	}
-
-	// 拡張デバイスを有効に
-#if GTK_MAJOR_VERSION <= 2
-	gtk_widget_set_extension_events(app->window, GDK_EXTENSION_EVENTS_CURSOR);
-#endif
-	// ウィンドウタイトルを設定
-	UpdateWindowTitle(app);
-	// ウィンドウの位置を設定
-	gtk_window_move(GTK_WINDOW(app->window), app->window_x, app->window_y);
-	gtk_window_resize(GTK_WINDOW(app->window), app->window_width, app->window_height);
-	// ウィンドウが閉じるときのコールバック関数をセット
-	(void)g_signal_connect(G_OBJECT(app->window), "delete_event",
-		G_CALLBACK(OnCloseMainWindow), app);
-	// キーボードのコールバック関数をセット
-	(void)g_signal_connect(G_OBJECT(app->window), "key-press-event",
-		G_CALLBACK(KeyPressEvent), app);
-	(void)g_signal_connect(G_OBJECT(app->window), "key-release-event",
-		G_CALLBACK(KeyPressEvent), app);
-
-	// パターンを初期化
-	if(app->pattern_path[0] == '.' && app->pattern_path[1] == '/')
-	{
-		int buffer_size = 0;
-		file_path = g_build_filename(app->current_path, &app->pattern_path[2], NULL);
-		InitializePattern(&app->patterns, file_path, &buffer_size);
-		g_free(file_path);
-	}
-	else
-	{
-		int buffer_size = 0;
-		InitializePattern(&app->patterns, app->pattern_path, &buffer_size);
-	}
-	app->patterns.scale = 100;
-
-	// テクスチャを初期化
-	if(app->texture_path[0] == '.' && app->texture_path[1] == '/')
-	{
-		file_path = g_build_filename(app->current_path, &app->texture_path[2], NULL);
-		LoadTexture(&app->textures, file_path);
-		g_free(file_path);
-	}
-	else
-	{
-		LoadTexture(&app->textures, app->texture_path);
-	}
-
-	// スタンプを初期化
-	if(app->stamp_path[0] == '.' && app->stamp_path[1] == '/')
-	{
-		int buffer_size = 0;
-		file_path = g_build_filename(app->current_path, &app->stamp_path[2], NULL);
-		InitializePattern(&app->stamps, file_path, &buffer_size);
-		g_free(file_path);
-	}
-	else
-	{
-		int buffer_size = 0;
-		InitializePattern(&app->stamps, app->stamp_path, &buffer_size);
-	}
-	app->stamp_shape = (uint8*)MEM_ALLOC_FUNC(app->stamps.pattern_max_byte);
-	app->stamp_buff_size = app->stamps.pattern_max_byte;
-
-	// メニューバーと描画領域をパッキングするボックスを作成
-	app->vbox = gtk_vbox_new(FALSE, 0);
-
-	// ファイルのドロップを設定
-	gtk_drag_dest_set(
-		app->window,
-		GTK_DEST_DEFAULT_ALL,
-		target_list,
-		NUM_DROP_LIST,
-		GDK_ACTION_COPY
-	);
-	gtk_drag_dest_add_uri_targets(app->window);
-	(void)g_signal_connect(G_OBJECT(app->window), "drag-data-received",
-		G_CALLBACK(DragDataRecieveCallBack), app);
-
-	// フルスクリーン・最大化変更時のコールバック関数を設定
-	(void)g_signal_connect(G_OBJECT(app->window), "window_state_event",
-		G_CALLBACK(OnChangeMainWindowState), app);
-
-	// スクリプトの読み込み
-	if(app->script_path[0] == '.' && app->script_path[1] == '/')
-	{
-		file_path = g_build_filename(app->current_path, &app->script_path[2], NULL);
-		InitializeScripts(&app->scripts, file_path);
-		g_free(file_path);
-	}
-	else
-	{
-		InitializeScripts(&app->scripts, app->script_path);
-	}
-
-	// メニューバーを作成
-	app->menu_bar = menu = GetMainMenu(app, app->window, app->language_file_path);
-	// 描画領域のタブを作成
-	app->note_book = gtk_notebook_new();
-	// タブは下側に
-	gtk_notebook_set_tab_pos(GTK_NOTEBOOK(app->note_book), GTK_POS_BOTTOM);
-	// タブの高さを設定
-#if GTK_MAJOR_VERSION <= 2
-	gtk_notebook_set_tab_vborder(GTK_NOTEBOOK(app->note_book), 0);
-#endif
-	// ウィンドウに追加
-	gtk_container_add(
-		GTK_CONTAINER(app->window), app->vbox);
-	// ボックスにメニューバーを追加
-	gtk_box_pack_start(GTK_BOX(app->vbox), menu, FALSE, FALSE, 0);
-
-	// ステータスバーを作成し、ウィンドウ下側に配置
-	app->status_bar = gtk_statusbar_new();
-	gtk_box_pack_end(GTK_BOX(app->vbox), app->status_bar, FALSE, FALSE, 0);
-	// プログレスバーは必要に応じて色を変更
-	app->progress = gtk_progress_bar_new();
-	gtk_box_pack_start(GTK_BOX(app->status_bar), app->progress, FALSE, FALSE, 20);
-	{
-		GtkStyle *window_style, *progress_style;
-
-		window_style = gtk_widget_get_style(app->window);
-		progress_style = gtk_widget_get_style(app->window);
-		if(window_style->bg[GTK_STATE_PRELIGHT].red == progress_style->bg[GTK_STATE_PRELIGHT].red
-			&& window_style->bg[GTK_STATE_PRELIGHT].green == progress_style->bg[GTK_STATE_PRELIGHT].green
-			&& window_style->bg[GTK_STATE_PRELIGHT].blue == progress_style->bg[GTK_STATE_PRELIGHT].blue
-		)
-		{
-			gtk_widget_modify_bg(app->progress, GTK_STATE_PRELIGHT, &progress_style->bg[GTK_STATE_SELECTED]);
-		}
-	}
-
-	// 手ブレ補正の設定変更、拡大・縮小、表示反転、回転、選択範囲編集ウィジェットを作成
-	{
-		// 手ブレ補正設定変更ウィジェット用のパッキングボックス
-		GtkWidget* smooth_box = gtk_hbox_new(FALSE, 0);
-		// 手ブレ補正の設定変更ウィジェット
-		GtkWidget* smooth_spin;
-		// 拡大・縮小用ボタン
-		GtkWidget* button;
-		// 手ブレ補正の設定の変更用アジャスタ
-		GtkAdjustment* smooth_adjustment;
-		// 左右反転用のバッファ
-		GdkPixbuf *image_buf;
-		uint8 *reverse_buf, *image_pixels;
-		// ラベルに入れる文字列
-		gchar str[256];
-		// 画像の幅、高さ、チャンネル数
-		gint image_width, image_height;
-		gint image_channel;
-		int i, j, k;	// for文用のカウンタ
-
-		// 「手ブレ補正」のラベル
-		(void)sprintf(str, "%s : ", app->labels->tool_box.smooth);
-		gtk_box_pack_start(GTK_BOX(smooth_box),
-			gtk_label_new(str), FALSE, FALSE, 0);
-
-		// 手ブレ補正の方式選択ラジオボタン
-		button = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.smooth_gaussian);
-		g_object_set_data(G_OBJECT(button), "smooth_method", GINT_TO_POINTER(0));
-		(void)g_signal_connect(G_OBJECT(button), "toggled",
-			G_CALLBACK(ChangeSmoothMethod), &app->tool_window.smoother);
-		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
-		button = gtk_radio_button_new_with_label(gtk_radio_button_get_group(
-			GTK_RADIO_BUTTON(button)), app->labels->tool_box.smooth_average);
-		g_object_set_data(G_OBJECT(button), "smooth_method", GINT_TO_POINTER(1));
-		(void)g_signal_connect(G_OBJECT(button), "toggled",
-			G_CALLBACK(ChangeSmoothMethod), &app->tool_window.smoother);
-		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
-		if(app->tool_window.smoother.mode == SMOOTH_AVERAGE)
-		{
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), TRUE);
-		}
-
-		// 補正レベル変更ウィジェット
-		smooth_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(app->tool_window.smoother.num_use, 0,
-			SMOOTHER_POINT_BUFFER_SIZE, 1, 1, 0));
-		smooth_spin = gtk_spin_button_new(smooth_adjustment, 1, 1);
-#if GTK_MAJOR_VERSION <= 2
-		GTK_WIDGET_UNSET_FLAGS(smooth_spin, GTK_CAN_DEFAULT);
-#else
-		g_object_set_data(G_OBJECT(smooth_adjustment), "application", app);
-#endif
-		// コールバック関数の設定
-		(void)g_signal_connect(G_OBJECT(smooth_adjustment), "value_changed",
-			G_CALLBACK(ChangeSmootherQuality), &app->tool_window.smoother);
-		// 小数点以下は表示しない
-		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(smooth_spin), 0);
-		gtk_box_pack_start(GTK_BOX(smooth_box), gtk_label_new(
-			app->labels->tool_box.smooth_quality), FALSE, FALSE, 1);
-		gtk_box_pack_start(GTK_BOX(smooth_box), smooth_spin, FALSE, TRUE, 0);
-
-		// 適用割合変更ウィジェット
-		smooth_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(app->tool_window.smoother.rate, 0,
-			SMOOTHER_RATE_MAX, 1, 1, 0));
-		smooth_spin = gtk_spin_button_new(smooth_adjustment, 1, 1);
-		gtk_box_pack_start(GTK_BOX(smooth_box), gtk_label_new(
-			app->labels->tool_box.smooth_rate), FALSE, FALSE, 1);
-		gtk_box_pack_start(GTK_BOX(smooth_box), smooth_spin, FALSE, TRUE, 0);
-#if GTK_MAJOR_VERSION >= 3
-		g_object_set_data(G_OBJECT(smooth_adjustment), "application", app);
-#endif
-		// コールバック関数の設定
-		(void)g_signal_connect(G_OBJECT(smooth_adjustment), "value_changed",
-			G_CALLBACK(ChangeSmootherRate), &app->tool_window.smoother);
-
-		// 拡大ボタン
-		button = gtk_button_new_with_label(app->labels->menu.zoom_in);
-		gtk_widget_set_sensitive(button, FALSE);
-		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
-			G_CALLBACK(ExecuteZoomIn), app);
-		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 3);
-		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
-		app->menus.num_disable_if_no_open++;
-
-		// 縮小ボタン
-		button = gtk_button_new_with_label(app->labels->menu.zoom_out);
-		gtk_widget_set_sensitive(button, FALSE);
-		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
-			G_CALLBACK(ExecuteZoomOut), app);
-		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
-		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
-		app->menus.num_disable_if_no_open++;
-
-		// 等倍表示ボタン
-		button = gtk_button_new_with_label(app->labels->menu.zoom_reset);
-		gtk_widget_set_sensitive(button, FALSE);
-		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
-			G_CALLBACK(ExecuteZoomReset), app);
-		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
-		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
-		app->menus.num_disable_if_no_open++;
-
-		// 表示反転ウィジェット
-		app->reverse_label = gtk_label_new(app->labels->window.normal);
-		app->reverse_button = gtk_toggle_button_new();
-		gtk_widget_set_sensitive(app->reverse_button, FALSE);
-		(void)g_signal_connect(G_OBJECT(app->reverse_button), "toggled",
-			G_CALLBACK(DisplayReverseButtonClicked), app);
-		gtk_container_add(GTK_CONTAINER(app->reverse_button), app->reverse_label);
-		gtk_box_pack_start(GTK_BOX(smooth_box), app->reverse_button, FALSE, FALSE, 3);
-		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = app->reverse_button;
-		app->menus.num_disable_if_no_open++;
-
-		// 反時計回りボタン
-		button = gtk_button_new();
-		file_path = g_build_filename(app->current_path, "image/counter_clockwise.png", NULL);
-		gtk_container_add(GTK_CONTAINER(button), gtk_image_new_from_file(file_path));
-		g_free(file_path);
-		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
-			G_CALLBACK(ExecuteRotateCounterClockwise), app);
-		gtk_widget_set_sensitive(button, FALSE);
-		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 3);
-		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
-		app->menus.num_disable_if_no_open++;
-
-		// 時計回りボタン
-		button = gtk_button_new();
-		file_path = g_build_filename(app->current_path, "image/clockwise.png", NULL);
-		gtk_container_add(GTK_CONTAINER(button), gtk_image_new_from_file(file_path));
-		g_free(file_path);
-		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
-			G_CALLBACK(ExecuteRotateClockwise), app);
-		gtk_widget_set_sensitive(button, FALSE);
-		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
-		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
-		app->menus.num_disable_if_no_open++;
-
-		// 回転リセットボタン
-		button = gtk_button_new_with_label(app->labels->menu.reset_rotate);
-		g_signal_connect_swapped(G_OBJECT(button), "clicked",
-			G_CALLBACK(ExecuteRotateReset), app);
-		gtk_widget_set_sensitive(button, FALSE);
-		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
-		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
-		app->menus.num_disable_if_no_open++;
-
-		// 元に戻す・やり直しボタン
-		file_path = g_build_filename(app->current_path, "image/arrow.png", NULL);
-		image_buf = gdk_pixbuf_new_from_file(file_path, NULL);
-		g_free(file_path);
-		button = gtk_button_new();
-		gtk_container_add(GTK_CONTAINER(button), gtk_image_new_from_pixbuf(image_buf));
-		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
-			G_CALLBACK(ExecuteUndo), app);
-		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 3);
-		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
-		app->menus.num_disable_if_no_open++;
-
-		// 画像の情報を取得して左右反転
-		image_buf = gdk_pixbuf_copy(image_buf);
-		image_width = gdk_pixbuf_get_width(image_buf);
-		image_height = gdk_pixbuf_get_height(image_buf);
-		image_channel = gdk_pixbuf_get_rowstride(image_buf);
-		reverse_buf = (uint8*)MEM_ALLOC_FUNC(image_channel);
-		image_channel /= image_width;
-		image_pixels = gdk_pixbuf_get_pixels(image_buf);
-
-		for(i=0; i<image_height; i++)
-		{
-			for(j=0; j<image_width; j++)
-			{
-				for(k=0; k<image_channel; k++)
-				{
-					reverse_buf[j*image_channel+k] = image_pixels[
-						i*image_width*image_channel+(image_width-j-1)*image_channel+k];
-				}
-			}
-
-			(void)memcpy(&image_pixels[i*image_width*image_channel], reverse_buf, image_width*image_channel);
-		}
-		MEM_FREE_FUNC(reverse_buf);
-
-		button = gtk_button_new();
-		gtk_container_add(GTK_CONTAINER(button), gtk_image_new_from_pixbuf(image_buf));
-		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
-			G_CALLBACK(ExecuteRedo), app);
-		gtk_box_pack_start(GTK_BOX(smooth_box), button, FALSE, FALSE, 0);
-		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = button;
-		app->menus.num_disable_if_no_open++;
-
-		// 選択範囲編集ボタン
-		app->edit_selection = gtk_toggle_button_new_with_label(app->labels->window.edit_selection);
-		gtk_widget_set_sensitive(app->edit_selection, FALSE);
-		gtk_box_pack_end(GTK_BOX(smooth_box), app->edit_selection, FALSE, FALSE, 0);
-		(void)g_signal_connect(G_OBJECT(app->edit_selection), "toggled",
-			G_CALLBACK(DisplayEditSelectionButtonClicked), app);
-		app->menus.disable_if_no_open[app->menus.num_disable_if_no_open] = app->edit_selection;
-		app->menus.num_disable_if_no_open++;
-
-		gtk_box_pack_start(GTK_BOX(app->vbox), smooth_box, FALSE, FALSE, 0);
-	}
-
-	// 描画領域のタブを追加
-		// 先に左右のペーンに入れるパッキングボックスを作成
-	app->left_pane = gtk_hpaned_new();
-	app->right_pane = gtk_hpaned_new();
-	// 左右のペーンに作成したパッキングボックスを追加
-	left_box = gtk_hbox_new(FALSE, 0);
-	right_box = gtk_hbox_new(FALSE, 0);
-	gtk_paned_pack1(GTK_PANED(app->left_pane), left_box, TRUE, FALSE);
-	gtk_paned_pack2(GTK_PANED(app->left_pane), app->right_pane, TRUE, TRUE);
-	gtk_paned_pack2(GTK_PANED(app->right_pane), right_box, TRUE, FALSE);
-	// ペーンの間に描画領域のタブを入れる
-	gtk_paned_pack1(GTK_PANED(app->right_pane), app->note_book, TRUE, TRUE);
-	// ウィンドウに追加
-	gtk_box_pack_start(GTK_BOX(app->vbox), app->left_pane, TRUE, TRUE, 0);
-
-	// デフォルトのウィジェットを空にする
-		// (手ぶれ補正にショートカット使用時にフォーカスを防止)
-	gtk_window_set_default(GTK_WINDOW(app->window), NULL);
-	gtk_window_set_focus(GTK_WINDOW(app->window), NULL);
-
-	// タブ変更時のコールバック関数をセット
-	(void)g_signal_connect(G_OBJECT(app->note_book), "switch_page",
-		G_CALLBACK(OnChangeCurrentTab), app);
-
-	// フォントのリストを取得
-	context = gtk_widget_get_pango_context(app->window);
-	pango_context_list_families(context, &app->font_list, &app->num_font);
-
-	// 文字列順で並べ替える
-	qsort(app->font_list, app->num_font, sizeof(*app->font_list),
-		(int (*)(const void*, const void*))CompareFontFamilyName);
-
-	// ツールボックスウィンドウを作成
-	app->tool_window.window = CreateToolBoxWindow(app, app->window);
-	// パレット情報を読み込む
-	file_path = g_build_filename(app_dir_path, PALLETE_FILE_NAME, NULL);
-	if(LoadPalleteFile(app->tool_window.color_chooser, file_path) != 0)
-	{
-		g_free(file_path);
-		file_path = g_build_filename(app->current_path, PALLETE_FILE_NAME, NULL);
-		(void)LoadPalleteFile(app->tool_window.color_chooser, file_path);
-	}
-	g_free(file_path);
-
-	// レイヤービューをドッキングするならば
-	if((app->layer_window.flags & LAYER_WINDOW_DOCKED) != 0)
-	{
-		app->navi_layer_pane = gtk_vpaned_new();
-		gtk_paned_set_position(GTK_PANED(app->navi_layer_pane), app->layer_window.pane_position);
-
-		if((app->layer_window.flags & LAYER_WINDOW_PLACE_RIGHT) == 0)
-		{
-			gtk_box_pack_start(GTK_BOX(left_box), app->navi_layer_pane, TRUE, TRUE, 0);
-			gtk_box_reorder_child(GTK_BOX(left_box), app->navi_layer_pane, 0);
-		}
-		else
-		{
-			gtk_box_pack_end(GTK_BOX(right_box), app->navi_layer_pane, TRUE, TRUE, 0);
-		}
-	}
-
-	// レイヤーウィンドウを作成
-	app->layer_window.window =
-		CreateLayerWindow(app, app->window, &app->layer_window.view);
-
-	// ナビゲーションウィンドウを作成
-	InitializeNavigation(&app->navigation_window, app, app->navi_layer_pane);
-
-	// プレビューウィンドウを作成
-	InitializePreviewWindow(&app->preview_window, app);
-
-	// ドラッグ&ドロップの間隔を設定
-	g_object_set(gtk_settings_get_default(), "gtk-dnd-drag-threshold",
-		DND_THRESHOLD, NULL);
-
-	// ウィンドウを表示
-	if((app->tool_window.flags & TOOL_DOCKED) == 0)
-	{
-		gtk_widget_show_all(app->tool_window.window);
-	}
-	if((app->layer_window.flags & LAYER_WINDOW_DOCKED) == 0)
-	{
-		gtk_widget_show_all(app->layer_window.window);
-		gtk_widget_show_all(app->navigation_window.window);
-	}
-
-	// 色データを設定
-	{
-		HSV hsv;
-#if !defined(USE_BGR_COLOR_SPACE) || USE_BGR_COLOR_SPACE == 0
-		{
-			uint8 temp;
-			temp = init_data.fg_color[0];
-			init_data.fg_color[0] = init_data.fg_color[2];
-			init_data.fg_color[2] = temp;
-
-			temp = init_data.bg_color[0];
-			init_data.bg_color[0] = init_data.bg_color[2];
-			init_data.bg_color[2] = temp;
-		}
-#endif
-		(void)memcpy(app->tool_window.color_chooser->rgb, init_data.fg_color, 3);
-		(void)memcpy(app->tool_window.color_chooser->back_rgb, init_data.bg_color, 3);
-		RGB2HSV_Pixel(init_data.bg_color, &hsv);
-		app->tool_window.color_chooser->back_hsv = hsv;
-		RGB2HSV_Pixel(init_data.fg_color, &hsv);
-		SetColorChooserPoint(app->tool_window.color_chooser, &hsv, TRUE);
-	}
-	
-	// メインウィンドウを表示
-	gtk_widget_show_all(app->window);
-
-	// 色選択ウィジェットの表示・非表示を設定
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->tool_window.color_chooser->circle_button),
-		app->tool_window.flags & TOOL_SHOW_COLOR_CIRCLE);
-	if((app->tool_window.flags & TOOL_SHOW_COLOR_CIRCLE) != 0)
-	{
-		app->tool_window.color_chooser->flags |= COLOR_CHOOSER_SHOW_CIRCLE;
-	}
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->tool_window.color_chooser->pallete_button),
-		app->tool_window.flags & TOOL_SHOW_COLOR_PALLETE);
-	if((app->tool_window.flags & TOOL_SHOW_COLOR_PALLETE) != 0)
-	{
-		app->tool_window.color_chooser->flags |= COLOR_CHOOSER_SHOW_PALLETE;
-	}
-
-	// レイヤー合成の設定
-	SetLayerBlendFunctions(app->layer_blend_functions);
-	SetPartLayerBlendFunctions(app->part_layer_blend_functions);
-	SetLayerBlendOperators(app->layer_blend_operators);
-
-	// フィルターの設定
-	SetFilterFunctions(app->filter_funcs);
-	SetSelectionFilterFunctions(app->selection_filter_funcs);
-
-	// 吹き出し描画の設定
-	SetTextLayerDrawBalloonFunctions(app->draw_balloon_functions);
-
-	// ブラシプレビュー用のキャンバス作成
-	app->brush_preview_canvas = CreateTempDrawWindow(BRUSH_PREVIEW_CANVAS_WIDTH,
-		BRUSH_PREVIEW_CANVAS_HEIGHT, 4, NULL, NULL, 0, app);
-	app->brush_preview_canvas->layer = app->brush_preview_canvas->active_layer =
-		CreateLayer(0, 0, app->brush_preview_canvas->width, app->brush_preview_canvas->height, 4, TYPE_NORMAL_LAYER,
-			NULL, NULL, "Preview", app->brush_preview_canvas);
-
-	// 入力デバイスの設定
-	{
-		GList *device_list;
-		GdkDevice *device;
-		const gchar *device_name;
-
-#if GTK_MAJOR_VERSION <= 2
-		device_list = gdk_devices_list();
-#else
-		device = gdk_device_manager_get_client_pointer(
-			gdk_display_get_device_manager(gdk_display_get_default()));
-		device_list = gdk_device_list_slave_devices(device);
-#endif
-
-#ifdef _WIN32
-# if GTK_MAJOR_VERSION <= 2
-		while(device_list != NULL)
-		{
-			device = (GdkDevice*)device_list->data;
-			device_name = device->name;
-			//device_name = gdk_device_get_name(device);
-
-			if(StringStringIgnoreCase(device_name, "ERASER") != NULL)
-			{
-				gdk_device_set_source(device, GDK_SOURCE_ERASER);
-			}
-			device_list = device_list->next;
-		}
-# else
-		{
-			GList *check_list = device_list;
-
-			while(check_list != NULL)
-			{
-				device = (GdkDevice*)check_list->data;
-				device_name = gdk_device_get_name(device);
-
-				if(StringStringIgnoreCase(device_name, "ERASER") != NULL)
-				{
-					g_object_set(G_OBJECT(device), "input-source",
-						GINT_TO_POINTER(GDK_SOURCE_ERASER), NULL);
-					//gdk_device_set_source(device, GDK_SOURCE_ERASER);
-				}
-
-				check_list = check_list->next;
-			}
-		}
-# endif
-#else
-		app->num_device = 0;
-		while(device_list != NULL)
-		{
-			app->num_device++;
-			device_list = device_list->next;
-		}
-
-		app->input_sources = (GdkInputSource*)MEM_ALLOC_FUNC(
-				sizeof(*app->input_sources)*app->num_device);
-		app->set_input_modes = (gboolean*)MEM_ALLOC_FUNC(
-				sizeof(*app->set_input_modes)*app->num_device);
-
-#if GTK_MAJOR_VERSION <= 2
-		device_list = gdk_devices_list();
-#else
-		device_list = gdk_device_list_slave_devices(NULL);
-#endif
-		app->num_device = 0;
-
-		while(device_list != NULL)
-		{
-			device = (GdkDevice*)device_list->data;
-			device_name = gdk_device_get_name(device);
-			if(StringStringIgnoreCase(device_name, "CORE") == NULL)
-			{
-				app->set_input_modes[app->num_device] = TRUE;
-			}
-			else
-			{
-				app->set_input_modes[app->num_device] = FALSE;
-			}
-
-#if GTK_MAJOR_VERSION <= 2
-			if(StringStringIgnoreCase(device_name, "STYLUS") != NULL)
-			{
-				gdk_device_set_source(device, GDK_SOURCE_PEN);
-			}
-			else if(StringStringIgnoreCase(device_name, "ERASER") != NULL)
-			{
-				gdk_device_set_source(device, GDK_SOURCE_ERASER);
-#endif
-			}
-			app->input_sources[app->num_device] = gdk_device_get_source(device);
-
-			device_list = device_list->next;
-			app->num_device++;
-		}
-#endif
-
-#if GTK_MAJOR_VERSION >= 3
-		g_list_free(device_list);
-
-		{
-			GList *check_list = device_list;
-			device_list = gdk_device_manager_list_devices(
-				gdk_display_get_device_manager(gdk_display_get_default()), GDK_DEVICE_TYPE_MASTER);
-			check_list = device_list;
-			while(check_list != NULL)
-			{
-				device = (GdkDevice*)check_list->data;
-				(void)gdk_device_set_mode(device, GDK_MODE_SCREEN);
-				check_list = check_list->next;
-			}
-			g_list_free(device_list);
-		}
-#endif
-	}
-
-	// 左右のペーンにウィジェットが入っていなければ削除
-	{
-		GList *child;
-		REALIZE_DATA *realize = (REALIZE_DATA*)MEM_ALLOC_FUNC(sizeof(*realize));
-
-		(void)memset(realize, 0, sizeof(*realize));
-		realize->app = app;
-
-		child = gtk_container_get_children(GTK_CONTAINER(left_box));
-		if(child == NULL)
-		{
-			gtk_widget_destroy(left_box);
-		}
-		else
-		{
-			gtk_paned_set_position(GTK_PANED(app->left_pane), app->left_pane_position);
-		}
-		g_list_free(child);
-
-		child = gtk_container_get_children(GTK_CONTAINER(right_box));
-		if(child == NULL)
-		{
-			gtk_widget_destroy(right_box);
-		}
-		else
-		{
-			gtk_paned_set_position(GTK_PANED(app->right_pane), app->right_pane_position);
-		}
-		g_list_free(child);
-
-		// ウィンドウが表示された時にもう一度ペーンの位置を調整
-		realize->signal_id = g_signal_connect(G_OBJECT(app->window), "size-allocate",
-			G_CALLBACK(MainWindowRealizeCallBack), realize);
-	}
-
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	// 3Dモデリングの準備
-	if(GetHas3DLayer(app) != FALSE)
-	{
-		app->modeling = ApplicationContextNew(app->window_width, app->window_height,
-			app->current_path);
-		// ラベルの文字列を読み込む
-		if(app->language_file_path != NULL)
-		{
-			if(app->language_file_path[0] == '.'
-				&& app->language_file_path[1] == '/')
-			{
-				file_path = g_build_filename(app->current_path,
-					&app->language_file_path[2], NULL);
-				Load3dModelingLabels(app, file_path);
-
-				g_free(file_path);
-			}
-			else
-			{
-				Load3dModelingLabels(app, app->language_file_path);
-			}
-		}
-	}
-#endif
-
-	// 初期化済みのフラグを立てる
-	app->flags |= APPLICATION_INITIALIZED;
-
-	// バックアップファイルを復元する
-	RecoverBackUp(app);
-}
-
 /*********************************************************************
 * UpdateWindowTitle関数                                              *
 * ウインドウタイトルの更新                                           *
@@ -2531,7 +1491,7 @@ void UpdateWindowTitle(APPLICATION* app)
 			MAJOR_VERSION, MINOR_VERSION, RELEASE_VERSION, BUILD_VERSION);
 	}
 
-	gtk_window_set_title(GTK_WINDOW(app->window), window_title);
+	gtk_window_set_title(GTK_WINDOW(app->widgets->window), window_title);
 
 	g_free(window_title);
 }
@@ -2570,7 +1530,7 @@ void RecoverBackUp(APPLICATION* app)
 			{	// 一時保存ファイル発見
 					// 復元するか尋ねる
 				GtkWidget *dialog = gtk_message_dialog_new(
-					GTK_WINDOW(app->window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION,
+					GTK_WINDOW(app->widgets->window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION,
 						GTK_BUTTONS_YES_NO, app->labels->save.recover_backup);
 				gchar *system_path = g_locale_from_utf8(file_path, -1, NULL, NULL, NULL);
 				if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_YES)
@@ -2688,14 +1648,14 @@ void OpenFile(char *file_path, APPLICATION* app)
 		GdkEvent *queued_event;
 
 		// 読込中のメッセージを表示
-		context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(app->status_bar), "Loading");
-		message_id = gtk_statusbar_push(GTK_STATUSBAR(app->status_bar),
+		context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(app->widgets->status_bar), "Loading");
+		message_id = gtk_statusbar_push(GTK_STATUSBAR(app->widgets->status_bar),
 			context_id, app->labels->window.loading);
 		// イベントを回してメッセージを表示
 #if GTK_MAJOR_VERSION <= 2
-		gdk_window_process_updates(app->status_bar->window, TRUE);
+		gdk_window_process_updates(app->widgets->status_bar->window, TRUE);
 #else
-		gdk_window_process_updates(gtk_widget_get_window(app->status_bar), TRUE);
+		gdk_window_process_updates(gtk_widget_get_window(app->widgets->status_bar), TRUE);
 #endif
 
 		while(gdk_events_pending() != FALSE)
@@ -2705,9 +1665,9 @@ void OpenFile(char *file_path, APPLICATION* app)
 			if(queued_event != NULL)
 			{
 #if GTK_MAJOR_VERSION <= 2
-				if(queued_event->any.window == app->status_bar->window
+				if(queued_event->any.window == app->widgets->status_bar->window
 #else
-				if(queued_event->any.window == gtk_widget_get_window(app->status_bar)
+				if(queued_event->any.window == gtk_widget_get_window(app->widgets->status_bar)
 #endif
 					&& queued_event->any.type == GDK_EXPOSE)
 				{
@@ -2782,7 +1742,7 @@ void OpenFile(char *file_path, APPLICATION* app)
 		app->window_num++;
 
 		// メッセージ表示を終了
-		gtk_statusbar_remove(GTK_STATUSBAR(app->status_bar), context_id, message_id);
+		gtk_statusbar_remove(GTK_STATUSBAR(app->widgets->status_bar), context_id, message_id);
 	}
 	else if(StringCompareIgnoreCase(str, ".tlg") == 0)
 	{
@@ -2881,7 +1841,7 @@ void OpenFile(char *file_path, APPLICATION* app)
 
 				// 描画領域を新たに追加
 				app->draw_window[app->window_num] = CreateDrawWindow(
-					width, height, 4, file_name, app->note_book, app->window_num, app);
+					width, height, 4, file_name, app->widgets->note_book, app->window_num, app);
 
 				app->active_window = app->window_num;
 				app->window_num++;
@@ -2986,7 +1946,7 @@ void OpenFile(char *file_path, APPLICATION* app)
 			}
 			app->draw_window[app->window_num] = window =
 				CreateDrawWindow(width, height, 4, file_name,
-					app->note_book, app->window_num, app);
+					app->widgets->note_book, app->window_num, app);
 			DeleteLayer(&window->layer);
 			window->layer = CreateLayer(0, 0, window->width, window->height,
 				4, TYPE_NORMAL_LAYER, NULL, NULL,
@@ -3189,7 +2149,7 @@ void OpenFile(char *file_path, APPLICATION* app)
 
 				// 描画領域を新たに追加
 				app->draw_window[app->window_num] = CreateDrawWindow(
-					width, height, 4, file_name, app->note_book, app->window_num, app);
+					width, height, 4, file_name, app->widgets->note_book, app->window_num, app);
 
 				app->active_window = app->window_num;
 				app->window_num++;
@@ -3276,7 +2236,7 @@ void OpenFile(char *file_path, APPLICATION* app)
 
 			// 描画領域を新たに追加
 			app->draw_window[app->window_num] = CreateDrawWindow(
-				width, height, 4, file_name, app->note_book, app->window_num, app);
+				width, height, 4, file_name, app->widgets->note_book, app->window_num, app);
 			// ICCプロファイル用のダイアログが表示されるとexposeイベントが呼ばれてしまうので
 				// 一時的にシグナルを停止する
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
@@ -3440,7 +2400,7 @@ void ExecuteOpenFile(APPLICATION* app)
 {	// ファイルを開くダイアログ
 	GtkWidget *chooser = gtk_file_chooser_dialog_new(
 		app->labels->menu.open,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_FILE_CHOOSER_ACTION_OPEN,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 		GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
@@ -3473,7 +2433,7 @@ void ExecuteOpenFileAsLayer(APPLICATION* app)
 {	// ファイルを開くダイアログ
 	GtkWidget* chooser = gtk_file_chooser_dialog_new(
 		app->labels->menu.open,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_FILE_CHOOSER_ACTION_OPEN,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 		GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
@@ -3688,7 +2648,7 @@ void ExecuteSaveAs(APPLICATION* app)
 
 	chooser = gtk_file_chooser_dialog_new(
 		app->labels->menu.save_as,
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_FILE_CHOOSER_ACTION_SAVE,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 		GTK_STOCK_SAVE, GTK_RESPONSE_ACCEPT,
@@ -3823,7 +2783,7 @@ void ExecuteClose(APPLICATION* app)
 	if(OnCloseDrawWindow((void*)app->draw_window[app->active_window],
 		app->active_window) == FALSE)
 	{
-		gtk_notebook_remove_page(GTK_NOTEBOOK(app->note_book), close_page);
+		gtk_notebook_remove_page(GTK_NOTEBOOK(app->widgets->note_book), close_page);
 	}
 }
 
@@ -4426,24 +3386,26 @@ void RasterizeActiveLayer(APPLICATION* app)
 void ExecuteSelectAll(APPLICATION* app)
 {
 	// 描画領域の情報
-	DRAW_WINDOW* window = GetActiveDrawWindow(app);
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	// ルーペモード対策
+	DRAW_WINDOW *canvas = (window->focal_window == NULL) ? window : window->focal_window;
 
 	// 一時保存レイヤーに現在の選択範囲を写す
-	(void)memcpy(window->temp_layer->pixels, window->selection->pixels,
-		window->width * window->height);
+	(void)memcpy(canvas->temp_layer->pixels,canvas->selection->pixels,
+		 canvas->width * canvas->height);
 
 	// 選択範囲を255で埋める
-	(void)memset(window->selection->pixels, 0xff,
-		window->width * window->height);
+	(void)memset(canvas->selection->pixels, 0xff,
+		 canvas->width * canvas->height);
 
 	// 選択範囲変化の履歴データ作成
 	AddSelectionAreaChangeHistory(
-		window, app->labels->menu.select_all, 0, 0, window->width, window->height);
+		canvas, app->labels->menu.select_all, 0, 0, canvas->width, canvas->height);
 
 	// 選択範囲の領域を更新
-	(void)UpdateSelectionArea(&window->selection_area, window->selection, window->temp_layer);
+	(void)UpdateSelectionArea(&canvas->selection_area, canvas->selection, canvas->temp_layer);
 
-	window->flags |= DRAW_WINDOW_HAS_SELECTION_AREA;
+	canvas->flags |= DRAW_WINDOW_HAS_SELECTION_AREA;
 }
 
 /*****************************************************
@@ -4458,7 +3420,7 @@ void ExecuteChangeResolution(APPLICATION* app)
 	GtkWidget *dialog =
 		gtk_dialog_new_with_buttons(
 			app->labels->menu.change_resolution,
-			GTK_WINDOW(app->window),
+			GTK_WINDOW(app->widgets->window),
 			GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 			GTK_STOCK_OK,
 			GTK_RESPONSE_ACCEPT,
@@ -4557,7 +3519,7 @@ void ExecuteChangeCanvasSize(APPLICATION* app)
 	GtkWidget *dialog =
 		gtk_dialog_new_with_buttons(
 			app->labels->menu.change_canvas_size,
-			GTK_WINDOW(app->window),
+			GTK_WINDOW(app->widgets->window),
 			GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 			GTK_STOCK_OK,
 			GTK_RESPONSE_ACCEPT,
@@ -4653,7 +3615,7 @@ void ExecuteChangeCanvasIccProfile(GtkWidget* menu, APPLICATION* app)
 		return;
 	}
 
-	dialog = IccProfileChangerDialogNew(GTK_WINDOW(app->window), app->input_icc_path);
+	dialog = IccProfileChangerDialogNew(GTK_WINDOW(app->widgets->window), app->input_icc_path);
 	response = gtk_dialog_run(GTK_DIALOG(dialog));
 	profile_path = (gchar *)g_object_get_data(G_OBJECT(dialog), "file");
 	gtk_widget_destroy(dialog);
@@ -4806,7 +3768,7 @@ void DisplayVersion(APPLICATION* app)
 	char str[4096];
 
 	gtk_window_set_title(GTK_WINDOW(dialog), app->labels->menu.version);
-	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(app->window));
+	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(app->widgets->window));
 
 	// 著作権表示
 	year = &date[strlen(date)];
@@ -4876,18 +3838,18 @@ static void TextureChange(GtkIconView* icon_view, APPLICATION* app)
 	if(indices == NULL)
 	{
 		app->textures.active_texture = 0;
-		gtk_label_set_text(GTK_LABEL(app->texture_label), app->labels->tool_box.no_texture);
+		gtk_label_set_text(GTK_LABEL(app->widgets->texture_label), app->labels->tool_box.no_texture);
 	}
 	else
 	{
 		app->textures.active_texture = indices[0];
 		if(app->textures.active_texture == 0)
 		{
-			gtk_label_set_text(GTK_LABEL(app->texture_label), app->labels->tool_box.no_texture);
+			gtk_label_set_text(GTK_LABEL(app->widgets->texture_label), app->labels->tool_box.no_texture);
 		}
 		else
 		{
-			gtk_label_set_text(GTK_LABEL(app->texture_label),
+			gtk_label_set_text(GTK_LABEL(app->widgets->texture_label),
 				app->textures.texture[app->textures.active_texture-1].name);
 		}
 	}
@@ -5020,7 +3982,7 @@ GtkWidget* CreateTextureChooser(TEXTURES* textures, APPLICATION* app)
 		GTK_SELECTION_SINGLE);
 
 	// ポップアップウィンドウの座標をメインウィンドウの左上に
-	gtk_window_get_position(GTK_WINDOW(app->window),
+	gtk_window_get_position(GTK_WINDOW(app->widgets->window),
 		&window_x, &window_y);
 	gtk_window_move(GTK_WINDOW(ret), window_x, window_y);
 
@@ -5271,7 +4233,7 @@ cairo_image_surface_create_from_png (const char	*filename)
 #  ifdef _DEBUG
 #   pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
 #  else
-#   if _MSC_VER >= 1600
+#   if _MSC_VER >= 1600 && _MSC_VER < 1900
 #    pragma comment(linker, "/NODEFAULTLIB:LIBCMT")
 #   endif
 #  endif

@@ -21,6 +21,7 @@
 #include "tool_box.h"
 #include "memory_stream.h"
 #include "image_read_write.h"
+#include "utils.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1379,12 +1380,12 @@ int CorrectLayerName(const LAYER* bottom_layer, const char* name)
 	{
 		if(strcmp(layer->name, name) == 0)
 		{
-			return 0;
+			return FALSE;
 		}
 		layer = layer->next;
 	} while(layer != NULL);
 
-	return 1;
+	return TRUE;
 }
 
 LAYER* SearchLayer(LAYER* bottom_layer, const gchar* name)
@@ -2960,6 +2961,56 @@ void FillTextureLayer(LAYER* layer, TEXTURES* textures)
 	}
 }
 
+/*********************************************
+* GetLayerTypeString関数                     *
+* レイヤーのタイプ定数を文字列にする         *
+* 引数                                       *
+* type	: レイヤーのタイプ                   *
+* 返り値                                     *
+*	レイヤーのタイプの文字列(freeしないこと) *
+*********************************************/
+const char* GetLayerTypeString(eLAYER_TYPE type)
+{
+	static const char *names[] =
+	{"NORMAL", "VECTOR", "TEXT", "LAYER_SET", "3D_MODEL", "ADJUSTMENT"};
+
+	return names[type];
+}
+
+/*********************************************
+* GetLayerTypeFromString関数                 *
+* 文字列からレイヤーのタイプの定数を取得する *
+* 引数                                       *
+* str	: レイヤーのタイプの文字列           *
+* 返り値                                     *
+*	レイヤーのタイプの定数                   *
+*********************************************/
+eLAYER_TYPE GetLayerTypeFromString(const char* str)
+{
+	if(strcmp(str, "NORMAL") == 0)
+	{
+		return TYPE_NORMAL_LAYER;
+	}
+	else if(strcmp(str, "VECTOR") == 0)
+	{
+		return TYPE_VECTOR_LAYER;
+	}
+	else if(strcmp(str, "TEXT") == 0)
+	{
+		return TYPE_TEXT_LAYER;
+	}
+	else if(strcmp(str, "3D_MODEL") == 0)
+	{
+		return TYPE_3D_LAYER;
+	}
+	else if(strcmp(str, "ADJUSTMENT") == 0)
+	{
+		return TYPE_ADJUSTMENT_LAYER;
+	}
+
+	return TYPE_NORMAL_LAYER;
+}
+
 /******************************************
 * GetAverageColor関数                     *
 * 指定座標周辺の平均色を取得              *
@@ -3050,6 +3101,390 @@ LAYER* GetBlendedUnderLayer(LAYER* target, DRAW_WINDOW* window, int use_back_gro
 	}
 
 	return ret;
+}
+
+/***************************************************
+* AddLayerGroupTemplate関数                        *
+* レイヤーをまとめて作成する                       *
+* 引数                                             *
+* group			: レイヤーをまとめて作成するデータ *
+* add_flags		: レイヤーを追加するかのフラグ     *
+* previous		: 前のレイヤー                     *
+* next			: 次のレイヤー                     *
+* num_layers	: 追加したレイヤーの数             *
+* 返り値                                           *
+*	正常終了:追加したレイヤー	異常終了:NULL      *
+***************************************************/
+LAYER** AddLayerGroupTemplate(
+	LAYER_GROUP_TEMPLATE* group,
+	uint8* add_flags,
+	LAYER* previous,
+	LAYER* next,
+	int* num_layers
+)
+{
+	DRAW_WINDOW *canvas = NULL;
+	LAYER **result = NULL;
+	LAYER_GROUP_TEMPLATE_NODE *node;
+	LAYER *layer_set;
+	LAYER *local_previous = previous;
+	char group_name[MAX_LAYER_NAME_LENGTH];
+	char layer_name[MAX_LAYER_NAME_LENGTH];
+	int32 width, height;
+	int layer_counter;
+	int counter;
+	int i;
+
+	if(previous != NULL)
+	{
+		canvas = previous->window;
+		width = previous->width;
+		height = previous->height;
+	}
+	else if(next != NULL)
+	{
+		canvas = next->window;
+		width = next->width;
+		height = next->height;
+	}
+	else
+	{
+		return NULL;
+	}
+
+	*num_layers = ((group->flags & LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET) != 0) ? 1 : 0;
+	node = group->names;
+	layer_counter = 0;
+	while(node != NULL)
+	{
+		if(FLAG_CHECK(add_flags, layer_counter) != FALSE)
+		{
+			(*num_layers)++;
+		}
+		layer_counter++;
+		node = node->next;
+	}
+
+	if(*num_layers == 0)
+	{
+		return NULL;
+	}
+
+	result = (LAYER**)MEM_ALLOC_FUNC(sizeof(*result)*(*num_layers));
+	if(result == NULL)
+	{
+		return NULL;
+	}
+
+	layer_counter = 0;
+	if((group->flags & LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET) != 0)
+	{
+		if(CorrectLayerName(canvas->layer, group->group_name) == 0)
+		{
+			int name_counter = 1;
+			do
+			{
+				(void)sprintf(group_name, "%s (%d)", group->group_name, name_counter);
+				if(CorrectLayerName(canvas->layer, group_name) != FALSE)
+				{
+					break;
+				}
+				name_counter++;
+			} while(1);
+		}
+		else
+		{
+			(void)strcpy(group_name, group->group_name);
+		}
+	}
+	else
+	{
+		(void)strcpy(group_name, group->group_name);
+	}
+
+	node = group->names;
+	layer_counter = 0;
+	counter = 0;
+	while(node != NULL)
+	{
+		if(FLAG_CHECK(add_flags, counter) != FALSE)
+		{
+			int name_counter = 1;
+
+			(void)sprintf(layer_name, "%s - %s", group_name, node->name);
+			if(CorrectLayerName(canvas->layer, layer_name) == FALSE)
+			{
+				do
+				{
+					(void)sprintf(group_name, "%s - %s (%d)", group_name, node->name, name_counter);
+					if(CorrectLayerName(canvas->layer, group_name) != FALSE)
+					{
+						break;
+					}
+					name_counter++;
+				} while(1);
+			}
+
+			result[layer_counter] = CreateLayer(0, 0, width, height, 4,
+				node->layer_type, local_previous, next, layer_name, canvas);
+			local_previous = result[layer_counter];
+			layer_counter++;
+		}
+			
+		counter++;
+		node = node->next;
+	}
+
+	if((group->flags & LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET) != 0)
+	{
+		layer_set = CreateLayer(0, 0, width, height, 4,
+			TYPE_LAYER_SET, local_previous, next, group_name, canvas);
+		result[(*num_layers)-1] = layer_set;
+		for(i=0; i<(*num_layers)-1; i++)
+		{
+			result[i]->layer_set = layer_set;
+		}
+	}
+
+	if(previous == NULL)
+	{
+		canvas->layer = result[0];
+	}
+
+	if((canvas->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+	{
+		canvas = canvas->focal_window;
+
+		layer_counter = 0;
+		if((group->flags & LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET) != 0)
+		{
+			if(CorrectLayerName(canvas->layer, group->group_name) == 0)
+			{
+				int name_counter = 1;
+				do
+				{
+					(void)sprintf(group_name, "%s (%d)", group->group_name, name_counter);
+					if(CorrectLayerName(canvas->layer, group_name) != FALSE)
+					{
+						break;
+					}
+					name_counter++;
+				} while(1);
+			}
+			else
+			{
+				(void)strcpy(group_name, group->group_name);
+			}
+		}
+		else
+		{
+			(void)strcpy(group_name, group->group_name);
+		}
+
+		node = group->names;
+		counter = layer_counter = 0;
+		while(node != NULL)
+		{
+			if(FLAG_CHECK(add_flags, counter) != FALSE)
+			{
+				int name_counter = 1;
+
+				(void)sprintf(layer_name, "%s - %s", group_name, node->name);
+				if(CorrectLayerName(canvas->layer, layer_name) == FALSE)
+				{
+					do
+					{
+						(void)sprintf(group_name, "%s - %s (%d)", group_name, node->name, name_counter);
+						if(CorrectLayerName(canvas->layer, group_name) != FALSE)
+						{
+							break;
+						}
+						name_counter++;
+					} while(1);
+				}
+
+				result[layer_counter] = CreateLayer(0, 0, width, height, 4,
+					node->layer_type, local_previous, next, layer_name, canvas);
+				local_previous = result[layer_counter];
+				layer_counter++;
+			}
+
+			counter++;
+			node = node->next;
+		}
+
+		if((group->flags & LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET) != 0)
+		{
+			layer_set = CreateLayer(0, 0, width, height, 4,
+				TYPE_LAYER_SET, local_previous, next, group_name, canvas);
+			result[(*num_layers)-1] = layer_set;;
+			for(i=0; i<(*num_layers)-1; i++)
+			{
+				result[i]->layer_set = layer_set;
+			}
+		}
+
+		if(previous == NULL)
+		{
+			canvas->layer = result[0];
+		}
+	}
+
+	return result;
+}
+
+static void AddLayerGroupUndo(DRAW_WINDOW* canvas, void* p)
+{
+	MEMORY_STREAM stream = {0};
+	LAYER *target;
+	int32 *data32;
+	int32 num;
+	int32 num_layer;
+	int i;
+
+	stream.buff_ptr = (uint8*)p;
+	data32 = (int32*)p;
+	stream.data_size = *data32;
+	(void)MemSeek(&stream, sizeof(num), SEEK_CUR);
+
+	(void)MemRead(&num, sizeof(num), 1, &stream);
+	(void)MemSeek(&stream, num, SEEK_CUR);
+
+	(void)MemRead(&num_layer, sizeof(num_layer), 1, &stream);
+	for(i=0; i<num_layer; i++)
+	{
+		(void)MemRead(&num, sizeof(num), 1, &stream);
+		target = SearchLayer(canvas->layer, (const gchar*)&stream.buff_ptr[stream.data_point]);
+		DeleteLayer(&target);
+		canvas->num_layer--;
+		if((canvas->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+		{
+			target = SearchLayer(canvas->focal_window->layer, (const gchar*)&stream.buff_ptr[stream.data_point]);
+			DeleteLayer(&target);
+			canvas->focal_window->num_layer--;
+		}
+		(void)MemSeek(&stream, num + sizeof(num), SEEK_CUR);
+	}
+}
+
+static void AddLayerGroupRedo(DRAW_WINDOW* canvas, void* p)
+{
+	APPLICATION *app;
+	MEMORY_STREAM stream = {0};
+	LAYER *target;
+	LAYER *prev = NULL;
+	LAYER *next = NULL;
+	char name[MAX_LAYER_NAME_LENGTH];
+	int32 *data32;
+	int32 num;
+	int32 num_layer;
+	int i;
+
+	app = canvas->app;
+
+	stream.buff_ptr = (uint8*)p;
+	data32 = (int32*)p;
+	stream.data_size = *data32;
+	(void)MemSeek(&stream, sizeof(num), SEEK_CUR);
+
+	(void)MemRead(&num, sizeof(num), 1, &stream);
+	if(num > 0)
+	{
+		prev = SearchLayer(canvas->layer, (const gchar*)&stream.buff_ptr[stream.data_point]);
+	}
+	(void)MemSeek(&stream, num, SEEK_CUR);
+
+	(void)MemRead(&num_layer, sizeof(num_layer), 1, &stream);
+	for(i=0; i<num_layer; i++)
+	{
+		(void)MemRead(&num, sizeof(num), 1, &stream);
+		(void)MemRead(name, 1, num, &stream);
+		(void)MemRead(&num, sizeof(num), 1, &stream);
+		if(prev == NULL)
+		{
+			next = canvas->layer;
+		}
+		else
+		{
+			next = prev->next;
+		}
+		target = CreateLayer(0, 0, canvas->width, canvas->height, 4, (eLAYER_TYPE)num, prev, next,
+			name, canvas);
+		canvas->num_layer++;
+		LayerViewAddLayer(target, canvas->layer,
+			app->layer_window.view, canvas->num_layer);
+		if((canvas->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+		{
+			LAYER *new_layer;
+			new_layer = CreateLayer(0, 0, canvas->focal_window->width, canvas->focal_window->height, 4, (eLAYER_TYPE)num,
+				(prev == NULL) ? NULL : SearchLayer(canvas->focal_window->layer, prev->name),
+				(next == NULL) ? NULL : SearchLayer(canvas->focal_window->layer, next->name),
+				name, canvas->focal_window
+			);
+			canvas->focal_window->num_layer++;
+		}
+
+		prev = target;
+		next = target->next;
+	}
+}
+
+/*************************************************
+* AddLayerGroupHistory関数                       *
+* レイヤーをまとめて作成する履歴を作成           *
+* 引数                                           *
+* layers		: 追加したレイヤー               *
+* num_layers	: 追加したレイヤーの数           *
+* prev			: 追加したレイヤーの前のレイヤー *
+*************************************************/
+void AddLayerGroupHistory(LAYER**layers, int num_layers, LAYER* prev)
+{
+	DRAW_WINDOW *canvas;
+	MEMORY_STREAM *stream;
+	size_t size;
+	int32 num;
+	int i;
+
+	if(layers == NULL || layers[0] == NULL)
+	{
+		return;
+	}
+
+	canvas = layers[0]->window;
+	stream = CreateMemoryStream(4096);
+
+	(void)MemSeek(stream, sizeof(num), SEEK_CUR);
+
+	if(prev != NULL)
+	{
+		num = (int32)strlen(prev->name) + 1;
+	}
+	else
+	{
+		num = 0;
+	}
+	(void)MemWrite(&num, sizeof(num), 1, stream);
+	(void)MemWrite(prev->name, 1, num, stream);
+
+	num = num_layers;
+	(void)MemWrite(&num, sizeof(num), 1, stream);
+	for(i=0; i<num_layers; i++)
+	{
+		num = (int32)strlen(layers[i]->name) + 1;
+		(void)MemWrite(&num, sizeof(num), 1, stream);
+		(void)MemWrite(layers[i]->name, 1, num, stream);
+		num = layers[i]->layer_type;
+		(void)MemWrite(&num, sizeof(num), 1, stream);
+	}
+	size = stream->data_point;
+	num = (int32)size;
+	(void)MemSeek(stream, 0, SEEK_SET);
+	(void)MemWrite(&num, sizeof(num), 1, stream);
+
+	AddHistory(&canvas->history, canvas->app->labels->menu.new_layer_group,
+		(const void*)stream->buff_ptr, size, (history_func)AddLayerGroupUndo, (history_func)AddLayerGroupRedo);
+
+	DeleteMemoryStream(stream);
 }
 
 #ifdef __cplusplus

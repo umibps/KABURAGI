@@ -2182,9 +2182,7 @@ int WriteCommonToolData(
 	APPLICATION* app
 )
 {
-	GFile *fp = g_file_new_for_path(file_path);
-	GFileOutputStream *stream =
-		g_file_create(fp, G_FILE_CREATE_NONE, NULL, NULL);
+	FILE *fp;
 	INI_FILE_PTR file;
 	char tool_section_name[256];
 	char tool_name[1024];
@@ -2193,19 +2191,15 @@ int WriteCommonToolData(
 	char hot_key[2] = {0};
 	int x, y;
 
-	// ファイルオープンに失敗したら上書きで試す
-	if(stream == NULL)
-	{
-		stream = g_file_replace(fp, NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL);
+	fp = fopen(file_path, "wb");
 
-		if(stream == NULL)
-		{
-			g_object_unref(fp);
-			return -1;
-		}
+	// ファイルオープンに失敗
+	if(fp == NULL)
+	{
+		return -1;
 	}
 
-	file = CreateIniFile(stream, NULL,0, INI_WRITE);
+	file = CreateIniFile(fp, NULL, 0, INI_WRITE);
 
 	(void)IniFileAddString(file, "CODE", "CODE_TYPE", window->common_tool_code);
 
@@ -2307,10 +2301,9 @@ int WriteCommonToolData(
 	}	// ツールテーブルの内容を書き出す
 		// for(y=0; y<COMMON_TOOL_TABLE_HEIGHT; y++)
 
-	WriteIniFile(file, (size_t (*)(void*, size_t, size_t, void*))FileWrite);
+	WriteIniFile(file, (size_t (*)(void*, size_t, size_t, void*))fwrite);
 	file->delete_func(file);
-	g_object_unref(fp);
-	g_object_unref(stream);
+	(void)fclose(fp);
 
 	return 0;
 }

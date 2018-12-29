@@ -12,7 +12,6 @@
 #include "display.h"
 #include "layer_window.h"
 #include "application.h"
-#include "input.h"
 #include "widgets.h"
 #include "selection_area.h"
 #include "memory_stream.h"
@@ -20,6 +19,9 @@
 #include "utils.h"
 
 # include "MikuMikuGtk+/ui.h"
+
+#include "./gui/GTK/input_gtk.h"
+#include "./gui/GTK/gtk_widgets.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -119,11 +121,11 @@ void AutoSave(DRAW_WINDOW* window)
 	if(fp != NULL)
 	{
 #if GTK_MAJOR_VERSION >= 3
-		GdkWindow *status_window = gtk_widget_get_window(window->app->status_bar);
+		GdkWindow *status_window = gtk_widget_get_window(window->app->widgets->status_bar);
 #endif
 		guint context_id = gtk_statusbar_get_context_id(
-			GTK_STATUSBAR(window->app->status_bar), "Execute Back Up");
-		guint message_id = gtk_statusbar_push(GTK_STATUSBAR(window->app->status_bar),
+			GTK_STATUSBAR(window->app->widgets->status_bar), "Execute Back Up");
+		guint message_id = gtk_statusbar_push(GTK_STATUSBAR(window->app->widgets->status_bar),
 			context_id, window->app->labels->status_bar.auto_save);
 		GdkEvent *queued_event;
 		while(gtk_events_pending() != FALSE)
@@ -136,7 +138,7 @@ void AutoSave(DRAW_WINDOW* window)
 			}
 
 #if GTK_MAJOR_VERSION <= 2
-			if(queued_event->any.window == window->app->status_bar->window)
+			if(queued_event->any.window == window->app->widgets->status_bar->window)
 #else
 			if(queued_event->any.window == status_window)
 #endif
@@ -159,7 +161,7 @@ void AutoSave(DRAW_WINDOW* window)
 		(void)rename(temp_path, system_path);
 		(void)remove(temp_path);
 
-		gtk_statusbar_remove(GTK_STATUSBAR(window->app->status_bar),
+		gtk_statusbar_remove(GTK_STATUSBAR(window->app->widgets->status_bar),
 			context_id, message_id);
 		while(gtk_events_pending() != FALSE)
 		{
@@ -171,7 +173,7 @@ void AutoSave(DRAW_WINDOW* window)
 			}
 
 #if GTK_MAJOR_VERSION <= 2
-			if(queued_event->any.window == window->app->status_bar->window)
+			if(queued_event->any.window == window->app->widgets->status_bar->window)
 #else
 			if(queued_event->any.window == status_window)
 #endif
@@ -213,7 +215,7 @@ gboolean OnCloseDrawWindow(void* data, gint page)
 	{	// 保存するかどうかのウィンドウを表示
 		GtkWidget* dialog = gtk_dialog_new_with_buttons(
 			NULL,
-			GTK_WINDOW(window->app->window),
+			GTK_WINDOW(window->app->widgets->window),
 			GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 			GTK_STOCK_SAVE,
 			GTK_RESPONSE_ACCEPT,
@@ -265,7 +267,7 @@ gboolean OnCloseDrawWindow(void* data, gint page)
 			{
 				// タブに設定されているページ数を再設定
 				g_object_set_data(G_OBJECT(g_object_get_data(G_OBJECT(
-					gtk_notebook_get_tab_label(GTK_NOTEBOOK(window->app->note_book),
+					gtk_notebook_get_tab_label(GTK_NOTEBOOK(window->app->widgets->note_book),
 						window->app->draw_window[j]->scroll)), "button_widget")), "page", GINT_TO_POINTER(j-1));
 			}
 
@@ -369,6 +371,70 @@ static void ScrollSizeChange(
 	UpdateDrawWindowClippingArea(window);
 }
 
+
+static gboolean DrawWindowConfigureEvent(GtkWidget* widget,GdkEventConfigure* event_info,DRAW_WINDOW* window)
+{
+#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
+	if(GetHas3DLayer(window->app) != FALSE)
+	{
+		LAYER *layer = window->layer;
+
+		if(window->focal_window != NULL)
+		{
+			return FALSE;
+		}
+
+		if((window->flags & DRAW_WINDOW_INITIALIZED) == 0)
+		{
+			if(ConfigureEvent(widget,event_info,window->first_project) == FALSE)
+			{
+				return FALSE;
+			}
+			window->flags |= DRAW_WINDOW_INITIALIZED;
+		}
+
+		while(layer != NULL)
+		{
+			if(layer->modeling_data != NULL)
+			{
+				MEMORY_STREAM stream ={(uint8*)layer->modeling_data,0,layer->modeling_data_size,1024};
+				LoadProjectContextData(layer->layer_data.project,(void*)&stream,(size_t (*)(void*,size_t,size_t,void*))MemRead,
+					(int (*)(void*,long,int))MemSeek);
+				MEM_FREE_FUNC(layer->modeling_data);
+				layer->modeling_data = NULL;
+			}
+			layer = layer->next;
+		}
+
+		if(window->active_layer == NULL)
+		{
+			return FALSE;
+		}
+		else if(window->active_layer->layer_type != TYPE_3D_LAYER
+				&& (window->flags & DRAW_WINDOW_DISCONNECT_3D) != 0)
+		{
+			gtk_widget_hide(window->gl_area);
+			DisconnectDrawWindowCallbacks(window->gl_area,window);
+			gtk_widget_show(window->window);
+			SetDrawWindowCallbacks(window->window,window);
+			g_signal_handler_disconnect(window->window,window->callbacks.configure);
+			window->callbacks.configure = 0;
+			gtk_widget_queue_draw(window->window);
+
+			window->flags &= ~(window->flags & DRAW_WINDOW_DISCONNECT_3D);
+		}
+	}
+	else
+#endif
+	{
+		g_signal_handler_disconnect(window->window,window->callbacks.configure);
+		window->callbacks.configure = 0;
+		window->flags |= DRAW_WINDOW_INITIALIZED;
+	}
+
+	return FALSE;
+}
+
 /*******************************************************
 * SetDrawWindowCallbacks関数                           *
 * 描画領域のコールバック関数の設定を行う               *
@@ -382,7 +448,7 @@ void SetDrawWindowCallbacks(
 )
 {
 	window->callbacks.configure = g_signal_connect(G_OBJECT(widget), "configure-event",
-		G_CALLBACK(DrawWindowConfigurEvent), window);
+		G_CALLBACK(DrawWindowConfigureEvent), window);
 #if GTK_MAJOR_VERSION <= 2
 	window->callbacks.display = g_signal_connect(G_OBJECT(widget), "expose_event",
 		G_CALLBACK(DisplayDrawWindow), window);
@@ -916,6 +982,8 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 	LAYER *prev_layer = NULL;
 	LAYER *src_layer;
 	LAYER *target;
+	// キャンバスのスクロールバーウィジェット
+	GtkWidget *scroll_bar;
 	// 局所キャンバスのサイズ
 	int focal_width, focal_height, focal_stride;
 	// コピー開始座標
@@ -931,6 +999,12 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 
 	// 処理中のコールバック関数が呼ばれないように先に止める
 	DisconnectDrawWindowCallbacks(parent_window->window, parent_window);
+
+	// 現在のスクロールバーの位置を記憶する
+	scroll_bar = gtk_scrolled_window_get_hscrollbar(GTK_SCROLLED_WINDOW(parent_window->scroll));
+	parent_window->focal_x = (int16)gtk_range_get_value(GTK_RANGE(scroll_bar));
+	scroll_bar = gtk_scrolled_window_get_vscrollbar(GTK_SCROLLED_WINDOW(parent_window->scroll));
+	parent_window->focal_y = (int16)gtk_range_get_value(GTK_RANGE(scroll_bar));
 
 	// 選択範囲部分にフォーカスする
 	start_x = parent_window->selection_area.min_x;
@@ -1009,6 +1083,29 @@ void Change2FocalMode(DRAW_WINDOW* parent_window)
 	// ナビゲーションの表示を切り替え
 	ChangeNavigationDrawWindow(&app->navigation_window, focal_window);
 	FillTextureLayer(focal_window->texture, &app->textures);
+}
+
+/*************************************************************************
+* DrawWindowConfigureEventOnReturnFromFocalMode関数                      *
+* ルーペモードから戻った後、ウィジェットが表示された際のコールバック関数 * 
+* 引数                                                                   *
+* widget		: 表示されたウィジェット                                 *
+* event_info	: イベントの詳細情報                                     *
+* window		: キャンバスの情報                                       *
+* 戻り値                                                                 *
+*	常にFALSE                                                            *
+*************************************************************************/
+static gboolean DrawWindowConfigureEventOnReturnFromFocalMode(GtkWidget* widget,GdkEventConfigure* event_info,DRAW_WINDOW* window)
+{
+	GtkWidget *scroll_bar;
+	g_signal_handler_disconnect(window->window,window->callbacks.configure);
+	window->callbacks.configure = 0;
+	scroll_bar = gtk_scrolled_window_get_hscrollbar(GTK_SCROLLED_WINDOW(window->scroll));
+	gtk_range_set_value(GTK_RANGE(scroll_bar),window->focal_x);
+	scroll_bar = gtk_scrolled_window_get_vscrollbar(GTK_SCROLLED_WINDOW(window->scroll));
+	gtk_range_set_value(GTK_RANGE(scroll_bar),window->focal_y);
+
+	return FALSE;
 }
 
 /*********************************
@@ -1113,6 +1210,12 @@ void ReturnFromFocalMode(DRAW_WINDOW* parent_window)
 	// ナビゲーションの表示を切り替え
 	ChangeNavigationDrawWindow(&app->navigation_window, parent_window);
 	FillTextureLayer(parent_window->texture, &app->textures);
+
+	// ウィジェットを表示してから拡大率を表示位置を調整
+	gtk_widget_show_all(parent_window->window);
+	DrawWindowChangeZoom(parent_window, parent_window->zoom);
+	parent_window->callbacks.configure = g_signal_connect(
+		G_OBJECT(parent_window->window), "configure-event", G_CALLBACK(DrawWindowConfigureEventOnReturnFromFocalMode), parent_window);
 }
 
 /***************************************
@@ -2098,7 +2201,7 @@ void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_
 	{
 		GtkWidget *dialog = gtk_dialog_new_with_buttons(
 			"",
-			GTK_WINDOW(window->app->window),
+			GTK_WINDOW(window->app->widgets->window),
 			GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 			GTK_STOCK_YES, GTK_RESPONSE_YES,
 			GTK_STOCK_NO, GTK_RESPONSE_NO,
@@ -2188,69 +2291,6 @@ void DrawWindowSetIccProfile(DRAW_WINDOW* window, int32 data_size, gboolean ask_
 	}
 
 	UpdateWindowTitle(app);
-}
-
-gboolean DrawWindowConfigurEvent(GtkWidget* widget, GdkEventConfigure* event_info, DRAW_WINDOW* window)
-{
-#if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
-	if(GetHas3DLayer(window->app) != FALSE)
-	{
-		LAYER *layer = window->layer;
-
-		if(window->focal_window != NULL)
-		{
-			return FALSE;
-		}
-
-		if((window->flags & DRAW_WINDOW_INITIALIZED) == 0)
-		{
-			if(ConfigureEvent(widget, event_info, window->first_project) == FALSE)
-			{
-				return FALSE;
-			}
-			window->flags |= DRAW_WINDOW_INITIALIZED;
-		}
-
-		while(layer != NULL)
-		{
-			if(layer->modeling_data != NULL)
-			{
-				MEMORY_STREAM stream = {(uint8*)layer->modeling_data, 0, layer->modeling_data_size, 1024};
-				LoadProjectContextData(layer->layer_data.project, (void*)&stream, (size_t (*)(void*, size_t, size_t, void*))MemRead,
-					(int (*)(void*, long, int))MemSeek);
-				MEM_FREE_FUNC(layer->modeling_data);
-				layer->modeling_data = NULL;
-			}
-			layer = layer->next;
-		}
-
-		if(window->active_layer == NULL)
-		{
-			return FALSE;
-		}
-		else if(window->active_layer->layer_type != TYPE_3D_LAYER
-			&& (window->flags & DRAW_WINDOW_DISCONNECT_3D) != 0)
-		{
-			gtk_widget_hide(window->gl_area);
-			DisconnectDrawWindowCallbacks(window->gl_area, window);
-			gtk_widget_show(window->window);
-			SetDrawWindowCallbacks(window->window, window);
-			g_signal_handler_disconnect(window->window, window->callbacks.configure);
-			window->callbacks.configure = 0;
-			gtk_widget_queue_draw(window->window);
-
-			window->flags &= ~(window->flags & DRAW_WINDOW_DISCONNECT_3D);
-		}
-	}
-	else
-#endif
-	{
-		g_signal_handler_disconnect(window->window, window->callbacks.configure);
-		window->callbacks.configure = 0;
-		window->flags |= DRAW_WINDOW_INITIALIZED;
-	}
-
-	return FALSE;
 }
 
 void ScrollSizeChangeEvent(GtkWidget* scroll, GdkRectangle* size, DRAW_WINDOW* window)

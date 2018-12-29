@@ -12,8 +12,10 @@
 #include "widgets.h"
 #include "memory.h"
 #include "drag_and_drop.h"
-#include "input.h"
 #include "utils.h"
+
+#include "./gui/GTK/input_gtk.h"
+#include "./gui/GTK/gtk_widgets.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -647,7 +649,7 @@ static void OnClickedChangeBackGroundButton(GtkWidget* button, APPLICATION* app)
 	gtk_label_set_markup_with_mnemonic(GTK_LABEL(app->layer_window.change_bg_label), buff);
 }
 
-GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **box)
+GtkWidget* CreateLayerView(APPLICATION* app, LAYER_WINDOW* window, GtkWidget** box)
 {
 #define UI_FONT_SIZE 8.0
 	//const GtkTargetEntry target = {LAYER_DRAG_STRING, GTK_TARGET_SAME_WIDGET, DRAG_ID_LAYER_WIDGET};
@@ -675,7 +677,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	// 合成モードのラベル
 	label = gtk_label_new("");
 	(void)sprintf(mark_up_buff, "<span font_desc=\"%.2f\">%s</span>",
-		UI_FONT_SIZE, app->labels->layer_window.blend_mode);
+		UI_FONT_SIZE * app->gui_scale, app->labels->layer_window.blend_mode);
 	gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 	// 合成モードを選択するコンボボックスを作成
 #if GTK_MAJOR_VERSION <= 2
@@ -709,7 +711,7 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	// 不透明度のラベル
 	label = gtk_label_new("");
 	(void)sprintf(mark_up_buff, "<span font_desc=\"%.2f\">%s</span>",
-		UI_FONT_SIZE, app->labels->layer_window.opacity);
+		UI_FONT_SIZE * app->gui_scale, app->labels->layer_window.opacity);
 	gtk_label_set_markup(GTK_LABEL(label), mark_up_buff);
 	// 不透明度設定のスライダを作成
 	window->layer_control.opacity = GTK_ADJUSTMENT(gtk_adjustment_new(100, 0, 100, 1, 1, 0));
@@ -763,7 +765,18 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	// 新規レイヤー関連のボタン
 	window->layer_control.new_box = gtk_hbox_new(FALSE, 0);
 	file_path = g_build_filename(app->current_path, "image/new_document.png", NULL);
-	image = gtk_image_new_from_file(file_path);
+	if(app->gui_scale == 1.0)
+	{
+		image = gtk_image_new_from_file(file_path);
+	}
+	else
+	{
+		src = gdk_pixbuf_new_from_file(file_path, NULL);
+		image_buff = gdk_pixbuf_scale_simple(src, (int)(gdk_pixbuf_get_width(src) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(src) * app->gui_scale), GDK_INTERP_NEAREST);
+		image = gtk_image_new_from_pixbuf(image_buff);
+		g_object_unref(src);
+	}
 	g_free(file_path);
 	button = gtk_button_new();
 	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
@@ -771,7 +784,18 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
 	file_path = g_build_filename(app->current_path, "image/new_vector.png", NULL);
-	image = gtk_image_new_from_file(file_path);
+	if(app->gui_scale == 1.0)
+	{
+		image = gtk_image_new_from_file(file_path);
+	}
+	else
+	{
+		src = gdk_pixbuf_new_from_file(file_path, NULL);
+		image_buff = gdk_pixbuf_scale_simple(src, (int)(gdk_pixbuf_get_width(src) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(src) * app->gui_scale), GDK_INTERP_NEAREST);
+		image = gtk_image_new_from_pixbuf(image_buff);
+		g_object_unref(src);
+	}
 	g_free(file_path);
 	button = gtk_button_new();
 	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
@@ -779,7 +803,18 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.new_box), button, FALSE, TRUE, 0);
 	file_path = g_build_filename(app->current_path, "image/folder.png", NULL);
-	image = gtk_image_new_from_file(file_path);
+	if(app->gui_scale == 1.0)
+	{
+		image = gtk_image_new_from_file(file_path);
+	}
+	else
+	{
+		src = gdk_pixbuf_new_from_file(file_path, NULL);
+		image_buff = gdk_pixbuf_scale_simple(src, (int)(gdk_pixbuf_get_width(src) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(src) * app->gui_scale), GDK_INTERP_NEAREST);
+		image = gtk_image_new_from_pixbuf(image_buff);
+		g_object_unref(src);
+	}
 	g_free(file_path);
 	button = gtk_button_new();
 	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
@@ -789,7 +824,18 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	if(GetHas3DLayer(app) != FALSE)
 	{
 		file_path = g_build_filename(app->current_path, "image/3d_icon.png", NULL);
-		image = gtk_image_new_from_file(file_path);
+		if(app->gui_scale == 1.0)
+		{
+			image = gtk_image_new_from_file(file_path);
+		}
+		else
+		{
+			src = gdk_pixbuf_new_from_file(file_path, NULL);
+			image_buff = gdk_pixbuf_scale_simple(src, (int)(gdk_pixbuf_get_width(src) * app->gui_scale),
+				(int)(gdk_pixbuf_get_height(src) * app->gui_scale), GDK_INTERP_NEAREST);
+			image = gtk_image_new_from_pixbuf(image_buff);
+			g_object_unref(src);
+		}
 		g_free(file_path);
 		button = gtk_button_new();
 		(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
@@ -802,6 +848,13 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	image_buff = gdk_pixbuf_rotate_simple(src, GDK_PIXBUF_ROTATE_CLOCKWISE);
 	g_free(file_path);
 	g_object_unref(src);
+	if(app->gui_scale != 1.0)
+	{
+		src = image_buff;
+		image_buff = gdk_pixbuf_scale_simple(src, (int)(gdk_pixbuf_get_width(src) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(src) * app->gui_scale), GDK_INTERP_NEAREST);
+		g_object_unref(src);
+	}
 	window->layer_control.up = button = gtk_button_new();
 	image = gtk_image_new_from_pixbuf(image_buff);
 	gtk_container_add(GTK_CONTAINER(button), image);
@@ -841,7 +894,18 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	hbox = gtk_hbox_new(FALSE, 0);
 	window->layer_control.merge_box = gtk_hbox_new(FALSE, 0);
 	file_path = g_build_filename(app->current_path, "image/merge_down.png", NULL);
-	image = gtk_image_new_from_file(file_path);
+	if(app->gui_scale == 1.0)
+	{
+		image = gtk_image_new_from_file(file_path);
+	}
+	else
+	{
+		src = gdk_pixbuf_new_from_file(file_path, NULL);
+		image_buff = gdk_pixbuf_scale_simple(src, (int)(gdk_pixbuf_get_width(src) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(src) * app->gui_scale), GDK_INTERP_NEAREST);
+		image = gtk_image_new_from_pixbuf(image_buff);
+		g_object_unref(src);
+	}
 	g_free(file_path);
 	window->layer_control.merge_down = button = gtk_button_new();
 	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
@@ -849,7 +913,18 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(window->layer_control.merge_box), button, FALSE, TRUE, 0);
 	file_path = g_build_filename(app->current_path, "image/trash_box.png", NULL);
-	image = gtk_image_new_from_file(file_path);
+	if(app->gui_scale == 1.0)
+	{
+		image = gtk_image_new_from_file(file_path);
+	}
+	else
+	{
+		src = gdk_pixbuf_new_from_file(file_path, NULL);
+		image_buff = gdk_pixbuf_scale_simple(src, (int)(gdk_pixbuf_get_width(src) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(src) * app->gui_scale), GDK_INTERP_NEAREST);
+		image = gtk_image_new_from_pixbuf(image_buff);
+		g_object_unref(src);
+	}
 	g_free(file_path);
 	window->layer_control.delete_layer = button = gtk_button_new();
 	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
@@ -902,7 +977,18 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	(void)g_signal_connect_swapped(G_OBJECT(button), "clicked",
 		G_CALLBACK(ExecuteMakeAdjustmentLayer), app);
 	file_path = g_build_filename(app->current_path, "image/new_adjustment.png", NULL);
-	image = gtk_image_new_from_file(file_path);
+	if(app->gui_scale == 1.0)
+	{
+		image = gtk_image_new_from_file(file_path);
+	}
+	else
+	{
+		src = gdk_pixbuf_new_from_file(file_path, NULL);
+		image_buff = gdk_pixbuf_scale_simple(src, (int)(gdk_pixbuf_get_width(src) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(src) * app->gui_scale), GDK_INTERP_NEAREST);
+		image = gtk_image_new_from_pixbuf(image_buff);
+		g_object_unref(src);
+	}
 	g_free(file_path);
 	gtk_container_add(GTK_CONTAINER(button), image);
 	gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, TRUE, 0);
@@ -946,6 +1032,9 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	// レイヤー表示部をボックスへ
 	gtk_box_pack_start(GTK_BOX(vbox), view, TRUE, TRUE, 0);
 
+	// レイヤー表示用スクロールウィンドウのスクロールバーの位置を設定
+	gtk_scrolled_window_set_placement(GTK_SCROLLED_WINDOW(view),
+		((window->flags & LAYER_WINDOW_SCROLLBAR_PLACE_LEFT) == 0) ? GTK_CORNER_TOP_LEFT : GTK_CORNER_BOTTOM_RIGHT);
 	// レイヤー表示用スクロールウィンドウを記憶
 	window->scrolled_window = view;
 	
@@ -1001,12 +1090,47 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 	window->pin = gdk_pixbuf_new_from_file(file_path, NULL);
 	g_free(file_path);
 
+	if(app->gui_scale != 1.0)
+	{
+		GdkPixbuf *old_buf;
+
+		old_buf = window->eye;
+		window->eye = gdk_pixbuf_scale_simple(old_buf,
+			(int)(gdk_pixbuf_get_width(old_buf) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(old_buf) * app->gui_scale),
+			GDK_INTERP_NEAREST
+		);
+		g_object_unref(old_buf);
+
+		old_buf = window->pin;
+		window->pin = gdk_pixbuf_scale_simple(old_buf,
+			(int)(gdk_pixbuf_get_width(old_buf) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(old_buf) * app->gui_scale),
+			GDK_INTERP_NEAREST
+		);
+		g_object_unref(old_buf);
+	}
+
 	// レイヤーセット用の画像をロード
 	file_path = g_build_filename(app->current_path, "image/open.png", NULL);
 	window->open = gdk_pixbuf_new_from_file(file_path, NULL);
+	if(app->gui_scale != 1.0)
+	{
+		src = window->open;
+		window->open = gdk_pixbuf_scale_simple(src, (int)(gdk_pixbuf_get_width(src) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(src) * app->gui_scale), GDK_INTERP_NEAREST);
+		g_object_unref(src);
+	}
 	g_free(file_path);
 	file_path = g_build_filename(app->current_path, "image/close.png", NULL);
 	window->close = gdk_pixbuf_new_from_file(file_path, NULL);
+	if(app->gui_scale != 1.0)
+	{
+		src = window->close;
+		window->close = gdk_pixbuf_scale_simple(src, (int)(gdk_pixbuf_get_width(src) * app->gui_scale),
+			(int)(gdk_pixbuf_get_height(src) * app->gui_scale), GDK_INTERP_NEAREST);
+		g_object_unref(src);
+	}
 	g_free(file_path);
 
 	// ウィジェット削除時のコールバック関数をセット
@@ -1017,18 +1141,30 @@ GtkWidget *CreateLayerView(APPLICATION* app, LAYER_WINDOW *window, GtkWidget **b
 #undef UI_FONT_SIZE
 }
 
-GtkWidget *CreateLayerWindow(APPLICATION* app, GtkWidget *parent, GtkWidget** view)
+GtkWidget* CreateLayerWindow(APPLICATION* app, GtkWidget *parent, GtkWidget** view)
 {
 	// レイヤービューのウィンドウ
 	GtkWidget *window = NULL;
+	// レイヤーサムネイル画像の幅、高さ
+	int size;
 	// レイヤーサムネイル画像の一行分のバイト数
-	int stride = LAYER_THUMBNAIL_SIZE*4;
+	int stride;
+	// レイヤーサムネイルの背景画像のパターンサイズ
+	int step;
 	// レイヤーサムネイルの一行分のピクセルデータ
-	uint8 line_pixel_data[2][LAYER_THUMBNAIL_SIZE*4];
+	uint8 *line_pixel_data[2];
 	// レイヤーサムネイル用のピクセルへのポインタ
-	uint8 *pixels = app->layer_window.thumb_back_pixels;
+	uint8 *pixels;
 	// for文用のカウンタ
-	int i;
+	int i, j;
+
+	size = (int)(LAYER_THUMBNAIL_SIZE * app->gui_scale);
+	stride = size * 4;
+	pixels = app->layer_window.thumb_back_pixels =
+		(uint8*)MEM_ALLOC_FUNC(stride * size);
+	line_pixel_data[0] = (uint8*)MEM_ALLOC_FUNC(stride);
+	line_pixel_data[1] = (uint8*)MEM_ALLOC_FUNC(stride);
+	step = size / 8;
 
 	if((app->layer_window.flags & LAYER_WINDOW_DOCKED) == 0 )
 	{
@@ -1049,7 +1185,7 @@ GtkWidget *CreateLayerWindow(APPLICATION* app, GtkWidget *parent, GtkWidget** vi
 			gtk_window_set_type_hint(GTK_WINDOW(window),
 				((app->layer_window.flags & LAYER_WINDOW_POP_UP) == 0) ? GDK_WINDOW_TYPE_HINT_UTILITY : GDK_WINDOW_TYPE_HINT_DOCK);
 			// ショートカットキーを登録
-			gtk_window_add_accel_group(GTK_WINDOW(window), app->hot_key);
+			gtk_window_add_accel_group(GTK_WINDOW(window), app->widgets->hot_key);
 			// タスクバーには表示しない
 			gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window), TRUE);
 
@@ -1064,33 +1200,53 @@ GtkWidget *CreateLayerWindow(APPLICATION* app, GtkWidget *parent, GtkWidget** vi
 	// レイヤーのサムネイルの背景作成
 	{
 		int index;
+		gboolean white;
 		uint8 pixel_value;
-		for(i=0; i<LAYER_THUMBNAIL_SIZE; i++)
+
+		white = FALSE;
+		for(i=0, j=0; i<size; i++, j++)
 		{
-			pixel_value = (i % 8 < 4) ? 0xff : 0x88;
+			if(j >= step)
+			{
+				white = !white;
+				j = 0;
+			}
+			pixel_value = (white == FALSE) ? 0xff : 0x88;
 			line_pixel_data[0][i*4] = pixel_value;
 			line_pixel_data[0][i*4+1] = pixel_value;
 			line_pixel_data[0][i*4+2] = pixel_value;
 			line_pixel_data[0][i*4+3] = 0xff;
 		}
-		for(i=0; i<LAYER_THUMBNAIL_SIZE; i++)
+		white = TRUE;
+		for(i=0, j=0; i<size; i++, j++)
 		{
-			pixel_value = (i % 8 < 4) ? 0x88 : 0xff;
+			if(j >= step)
+			{
+				white = !white;
+				j = 0;
+			}
+			pixel_value = (white == FALSE) ? 0xff : 0x88;
 			line_pixel_data[1][i*4] = pixel_value;
 			line_pixel_data[1][i*4+1] = pixel_value;
 			line_pixel_data[1][i*4+2] = pixel_value;
 			line_pixel_data[1][i*4+3] = 0xff;
 		}
 
-		for(i=0; i<LAYER_THUMBNAIL_SIZE; i++)
+		white = FALSE;
+		for(i=0, j=0, index=1; i<size; i++, j++)
 		{
-			index = (i % 8 < 4) ? 0 : 1;
+			if(j >= step)
+			{
+				white = !white;
+				index = (white == FALSE) ? 1 : 0;
+				j = 0;
+			}
 			(void)memcpy(&pixels[i*stride],
 				line_pixel_data[index], stride);
 		}
 	}
 	app->layer_window.thumb_back = cairo_image_surface_create_for_data(
-		pixels, CAIRO_FORMAT_ARGB32, LAYER_THUMBNAIL_SIZE, LAYER_THUMBNAIL_SIZE, LAYER_THUMBNAIL_SIZE*4);
+		pixels, CAIRO_FORMAT_ARGB32, size, size, stride);
 
 	app->layer_window.vbox = CreateLayerView(app, &app->layer_window, view);
 
@@ -1106,8 +1262,11 @@ GtkWidget *CreateLayerWindow(APPLICATION* app, GtkWidget *parent, GtkWidget** vi
 	}
 	else
 	{
-		gtk_paned_add2(GTK_PANED(app->navi_layer_pane), app->layer_window.vbox);
+		gtk_paned_add2(GTK_PANED(app->widgets->navi_layer_pane), app->layer_window.vbox);
 	}
+
+	MEM_FREE_FUNC(line_pixel_data[0]);
+	MEM_FREE_FUNC(line_pixel_data[1]);
 
 	return window;
 }
@@ -1150,11 +1309,11 @@ static void UpadateLayerThumbnail(
 	// 拡大率を計算
 	if(layer->width > layer->height)
 	{
-		zoom = (gdouble)LAYER_THUMBNAIL_SIZE / (gdouble)layer->width;
+		zoom = ((gdouble)LAYER_THUMBNAIL_SIZE * layer->window->app->gui_scale) / (gdouble)layer->width;
 	}
 	else
 	{
-		zoom = (gdouble)LAYER_THUMBNAIL_SIZE / (gdouble)layer->height;
+		zoom = ((gdouble)LAYER_THUMBNAIL_SIZE * layer->window->app->gui_scale) / (gdouble)layer->height;
 	}
 
 	// 拡大率をセットしてレイヤーのピクセルデータを拡大縮小してサムネイルに書き込む
@@ -1617,7 +1776,7 @@ static void OnDestroyLayerWidget(LAYER* layer)
 	layer->widget = NULL;
 }
 
-void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_layer)
+void LayerViewAddLayer(LAYER* layer, LAYER* bottom, GtkWidget* view, uint16 num_layer)
 {
 	GtkWidget *hbox = gtk_hbox_new(FALSE, 0);
 	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
@@ -1662,7 +1821,9 @@ void LayerViewAddLayer(LAYER *layer, LAYER *bottom, GtkWidget *view, uint16 num_
 	layer->widget->parameters = gtk_vbox_new(TRUE, 0);
 	layer->widget->thumbnail = gtk_drawing_area_new();
 	gtk_widget_set_size_request(layer->widget->thumbnail,
-		LAYER_THUMBNAIL_SIZE, LAYER_THUMBNAIL_SIZE);
+		(int)(LAYER_THUMBNAIL_SIZE * layer->window->app->gui_scale),
+		(int)(LAYER_THUMBNAIL_SIZE * layer->window->app->gui_scale)
+	);
 	layer->widget->thumb_surface = layer->window->app->layer_window.thumb_back;
 	layer->widget->name = gtk_event_box_new();
 	name_label = gtk_label_new(layer->name);
@@ -1806,6 +1967,892 @@ void LayerViewSetDrawWindow(LAYER_WINDOW* layer_window, DRAW_WINDOW* draw_window
 	g_list_free(child_widgets);
 
 	LayerViewSetActiveLayer(draw_window->active_layer, layer_window->view);
+}
+
+typedef struct _LAYER_GROUP_TEMPLATE_DETAIL_SETTING
+{
+	GtkWidget *name;
+	GtkWidget *add;
+	GtkWidget *type;
+} LAYER_GROUP_TEMPLATE_DETAIL_SETTING;
+
+static GtkWidget* LayerGroupSelectLayerType(
+	eLAYER_TYPE type,
+	APPLICATION* app
+)
+{
+	GtkWidget *combo;
+
+#if GTK_MAJOR_VERSION <= 2
+	combo = gtk_combo_box_new_text();
+#else
+	combo = gtk_combo_box_text_new();
+#endif
+
+#if GTK_MAJOR_VERSION <= 2
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo),
+		app->labels->layer_window.normal_layer);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo),
+		app->labels->layer_window.vector_layer);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo),
+		app->labels->layer_window.text_layer);
+#else
+	gtk_combo_box_text_append(GTK_COMBO_BOX(combo),
+		app->labels->layer_window.normal_layer);
+	gtk_combo_box_text_append(GTK_COMBO_BOX(combo),
+		app->labels->layer_window.vector_layer);
+	gtk_combo_box_text_append(GTK_COMBO_BOX(combo),
+		app->labels->layer_window.text_layer);
+#endif
+	gtk_combo_box_set_active(GTK_COMBO_BOX(combo), type);
+
+	return combo;
+}
+
+static GtkWidget* LayerGroupLayerSettingWidgetNew(
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING* setting,
+	LAYER_GROUP_TEMPLATE_NODE* node,
+	gboolean add,
+	APPLICATION* app
+)
+{
+	GtkWidget *box;
+	GtkWidget *widget;
+	char str[128];
+
+	box = gtk_hbox_new(FALSE, 0);
+
+	(void)sprintf(str, "%s : ", app->labels->unit.name);
+	widget = gtk_label_new(str);
+	gtk_box_pack_start(GTK_BOX(box), widget, FALSE, FALSE, 0);
+
+	widget = gtk_entry_new();
+	if(node->name != NULL)
+	{
+		gtk_entry_append_text(GTK_ENTRY(widget), node->name);
+	}
+	setting->name = widget;
+	gtk_box_pack_start(GTK_BOX(box), widget, TRUE, TRUE, 0);
+
+	widget = gtk_check_button_new_with_label(app->labels->unit.add);
+	if(add != FALSE)
+	{
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), TRUE);
+	}
+	setting->add = widget;
+	gtk_box_pack_start(GTK_BOX(box), widget, FALSE, FALSE, 0);
+
+	widget = LayerGroupSelectLayerType(node->layer_type, app);
+	setting->type = widget;
+	gtk_box_pack_start(GTK_BOX(box), widget, TRUE, TRUE, 0);
+
+	return box;
+}
+
+static GtkWidget* LayerGroupDetailSettingWidgetNew(
+	LAYER_GROUP_TEMPLATE* target,
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING* setting,
+	APPLICATION* app
+)
+{
+	LAYER_GROUP_TEMPLATE_NODE **nodes;
+	LAYER_GROUP_TEMPLATE_NODE *node;
+	GtkWidget *box;
+	GtkWidget *widget;
+	int i;
+
+	box = gtk_vbox_new(FALSE, 0);
+
+	nodes = (LAYER_GROUP_TEMPLATE_NODE**)MEM_ALLOC_FUNC(sizeof(*nodes)*target->num_layers);
+	i = 0;
+	node = target->names;
+	while(node != NULL)
+	{
+		nodes[target->num_layers-i-1] = node;
+		node = node->next;
+		i++;
+	}
+
+	for(i=0; i<target->num_layers; i++)
+	{
+		widget =
+			LayerGroupLayerSettingWidgetNew(&setting[target->num_layers-i-1], nodes[i],
+				FLAG_CHECK(target->add_flags, target->num_layers-i-1), app
+		);
+		gtk_box_pack_start(GTK_BOX(box), widget, FALSE, FALSE, 0);
+	}
+
+	MEM_FREE_FUNC(nodes);
+
+	return box;
+}
+
+static void LayerGroupSelectTemplateChanged(GtkWidget* combo, APPLICATION* app)
+{
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING *setting;
+	GtkWidget *detail;
+	GtkWidget *frame;
+	GtkWidget *name_edit;
+	GtkWidget *add_layer_set;
+	GtkWidget *add_under_active_layer;
+	gint active;
+
+	active = gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+
+	setting = (LAYER_GROUP_TEMPLATE_DETAIL_SETTING*)g_object_get_data(G_OBJECT(combo), "setting-data");
+	detail = GTK_WIDGET(g_object_get_data(G_OBJECT(combo), "detail-box"));
+	frame = GTK_WIDGET(g_object_get_data(G_OBJECT(combo), "frame"));
+	name_edit = GTK_WIDGET(g_object_get_data(G_OBJECT(combo), "name-edit"));
+	add_layer_set = GTK_WIDGET(g_object_get_data(G_OBJECT(combo), "add-layer-set"));
+	add_under_active_layer = GTK_WIDGET(g_object_get_data(G_OBJECT(combo), "add-under-active"));
+
+	gtk_entry_set_text(GTK_ENTRY(name_edit), app->layer_group_templates.templates[active].group_name);
+
+	setting = (LAYER_GROUP_TEMPLATE_DETAIL_SETTING*)MEM_REALLOC_FUNC(
+		setting, sizeof(*setting) * app->layer_group_templates.templates[active].num_layers);
+
+	if(app->layer_group_templates.num_templates > 0)
+	{
+		gtk_entry_set_text(GTK_ENTRY(name_edit), app->layer_group_templates.templates[active].group_name);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(add_layer_set),
+			app->layer_group_templates.templates[active].flags & LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(add_under_active_layer),
+			app->layer_group_templates.templates[active].flags & LAYER_GROUP_TEMPLATE_FLAG_ADD_UNDER_ACTIVE_LAYER);
+	}
+	else
+	{
+		gtk_entry_set_text(GTK_ENTRY(name_edit), "");
+	}
+
+	if(detail != NULL)
+	{
+		gtk_widget_destroy(detail);
+	}
+	detail = LayerGroupDetailSettingWidgetNew(&app->layer_group_templates.templates[active],
+		setting, app);
+
+	g_object_set_data(G_OBJECT(combo), "detail-box", detail);
+	g_object_set_data(G_OBJECT(combo), "setting-data", setting);
+
+	gtk_container_add(GTK_CONTAINER(frame), detail);
+
+	gtk_widget_show_all(frame);
+}
+
+static int LayerGroupTemplateIsValid(
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING* setting,
+	int num_setting,
+	int group_id,
+	GtkWidget* group_name,
+	GtkWidget* window,
+	APPLICATION* app
+)
+{
+	GtkWidget *dialog;
+	const char *name1, *name2;
+	int i, j;
+
+	name1 = gtk_entry_get_text(GTK_ENTRY(group_name));
+	if(name1 == NULL || name1[0] == '\0')
+	{
+		dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+			GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, app->labels->layer_window.layer_group_must_have_name);
+		gtk_widget_show_all(dialog);
+		(void)gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+		return FALSE;
+	}
+	for(i=0; i<app->layer_group_templates.num_templates; i++)
+	{
+		if(i != group_id && StringCompareIgnoreCase(name1, app->layer_group_templates.templates[i].group_name) == 0)
+		{
+			dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+				GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, app->labels->layer_window.same_group_name, name1);
+			gtk_widget_show_all(dialog);
+			(void)gtk_dialog_run(GTK_DIALOG(dialog));
+			gtk_widget_destroy(dialog);
+			return FALSE;
+		}
+	}
+
+	for(i=0; i<num_setting; i++)
+	{
+		name1 = gtk_entry_get_text(GTK_ENTRY(setting[i].name));
+		if(name1 == NULL || name1[0] == '\0')
+		{
+			dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+				GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, app->labels->layer_window.same_layer_name);
+			gtk_widget_show_all(dialog);
+			(void)gtk_dialog_run(GTK_DIALOG(dialog));
+			gtk_widget_destroy(dialog);
+			return FALSE;
+		}
+
+		for(j=i+1; j<num_setting; j++)
+		{
+			name2 = gtk_entry_get_text(GTK_ENTRY(setting[j].name));
+			if(name2 == NULL || StringCompareIgnoreCase(name1, name2) == 0)
+			{
+				dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+					GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, app->labels->layer_window.same_layer_name);
+				gtk_widget_show_all(dialog);
+				(void)gtk_dialog_run(GTK_DIALOG(dialog));
+				gtk_widget_destroy(dialog);
+				return FALSE;
+			}
+		}
+	}
+
+	return TRUE;
+}
+
+static int LayerGroupIsValid(
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING* setting,
+	int num_setting,
+	GtkWidget* group_name,
+	GtkWidget* window,
+	APPLICATION* app
+)
+{
+	GtkWidget *dialog;
+	const char *name1, *name2;
+	int num_layer = 0;
+	int i, j;
+
+	name1 = gtk_entry_get_text(GTK_ENTRY(group_name));
+	if(name1 == NULL || name1[0] == '\0')
+	{
+		dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+			GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, app->labels->layer_window.layer_group_must_have_name);
+		gtk_widget_show_all(dialog);
+		(void)gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+		return FALSE;
+	}
+
+	for(i=0; i<num_setting; i++)
+	{
+		name1 = gtk_entry_get_text(GTK_ENTRY(setting[i].name));
+		if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(setting[i].add)) != FALSE)
+		{
+			if(name1 == NULL || name1[0] == '\0')
+			{
+				dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+					GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, app->labels->layer_window.same_layer_name);
+				gtk_widget_show_all(dialog);
+				(void)gtk_dialog_run(GTK_DIALOG(dialog));
+				gtk_widget_destroy(dialog);
+				return FALSE;
+			}
+
+			for(j=i+1; j<num_setting; j++)
+			{
+				if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(setting[j].add)) != FALSE)
+				{
+					name2 = gtk_entry_get_text(GTK_ENTRY(setting[j].name));
+					if(name2 == NULL || StringCompareIgnoreCase(name1, name2) == 0)
+					{
+						dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+							GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, app->labels->layer_window.same_layer_name);
+						gtk_widget_show_all(dialog);
+						(void)gtk_dialog_run(GTK_DIALOG(dialog));
+						gtk_widget_destroy(dialog);
+						return FALSE;
+					}
+				}
+			}
+
+			num_layer++;
+		}
+	}
+
+	if(num_layer == 0)
+	{
+		dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+			GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, "One or more layers must be selected.");
+		gtk_widget_show_all(dialog);
+		(void)gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+static void LayerGroupEditDeleteButtonClicked(GtkWidget* button, GtkWidget* box)
+{
+	int *num_setting;
+	num_setting = (int*)g_object_get_data(G_OBJECT(button), "num_setting");
+	if(*num_setting > 0)
+	{
+		(*num_setting)--;
+	}
+	gtk_widget_destroy(box);
+}
+
+static GtkWidget* LayerGroupEditDetailWidgetNew(
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING* setting,
+	LAYER_GROUP_TEMPLATE_NODE* node,
+	gboolean add_flag,
+	int* num_settting,
+	APPLICATION* app
+)
+{
+	GtkWidget *box;
+	GtkWidget *widget;
+	char str[128];
+
+	box = gtk_hbox_new(FALSE, 0);
+
+	(void)sprintf(str, "%s : ", app->labels->unit.name);
+	widget = gtk_label_new(str);
+	gtk_box_pack_start(GTK_BOX(box), widget, FALSE, FALSE, 0);
+
+	widget = gtk_entry_new();
+	if(node != NULL && node->name != NULL)
+	{
+		gtk_entry_append_text(GTK_ENTRY(widget), node->name);
+	}
+	setting->name = widget;
+	gtk_box_pack_start(GTK_BOX(box), widget, TRUE, TRUE, 0);
+
+	widget = gtk_check_button_new_with_label(app->labels->unit.add);
+	setting->add = widget;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), add_flag);
+	gtk_box_pack_start(GTK_BOX(box), widget, FALSE, FALSE, 0);
+
+	widget = LayerGroupSelectLayerType(
+		(node != NULL) ? node->layer_type : TYPE_NORMAL_LAYER, app);
+	setting->type = widget;
+	gtk_box_pack_start(GTK_BOX(box), widget, TRUE, TRUE, 0);
+
+	widget = gtk_button_new_with_label(app->labels->unit._delete);
+	gtk_box_pack_start(GTK_BOX(box), widget, FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(widget), "num_setting", num_settting);
+	(void)g_signal_connect(G_OBJECT(widget), "clicked",
+		G_CALLBACK(LayerGroupEditDeleteButtonClicked), box);
+
+	return box;
+}
+
+static void LayerGroupAddLayerButtonClicked(GtkWidget* button, APPLICATION* app)
+{
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING **setting;
+	GtkWidget *box;
+	GtkWidget *widget;
+	int *num_setting;
+
+	setting = (LAYER_GROUP_TEMPLATE_DETAIL_SETTING**)g_object_get_data(
+		G_OBJECT(button), "setting");
+	num_setting = (int*)g_object_get_data(G_OBJECT(button), "num_setting");
+	(*num_setting)++;
+	*setting = (LAYER_GROUP_TEMPLATE_DETAIL_SETTING*)MEM_REALLOC_FUNC(
+		*setting, sizeof(**setting) * (*num_setting));
+	num_setting = (int*)g_object_get_data(G_OBJECT(button), "num_setting");
+	box = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "detail"));
+	widget = LayerGroupEditDetailWidgetNew(&(*setting)[(*num_setting)-1],
+		NULL, TRUE, num_setting, app);
+	gtk_box_pack_start(GTK_BOX(box), widget, FALSE, FALSE, 0);
+	gtk_widget_show_all(widget);
+}
+
+static void LayerGroupAddButtonClicked(GtkWidget* button, APPLICATION* app)
+{
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING *setting = NULL;
+	GtkWidget *dialog;
+	GtkWidget *combo;
+	GtkWidget *box;
+	GtkWidget *hbox;
+	GtkWidget *frame;
+	GtkWidget *detail;
+	GtkWidget *name;
+	GtkWidget *add_layer_set;
+	GtkWidget *add_under_active_layer;
+	GtkWidget *add_button;
+	GtkWidget *label;
+	char str[256];
+	int num_setting = 0;
+	int i;
+
+	combo = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "select-template"));
+
+	dialog = gtk_dialog_new_with_buttons("Add Layer Group Template",
+		GTK_WINDOW(g_object_get_data(G_OBJECT(combo), "dialog")),
+			GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+				GTK_STOCK_OK, GTK_RESPONSE_OK, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, NULL
+	);
+	box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", app->labels->unit.name);
+	label = gtk_label_new(str);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	name = gtk_entry_new();
+	gtk_box_pack_start(GTK_BOX(hbox), name, TRUE, TRUE, 0);
+	add_button = gtk_button_new_with_label(app->labels->layer_window.add_normal);
+	gtk_box_pack_start(GTK_BOX(hbox), add_button, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(box), hbox, FALSE, FALSE, 0);
+
+	add_layer_set = gtk_check_button_new_with_label(app->labels->layer_window.add_layer_set);
+	gtk_box_pack_start(GTK_BOX(box), add_layer_set, FALSE, FALSE, 0);
+
+	add_under_active_layer = gtk_check_button_new_with_label(app->labels->layer_window.add_under_active_layer);
+	gtk_box_pack_start(GTK_BOX(box), add_under_active_layer, FALSE, FALSE, 0);
+
+	frame = gtk_frame_new(app->labels->unit.detail);
+	detail = gtk_vbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(frame), detail);
+	gtk_box_pack_start(GTK_BOX(box), frame, TRUE, TRUE, 0);
+
+	g_object_set_data(G_OBJECT(add_button), "detail", detail);
+	g_object_set_data(G_OBJECT(add_button), "setting", &setting);
+	g_object_set_data(G_OBJECT(add_button), "num_setting", &num_setting);
+	(void)g_signal_connect(G_OBJECT(add_button), "clicked",
+		G_CALLBACK(LayerGroupAddLayerButtonClicked), app);
+
+	gtk_widget_show_all(dialog);
+	while(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{
+		if(LayerGroupTemplateIsValid(setting, num_setting, -1,
+			name, dialog, app) != FALSE)
+		{
+			LAYER_GROUP_TEMPLATE *new_template;
+			LAYER_GROUP_TEMPLATE_NODE *node;
+			app->layer_group_templates.num_templates++;
+			app->layer_group_templates.templates =
+				(LAYER_GROUP_TEMPLATE*)MEM_REALLOC_FUNC(app->layer_group_templates.templates,
+					sizeof(*new_template) * app->layer_group_templates.num_templates
+			);
+			new_template = &app->layer_group_templates.templates[app->layer_group_templates.num_templates-1];
+			(void)memset(new_template, 0, sizeof(*new_template));
+			new_template->group_name = MEM_STRDUP_FUNC(gtk_entry_get_text(GTK_ENTRY(name)));
+			new_template->add_flags = (uint8*)MEM_ALLOC_FUNC((num_setting+7)/8);
+			(void)memset(new_template->add_flags, 0, (num_setting+7)/8);
+			new_template->names = (LAYER_GROUP_TEMPLATE_NODE*)MEM_ALLOC_FUNC(sizeof(*new_template->names)*num_setting);
+			new_template->num_layers = num_setting;
+			(void)memset(new_template->names, 0, sizeof(*new_template->names)*num_setting);
+			if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(add_layer_set)) != FALSE)
+			{
+				new_template->flags |= LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET;
+			}
+			if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(add_under_active_layer)) != FALSE)
+			{
+				new_template->flags |= LAYER_GROUP_TEMPLATE_FLAG_ADD_UNDER_ACTIVE_LAYER;
+			}
+
+			node = new_template->names;
+			for(i=0; i<num_setting-1; i++)
+			{
+				node->next = &new_template->names[i+1];
+				node = node->next;
+			}
+			node = new_template->names;
+			for(i=0; i<num_setting; i++, node = node->next)
+			{
+				node->name = MEM_STRDUP_FUNC(gtk_entry_get_text(GTK_ENTRY(setting[num_setting-i-1].name)));
+				if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(setting[num_setting-i-1].add)) != FALSE)
+				{
+					FLAG_ON(new_template->add_flags, i);
+				}
+			}
+
+#if GTK_MAJOR_VERSION <= 2
+			gtk_combo_box_append_text(GTK_COMBO_BOX(combo), new_template->group_name);
+#else
+			gtk_combo_box_text_append(GTK_COMBO_BOX(comob), new_template->group_name);
+#endif
+			gtk_combo_box_set_active(GTK_COMBO_BOX(combo), app->layer_group_templates.num_templates-1);
+
+			break;
+		}
+	}
+	gtk_widget_destroy(dialog);
+	MEM_FREE_FUNC(setting);
+}
+
+static void LayerGroupEditButtonClicked(GtkWidget* button, APPLICATION* app)
+{
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING *setting = NULL;
+	LAYER_GROUP_TEMPLATE_NODE *node;
+	GtkWidget *dialog;
+	GtkWidget *combo;
+	GtkWidget *box;
+	GtkWidget *hbox;
+	GtkWidget *frame;
+	GtkWidget *detail;
+	GtkWidget *name;
+	GtkWidget *add_layer_set;
+	GtkWidget *add_under_active_layer;
+	GtkWidget *add_button;
+	GtkWidget *label;
+	char str[256];
+	int num_setting = 0;
+	int active;
+	int i;
+
+	combo = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "select-template"));
+
+	if(app->layer_group_templates.num_templates <= 0 ||
+		(active = gtk_combo_box_get_active(GTK_COMBO_BOX(combo))) < 0)
+	{
+		return;
+	}
+
+	dialog = gtk_dialog_new_with_buttons("Add Layer Group Template",
+		GTK_WINDOW(g_object_get_data(G_OBJECT(combo), "dialog")),
+			GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+				GTK_STOCK_OK, GTK_RESPONSE_OK, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, NULL
+	);
+	box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", app->labels->unit.name);
+	label = gtk_label_new(str);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	name = gtk_entry_new();
+	gtk_box_pack_start(GTK_BOX(hbox), name, TRUE, TRUE, 0);
+	add_button = gtk_button_new_with_label(app->labels->layer_window.add_normal);
+	gtk_box_pack_start(GTK_BOX(hbox), add_button, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(box), hbox, FALSE, FALSE, 0);
+
+	add_layer_set = gtk_check_button_new_with_label(app->labels->layer_window.add_layer_set);
+	gtk_box_pack_start(GTK_BOX(box), add_layer_set, FALSE, FALSE, 0);
+
+	add_under_active_layer = gtk_check_button_new_with_label(app->labels->layer_window.add_under_active_layer);
+	gtk_box_pack_start(GTK_BOX(box), add_under_active_layer, FALSE, FALSE, 0);
+
+	setting = (LAYER_GROUP_TEMPLATE_DETAIL_SETTING*)MEM_ALLOC_FUNC(
+		sizeof(*setting)*app->layer_group_templates.templates[active].num_layers);
+	frame = gtk_frame_new(app->labels->unit.detail);
+	detail = gtk_vbox_new(FALSE, 0);
+	node = app->layer_group_templates.templates[active].names;
+	i = 0;
+	while(node != NULL)
+	{
+		gtk_box_pack_start(GTK_BOX(detail), LayerGroupEditDetailWidgetNew(&setting[i], node,
+			FLAG_CHECK(app->layer_group_templates.templates[active].add_flags, i), &num_setting, app), FALSE, FALSE, 0);
+		node = node->next;
+		i++;
+	}
+	gtk_container_add(GTK_CONTAINER(frame), detail);
+	gtk_box_pack_start(GTK_BOX(box), frame, TRUE, TRUE, 0);
+
+	g_object_set_data(G_OBJECT(add_button), "detail", detail);
+	g_object_set_data(G_OBJECT(add_button), "setting", &setting);
+	g_object_set_data(G_OBJECT(add_button), "num_setting", &num_setting);
+	(void)g_signal_connect(G_OBJECT(add_button), "clicked",
+		G_CALLBACK(LayerGroupAddLayerButtonClicked), app);
+
+	gtk_widget_show_all(dialog);
+	while(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+	{
+		if(LayerGroupTemplateIsValid(setting, num_setting, active,
+			name, dialog, app) != FALSE)
+		{
+			LAYER_GROUP_TEMPLATE *target_template;
+			target_template = &app->layer_group_templates.templates[active];
+			target_template->flags = 0;
+			MEM_FREE_FUNC(target_template->group_name);
+			target_template->group_name = MEM_STRDUP_FUNC(gtk_entry_get_text(GTK_ENTRY(name)));
+			target_template->add_flags = (uint8*)MEM_REALLOC_FUNC(target_template->add_flags, (num_setting+7)/8);
+			(void)memset(target_template->add_flags, 0, (num_setting+7)/8);
+			target_template->names = (LAYER_GROUP_TEMPLATE_NODE*)MEM_REALLOC_FUNC(target_template->names,
+				sizeof(*target_template->names)*num_setting);
+			target_template->num_layers = num_setting;
+			(void)memset(target_template->names, 0, sizeof(*target_template->names)*num_setting);
+			if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(add_layer_set)) != FALSE)
+			{
+				target_template->flags |= LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET;
+			}
+			if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(add_under_active_layer)) != FALSE)
+			{
+				target_template->flags |= LAYER_GROUP_TEMPLATE_FLAG_ADD_UNDER_ACTIVE_LAYER;
+			}
+
+			node = target_template->names;
+			for(i=0; i<num_setting-1; i++)
+			{
+				node->next = &target_template->names[i+1];
+				node = node->next;
+			}
+			node = target_template->names;
+			for(i=0; i<num_setting; i++, node = node->next)
+			{
+				node->name = MEM_STRDUP_FUNC(gtk_entry_get_text(GTK_ENTRY(setting[num_setting-i-1].name)));
+				if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(setting[num_setting-i-1].add)) != FALSE)
+				{
+					FLAG_ON(target_template->add_flags, i);
+				}
+			}
+
+			break;
+		}
+	}
+	gtk_widget_destroy(dialog);
+	MEM_FREE_FUNC(setting);
+}
+
+static void LayerGroupDeleteButtonClicked(GtkWidget* button, APPLICATION* app)
+{
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING *setting = NULL;
+	GtkWidget *combo;
+	int delete_id;
+	int i;
+
+	combo = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "select-template"));
+
+	if(app->layer_group_templates.num_templates <= 0 ||
+		(delete_id = gtk_combo_box_get_active(GTK_COMBO_BOX(combo))) < 0)
+	{
+		return;
+	}
+
+	setting = (LAYER_GROUP_TEMPLATE_DETAIL_SETTING*)g_object_get_data(G_OBJECT(combo), "setting-data");
+
+#if GTK_MAJOR_VERSION <= 2
+	gtk_combo_box_remove_text(GTK_COMBO_BOX(combo), delete_id);
+#else
+	gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT(combo), delete_id);
+#endif
+
+	for(i=delete_id; i<app->layer_group_templates.num_templates-1; i++)
+	{
+		setting[i] = setting[i+1];
+	}
+
+	app->layer_group_templates.num_templates--;
+}
+
+/***********************************************
+* ExecuteLayerGroupTemplateWindow関数          *
+* レイヤーをまとめて作成する                   *
+* 引数                                         *
+* app	: アプリケーション全体を管理するデータ *
+***********************************************/
+void ExecuteLayerGroupTemplateWindow(APPLICATION* app)
+{
+	GtkWidget *window;
+	GtkWidget *box;
+	GtkWidget *select_template;
+	GtkWidget *name_edit;
+	GtkWidget *hbox;
+	GtkWidget *label;
+	GtkWidget *frame;
+	GtkWidget *detail;
+	GtkWidget *add_button;
+	GtkWidget *edit_button;
+	GtkWidget *delete_button;
+	GtkWidget *add_layer_set;
+	GtkWidget *add_under_active_layer;
+	LAYER_GROUP_TEMPLATE_DETAIL_SETTING *settings = NULL;
+	char str[256];
+	int i;
+
+	window = gtk_dialog_new_with_buttons(app->labels->menu.new_layer_group,
+		GTK_WINDOW(app->widgets->window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+			GTK_STOCK_OK, GTK_RESPONSE_OK, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, NULL
+	);
+	box = gtk_dialog_get_content_area(GTK_DIALOG(window));
+
+	if(app->layer_group_templates.num_templates > 0)
+	{
+		settings = (LAYER_GROUP_TEMPLATE_DETAIL_SETTING*)MEM_ALLOC_FUNC(
+			sizeof(*settings) * app->layer_group_templates.num_templates);
+		(void)memset(settings, 0, sizeof(*settings) * app->layer_group_templates.num_templates);
+	}
+	else
+	{
+		settings = NULL;
+	}
+
+	hbox = gtk_hbox_new(FALSE, 2);
+#if GTK_MAJOR_VERSION <= 2
+	select_template = gtk_combo_box_new_text();
+#else
+	select_template = gtk_combo_box_text_new();
+#endif
+	g_object_set_data(G_OBJECT(select_template), "dialog", window);
+	gtk_box_pack_start(GTK_BOX(hbox), select_template, TRUE, FALSE, 2);
+	for(i=0; i<app->layer_group_templates.num_templates; i++)
+	{
+#if GTK_MAJOR_VERSION <= 2
+		gtk_combo_box_append_text(GTK_COMBO_BOX(select_template),
+			app->layer_group_templates.templates[i].group_name);
+#else
+		gtk_combo_box_text_append(GTK_COMBO_BOX(select_template),
+			app->layer_group_templates.templates[i].group_name);
+#endif
+	}
+	(void)g_signal_connect(G_OBJECT(select_template), "changed",
+		G_CALLBACK(LayerGroupSelectTemplateChanged), app);
+
+	add_button = gtk_button_new_with_label(app->labels->unit.add);
+	g_object_set_data(G_OBJECT(add_button), "select-template", select_template);
+	(void)g_signal_connect(G_OBJECT(add_button), "clicked",
+		G_CALLBACK(LayerGroupAddButtonClicked), app);
+	gtk_box_pack_start(GTK_BOX(hbox), add_button, FALSE, FALSE, 0);
+	edit_button = gtk_button_new_with_label(app->labels->menu.edit);
+	g_object_set_data(G_OBJECT(edit_button), "select-template", select_template);
+	(void)g_signal_connect(G_OBJECT(edit_button), "clicked",
+		G_CALLBACK(LayerGroupEditButtonClicked), app);
+	gtk_box_pack_start(GTK_BOX(hbox), edit_button, FALSE, FALSE, 0);
+	delete_button = gtk_button_new_with_label(app->labels->unit._delete);
+	g_object_set_data(G_OBJECT(delete_button), "select-template", select_template);
+	(void)g_signal_connect(G_OBJECT(delete_button), "clicked",
+		G_CALLBACK(LayerGroupDeleteButtonClicked), app);
+	gtk_box_pack_start(GTK_BOX(hbox), delete_button, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(box), hbox, TRUE, FALSE, 1);
+
+	add_layer_set = gtk_check_button_new_with_label(app->labels->layer_window.add_layer_set);
+	if(app->layer_group_templates.num_templates > 0 && (app->layer_group_templates.templates->flags & LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET) != 0)
+	{
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(add_layer_set), TRUE);
+	}
+	gtk_box_pack_start(GTK_BOX(box), add_layer_set, FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(select_template), "add-layer-set", add_layer_set);
+
+	add_under_active_layer = gtk_check_button_new_with_label(app->labels->layer_window.add_under_active_layer);
+	if(app->layer_group_templates.num_templates > 0 && (app->layer_group_templates.templates->flags & LAYER_GROUP_TEMPLATE_FLAG_ADD_UNDER_ACTIVE_LAYER) != 0)
+	{
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(add_under_active_layer), TRUE);
+	}
+	gtk_box_pack_start(GTK_BOX(box), add_under_active_layer, FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(select_template), "add-under-active", add_under_active_layer);
+
+	hbox = gtk_hbox_new(FALSE, 0);
+	(void)sprintf(str, "%s : ", "Group Name");
+	label = gtk_label_new(str);
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+	name_edit = gtk_entry_new();
+	if(app->layer_group_templates.num_templates > 0)
+	{
+		gtk_entry_set_text(GTK_ENTRY(name_edit), app->layer_group_templates.templates->names->name);
+	}
+	g_object_set_data(G_OBJECT(select_template), "name-edit", name_edit);
+	gtk_box_pack_start(GTK_BOX(hbox), name_edit, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(box), hbox, FALSE, FALSE, 0);
+
+	frame = gtk_frame_new(app->labels->unit.detail);
+	if(app->layer_group_templates.num_templates > 0)
+	{
+		settings = (LAYER_GROUP_TEMPLATE_DETAIL_SETTING*)MEM_ALLOC_FUNC(
+			sizeof(*settings) * app->layer_group_templates.templates->num_layers);
+		detail = LayerGroupDetailSettingWidgetNew(
+			app->layer_group_templates.templates, settings, app);
+	}
+	else
+	{
+		detail = NULL;
+	}
+	g_object_set_data(G_OBJECT(select_template), "detail-box", detail);
+	g_object_set_data(G_OBJECT(select_template), "setting-data", settings);
+	g_object_set_data(G_OBJECT(select_template), "frame", frame);
+	if(detail != NULL)
+	{
+		gtk_container_add(GTK_CONTAINER(frame), detail);
+	}
+	gtk_box_pack_start(GTK_BOX(box), frame, TRUE, TRUE, 0);
+
+	if(app->layer_group_templates.num_templates > 0)
+	{
+		gtk_combo_box_set_active(GTK_COMBO_BOX(select_template), 0);
+	}
+
+	gtk_widget_show_all(window);
+	while(gtk_dialog_run(GTK_DIALOG(window)) == GTK_RESPONSE_OK)
+	{
+		int active;
+		int num_layers;
+		active = gtk_combo_box_get_active(GTK_COMBO_BOX(select_template));
+		num_layers = app->layer_group_templates.templates[active].num_layers;
+		settings = (LAYER_GROUP_TEMPLATE_DETAIL_SETTING*)g_object_get_data(G_OBJECT(select_template), "setting-data");
+		if(LayerGroupIsValid(settings, num_layers, name_edit, window, app ) != FALSE)
+		{
+			DRAW_WINDOW *canvas = GetActiveDrawWindow(app);
+			LAYER **added_layers;
+			LAYER *prev;
+			LAYER *next;
+			int num_added;
+			LAYER_GROUP_TEMPLATE group = {0};
+			LAYER_GROUP_TEMPLATE_NODE *node;
+			group.group_name = MEM_STRDUP_FUNC(gtk_entry_get_text(GTK_ENTRY(name_edit)));
+			group.add_flags = (uint8*)MEM_ALLOC_FUNC((num_layers+7)/8);
+			(void)memset(group.add_flags, 0, (num_layers+7)/8);
+			group.names = node = (LAYER_GROUP_TEMPLATE_NODE*)MEM_ALLOC_FUNC(sizeof(*group.names) * num_layers);
+			(void)memset(node, 0, sizeof(*node) * num_layers);
+			for(i=0; i<num_layers; i++)
+			{
+				if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(settings[i].add)) != FALSE)
+				{
+					FLAG_ON(group.add_flags, i);
+				}
+			}
+			for(i=0; i<num_layers-1; i++)
+			{
+				node->next = &group.names[i+1];
+				node = node->next;
+			}
+			node = group.names;
+			i = 0;
+			while(node != NULL)
+			{
+				node->name = (char*)MEM_STRDUP_FUNC(gtk_entry_get_text(GTK_ENTRY(settings[i].name)));
+				node->layer_type = (eLAYER_TYPE)gtk_combo_box_get_active(
+					GTK_COMBO_BOX(settings[i].type));
+				node = node->next;
+				i++;
+			}
+
+			if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(add_layer_set)) != FALSE)
+			{
+				group.flags |= LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET;
+			}
+			group.num_layers = num_layers;
+
+			if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(add_under_active_layer)) == FALSE)
+			{
+				prev = canvas->active_layer;
+				next = prev->next;
+			}
+			else
+			{
+				prev = canvas->active_layer->prev;
+				next = canvas->active_layer;
+			}
+			added_layers = AddLayerGroupTemplate(&group, group.add_flags,
+				prev, next, &num_added);
+
+			for(i=0; i<num_added; i++)
+			{
+				canvas->num_layer++;
+				LayerViewAddLayer(added_layers[i], canvas->layer,
+					app->layer_window.view, canvas->num_layer);
+			}
+			if((canvas->flags & DRAW_WINDOW_IS_FOCAL_WINDOW) != 0)
+			{
+				canvas->num_layer += num_layers;
+			}
+			AddLayerGroupHistory(added_layers, num_added, canvas->active_layer);
+
+			node = group.names;
+			while(node != NULL)
+			{
+				MEM_FREE_FUNC(node->name);
+				node = node->next;
+			}
+			MEM_FREE_FUNC(group.names);
+			MEM_FREE_FUNC(group.add_flags);
+			MEM_FREE_FUNC(group.group_name);
+			MEM_FREE_FUNC(added_layers);
+
+			break;
+		}
+	}
+
+	gtk_widget_destroy(window);
+	settings = (LAYER_GROUP_TEMPLATE_DETAIL_SETTING*)g_object_get_data(G_OBJECT(select_template), "setting-data");
+	MEM_FREE_FUNC(settings);
 }
 
 #ifdef __cplusplus

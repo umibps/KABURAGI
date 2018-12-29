@@ -187,7 +187,7 @@ IMAGE_CHECK_BUTTON* CreateImageCheckButton(
 		gdk_pixbuf_get_width(pixbuf), gdk_pixbuf_get_height(pixbuf));
 
 	// イベントボックスにマウスクリックのイベントを追加
-	g_signal_connect(G_OBJECT(button->widget), "button_press_event",
+	(void)g_signal_connect(G_OBJECT(button->widget), "button_press_event",
 		G_CALLBACK(OnImageCheckButtonClicked), button);
 	gtk_widget_add_events(button->widget, GDK_BUTTON_PRESS_MASK);
 
@@ -260,28 +260,25 @@ GtkWidget* CreateNotebookLabel(
 	return hbox;
 }
 
-
 GtkWidget *CreateImageButton(
 	const char* image_file_path,
 	const gchar* label,
-	const char* font_file
+	const char* font_file,
+	FLOAT_T scale
 )
 {
 #define DISPLAY_FONT_HEIGHT 8.5
 	// 貼り付けるイメージ
-	cairo_surface_t *image =
-		cairo_image_surface_create_from_png(image_file_path);
+	cairo_surface_t *image;
 	// 文字描画用
-	cairo_t *cairo_p = cairo_create(image);
-	// 画像のフォーマット
-	cairo_format_t format = cairo_image_surface_get_format(image);
+	cairo_t *cairo_p;
 	// 画像の幅と高さ
-	int32 width = cairo_image_surface_get_width(image);
-	int32 height = cairo_image_surface_get_height(image);
+	int32 width;
+	int32 height;
 	// 画像の一列分のバイト数
-	int32 stride = width * ((format == CAIRO_FORMAT_ARGB32) ? 4 : 3);
+	int32 stride;
 	// 文字表示のY座標
-	gdouble draw_y = 9.0;
+	gdouble draw_y = 9.0 * scale;
 	GtkWidget *image_widget;
 	// ピクセルバッファ
 	GdkPixbuf *pixbuf;
@@ -293,13 +290,28 @@ GtkWidget *CreateImageButton(
 	// 改行処理用
 	gchar *now, *next;
 
+	pixbuf = gdk_pixbuf_new_from_file(image_file_path, NULL);
+	if(scale != 1.0)
+	{
+		GdkPixbuf *old = pixbuf;
+		pixbuf = gdk_pixbuf_scale_simple(old, (int)(gdk_pixbuf_get_width(old) * scale),
+			(int)(gdk_pixbuf_get_height(old) * scale), GDK_INTERP_NEAREST);
+		g_object_unref(old);
+	}
+	width = gdk_pixbuf_get_width(pixbuf);
+	height = gdk_pixbuf_get_height(pixbuf);
+	stride = gdk_pixbuf_get_rowstride(pixbuf);
+	image = cairo_image_surface_create_for_data(gdk_pixbuf_get_pixels(pixbuf),
+		(stride / width) == 4 ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24, width, height, stride);
+	cairo_p = cairo_create(image);
+
 	// 文字列を描画
 	if(label != NULL && *label != '\0')
 	{
 		// フォントサイズセット
 		cairo_select_font_face(cairo_p, font_file, CAIRO_FONT_SLANT_NORMAL,
 			CAIRO_FONT_WEIGHT_NORMAL);
-		cairo_set_font_size(cairo_p, DISPLAY_FONT_HEIGHT);
+		cairo_set_font_size(cairo_p, DISPLAY_FONT_HEIGHT * scale);
 
 		// 改行を処理しながら表示
 		now = show_text = str;
@@ -313,7 +325,7 @@ GtkWidget *CreateImageButton(
 				cairo_show_text(cairo_p, show_text);
 				show_text = now = g_utf8_next_char(next);
 				next = g_utf8_next_char(now);
-				draw_y += DISPLAY_FONT_HEIGHT;
+				draw_y += DISPLAY_FONT_HEIGHT * scale;
 			}
 			else if((next - now) >= 2 && (uint8)*now == 0xc2
 				&& (uint8)(*(now+1)) == 0xa5 && (uint8)*next == 'n')
@@ -323,7 +335,7 @@ GtkWidget *CreateImageButton(
 				cairo_show_text(cairo_p, show_text);
 				show_text = now = g_utf8_next_char(next);
 				next = g_utf8_next_char(now);
-				draw_y += DISPLAY_FONT_HEIGHT;
+				draw_y += DISPLAY_FONT_HEIGHT * scale;
 			}
 			else
 			{
@@ -335,25 +347,12 @@ GtkWidget *CreateImageButton(
 		cairo_show_text(cairo_p, show_text);
 	}
 
-	// イメージからピクセルバッファを生成
-	pixbuf = gdk_pixbuf_new_from_data(
-		cairo_image_surface_get_data(image),
-		GDK_COLORSPACE_RGB,
-		(format == CAIRO_FORMAT_ARGB32) ? TRUE : FALSE,
-		8,
-		width,
-		height,
-		stride,
-		NULL,
-		NULL
-	);
-
-#if defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
+#if 0 //defined(USE_BGR_COLOR_SPACE) && USE_BGR_COLOR_SPACE != 0
 	{
 		// WindowsならばBGR→RGBの変換を行う
 		uint8* pix = cairo_image_surface_get_data(image);
 		uint8 b;
-		int32 channel = (format == CAIRO_FORMAT_ARGB32) ? 4 : 3;
+		int32 channel = stride / width;
 		int32 i, j;
 
 		for(i=0; i<height; i++)

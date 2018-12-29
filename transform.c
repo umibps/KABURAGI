@@ -1847,7 +1847,7 @@ void ExecuteProjection(APPLICATION* app)
 	gtk_widget_set_sensitive(app->tool_window.brush_table, FALSE);
 }
 
-void DisplayTransform(DRAW_WINDOW *window)
+void DisplayTransform(DRAW_WINDOW* window)
 {
 	FLOAT_T ave_x = 0, ave_y = 0;
 	FLOAT_T zoom = window->zoom * 0.01;
@@ -1912,7 +1912,8 @@ void DisplayTransform(DRAW_WINDOW *window)
 
 static void ChangeTransformMode(GtkWidget* radio_button, APPLICATION* app)
 {
-	app->draw_window[app->active_window]->transform->selected_mode =
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
+	window->transform->selected_mode =
 		(uint8)GPOINTER_TO_UINT(g_object_get_data(
 			G_OBJECT(radio_button), "trans_mode"));
 }
@@ -1973,14 +1974,14 @@ static void ClickedTransformButtonOK(GtkWidget* button, APPLICATION* app)
 	gtk_widget_set_sensitive(app->tool_window.common_tool_table, TRUE);
 	gtk_widget_set_sensitive(app->tool_window.brush_table, TRUE);
 
-	DeleteTransformData(&app->draw_window[app->active_window]->transform);
+	DeleteTransformData(&window->transform);
 
 	(void)UpdateSelectionArea(&window->selection_area, window->selection, window->temp_layer);
 }
 
 static void ClickedTransformButtonCancel(GtkWidget* button, APPLICATION* app)
 {
-	DRAW_WINDOW *window = app->draw_window[app->active_window];
+	DRAW_WINDOW *window = GetActiveDrawWindow(app);
 	cairo_t *restore_cairo;
 	cairo_surface_t *restore_surface;
 	int stride = window->transform->width * 4;
@@ -2077,7 +2078,7 @@ static void ClickedTransformButtonCancel(GtkWidget* button, APPLICATION* app)
 	gtk_widget_set_sensitive(app->tool_window.common_tool_table, TRUE);
 	gtk_widget_set_sensitive(app->tool_window.brush_table, TRUE);
 
-	DeleteTransformData(&app->draw_window[app->active_window]->transform);
+	DeleteTransformData(&window->transform);
 
 	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
 }

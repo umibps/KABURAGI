@@ -5,7 +5,9 @@
 #include "application.h"
 #include "memory.h"
 #include "widgets.h"
-#include "input.h"
+
+#include "./gui/GTK/input_gtk.h"
+#include "./gui/GTK/gtk_widgets.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -630,7 +632,7 @@ static void OnDestroyNavigationWidget(APPLICATION* app)
 	app->navigation_window.window = NULL;
 	app->navigation_window.draw_area = NULL;
 	app->navigation_window.vbox = NULL;
-	app->navi_layer_pane = NULL;
+	app->widgets->navi_layer_pane = NULL;
 	app->navigation_window.width = 0;
 	app->navigation_window.height = 0;
 }
@@ -671,11 +673,11 @@ void InitializeNavigation(
 			app->labels->navigation.title);
 		// 親ウィンドウを登録
 		gtk_window_set_transient_for(
-			GTK_WINDOW(navigation->window), GTK_WINDOW(app->window));
+			GTK_WINDOW(navigation->window), GTK_WINDOW(app->widgets->window));
 		// タスクバーには表示しない
 		gtk_window_set_skip_taskbar_hint(GTK_WINDOW(navigation->window), TRUE);
 		// ショートカットキーを登録
-		gtk_window_add_accel_group(GTK_WINDOW(navigation->window), app->hot_key);
+		gtk_window_add_accel_group(GTK_WINDOW(navigation->window), app->widgets->hot_key);
 		// ウィンドウを削除するときにイベントを設定
 		(void)g_signal_connect(G_OBJECT(navigation->window), "delete_event",
 			G_CALLBACK(OnDeleteNavigationWindow), app);

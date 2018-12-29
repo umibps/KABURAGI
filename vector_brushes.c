@@ -20,6 +20,8 @@
 #include "memory_stream.h"
 #include "memory.h"
 
+#include "gui/GTK/gtk_widgets.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -7017,7 +7019,7 @@ static void VectorShapeEditScript(
 
 	dialog = gtk_dialog_new_with_buttons(
 		window->app->labels->menu.script,
-		GTK_WINDOW(window->app->window),
+		GTK_WINDOW(window->app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		"Open", GTK_RESPONSE_YES,
 		GTK_STOCK_APPLY, GTK_RESPONSE_APPLY,
@@ -7054,7 +7056,7 @@ static void VectorShapeEditScript(
 			{
 				GtkWidget *chooser = gtk_file_chooser_dialog_new(
 					window->app->labels->menu.open,
-					GTK_WINDOW(window->app->window),
+					GTK_WINDOW(window->app->widgets->window),
 					GTK_FILE_CHOOSER_ACTION_OPEN,
 					GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 					GTK_STOCK_OK, GTK_RESPONSE_OK,
@@ -7279,7 +7281,7 @@ static void VectorShapeManuallySetDialog(
 
 	dialog = gtk_dialog_new_with_buttons(
 		"",
-		GTK_WINDOW(app->window),
+		GTK_WINDOW(app->widgets->window),
 		GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_STOCK_OK, GTK_RESPONSE_OK,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
@@ -9095,9 +9097,7 @@ int WriteVectorBrushData(
 	APPLICATION* app
 )
 {
-	GFile *fp = g_file_new_for_path(file_path);
-	GFileOutputStream *stream =
-		g_file_create(fp, G_FILE_CREATE_NONE, NULL, NULL);
+	FILE* fp;
 	INI_FILE_PTR file;
 	char brush_section_name[256];
 	char brush_name[1024];
@@ -9105,19 +9105,15 @@ int WriteVectorBrushData(
 	int brush_id = 1;
 	int x, y;
 
-	// ファイルオープンに失敗したら上書きで試す
-	if(stream == NULL)
-	{
-		stream = g_file_replace(fp, NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL);
+	fp = fopen(file_path, "wb");
 
-		if(stream == NULL)
-		{
-			g_object_unref(fp);
-			return -1;
-		}
+	// ファイルオープンに失敗
+	if(fp == NULL)
+	{
+		return -1;
 	}
 
-	file = CreateIniFile(stream, NULL,0, INI_WRITE);
+	file = CreateIniFile(fp, NULL, 0, INI_WRITE);
 
 	// 文字コードを書き込む
 	IniFileAddString(file, "CODE", "CODE_TYPE", window->vector_brush_code);
@@ -9289,11 +9285,10 @@ int WriteVectorBrushData(
 	}	// ブラシテーブルの内容を書き出す
 		// for(y=0; y<VECTOR_BRUSH_TABLE_HEIGHT; y++)
 
-	WriteIniFile(file, (size_t (*)(void*, size_t, size_t, void*))FileWrite);
+	WriteIniFile(file, (size_t (*)(void*, size_t, size_t, void*))fwrite);
 	file->delete_func(file);
 
-	g_object_unref(fp);
-	g_object_unref(stream);
+	(void)fclose(fp);
 
 	return 0;
 }

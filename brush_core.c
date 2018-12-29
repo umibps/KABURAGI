@@ -1,6 +1,9 @@
 #include <string.h>
 #include <math.h>
 #include <gtk/gtk.h>
+#ifdef _OPENMP
+# include <omp.h>
+#endif
 #include "application.h"
 #include "brush_core.h"
 #include "brushes.h"
@@ -741,6 +744,8 @@ void DrawCircleBrushWorkLayer(
 	cairo_surface_t *update_surface;
 	// 描画時の拡大・縮小、位置設定用
 	cairo_matrix_t matrix;
+	// CAIROのスケーリングに使う値
+	gdouble rev_zoom = 1.0 / zoom;
 	// 画像一行分のバイト数
 	int stride = (int)width * 4;
 	// ピクセルデータをリセットする座標
@@ -778,7 +783,7 @@ void DrawCircleBrushWorkLayer(
 			if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
 			{	// 不透明保護無
 					// ブラシのサイズを設定して描画
-				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_matrix_init_scale(&matrix, rev_zoom, rev_zoom);
 				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
 				cairo_set_source(update, core->brush_pattern);
 				cairo_paint_with_alpha(update, alpha);
@@ -786,7 +791,7 @@ void DrawCircleBrushWorkLayer(
 			else
 			{	// 不透明保護有
 					// ブラシのサイズを設定して
-				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_matrix_init_scale(&matrix, rev_zoom, rev_zoom);
 				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
 				cairo_set_source(core->temp_cairo, core->brush_pattern);
 				// 一度、一時保存領域に描画
@@ -806,7 +811,7 @@ void DrawCircleBrushWorkLayer(
 			if((window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
 			{	// 不透明保護無
 					// ブラシのサイズを設定して
-				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_matrix_init_scale(&matrix, rev_zoom, rev_zoom);
 				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
 				cairo_set_source(core->temp_cairo, core->brush_pattern);
 				// 一度一時保存領域に描画
@@ -830,7 +835,7 @@ void DrawCircleBrushWorkLayer(
 				cairo_t *update_temp = cairo_create(temp_surface);
 
 				// まずは一時保存レイヤーに選択範囲でマスクして描画
-				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_matrix_init_scale(&matrix, rev_zoom, rev_zoom);
 				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
 				cairo_set_source(core->temp_cairo, core->brush_pattern);
 				cairo_paint_with_alpha(core->temp_cairo, alpha);
@@ -892,7 +897,7 @@ void DrawCircleBrushWorkLayer(
 			else
 			{	// 不透明保護有
 					// アクティブなレイヤーでマスクして描画
-				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_matrix_init_scale(&matrix, rev_zoom, rev_zoom);
 				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
 				cairo_set_source(core->temp_cairo, core->brush_pattern);
 				cairo_paint_with_alpha(core->temp_cairo, alpha);
@@ -914,7 +919,7 @@ void DrawCircleBrushWorkLayer(
 			{	// 不透明保護無
 					// 選択範囲とテクスチャでマスク
 				// まずは一時保存領域に不透明度を指定して描画してから
-				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_matrix_init_scale(&matrix, rev_zoom, rev_zoom);
 				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
 				cairo_set_source(core->temp_cairo, core->brush_pattern);
 				cairo_paint_with_alpha(core->temp_cairo, alpha);
@@ -943,7 +948,7 @@ void DrawCircleBrushWorkLayer(
 			{	// 不透明保護有
 					// 選択範囲、テクスチャ、アクティブなレイヤーでマスク
 				// まずは不透明度を設定して描画してから
-				cairo_matrix_init_scale(&matrix, zoom, zoom);
+				cairo_matrix_init_scale(&matrix, rev_zoom, rev_zoom);
 				cairo_pattern_set_matrix(core->brush_pattern, &matrix);
 				cairo_set_source(core->temp_cairo, core->brush_pattern);
 				cairo_paint_with_alpha(core->temp_cairo, alpha);
@@ -1531,6 +1536,11 @@ void AdaptNormalBrush(
 	}
 
 #ifdef _OPENMP
+	if(height <= MINIMUM_PARALLEL_SIZE)
+	{
+		omp_set_dynamic(FALSE);
+		omp_set_num_threads(1);
+	}
 #pragma omp parallel for firstprivate(width, work_pixel, layer_stride, start_x, start_y, draw_pixel)
 #endif
 	for(i=0; i<height; i++)
@@ -1556,6 +1566,10 @@ void AdaptNormalBrush(
 			}
 		}
 	}
+#ifdef _OPENMP
+	omp_set_dynamic(TRUE);
+	omp_set_num_threads(window->app->max_threads);
+#endif
 
 	// アンチエイリアスを適用
 	if(anti_alias != FALSE)
@@ -1627,7 +1641,12 @@ void AdaptBlendBrush(
 	cairo_surface_destroy(target_surface);
 
 #ifdef _OPENMP
-#pragma omp parallel for firstprivate(width, work_pixel, draw_pixel, mask_pixel, layer_stride, start_x, start_y)
+	if(height <= MINIMUM_PARALLEL_SIZE)
+	{
+		omp_set_dynamic(FALSE);
+		omp_set_num_threads(1);
+	}
+#pragma omp parallel for firstprivate(width, work_pixel, layer_stride, start_x, start_y, draw_pixel)
 #endif
 	for(i=0; i<height; i++)
 	{
@@ -1663,6 +1682,10 @@ void AdaptBlendBrush(
 			}
 		}
 	}
+#ifdef _OPENMP
+	omp_set_dynamic(TRUE);
+	omp_set_num_threads(window->app->max_threads);
+#endif
 }
 
 /******************************************************
@@ -1889,6 +1912,11 @@ void AdaptPickerBrush(
 		sum_color3 = sum_color5 = 0;
 
 #ifdef _OPENMP
+		if(height <= MINIMUM_PARALLEL_SIZE)
+		{
+			omp_set_dynamic(FALSE);
+			omp_set_num_threads(1);
+		}
 #pragma omp parallel for reduction( +: sum_color0, sum_color1, sum_color2, sum_color3, sum_color4, sum_color5) firstprivate(draw_pixel, start_x, start_y, width, layer_stride)
 #endif
 		for(i=0; i<height; i++)
@@ -1907,7 +1935,10 @@ void AdaptPickerBrush(
 				sum_color5 += *mask_pix;
 			}
 		}
-
+#ifdef _OPENMP
+		omp_set_dynamic(TRUE);
+		omp_set_num_threads(window->app->max_threads);
+#endif
 		color[0] = (uint8)((sum_color0 + sum_color3 / 2) / sum_color3);
 		color[1] = (uint8)((sum_color1 + sum_color3 / 2) / sum_color3);
 		color[2] = (uint8)((sum_color2 + sum_color3 / 2) / sum_color3);
@@ -1957,7 +1988,12 @@ void AdaptPickerBrush(
 	color[0] = r;
 #endif
 
-	#ifdef _OPENMP
+#ifdef _OPENMP
+	if(height <= MINIMUM_PARALLEL_SIZE)
+	{
+		omp_set_dynamic(FALSE);
+		omp_set_num_threads(1);
+	}
 #pragma omp parallel for firstprivate(work_pixel, width, layer_stride, start_x, start_y, draw_pixel)
 #endif
 	for(i=0; i<height; i++)
@@ -1998,6 +2034,10 @@ void AdaptPickerBrush(
 			}
 		}
 	}
+#ifdef _OPENMP
+	omp_set_dynamic(TRUE);
+	omp_set_num_threads(window->app->max_threads);
+#endif
 
 	if(anti_alias != FALSE)
 	{
@@ -2628,6 +2668,11 @@ void AdaptSmudge(
 		execute_height = MINIMUM(height, before_height);
 
 #ifdef _OPENMP
+		if(height <= MINIMUM_PARALLEL_SIZE)
+		{
+			omp_set_dynamic(FALSE);
+			omp_set_num_threads(1);
+		}
 #pragma omp parallel for firstprivate(start_x, start_y, execute_width, execute_height, brush_buffer, work_pixel, mask, layer_stride)
 #endif
 		for(i=0; i<execute_height; i++)
@@ -2655,7 +2700,10 @@ void AdaptSmudge(
 				work_pix[3] = (uint8)(((0xff-t)*work_pix[3]+t*c) / 255);
 			}
 		}
-
+#ifdef _OPENMP
+		omp_set_dynamic(TRUE);
+		omp_set_num_threads(canvas->app->max_threads);
+#endif
 		for(i=0; i<height; i++)
 		{
 			(void)memcpy(&brush_buffer[i*width],
@@ -2710,6 +2758,11 @@ void AdaptSmudgeScatter(
 		execute_height = MINIMUM(height, before_height);
 
 #ifdef _OPENMP
+		if(height <= MINIMUM_PARALLEL_SIZE)
+		{
+			omp_set_dynamic(FALSE);
+			omp_set_num_threads(1);
+		}
 #pragma omp parallel for firstprivate(start_x, start_y, execute_width, execute_height, brush_buffer, work_pixel, mask, layer_stride)
 #endif
 		for(i=0; i<execute_height; i++)
@@ -2737,6 +2790,10 @@ void AdaptSmudgeScatter(
 				work_pix[3] = (uint8)(((0xff-t)*work_pix[3]+t*c) / 255);
 			}
 		}
+#ifdef _OPENMP
+		omp_set_dynamic(TRUE);
+		omp_set_num_threads(canvas->app->max_threads);
+#endif
 	}
 }
 
@@ -2797,6 +2854,11 @@ void BlendWaterBrush(
 	int i;
 
 #ifdef _OPENMP
+	if(height <= MINIMUM_PARALLEL_SIZE)
+	{
+		omp_set_dynamic(FALSE);
+		omp_set_num_threads(1);
+	}
 #pragma omp parallel for firstprivate(width, mask, alpha_pixel)
 #endif
 	for(i=0; i<height; i++)
@@ -3018,6 +3080,34 @@ void BlendWaterBrush(
 				&alpha_pixel[layer_width*layer_height+i*layer_width+clear_start_x], clear_width);
 		}
 	}
+#ifdef _OPENMP
+	omp_set_dynamic(TRUE);
+	omp_set_num_threads(canvas->app->max_threads);
+#endif
+}
+
+/********************************************
+* InitializeBrushChainItem関数              *
+* 簡易ブラシ切り替えの1セット分を初期化する *
+* 引数                                      *
+* item	: 簡易ブラシ切り替えの1セット       *
+********************************************/
+void InitializeBrushChainItem(BRUSH_CHAIN_ITEM* item)
+{
+	(void)memset(item, 0, sizeof(*item));
+	item->names = PointerArrayNew(4);
+}
+
+/*****************************************
+* InitializeBrushChain関数               *
+* 簡易ブラシ切り替えのデータを初期化する *
+* 引数                                   *
+* chain	: 簡易ブラシ切り替えのデータ     *
+*****************************************/
+void InitializeBrushChain(BRUSH_CHAIN* chain)
+{
+	(void)memset(chain, 0, sizeof(*chain));
+	chain->chains = PointerArrayNew(4);
 }
 
 #ifdef __cplusplus

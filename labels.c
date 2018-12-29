@@ -1,3 +1,10 @@
+// Visual Studio 2005以降では古いとされる関数を使用するので
+	// 警告が出ないようにする
+#if defined _MSC_VER && _MSC_VER >= 1400
+# define _CRT_SECURE_NO_DEPRECATE
+# define _CRT_NONSTDC_NO_DEPRECATE
+#endif
+
 #include <string.h>
 #include "labels.h"
 #include "ini_file.h"
@@ -18,10 +25,7 @@ void LoadLabels(
 	// 初期化ファイル解析用
 	INI_FILE_PTR file;
 	// ファイル読み込みストリーム
-	GFile* fp = g_file_new_for_path(lang_file_path);
-	GFileInputStream* stream = g_file_read(fp, NULL, NULL);
-	// ファイルサイズ取得用
-	GFileInfo *file_info;
+	FILE* fp = fopen(lang_file_path, "rb");
 	// ファイルサイズ
 	size_t data_size;
 	char temp_str[MAX_STR_SIZE], lang[MAX_STR_SIZE];
@@ -29,19 +33,18 @@ void LoadLabels(
 	int i;
 
 	// ファイルオープンに失敗したら終了
-	if(stream == NULL)
+	if(fp == NULL)
 	{
-		g_object_unref(fp);
 		return;
 	}
 
 	// ファイルサイズを取得
-	file_info = g_file_input_stream_query_info(stream,
-		G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
-	data_size = (size_t)g_file_info_get_size(file_info);
+	(void)fseek(fp, 0, SEEK_END);
+	data_size = ftell(fp);
+	rewind(fp);
 	
-	file = CreateIniFile(stream,
-		(size_t (*)(void*, size_t, size_t, void*))FileRead, data_size, INI_READ);
+	file = CreateIniFile(fp,
+		(size_t (*)(void*, size_t, size_t, void*))fread, data_size, INI_READ);
 
 	// 文字コードを取得
 	(void)IniFileGetString(file, "CODE", "CODE_TYPE", lang, MAX_STR_SIZE);
@@ -115,6 +118,8 @@ void LoadLabels(
 	labels->unit.resolution = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "COMMON", "CENTER", temp_str, MAX_STR_SIZE);
 	labels->unit.center = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "COMMON", "KEY", temp_str, MAX_STR_SIZE);
+	labels->unit.key = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "COMMON", "STRAIGHT", temp_str, MAX_STR_SIZE);
 	labels->unit.straight = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "COMMON", "EXTEND", temp_str, MAX_STR_SIZE);
@@ -212,6 +217,8 @@ void LoadLabels(
 	labels->menu.new_3d_modeling = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER", "NEW_ADJUSTMENT_LAYER", temp_str, MAX_STR_SIZE);
 	labels->menu.new_adjustment_layer = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER", "NEW_LAYER_GROUP", temp_str, MAX_STR_SIZE);
+	labels->menu.new_layer_group = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER", "COPY", temp_str, MAX_STR_SIZE);
 	labels->menu.copy_layer = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER", "DELETE", temp_str, MAX_STR_SIZE);
@@ -608,6 +615,8 @@ void LoadLabels(
 	labels->tool_box.end_edit_3d = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SCATTER", temp_str, MAX_STR_SIZE);
 	labels->tool_box.scatter = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "SCATTER_AMOUNT", temp_str, MAX_STR_SIZE);
+	labels->tool_box.scatter_amount = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SCATTER_SIZE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.scatter_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SCATTER_RANGE", temp_str, MAX_STR_SIZE);
@@ -616,6 +625,8 @@ void LoadLabels(
 	labels->tool_box.scatter_random_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SCATTER_RANDOM_FLOW", temp_str, MAX_STR_SIZE);
 	labels->tool_box.scatter_random_flow = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "DRAW_SCATTER_ONLY", temp_str, MAX_STR_SIZE);
+	labels->tool_box.draw_scatter_only = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_CIRCLE", temp_str, MAX_STR_SIZE);
 	labels->tool_box.shape.circle = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "SHAPE_ECLIPSE", temp_str, MAX_STR_SIZE);
@@ -642,6 +653,10 @@ void LoadLabels(
 	labels->tool_box.miter = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "MANUALLY_SET", temp_str, MAX_STR_SIZE);
 	labels->tool_box.manually_set = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "BRUSH_CHAIN", temp_str, MAX_STR_SIZE);
+	labels->tool_box.brush_chain = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "CHANGE_BRUSH_CHAIN_KEY", temp_str, MAX_STR_SIZE);
+	labels->tool_box.change_brush_chain_key = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// レイヤーウィンドウ
 	length = IniFileGetString(file, "LAYER_WINDOW", "TITLE", temp_str, MAX_STR_SIZE);
@@ -680,6 +695,14 @@ void LoadLabels(
 	labels->layer_window.mask_with_under = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "LAYER_WINDOW", "LOCK_OPACITY", temp_str, MAX_STR_SIZE);
 	labels->layer_window.lock_opacity = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER_WINDOW", "ADD_UNDER_ACTIVE_LAYER", temp_str, MAX_STR_SIZE);
+	labels->layer_window.add_under_active_layer = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER_WINDOW", "LAYER_GROUP_MUST_HAVE_NAME", temp_str, MAX_STR_SIZE);
+	labels->layer_window.layer_group_must_have_name = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER_WINDOW", "SAME_GROUP_NAME", temp_str, MAX_STR_SIZE);
+	labels->layer_window.same_group_name = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "LAYER_WINDOW", "SAME_LAYER_NAME", temp_str, MAX_STR_SIZE);
+	labels->layer_window.same_layer_name = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// レイヤーの合成モード
 	length = IniFileGetString(file, "BLEND_MODE", "NORMAL", temp_str, MAX_STR_SIZE);
@@ -782,6 +805,13 @@ void LoadLabels(
 	length = IniFileGetString(file, "PREFERENCE", "DRAW_WITH_TOUCH", temp_str, MAX_STR_SIZE);
 	labels->preference.draw_with_touch = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 #endif
+	length = IniFileGetString(file,"PREFERENCE","LAYER_WINDOW_SCROLLBAR_PLACEMENT",temp_str,MAX_STR_SIZE);
+	labels->preference.layer_window_scrollbar_place_left = g_convert(temp_str,length,"UTF-8",lang,NULL,NULL,NULL);
+	length = IniFileGetString(file,"PREFERENCE","GUI_SCALE",temp_str,MAX_STR_SIZE);
+	labels->preference.gui_scale = g_convert(temp_str,length,"UTF-8",lang,NULL,NULL,NULL);
+	length = IniFileGetString(file,"PREFERENCE","ADD_BRUSH_CHAIN",temp_str,MAX_STR_SIZE);
+	labels->preference.add_brush_chain = g_convert(temp_str,length,"UTF-8",lang,NULL,NULL,NULL);
+
 
 	// ブラシのデフォルト名
 	for(i=0; i<NUM_BRUSH_TYPE; i++)
@@ -865,9 +895,7 @@ void LoadLabels(
 
 	file->delete_func(file);
 
-	g_object_unref(fp);
-	g_object_unref(stream);
-	g_object_unref(file_info);
+	(void)fclose(fp);
 #undef MAX_STR_SIZE
 }
 
@@ -949,10 +977,7 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	// 初期化ファイル解析用
 	INI_FILE_PTR file;
 	// ファイル読み込みストリーム
-	GFile* fp = g_file_new_for_path(lang_file_path);
-	GFileInputStream* stream = g_file_read(fp, NULL, NULL);
-	// ファイルサイズ取得用
-	GFileInfo *file_info;
+	FILE *fp;
 	// 設定するラベルデータ
 	UI_LABEL *labels;
 	// ファイルサイズ
@@ -960,20 +985,21 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	char temp_str[MAX_STR_SIZE], lang[MAX_STR_SIZE];
 	size_t length;
 
+	fp = fopen(lang_file_path, "rb");
+
 	// ファイルオープンに失敗したら終了
-	if(stream == NULL)
+	if(fp == NULL)
 	{
-		g_object_unref(fp);
 		return;
 	}
 
 	// ファイルサイズを取得
-	file_info = g_file_input_stream_query_info(stream,
-		G_FILE_ATTRIBUTE_STANDARD_SIZE, NULL, NULL);
-	data_size = (size_t)g_file_info_get_size(file_info);
+	(void)fseek(fp, 0, SEEK_END);
+	data_size = ftell(fp);
+	rewind(fp);
 	
-	file = CreateIniFile(stream,
-		(size_t (*)(void*, size_t, size_t, void*))FileRead, data_size, INI_READ);
+	file = CreateIniFile(fp,
+		(size_t (*)(void*, size_t, size_t, void*))fread, data_size, INI_READ);
 
 	// 文字コードを取得
 	(void)IniFileGetString(file, "CODE", "CODE_TYPE", lang, MAX_STR_SIZE);
@@ -1085,6 +1111,7 @@ void Load3dModelingLabels(APPLICATION* app, const char* lang_file_path)
 	labels->control.surface_color = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	file->delete_func(file);
+	(void)fclose(fp);
 #undef MAX_STR_SIZE
 }
 

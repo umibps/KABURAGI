@@ -38,55 +38,55 @@ typedef struct _APPLICATION_LABELS
 
 	struct
 	{
-		gchar *ok, *apply, *cancel, *normal, *reverse, *edit_selection, *window,
+		char *ok, *apply, *cancel, *normal, *reverse, *edit_selection, *window,
 			*close_window, *place_left, *place_right, *fullscreen, *reference,
 			*move_top_left, *hot_key, *loading, *saving;
 	} window;
 
 	struct
 	{
-		gchar *pixel, *length, *angle, *bg, *repeat, *preview, *interval, *minute,
-			*detail, *target, *clip_board, *name, *type, *resolution, *center,
+		char *pixel, *length, *angle, *bg, *repeat, *preview, *interval, *minute,
+			*detail, *target, *clip_board, *name, *type, *resolution, *center, *key,
 			*straight, *extend, *mode, *red, *green, *blue, *cyan, *magenta, *yellow,
 			*key_plate, *add, *_delete;
 	} unit;
 
 	struct
 	{
-		gchar *file, *make_new, *open, *open_as_layer, *save, *save_as, *close, *quit;
-		gchar *edit, *undo, *redo, *copy, *copy_visible, *cut, *paste, *clip_board,
+		char *file, *make_new, *open, *open_as_layer, *save, *save_as, *close, *quit;
+		char *edit, *undo, *redo, *copy, *copy_visible, *cut, *paste, *clip_board,
 			*transform, *projection;
-		gchar *canvas, *change_resolution, *change_canvas_size,
+		char *canvas, *change_resolution, *change_canvas_size,
 			*flip_canvas_horizontally, *flip_canvas_vertically,
 			*switch_bg_color, *change_2nd_bg_color, *canvas_icc;
-		gchar *layer, *new_color, *new_vector, *new_layer_set, *new_adjustment_layer,
-			*new_3d_modeling, *copy_layer, *delete_layer, *fill_layer_fg_color,
-			*fill_layer_pattern, *rasterize_layer, *merge_down_layer, *merge_all_layer,
-			*visible2layer, *visible_copy;
-		gchar *select, *select_none, *select_invert, *select_all, *selection_extend,
+		char *layer, *new_color, *new_vector, *new_layer_set, *new_adjustment_layer,
+			*new_3d_modeling, *new_layer_group, *copy_layer, *delete_layer,
+			*fill_layer_fg_color, *fill_layer_pattern, *rasterize_layer,
+			*merge_down_layer, *merge_all_layer, *visible2layer, *visible_copy;
+		char *select, *select_none, *select_invert, *select_all, *selection_extend,
 			*selection_reduct;
-		gchar *view, *zoom, *zoom_in, *zoom_out, *zoom_reset, *reverse_horizontally,
+		char *view, *zoom, *zoom_in, *zoom_out, *zoom_reset, *reverse_horizontally,
 			*rotate, *reset_rotate, *display_filter, *no_filter, *gray_scale,
 			*gray_scale_yiq;
-		gchar *filters, *blur, *motion_blur, *gaussian_blur, *bright_contrast,
+		char *filters, *blur, *motion_blur, *gaussian_blur, *bright_contrast,
 			*hue_saturtion, *color_levels, *tone_curve, *luminosity2opacity,
 			*color2alpha, *colorize_with_under, *gradation_map, *detect_max,
 			*tranparancy_as_white, *fill_with_vector, *render, *cloud, *fractal,
 			*trace_pixels;
-		gchar *plug_in;
-		gchar *script;
-		gchar *help, *version;
+		char *plug_in;
+		char *script;
+		char *help, *version;
 	} menu;
 
 	struct
 	{
-		gchar *title, *name, *width, *height, *second_bg_color, *adopt_icc_profile,
+		char *title, *name, *width, *height, *second_bg_color, *adopt_icc_profile,
 			*preset, *add_preset, *swap_height_and_width;
 	} make_new;
 
 	struct
 	{
-		gchar *title, *initialize, *new_brush, *smooth, *smooth_quality,
+		char *title, *initialize, *new_brush, *smooth, *smooth_quality,
 			*smooth_rate, *smooth_gaussian, *smooth_average, *base_scale,
 			*brush_scale, *scale, *flow, *pressure, *extend, *blur,
 			*outline_hardness, *color_extend, *select_move_start, *anti_alias,
@@ -112,8 +112,9 @@ typedef struct _APPLICATION_LABELS
 			*close_path, *update, *frequency, *cloud_color, *persistence,
 			*rand_seed, *use_random, *update_immediately, *num_octaves, *linear,
 			*cosine, *cubic, *colorize, *start_edit_3d, *end_edit_3d, *scatter,
-			*scatter_size, *scatter_range, *scatter_random_size,
-			*scatter_random_flow, *bevel, *round, *miter, *normal_brush;
+			*scatter_amount, *scatter_size, *scatter_range, *scatter_random_size,
+			*scatter_random_flow, *draw_scatter_only, *bevel, *round, *miter,
+			*normal_brush, *brush_chain, *change_brush_chain_key;
 		gchar *brush_default_names[NUM_BRUSH_TYPE];
 		SELECT_TARGET_LABELS select;
 		CONTROL_POINT_LABELS control;
@@ -122,41 +123,46 @@ typedef struct _APPLICATION_LABELS
 
 	struct
 	{
-		gchar *title, *new_layer, *new_vector, *new_layer_set, *new_text,
-			*new_3d_modeling, *new_adjsutment_layer, *add_normal, *add_vector,
-			*add_layer_set, *add_3d_modeling, *add_adjustment_layer, *rename,
-			*reorder, *alpha_to_select, *alpha_add_select, *pasted_layer,
-			*under_layer, *mixed_under_layer;
+		char *title, *normal_layer, *vector_layer, *text_layer, *layer_set,
+			*modeling_layer, *adjustment_layer, *layer_group, *new_layer,
+			*new_vector, *new_layer_set, *new_text, *new_3d_modeling,
+			*new_adjsutment_layer, *add_normal, *add_vector, *add_layer_set,
+			*add_3d_modeling, *add_adjustment_layer, *rename, *reorder,
+			*alpha_to_select, *alpha_add_select, *pasted_layer,
+			*under_layer, *mixed_under_layer, *add_under_active_layer,
+			*layer_group_must_have_name, *same_group_name, *same_layer_name;
 		gchar *blend_mode, *opacity, *mask_with_under, *lock_opacity;
 		gchar *blend_modes[LAYER_BLEND_SLELECTABLE_NUM];
 	} layer_window;
 
 	struct
 	{
-		gchar *straight_random, *bidirection;
+		char *straight_random, *bidirection;
 	} filter;
 
 	struct
 	{
-		gchar *compress, *quality, *write_alpha, *write_profile,
+		char *compress, *quality, *write_alpha, *write_profile,
 			*close_with_unsaved_chage, *quit_with_unsaved_change, *recover_backup;
 	} save;
 
 	struct
 	{
-		gchar *title;
+		char *title;
 	} navigation;
 
 	struct
 	{
-		gchar *title, *base_setting, *auto_save, *theme, *default_theme,
+		char *title, *base_setting, *auto_save, *theme, *default_theme,
 			*conflict_hot_key, *language, *backup_path, *show_preview_on_taskbar;
-		gchar *draw_with_touch, *scale_and_move_with_touch, *set_back_ground;
+		char *draw_with_touch, *scale_and_move_with_touch, *set_back_ground;
+		char *layer_window_scrollbar_place_left, *gui_scale;
+		char *add_brush_chain;
 	} preference;
 
 	struct
 	{
-		gchar *auto_save;
+		char *auto_save;
 	} status_bar;
 } APPLICATION_LABELS;
 

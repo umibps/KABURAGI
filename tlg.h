@@ -2,6 +2,7 @@
 #define _INCLUDED_TLG_H_
 
 #include <stdio.h>
+#include "types.h"
 
 // #define USE_SIMD_DECODE 1
 
@@ -9,7 +10,7 @@
 extern "C" {
 #endif
 
-unsigned char* ReadTlgStream(
+EXTERN unsigned char* ReadTlgStream(
 	void* src,
 	size_t (*read_func)(void*, size_t, size_t, void*),
 	int (*seek_func)(void*, long, int),

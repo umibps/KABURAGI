@@ -19,6 +19,11 @@
 #include "utils.h"
 #include "memory.h"
 
+#if !defined(USE_QT) || (defined(USE_QT) && USE_QT != 0)
+# include "gui/GTK/utils_gtk.h"
+# include "gui/GTK/gtk_widgets.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1641,7 +1646,7 @@ static int ScriptCreateWindow(lua_State* lua)
 	script->main_window = gtk_dialog_new();
 	gtk_window_set_position(GTK_WINDOW(script->main_window), GTK_WIN_POS_MOUSE);
 	gtk_window_set_title(GTK_WINDOW(script->main_window), title);
-	gtk_window_set_transient_for(GTK_WINDOW(script->main_window), GTK_WINDOW(script->app->window));
+	gtk_window_set_transient_for(GTK_WINDOW(script->main_window), GTK_WINDOW(script->app->widgets->window));
 	lua_pushlightuserdata(lua, script->main_window);
 	gtk_window_set_modal(GTK_WINDOW(script->main_window), TRUE);
 	g_signal_connect(G_OBJECT(script->main_window), "destroy", G_CALLBACK(OnDestroyMainWindow), script);
@@ -2413,7 +2418,7 @@ static int ScriptColorSelectionDialogNew(lua_State*lua)
 	lua_getglobal(lua, "SCRIPT_DATA");
 	script = (SCRIPT*)lua_topointer(lua, -1);
 
-	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(script->app->window));
+	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(script->app->widgets->window));
 	gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
 
 	lua_pushlightuserdata(lua, dialog);
@@ -3788,7 +3793,7 @@ SCRIPT* CreateScript(APPLICATION* app, const char* file_path)
 		char message[8192];
 		(void)sprintf(message, "Failed to open %s.\n%s", file_path, lua_tostring(ret->state, -1));
 		dialog = gtk_message_dialog_new(
-			GTK_WINDOW(app->window), GTK_DIALOG_MODAL,
+			GTK_WINDOW(app->widgets->window), GTK_DIALOG_MODAL,
 				GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, message);
 		gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
 		(void)gtk_dialog_run(GTK_DIALOG(dialog));
@@ -3997,7 +4002,7 @@ void RunScript(SCRIPT* script)
 	if(lua_pcall(script->state, 0, 0, 0) != 0)
 	{
 		GtkWidget *dialog = gtk_message_dialog_new(
-			GTK_WINDOW(script->app->window), GTK_DIALOG_MODAL,
+			GTK_WINDOW(script->app->widgets->window), GTK_DIALOG_MODAL,
 				GTK_MESSAGE_ERROR, GTK_BUTTONS_OK,
 					lua_tostring(script->state, -1));
 		gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);

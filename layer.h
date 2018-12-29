@@ -90,7 +90,7 @@ typedef struct _EXTRA_LAYER_DATA
 typedef struct _LAYER
 {
 	uint8 *pixels;			// ピクセルデータ
-	gchar* name;			// レイヤー名
+	char *name;				// レイヤー名
 	uint16 layer_type;		// レイヤータイプ(ノーマル、ベクトル、テキスト)
 	uint16 layer_mode;		// レイヤーの合成モード
 	int32 x, y;				// レイヤー左上隅の座標
@@ -144,14 +144,58 @@ typedef struct _LAYER_BASE_DATA
 {
 	uint16 layer_type;	// レイヤータイプ(ノーマル、ベクトル、テキスト)
 	uint16 layer_mode;	// レイヤーの合成モード
-	gint32 x, y;		// レイヤー左上隅の座標
+	int32 x, y;			// レイヤー左上隅の座標
 	// レイヤーの幅、高さ
-	gint32 width, height;
-	guint32 flags;		// レイヤー表示・非表示等のフラグ
+	int32 width, height;
+	uint32 flags;		// レイヤー表示・非表示等のフラグ
 	int8 alpha;			// レイヤーの不透明度
 	int8 channel;		// レイヤーのチャンネル数
 	int8 layer_set;		// レイヤーセット内のレイヤーか否か
 } LAYER_BASE_DATA;
+
+/***************************************
+* LAYER_GROUP_TEMPLATE_NODE構造体      *
+* まとめてレイヤーを作る際の部分データ *
+***************************************/
+typedef struct _LAYER_GROUP_TEMPLATE_NODE
+{
+	char *name;									// ノードの名前
+	eLAYER_TYPE layer_type;						// 作成するレイヤーのタイプ
+	struct _LAYER_GROUP_TEMPLATE_NODE *next;	// 次のノード
+} LAYER_GROUP_TEMPLATE_NODE;
+
+/*******************************
+* LAYER_GROUP_TEMPLATE構造体   *
+* まとめてレイヤーを作るデータ *
+*******************************/
+typedef struct _LAYER_GROUP_TEMPLATE
+{
+	char *group_name;					// レイヤーに付与する名前(前半)
+	LAYER_GROUP_TEMPLATE_NODE *names;	// 作成するレイヤーの名前(後半)
+	uint8 *add_flags;					// レイヤーを追加するかのフラグ
+	int num_layers;						// 作成するレイヤーの数
+	int flags;							// 設定フラグ
+} LAYER_GROUP_TEMPLATE;
+
+/*************************************************************
+* LAYER_GROUP_TEMPLATES構造体                                *
+* アプリケーションが管理するレイヤーをまとめて作成するデータ *
+*************************************************************/
+typedef struct _LAYER_GROUP_TEMPLATES
+{
+	LAYER_GROUP_TEMPLATE *templates;
+	int num_templates;
+} LAYER_GROUP_TEMPLATES;
+
+/***************************************
+* eLAYER_GROUP_TEMPLATE_FLAGS列挙対    *
+* まとめてレイヤーを作る際の設定フラグ *
+***************************************/
+enum _eLAYER_GROUP_TEMPLATE_FLAGS
+{
+	LAYER_GROUP_TEMPLATE_FLAG_MAKE_LAYER_SET = 0x01,
+	LAYER_GROUP_TEMPLATE_FLAG_ADD_UNDER_ACTIVE_LAYER = 0x02
+} eLAYER_GROUP_TEMPLATE_FLAG;
 
 /********************
 * RGAB_DATA構造体   *
@@ -531,6 +575,26 @@ EXTERN GtkWidget* CreateLayerSetChildButton(LAYER* layer_set);
 *******************************************************/
 EXTERN void FillTextureLayer(LAYER* layer, TEXTURES* textures);
 
+/*********************************************
+* GetLayerTypeString関数                     *
+* レイヤーのタイプ定数を文字列にする         *
+* 引数                                       *
+* type	: レイヤーのタイプ                   *
+* 返り値                                     *
+*	レイヤーのタイプの文字列(freeしないこと) *
+*********************************************/
+EXTERN const char* GetLayerTypeString(eLAYER_TYPE type);
+
+/*********************************************
+* GetLayerTypeFromString関数                 *
+* 文字列からレイヤーのタイプの定数を取得する *
+* 引数                                       *
+* str	: レイヤーのタイプの文字列           *
+* 返り値                                     *
+*	レイヤーのタイプの定数                   *
+*********************************************/
+EXTERN eLAYER_TYPE GetLayerTypeFromString(const char* str);
+
 /******************************************
 * GetAverageColor関数                     *
 * 指定座標周辺の平均色を取得              *
@@ -568,6 +632,44 @@ EXTERN ADJUSTMENT_LAYER* CreateAdjustmentLayer(
 * target_layer	: 調整レイヤーを適用するレイヤー *
 *************************************************/
 EXTERN void SetAdjustmentLayerTargetLayer(ADJUSTMENT_LAYER* layer, LAYER* target_layer);
+
+/***************************************************
+* AddLayerGroupTemplate関数                        *
+* レイヤーをまとめて作成する                       *
+* 引数                                             *
+* group			: レイヤーをまとめて作成するデータ *
+* add_flags		: レイヤーを追加するかのフラグ     *
+* previous		: 前のレイヤー                     *
+* next			: 次のレイヤー                     *
+* num_layers	: 追加したレイヤーの数             *
+* 返り値                                           *
+*	正常終了:追加したレイヤー	異常終了:NULL      *
+***************************************************/
+EXTERN LAYER** AddLayerGroupTemplate(
+	LAYER_GROUP_TEMPLATE* group,
+	uint8* add_flags,
+	LAYER* previous,
+	LAYER* next,
+	int* num_layers
+);
+
+/*************************************************
+* AddLayerGroupHistory関数                       *
+* レイヤーをまとめて作成する履歴を作成           *
+* 引数                                           *
+* layers		: 追加したレイヤー               *
+* num_layers	: 追加したレイヤーの数           *
+* prev			: 追加したレイヤーの前のレイヤー *
+*************************************************/
+EXTERN void AddLayerGroupHistory(LAYER**layers, int num_layers, LAYER* prev);
+
+/***************************************
+* UpdateLayerThumbnailWidget関数       *
+* レイヤーのサムネイルを更新する       *
+* 引数                                 *
+* layer	: サムネイルを更新するレイヤー *
+***************************************/
+EXTERN INLINE void UpdateLayerThumbnailWidget(LAYER* layer);
 
 #ifdef __cplusplus
 }
