@@ -59,7 +59,7 @@ EXTERN COLOR_CHOOSER *CreateColorChooser(
 	uint8 (*pallete)[3],
 	uint8 *pallete_use,
 	const gchar* base_path,
-	struct _APPLICATION_LABELS* labels,
+	void* application_labels,
 	FLOAT_T ui_scale
 );
 

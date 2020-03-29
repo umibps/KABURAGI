@@ -88,6 +88,32 @@ extern gboolean EnterNotifyEvent(GtkWidget*widget, GdkEventCrossing* event_info,
 *************************************************************/
 extern gboolean LeaveNotifyEvent(GtkWidget* widget, GdkEventCrossing* event_info, DRAW_WINDOW* window);
 
+/***********************************************
+* CustomButtonPressEvent関数                   *
+* マウスクリックの処理カスタム版               *
+* 引数                                         *
+* widget	: マウスクリックされたウィジェット *
+* event		: マウスの情報                     *
+* window	: 描画領域の情報                   *
+* 返り値                                       *
+*	常にTRUE                                   *
+***********************************************/
+extern gboolean CustomButtonPressEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDOW* window);
+
+/*************************************
+* CustomMotionNotifyEvent関数        *
+* マウスオーバーの処理カスタム版     *
+* 引数                               *
+* widget	: 描画領域のウィジェット *
+* event		: マウスの情報           *
+* window	: 描画領域の情報         *
+* 返り値                             *
+*	常にTRUE                         *
+*************************************/
+extern gboolean CustomMotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW* window);
+
+extern gboolean CustomButtonReleaseEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDOW* window);
+
 #ifdef __cplusplus
 }
 #endif

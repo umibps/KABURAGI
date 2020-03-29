@@ -1214,13 +1214,15 @@ COLOR_CHOOSER *CreateColorChooser(
 	uint8 (*pallete)[3],
 	uint8 *pallete_use,
 	const gchar* base_path,
-	APPLICATION_LABELS* labels,
+	void* application_labels,
 	FLOAT_T ui_scale
 )
 {
 	// 返り値
 	COLOR_CHOOSER* ret =
 		(COLOR_CHOOSER*)MEM_ALLOC_FUNC(sizeof(*ret));
+	// UIに使用する文字列
+	APPLICATION_LABELS *labels = (APPLICATION_LABELS*)application_labels;
 	// 中心の選択領域の色
 	HSV hsv = {(int16)(start_rad + 180), 255, 255};
 	GtkWidget* vbox = gtk_vbox_new(FALSE, 0);
@@ -1228,6 +1230,10 @@ COLOR_CHOOSER *CreateColorChooser(
 	// ウィジェット選択表示・非表示切り替えウィジェット
 	GtkWidget *button;
 	GtkWidget *button_image;
+	// ボタンに表示する画像
+	GdkPixbuf *button_pixbuf;
+	// 画像リサイズ用
+	GdkPixbuf *old_pixbuf;
 	// 中心の選択領域のサイズ
 	int box_size = (width + line_width) / 2;
 	// 1列分の画像データサイズ
@@ -1330,7 +1336,8 @@ COLOR_CHOOSER *CreateColorChooser(
 	ret->color_box = gtk_drawing_area_new();
 
 #if GTK_MAJOR_VERSION <= 2
-	gtk_drawing_area_size(GTK_DRAWING_AREA(ret->color_box), (COLOR_BOX_SIZE*3)/2, (COLOR_BOX_SIZE*3)/2);
+	gtk_drawing_area_size(GTK_DRAWING_AREA(ret->color_box),
+		(int)(ui_scale* ((COLOR_BOX_SIZE*3)/2)), (int)(ui_scale * ((COLOR_BOX_SIZE*3)/2)));
 #else
 	gtk_widget_set_size_request(ret->color_box, (COLOR_BOX_SIZE*3)/2, (COLOR_BOX_SIZE*3)/2);
 #endif
@@ -1349,7 +1356,15 @@ COLOR_CHOOSER *CreateColorChooser(
 	gtk_box_pack_end(GTK_BOX(ret->widget), vbox, FALSE, FALSE, 3);
 
 	image_file_path = g_build_filename(base_path, "image/circle.png", NULL);
-	button_image = gtk_image_new_from_file(image_file_path);
+	button_pixbuf = gdk_pixbuf_new_from_file(image_file_path, NULL);
+	if(button_pixbuf != NULL && ui_scale != 1.0)
+	{
+		old_pixbuf = button_pixbuf;
+		button_pixbuf = gdk_pixbuf_scale_simple(old_pixbuf, (int)(ui_scale * gdk_pixbuf_get_width(old_pixbuf)),
+			(int)(ui_scale * gdk_pixbuf_get_height(old_pixbuf)), GDK_INTERP_NEAREST);
+		g_object_unref(old_pixbuf);
+	}
+	button_image = gtk_image_new_from_pixbuf(button_pixbuf);
 	ret->circle_button = button = gtk_toggle_button_new();
 	gtk_container_add(GTK_CONTAINER(button), button_image);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
@@ -1361,7 +1376,15 @@ COLOR_CHOOSER *CreateColorChooser(
 	g_free(image_file_path);
 
 	image_file_path = g_build_filename(base_path, "image/pallete.png", NULL);
-	button_image = gtk_image_new_from_file(image_file_path);
+	button_pixbuf = gdk_pixbuf_new_from_file(image_file_path, NULL);
+	if(button_pixbuf != NULL && ui_scale != 1.0)
+	{
+		old_pixbuf = button_pixbuf;
+		button_pixbuf = gdk_pixbuf_scale_simple(old_pixbuf, (int)(ui_scale * gdk_pixbuf_get_width(old_pixbuf)),
+			(int)(ui_scale * gdk_pixbuf_get_height(old_pixbuf)), GDK_INTERP_NEAREST);
+		g_object_unref(old_pixbuf);
+	}
+	button_image = gtk_image_new_from_pixbuf(button_pixbuf);
 	ret->pallete_button = button = gtk_toggle_button_new();
 	gtk_container_add(GTK_CONTAINER(button), button_image);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);

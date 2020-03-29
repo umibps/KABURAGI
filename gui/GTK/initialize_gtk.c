@@ -539,6 +539,51 @@ void InitializeSplashWindow(SPLASH_WINDOW* window)
 	window->timer_id = g_timeout_add(2000, (GSourceFunc)SplashWindowTimeOut, window->window);
 }
 
+static gboolean UpdateCallback(APPLICATION* app)
+{
+	DRAW_WINDOW *active;
+
+	active = GetActiveDrawWindow(app);
+	if(active != NULL)
+	{
+		GdkEvent *queued_event = NULL;
+
+		if(app->tool_window.motion_queue.num_items > 0)
+		{
+			GdkEvent *event_data;
+			ExecuteMotionQueue(active);
+
+			event_data = gdk_event_new(GDK_EXPOSE);
+			gdk_display_put_event(gtk_widget_get_display(active->window), event_data);
+			gdk_event_free(event_data);
+
+			while(gdk_events_pending() != FALSE)
+			{
+				queued_event = gdk_event_get();
+				gtk_main_iteration();
+				if(queued_event != NULL)
+				{
+					if(queued_event->any.type == GDK_EXPOSE)
+					{
+						gdk_event_free(queued_event);
+						break;
+					}
+					else
+					{
+						gdk_event_free(queued_event);
+					}
+				}
+				else
+				{
+					//break;
+				}
+			}
+		}
+	}
+
+	return TRUE;
+}
+
 /*********************************************************************
 * InitializeApplication関数                                          *
 * アプリケーションの初期化                                           *
@@ -568,6 +613,9 @@ void InitializeApplication(APPLICATION* app, char** argv, int argc, char* init_f
 	char window_title[512];
 	// アプリケーションデータのディレクトリ
 	char *app_dir_path;
+
+	app->timer_callback_id = g_timeout_add_full(G_PRIORITY_DEFAULT, 1000 / FRAME_RATE,
+		(GSourceFunc)UpdateCallback, app, NULL);
 
 	app->widgets = CreateMainWindowWidgets(app);
 

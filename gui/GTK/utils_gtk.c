@@ -230,7 +230,7 @@ void SetAdjustmentChangeValueCallBack(
 	g_object_set_data(G_OBJECT(adjustment), "callback_data", func_data);
 }
 
-static void CheckButtonChangeFlags(GtkWidget* button, guint32* flags)
+static void CheckButtonChangeFlags(GtkWidget* button, unsigned int* flags)
 {
 	guint32 flag_value = (guint32)GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button), "flag-value"));
 	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)

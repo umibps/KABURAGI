@@ -182,6 +182,10 @@ gboolean ButtonPressEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDOW*
 	// 手ブレ補正実行
 	if(event->button == 1)
 	{
+		// 現在の座標を記憶しておく
+		window->app->tool_window.motion_queue.last_queued_x = x;
+		window->app->tool_window.motion_queue.last_queued_y = y;
+
 		// クリックされたボタンを記憶
 		window->state = event->state | GDK_BUTTON1_MASK;
 
@@ -337,6 +341,7 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 	GdkInputSource source;
 #endif
 	// 座標を取得
+	/*
 	if(event->is_hint != 0)
 	{
 		gint get_x, get_y;
@@ -349,6 +354,7 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 		x0 = get_x, y0 = get_y;
 	}
 	else
+	*/
 	{
 		state = event->state;
 		x0 = event->x;
@@ -497,6 +503,10 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 					}
 				}
 
+				// 現在の座標を記憶しておく
+				window->app->tool_window.motion_queue.last_queued_x = x;
+				window->app->tool_window.motion_queue.last_queued_y = y;
+
 				if(window->transform != NULL)
 				{
 					TransformButtonPress(window->transform, x, y);
@@ -611,6 +621,8 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 				button.device = event->device;
 
 				window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+
+				ClearMotionQueue(window);
 
 				if(window->app->tool_window.smoother.num_use > 0 &&
 					window->app->tool_window.smoother.mode != SMOOTH_GAUSSIAN)
@@ -822,6 +834,8 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 				FLOAT_T motion_x, motion_y, motion_pressure;
 				FLOAT_T update_x, update_y;
 				gboolean finish;
+
+				ClearMotionQueue(window);
 
 				if(AddAverageSmoothPoint(&window->app->tool_window.smoother, &x, &y,
 					&pressure, 0) != FALSE)
@@ -1070,6 +1084,41 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 		goto func_end;
 	}
 
+	if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0
+		|| window->active_layer->layer_type == TYPE_NORMAL_LAYER
+		&& (window->state & GDK_BUTTON1_MASK) != 0
+		|| window->active_layer->layer_type != TYPE_NORMAL_LAYER
+	)
+	{
+#define QUEUE_APPEND_DISTANCE 0.5
+		FLOAT_T dx = window->app->tool_window.motion_queue.last_queued_x - x;
+		FLOAT_T dy = window->app->tool_window.motion_queue.last_queued_y - y;
+
+		if(dx * dx + dy * dy >= QUEUE_APPEND_DISTANCE * QUEUE_APPEND_DISTANCE)
+		{
+			MotionQueueAppendItem(&window->app->tool_window.motion_queue, x, y, pressure, window->state);
+		}
+	}
+	else
+	{
+		update_func(window, x0, y0, update_data);
+	}
+	if((window->app->tool_window.flags & TOOL_USING_BRUSH) != 0)
+	{
+		if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+		{
+			if((state & GDK_SHIFT_MASK) != 0)
+			{
+				update_func = window->app->tool_window.vector_control_core.motion_update;
+			}
+			else if((state & GDK_CONTROL_MASK) != 0 ||
+				(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+			{
+				update_func = window->app->tool_window.vector_control_core.motion_update;
+			}
+		}
+	}
+	/*
 	if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
 	{
 		window->app->tool_window.active_common_tool->motion_func(
@@ -1116,12 +1165,12 @@ gboolean MotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW
 			TextLayerMotionCallBack(window, x, y, state);
 		}
 	}
+	*/
 
 	window->state = (state & (~(GDK_BUTTON1_MASK))) | (window->state & GDK_BUTTON1_MASK);
 
-	update_func(window, x0, y0, update_data);
-
 func_end:
+	/*
 	if(update_window != 0)
 	{
 		GdkEvent *queued_event = NULL;
@@ -1148,17 +1197,20 @@ func_end:
 			}
 		}
 	}
+	*/
 
 	// ここでflushしないと色変更ツール使用時に読み込みエラーになる…　なんで? (12年11月18日)
-	(void)fflush(stdout);
+	//(void)fflush(stdout);
 
 	window->before_cursor_x = x0;
 	window->before_cursor_y = y0;
 
+	/*
 	if(event->is_hint != FALSE)
 	{
 		gdk_event_request_motions(event);
 	}
+	*/
 
 	return TRUE;
 }
@@ -1241,6 +1293,8 @@ gboolean ButtonReleaseEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDO
 	// 手ブレ補正データの初期化
 	if(event->button == 1)
 	{
+		ClearMotionQueue(window);
+
 		if(window->app->tool_window.smoother.num_use > 0 &&
 			window->app->tool_window.smoother.mode != SMOOTH_GAUSSIAN)
 		{
@@ -2390,22 +2444,25 @@ gboolean KeyPressEvent(
 					{
 						for(x=0; x<BRUSH_TABLE_WIDTH; x++)
 						{
-							if(strcmp(application->tool_window.brushes[y][x].name, (char*)item->names->buffer[0]) == 0)
+							if(application->tool_window.brushes[y][x].name != NULL)
 							{
-								application->tool_window.active_brush[application->input] = &application->tool_window.brushes[y][x];
-								SetActiveBrushTableButton(&application->tool_window, (void*)&application->tool_window.brushes[y][x]);
-								application->tool_window.flags |= TOOL_USING_BRUSH;
-								if(application->tool_window.detail_ui != NULL)
+								if(strcmp(application->tool_window.brushes[y][x].name, (char*)item->names->buffer[0]) == 0)
 								{
-									gtk_widget_destroy(application->tool_window.detail_ui);
+									application->tool_window.active_brush[application->input] = &application->tool_window.brushes[y][x];
+									SetActiveBrushTableButton(&application->tool_window, (void*)&application->tool_window.brushes[y][x]);
+									application->tool_window.flags |= TOOL_USING_BRUSH;
+									if(application->tool_window.detail_ui != NULL)
+									{
+										gtk_widget_destroy(application->tool_window.detail_ui);
+									}
+									application->tool_window.detail_ui = application->tool_window.brushes[y][x].create_detail_ui(application, &application->tool_window.brushes[y][x]);
+									gtk_scrolled_window_add_with_viewport(
+										GTK_SCROLLED_WINDOW(application->tool_window.detail_ui_scroll), application->tool_window.detail_ui);
+									gtk_widget_show_all(application->tool_window.detail_ui);
+									application->tool_window.flags |= TOOL_BUTTON_STOPPED;
+									(void)g_timeout_add(BRUSH_CHAIN_TIMEOUT_INTERVAL, (GSourceFunc)BrushChainKeyTimeout, &application->tool_window);
+									return TRUE;
 								}
-								application->tool_window.detail_ui = application->tool_window.brushes[y][x].create_detail_ui(application, &application->tool_window.brushes[y][x]);
-								gtk_scrolled_window_add_with_viewport(
-									GTK_SCROLLED_WINDOW(application->tool_window.detail_ui_scroll), application->tool_window.detail_ui);
-								gtk_widget_show_all(application->tool_window.detail_ui);
-								application->tool_window.flags |= TOOL_BUTTON_STOPPED;
-								(void)g_timeout_add(BRUSH_CHAIN_TIMEOUT_INTERVAL, (GSourceFunc)BrushChainKeyTimeout, &application->tool_window);
-								return TRUE;
 							}
 						}
 					}
@@ -2724,6 +2781,1473 @@ gboolean LeaveNotifyEvent(GtkWidget* widget, GdkEventCrossing* event_info, DRAW_
 	window->cursor_y = -500000;
 
 	gtk_widget_queue_draw(widget);
+
+	return TRUE;
+}
+
+/***********************************************
+* CustomButtonPressEvent関数                   *
+* マウスクリックの処理カスタム版               *
+* 引数                                         *
+* widget	: マウスクリックされたウィジェット *
+* event		: マウスの情報                     *
+* window	: 描画領域の情報                   *
+* 返り値                                       *
+*	常にTRUE                                   *
+***********************************************/
+gboolean CustomButtonPressEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDOW* window)
+{
+	brush_update_func update_func = DefaultToolUpdate;
+	void *update_data = NULL;
+	gdouble pressure;
+	gdouble rev_zoom = window->rev_zoom;
+	FLOAT_T x, y;
+#if GTK_MAJOR_VERSION >= 3
+	GdkDevice *device;
+	GdkInputSource source;
+#endif
+
+	if((window->state & GDK_BUTTON1_MASK) != 0
+		&& event->type != GDK_2BUTTON_PRESS)
+	{
+		return TRUE;
+	}
+
+	// 画面更新用のデータを取得
+	if(window->transform == NULL)
+	{
+		if((window->app->tool_window.flags & TOOL_USING_BRUSH) != 0)
+		{
+			if(window->active_layer->layer_type == TYPE_NORMAL_LAYER)
+			{
+				update_func = window->app->tool_window.active_brush[window->app->input]->button_update;
+				update_data = window->app->tool_window.active_brush[window->app->input]->brush_data;
+			}
+			else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+			{
+				update_func = window->app->tool_window.active_vector_brush[window->app->input]->button_update;
+				update_data = window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
+			}
+		}
+		else
+		{
+			update_func = window->app->tool_window.active_common_tool->button_update;
+			update_data = window->app->tool_window.active_common_tool->tool_data;
+		}
+	}
+
+	// マウス以外なら筆圧を取得
+#if GTK_MAJOR_VERSION <= 2
+	if(event->device->source != GDK_SOURCE_MOUSE)
+	{
+		if(event->device->source == GDK_SOURCE_ERASER)
+		{
+			if(window->app->input == INPUT_PEN)
+			{
+				window->app->input = INPUT_ERASER;
+				if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+					|| ((window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0))
+				{
+					gtk_toggle_button_set_active(
+						GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_ERASER]->button), TRUE);
+				}
+				else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+				{
+					gtk_toggle_button_set_active(
+						GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_ERASER]->button), TRUE);
+				}
+			}
+		}
+		else
+		{
+			if(window->app->input != INPUT_PEN)
+			{
+				window->app->input = INPUT_PEN;
+				if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+					|| ((window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0))
+				{
+					gtk_toggle_button_set_active(
+						GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_PEN]->button), TRUE);
+				}
+				else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+				{
+					gtk_toggle_button_set_active(
+						GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_PEN]->button), TRUE);
+				}
+			}
+		}
+		gdk_event_get_axis((GdkEvent*)event, GDK_AXIS_PRESSURE, &pressure);
+	}
+	else
+	{	// マウスなら筆圧はレイヤーのタイプに依存
+		pressure = (window->active_layer->layer_type == TYPE_NORMAL_LAYER) ? 1.0 : 0.5;
+	}
+#else
+	device = gdk_event_get_source_device((GdkEvent*)event);
+	source = gdk_device_get_source(device);
+	if(gdk_device_get_axis(device, event->axes, GDK_AXIS_PRESSURE, &pressure) == FALSE)
+	{
+		pressure = (window->active_layer->layer_type == TYPE_NORMAL_LAYER) ? 1.0 : 0.5;
+	}
+	else
+	{
+		if(source == GDK_SOURCE_ERASER)
+		{
+			if(window->app->input == INPUT_PEN)
+			{
+				window->app->input = INPUT_ERASER;
+				if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+					|| ((window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0))
+				{
+					gtk_toggle_button_set_active(
+						GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_ERASER]->button), TRUE);
+				}
+				else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+				{
+					gtk_toggle_button_set_active(
+						GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_ERASER]->button), TRUE);
+				}
+			}
+		}
+		else
+		{
+			if(window->app->input != INPUT_PEN)
+			{
+				window->app->input = INPUT_PEN;
+				if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+					|| ((window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0))
+				{
+					gtk_toggle_button_set_active(
+						GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_PEN]->button), TRUE);
+				}
+				else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+				{
+					gtk_toggle_button_set_active(
+						GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_PEN]->button), TRUE);
+				}
+			}
+		}
+	}
+#endif
+
+	// 筆圧が下限値未満なら修正
+	if(pressure < MINIMUM_PRESSURE)
+	{
+		pressure = MINIMUM_PRESSURE;
+	}
+
+	// 回転分を計算
+	window->cursor_x = (event->x - window->half_size) * window->cos_value
+		- (event->y - window->half_size) * window->sin_value + window->add_cursor_x;
+	window->cursor_y = (event->x - window->half_size) * window->sin_value
+		+ (event->y - window->half_size) * window->cos_value + window->add_cursor_y;
+	x = rev_zoom * window->cursor_x;
+	y = rev_zoom * window->cursor_y;
+
+	// 左右反転表示中ならばX座標を修正
+	if((window->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE) != 0)
+	{
+		x = window->width - x;
+		window->cursor_x = window->disp_layer->width - window->cursor_x;
+	}
+
+	// 手ブレ補正実行
+	if(event->button == 1)
+	{
+		// クリックされたボタンを記憶
+		window->state = event->state | GDK_BUTTON1_MASK;
+
+		if(window->app->tool_window.smoother.num_use != 0)
+		{
+			if(window->app->tool_window.smoother.mode == SMOOTH_GAUSSIAN)
+			{
+				Smooth(&window->app->tool_window.smoother, &x, &y, event->time, window->rev_zoom);
+			}
+			else
+			{
+				window->app->tool_window.smoother.last_draw_point.x = event->x;
+				window->app->tool_window.smoother.last_draw_point.y = event->y;
+				(void)AddAverageSmoothPoint(&window->app->tool_window.smoother,
+					&x, &y, &pressure, window->rev_zoom);
+			}
+		}
+	}
+
+	SetPerspectiveRulerClickPoint(&window->perspective_ruler, x, y);
+
+	if(window->transform != NULL)
+	{
+		TransformButtonPress(window->transform, x, y);
+		return TRUE;
+	}
+
+	if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+	{
+		window->app->tool_window.active_common_tool->press_func(
+			window, x, y, window->app->tool_window.active_common_tool, (void*)event);
+	}
+	else
+	{
+		if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+			|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+		{
+			if((event->state & GDK_CONTROL_MASK) == 0 && event->button != 3)
+			{
+				if((event->state & GDK_SHIFT_MASK) == 0)
+				{
+					window->app->tool_window.active_brush[window->app->input]->press_func(
+						window, x, y, pressure, window->app->tool_window.active_brush[window->app->input], (void*)event
+					);
+				}
+				else if(event->button == 1)
+				{
+					// シフトキーが押されているので直線で処理
+					FLOAT_T d;
+					FLOAT_T dx = x - window->last_x;
+					FLOAT_T dy = y - window->last_y;
+					d = sqrt(dx*dx + dy*dy) * 2;
+					dx = dx / d,	dy = dy / d;
+
+					window->last_x += dx;
+					window->last_y += dy;
+					d -= 1;
+
+					if((window->flags & DRAW_WINDOW_DRAWING_STRAIGHT) == 0)
+					{
+						window->app->tool_window.active_brush[window->app->input]->press_func(
+							window, window->last_x, window->last_y, pressure, window->app->tool_window.active_brush[window->app->input], (void*)event);
+						window->flags |= DRAW_WINDOW_DRAWING_STRAIGHT;
+					}
+
+					while(d >= 1)
+					{
+						window->last_x += dx;
+						window->last_y += dy;
+
+						window->app->tool_window.active_brush[window->app->input]->motion_func(
+							window, window->last_x, window->last_y, pressure,
+								window->app->tool_window.active_brush[window->app->input], (void*)(&window->state));
+
+						d -= 1;
+					}
+					window->app->tool_window.active_brush[window->app->input]->motion_func(
+						window, x, y, pressure, window->app->tool_window.active_brush[window->app->input], (void*)(&window->state));
+
+					window->state &= ~(GDK_BUTTON1_MASK);
+					window->last_x = x,	window->last_y = y;
+					window->last_pressure = pressure;
+
+					gtk_widget_queue_draw(window->window);
+				}
+			}
+			else
+			{
+				window->app->tool_window.color_picker_core.press_func(
+					window, x, y, &window->app->tool_window.color_picker_core, (void*)event
+				);
+				window->state &= ~(GDK_BUTTON1_MASK);
+			}
+		}
+		else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+		{
+			if((event->state & GDK_SHIFT_MASK) != 0)
+			{
+				window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+				window->app->tool_window.vector_control_core.press_func(
+					window, x, y, pressure, &window->app->tool_window.vector_control_core, (void*)event
+				);
+			}
+			else if((event->state & GDK_CONTROL_MASK) != 0)
+			{
+				window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+				window->app->tool_window.vector_control_core.press_func(
+					window, x, y, pressure, &window->app->tool_window.vector_control_core, (void*)event
+				);
+			}
+			else
+			{
+				window->app->tool_window.active_vector_brush[window->app->input]->press_func(
+					window, x, y, pressure, window->app->tool_window.active_vector_brush[window->app->input], (void*)event
+				);
+			}
+		}
+		else
+		{
+			TextLayerButtonPressCallBack(window, x, y, event);
+		}
+	}
+
+	// 再描画
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+	update_func(window, event->x, event->y, update_data);
+
+	window->before_cursor_x = event->x;
+	window->before_cursor_y = event->y;
+
+	return TRUE;
+}
+
+/*************************************
+* CustomMotionNotifyEvent関数        *
+* マウスオーバーの処理カスタム版     *
+* 引数                               *
+* widget	: 描画領域のウィジェット *
+* event		: マウスの情報           *
+* window	: 描画領域の情報         *
+* 返り値                             *
+*	常にTRUE                         *
+*************************************/
+gboolean CustomMotionNotifyEvent(GtkWidget *widget, GdkEventMotion *event, DRAW_WINDOW* window)
+{
+	GdkModifierType state;
+	brush_update_func update_func = DefaultToolUpdate;
+	void *update_data = NULL;
+	gdouble pressure;
+	gdouble x, y, x0, y0;
+	gdouble rev_zoom = window->rev_zoom;
+	int update_window = 0;
+#if GTK_MAJOR_VERSION >= 3
+	GdkDevice *device;
+	GdkInputSource source;
+#endif
+	// 座標を取得
+	if(event->is_hint != 0)
+	{
+		gint get_x, get_y;
+#if GTK_MAJOR_VERSION <= 2
+		gdk_window_get_pointer(event->window, &get_x, &get_y, &state);
+#else
+		gdk_window_get_device_position(event->window, event->device,
+			&get_x, &get_y, &state);
+#endif
+		x0 = get_x, y0 = get_y;
+	}
+	else
+	{
+		state = event->state;
+		x0 = event->x;
+		y0 = event->y;
+	}
+
+	// 回転分を計算
+	window->cursor_x = (x0 - window->half_size) * window->cos_value
+		- (y0 - window->half_size) * window->sin_value + window->add_cursor_x;
+	window->cursor_y = (x0 - window->half_size) * window->sin_value
+		+ (y0 - window->half_size) * window->cos_value + window->add_cursor_y;
+	x = rev_zoom * window->cursor_x;
+	y = rev_zoom * window->cursor_y;
+
+	// 左右反転表示中ならばX座標を修正
+	if((window->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE) != 0)
+	{
+		x = window->width - x;
+		window->cursor_x = window->disp_layer->width - window->cursor_x;
+	}
+
+	// 入力デバイスの設定
+#if GTK_MAJOR_VERSION <= 2
+	if(event->device->source == GDK_SOURCE_ERASER)
+#else
+	device = gdk_event_get_device((GdkEvent*)event);
+	source = gdk_device_get_source(device);
+	if(source == GDK_SOURCE_ERASER)
+#endif
+	{
+		if(window->app->input == INPUT_PEN)
+		{
+			window->app->input = INPUT_ERASER;
+			gtk_widget_destroy(window->app->tool_window.detail_ui);
+			if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+				|| ((window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0))
+			{
+				gtk_toggle_button_set_active(
+					GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_ERASER]->button), TRUE);
+				window->app->tool_window.detail_ui =
+					window->app->tool_window.active_brush[INPUT_ERASER]->create_detail_ui(
+						window->app, window->app->tool_window.active_brush[INPUT_ERASER]);
+			}
+			else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+			{
+				gtk_toggle_button_set_active(
+					GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_ERASER]->button), TRUE);
+				window->app->tool_window.detail_ui =
+					window->app->tool_window.active_vector_brush[INPUT_ERASER]->create_detail_ui(
+						window->app, window->app->tool_window.active_vector_brush[INPUT_ERASER]);
+			}
+			// スクロールドウィンドウに入れる
+			gtk_scrolled_window_add_with_viewport(
+				GTK_SCROLLED_WINDOW(window->app->tool_window.detail_ui_scroll), window->app->tool_window.detail_ui);
+			gtk_widget_show_all(window->app->tool_window.detail_ui);
+		}
+	}
+	else
+	{
+		if(window->app->input != INPUT_PEN)
+		{
+			window->app->input = INPUT_PEN;
+			gtk_widget_destroy(window->app->tool_window.detail_ui);
+			if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+				|| ((window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0))
+			{
+				gtk_toggle_button_set_active(
+					GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_PEN]->button), TRUE);
+				window->app->tool_window.detail_ui =
+					window->app->tool_window.active_brush[INPUT_PEN]->create_detail_ui(
+						window->app, window->app->tool_window.active_brush[INPUT_PEN]);
+			}
+			else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+			{
+				gtk_toggle_button_set_active(
+					GTK_TOGGLE_BUTTON(window->app->tool_window.active_brush[INPUT_PEN]->button), TRUE);
+				window->app->tool_window.detail_ui =
+					window->app->tool_window.active_vector_brush[INPUT_PEN]->create_detail_ui(
+						window->app, window->app->tool_window.active_vector_brush[INPUT_PEN]);
+			}
+			// スクロールドウィンドウに入れる
+			gtk_scrolled_window_add_with_viewport(
+				GTK_SCROLLED_WINDOW(window->app->tool_window.detail_ui_scroll), window->app->tool_window.detail_ui);
+			gtk_widget_show_all(window->app->tool_window.detail_ui);
+		}
+	}
+
+	// 画面更新用のデータを取得
+	if(window->transform == NULL)
+	{
+		if((window->app->tool_window.flags & TOOL_USING_BRUSH) != 0)
+		{
+			if(window->active_layer->layer_type == TYPE_NORMAL_LAYER)
+			{
+				update_func = window->app->tool_window.active_brush[window->app->input]->motion_update;
+				update_data = window->app->tool_window.active_brush[window->app->input]->brush_data;
+			}
+			else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+			{
+				update_func = window->app->tool_window.active_vector_brush[window->app->input]->motion_update;
+				update_data = window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
+			}
+		}
+		else
+		{
+			update_func = window->app->tool_window.active_common_tool->motion_update;
+			update_data = window->app->tool_window.active_common_tool->tool_data;
+		}
+	}
+
+	// マウス以外なら筆圧を取得
+#if GTK_MAJOR_VERSION <= 2
+	if(event->device->source != GDK_SOURCE_MOUSE)
+	{
+		gdk_event_get_axis((GdkEvent*)event, GDK_AXIS_PRESSURE, &pressure);
+#else
+	if(gdk_device_get_axis(device, event->axes, GDK_AXIS_PRESSURE, &pressure) != FALSE)
+	{
+#endif
+		if((window->state & GDK_BUTTON1_MASK) == 0)
+		{
+			if(pressure > MINIMUM_PRESSURE)
+			{
+				GdkEventButton button = {0};
+				button.button = 1;
+				button.state = GDK_BUTTON1_MASK | state;
+				button.device = event->device;
+
+				window->state |= GDK_BUTTON1_MASK;
+				window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+
+				// 手ブレ補正実行
+				if(window->app->tool_window.smoother.num_use != 0
+					&& (window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) == 0)
+				{
+					if(window->app->tool_window.smoother.mode == SMOOTH_GAUSSIAN)
+					{
+						Smooth(&window->app->tool_window.smoother, &x, &y, event->time, window->rev_zoom);
+					}
+					else
+					{
+						window->app->tool_window.smoother.last_draw_point.x = x0;
+						window->app->tool_window.smoother.last_draw_point.y = y0;
+						(void)AddAverageSmoothPoint(&window->app->tool_window.smoother,
+							&x, &y, &pressure, window->rev_zoom);
+					}
+				}
+
+				SetPerspectiveRulerClickPoint(&window->perspective_ruler, x, y);
+
+				if(window->transform != NULL)
+				{
+					TransformButtonPress(window->transform, x, y);
+					goto func_end;
+				}
+
+				if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+				{
+					window->app->tool_window.active_common_tool->press_func(
+						window, x, y, window->app->tool_window.active_common_tool, (void*)&button);
+				}
+				else
+				{
+					if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+						|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+					{
+						if((state & GDK_CONTROL_MASK) == 0)
+						{
+							if((state & GDK_SHIFT_MASK) == 0)
+							{
+								window->app->tool_window.active_brush[window->app->input]->press_func(
+									window, x, y, pressure, window->app->tool_window.active_brush[window->app->input], (void*)&button
+								);
+							}
+							else
+							{
+								// シフトキーが押されているので直線で処理
+								FLOAT_T d;
+								FLOAT_T dx = x - window->last_x;
+								FLOAT_T dy = y - window->last_y;
+								d = sqrt(dx*dx + dy*dy);
+								dx = dx / d,	dy = dy / d;
+
+								window->last_x += dx;
+								window->last_y += dy;
+								d -= 1;
+
+								if((window->flags & DRAW_WINDOW_DRAWING_STRAIGHT) == 0)
+								{
+									window->app->tool_window.active_brush[window->app->input]->press_func(
+										window, window->last_x, window->last_y, pressure, window->app->tool_window.active_brush[window->app->input], (void*)event);
+									window->flags |= DRAW_WINDOW_DRAWING_STRAIGHT;
+								}
+
+								while(d >= 1)
+								{
+									window->last_x += dx;
+									window->last_y += dy;
+
+									window->app->tool_window.active_brush[window->app->input]->motion_func(
+										window, window->last_x, window->last_y, pressure,
+											window->app->tool_window.active_brush[window->app->input], (void*)(&window->state));
+
+									d -= 1;
+								}
+								window->app->tool_window.active_brush[window->app->input]->motion_func(
+									window, x, y, pressure, window->app->tool_window.active_brush[window->app->input], (void*)(&window->state));
+
+								window->state &= ~(GDK_BUTTON1_MASK);
+								window->last_x = x,	window->last_y = y;
+								window->last_pressure = pressure;
+
+								gtk_widget_queue_draw(window->window);
+							}
+						}
+						else
+						{
+							window->app->tool_window.color_picker_core.press_func(
+								window, x, y, &window->app->tool_window.color_picker_core, (void*)&button
+							);
+						}
+					}
+					else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+					{
+						if((event->state & GDK_SHIFT_MASK) != 0)
+						{
+							window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+							window->app->tool_window.vector_control_core.press_func(
+								window, x, y, pressure, &window->app->tool_window.vector_control_core, (void*)&button
+							);
+						}
+						else if((event->state & GDK_CONTROL_MASK) != 0)
+						{
+							window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+							window->app->tool_window.vector_control_core.press_func(
+								window, x, y, pressure, &window->app->tool_window.vector_control_core, (void*)&button
+							);
+						}
+						else
+						{
+							window->app->tool_window.active_vector_brush[window->app->input]->press_func(
+								window, x, y, pressure, window->app->tool_window.active_vector_brush[window->app->input], (void*)&button
+							);
+						}
+					}
+					else
+					{
+						TextLayerButtonPressCallBack(window, x, y, &button);
+					}
+				}
+
+				goto func_end;
+			}
+		}
+		else
+		{
+			if(pressure <= RELEASE_PRESSURE)
+			{
+				GdkEventButton button = {0};
+				button.button = 1;
+				button.state = GDK_BUTTON1_MASK | state;
+				button.device = event->device;
+
+				window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+
+				if(window->app->tool_window.smoother.num_use > 0 &&
+					window->app->tool_window.smoother.mode != SMOOTH_GAUSSIAN)
+				{
+					FLOAT_T motion_x, motion_y, motion_pressure;
+					FLOAT_T update_x, update_y;
+					gboolean finish;
+
+					if(AddAverageSmoothPoint(&window->app->tool_window.smoother, &x, &y,
+						&pressure, 0) != FALSE)
+					{
+						FLOAT_T in_x = x,	in_y = y;
+						GetPerspectiveRulerPoint(&window->perspective_ruler, in_x, in_y, &x, &y);
+
+						if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+							|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+						{
+							window->app->tool_window.active_brush[window->app->input]->motion_func(
+								window, x, y, pressure,
+									window->app->tool_window.active_brush[window->app->input], (void*)(&window->state)
+							);
+						}
+						else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+						{
+							if((state & GDK_SHIFT_MASK) != 0)
+							{
+								/*
+								window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+								window->app->tool_window.vector_control_core.motion_func(
+									window, x, y, pressure, &window->app->tool_window.vector_control_core, (void*)(&window->state)
+								);*/
+							}
+							else if((event->state & GDK_CONTROL_MASK) != 0 ||
+								(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+							{
+								/*
+								window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+								window->app->tool_window.vector_control_core.motion_func(
+									window, x, y, motion_pressure,
+										&window->app->tool_window.vector_control_core, (void*)(&window->state)
+								);*/
+							}
+							else
+							{
+								window->app->tool_window.active_vector_brush[window->app->input]->motion_func(
+									window, x, y, pressure,
+										window->app->tool_window.active_vector_brush[window->app->input], (void*)(&window->state)
+								);
+							}
+						}
+						else
+						{
+							TextLayerMotionCallBack(window, x, y, event->state);
+						}
+
+						window->before_cursor_x = window->app->tool_window.smoother.last_draw_point.x;
+						window->before_cursor_y = window->app->tool_window.smoother.last_draw_point.y;
+						update_x = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+							+ window->rev_add_cursor_x;
+						update_y = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+							+ window->rev_add_cursor_y;
+						update_func(window, update_x, update_y, update_data);
+						window->app->tool_window.smoother.last_draw_point.x = update_x;
+						window->app->tool_window.smoother.last_draw_point.y = update_y;
+					}
+
+					do
+					{
+						FLOAT_T in_x = x,	in_y = y;
+						finish = AverageSmoothFlush(&window->app->tool_window.smoother,
+							&motion_x, &motion_y, &motion_pressure);
+						GetPerspectiveRulerPoint(&window->perspective_ruler, in_x, in_y, &x, &y);
+
+						if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+						{
+							window->app->tool_window.active_common_tool->motion_func(
+								window, motion_x, motion_y, window->app->tool_window.active_common_tool,
+									(void*)(&window->state) );
+						}
+						else
+						{
+							if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+								|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+							{
+								window->app->tool_window.active_brush[window->app->input]->motion_func(
+									window, motion_x, motion_y, motion_pressure,
+										window->app->tool_window.active_brush[window->app->input], (void*)(&window->state)
+								);
+							}
+							else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+							{
+								if((state & GDK_SHIFT_MASK) != 0)
+								{
+									/*
+									window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+									window->app->tool_window.vector_control_core.motion_func(
+										window, motion_x, motion_y, motion_pressure, &window->app->tool_window.vector_control_core, (void*)(&window->state)
+									);*/
+								}
+								else if((event->state & GDK_CONTROL_MASK) != 0 ||
+									(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+								{
+									/*
+									window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+									window->app->tool_window.vector_control_core.motion_func(
+										window, motion_x, motion_y, motion_pressure,
+											&window->app->tool_window.vector_control_core, (void*)(&window->state)
+									);*/
+								}
+								else
+								{
+									window->app->tool_window.active_vector_brush[window->app->input]->motion_func(
+										window, motion_x, motion_y, motion_pressure,
+											window->app->tool_window.active_vector_brush[window->app->input], (void*)(&window->state)
+									);
+								}
+							}
+							else
+							{
+								TextLayerMotionCallBack(window, motion_x, motion_y, event->state);
+							}
+						}
+
+						window->before_cursor_x = window->app->tool_window.smoother.last_draw_point.x;
+						window->before_cursor_y = window->app->tool_window.smoother.last_draw_point.y;
+						update_x = ((motion_x-window->width/2)*window->cos_value + (motion_y-window->height/2)*window->sin_value) * window->zoom_rate
+							+ window->rev_add_cursor_x;
+						update_y = (- (motion_x-window->width/2)*window->sin_value + (motion_y-window->height/2)*window->cos_value) * window->zoom_rate
+							+ window->rev_add_cursor_y;
+						update_func(window, update_x, update_y, update_data);
+						window->app->tool_window.smoother.last_draw_point.x = update_x;
+						window->app->tool_window.smoother.last_draw_point.y = update_y;
+					} while(finish == FALSE);
+				}
+
+				INIT_SMOOTHER(window->app->tool_window.smoother);
+
+				// ボタン状態もリセット
+				window->state &= ~(GDK_BUTTON1_MASK);
+
+				if(window->transform != NULL)
+				{
+					window->transform->trans_point = TRANSFORM_POINT_NONE;
+					goto func_end;
+				}
+
+				if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+				{
+					window->app->tool_window.active_common_tool->release_func(
+						window, x, y,
+						window->app->tool_window.active_common_tool, (void*)&button
+					);
+				}
+				else
+				{
+					if(window->active_layer->layer_type == TYPE_NORMAL_LAYER)
+					{
+						window->app->tool_window.active_brush[window->app->input]->release_func(
+							window, x, y, pressure,
+							window->app->tool_window.active_brush[window->app->input], (void*)&button
+						);
+					}
+					else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+					{
+						if((event->state & GDK_SHIFT_MASK) != 0)
+						{
+							window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+							window->app->tool_window.vector_control_core.release_func(
+									window, x, y,
+								pressure, &window->app->tool_window.vector_control_core, (void*)&button
+							);
+						}
+						else if((state & GDK_CONTROL_MASK) != 0 ||
+							(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+						{
+							window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+							window->app->tool_window.vector_control_core.release_func(
+								window, x,y,
+									pressure, &window->app->tool_window.vector_control_core, (void*)&button
+						);
+						}
+						else
+						{
+							window->app->tool_window.active_vector_brush[window->app->input]->release_func(
+								window, x, y,
+								pressure, window->app->tool_window.active_vector_brush[window->app->input], (void*)&button
+							);
+						}
+					}
+					else if(window->active_layer->layer_type == TYPE_TEXT_LAYER)
+					{
+						TextLayerButtonReleaseCallBack(window, x, y, &button);
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		pressure = 1.0;
+
+		if((state & GDK_BUTTON1_MASK) == 0 && (window->state & GDK_BUTTON1_MASK) != 0)
+		{
+			GdkEventButton button = {0};
+			button.button = 1;
+			button.state = GDK_BUTTON1_MASK | state;
+			button.device = event->device;
+
+			window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+
+			if(window->app->tool_window.smoother.num_use > 0 &&
+				window->app->tool_window.smoother.mode != SMOOTH_GAUSSIAN)
+			{
+				FLOAT_T motion_x, motion_y, motion_pressure;
+				FLOAT_T update_x, update_y;
+				gboolean finish;
+
+				if(AddAverageSmoothPoint(&window->app->tool_window.smoother, &x, &y,
+					&pressure, 0) != FALSE)
+				{
+					FLOAT_T in_x = x,	in_y = y;
+					GetPerspectiveRulerPoint(&window->perspective_ruler, in_x, in_y, &x, &y);
+
+					if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+						|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+					{
+						window->app->tool_window.active_brush[window->app->input]->motion_func(
+							window, x, y, pressure,
+								window->app->tool_window.active_brush[window->app->input], (void*)(&window->state)
+						);
+					}
+					else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+					{
+						if((state & GDK_SHIFT_MASK) != 0)
+						{
+							/*
+							window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+							window->app->tool_window.vector_control_core.motion_func(
+								window, x, y, pressure, &window->app->tool_window.vector_control_core, (void*)(&window->state)
+							);*/
+						}
+						else if((event->state & GDK_CONTROL_MASK) != 0 ||
+							(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+						{
+							/*
+							window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+							window->app->tool_window.vector_control_core.motion_func(
+								window, x, y, motion_pressure,
+									&window->app->tool_window.vector_control_core, (void*)(&window->state)
+							);*/
+						}
+						else
+						{
+							window->app->tool_window.active_vector_brush[window->app->input]->motion_func(
+								window, x, y, pressure,
+									window->app->tool_window.active_vector_brush[window->app->input], (void*)(&window->state)
+							);
+						}
+					}
+					else
+					{
+						TextLayerMotionCallBack(window, x, y, event->state);
+					}
+
+					window->before_cursor_x = window->app->tool_window.smoother.last_draw_point.x;
+					window->before_cursor_y = window->app->tool_window.smoother.last_draw_point.y;
+					update_x = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+						+ window->rev_add_cursor_x;
+					update_y = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+						+ window->rev_add_cursor_y;
+					update_func(window, update_x, update_y, update_data);
+					window->app->tool_window.smoother.last_draw_point.x = update_x;
+					window->app->tool_window.smoother.last_draw_point.y = update_y;
+				}
+
+				do
+				{
+					FLOAT_T in_x = x,	in_y = y;
+					finish = AverageSmoothFlush(&window->app->tool_window.smoother,
+						&motion_x, &motion_y, &motion_pressure);
+					GetPerspectiveRulerPoint(&window->perspective_ruler, in_x, in_y, &x, &y);
+
+					if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+					{
+						window->app->tool_window.active_common_tool->motion_func(
+							window, motion_x, motion_y, window->app->tool_window.active_common_tool,
+								(void*)(&window->state) );
+					}
+					else
+					{
+						if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+							|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+						{
+							window->app->tool_window.active_brush[window->app->input]->motion_func(
+								window, motion_x, motion_y, motion_pressure,
+									window->app->tool_window.active_brush[window->app->input], (void*)(&window->state)
+							);
+						}
+						else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+						{
+							if((state & GDK_SHIFT_MASK) != 0)
+							{
+								/*
+								window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+								window->app->tool_window.vector_control_core.motion_func(
+									window, motion_x, motion_y, motion_pressure, &window->app->tool_window.vector_control_core, (void*)(&window->state)
+								);
+								*/
+							}
+							else if((event->state & GDK_CONTROL_MASK) != 0 ||
+								(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+							{
+								/*
+								window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+								window->app->tool_window.vector_control_core.motion_func(
+									window, motion_x, motion_y, motion_pressure,
+										&window->app->tool_window.vector_control_core, (void*)(&window->state)
+								);
+								*/
+							}
+							else
+							{
+								window->app->tool_window.active_vector_brush[window->app->input]->motion_func(
+									window, motion_x, motion_y, motion_pressure,
+										window->app->tool_window.active_vector_brush[window->app->input], (void*)(&window->state)
+								);
+							}
+						}
+						else
+						{
+							TextLayerMotionCallBack(window, motion_x, motion_y, event->state);
+						}
+					}
+
+					window->before_cursor_x = window->app->tool_window.smoother.last_draw_point.x;
+					window->before_cursor_y = window->app->tool_window.smoother.last_draw_point.y;
+					update_x = ((motion_x-window->width/2)*window->cos_value + (motion_y-window->height/2)*window->sin_value) * window->zoom_rate
+						+ window->rev_add_cursor_x;
+					update_y = (- (motion_x-window->width/2)*window->sin_value + (motion_y-window->height/2)*window->cos_value) * window->zoom_rate
+						+ window->rev_add_cursor_y;
+					update_func(window, update_x, update_y, update_data);
+					window->app->tool_window.smoother.last_draw_point.x = update_x;
+					window->app->tool_window.smoother.last_draw_point.y = update_y;
+				} while(finish == FALSE);
+			}
+
+			INIT_SMOOTHER(window->app->tool_window.smoother);
+
+			// ボタン状態もリセット
+			window->state &= ~(GDK_BUTTON1_MASK);
+
+			if(window->transform != NULL)
+			{
+				window->transform->trans_point = TRANSFORM_POINT_NONE;
+				update_func(window, x0, y0, update_data);
+				goto func_end;
+			}
+
+			if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+			{
+				window->app->tool_window.active_common_tool->release_func(
+					window, x, y,
+					window->app->tool_window.active_common_tool, (void*)&button
+				);
+			}
+			else
+			{
+				if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+					|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+				{
+					window->app->tool_window.active_brush[window->app->input]->release_func(
+						window, x, y, pressure,
+						window->app->tool_window.active_brush[window->app->input], (void*)&button
+					);
+				}
+				else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+				{
+					if((event->state & GDK_SHIFT_MASK) != 0)
+					{
+						window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+						window->app->tool_window.vector_control_core.release_func(
+							window, x, y,
+						pressure, &window->app->tool_window.vector_control_core, (void*)&button
+						);
+					}
+					else if((state & GDK_CONTROL_MASK) != 0 ||
+						(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+					{
+						window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+						window->app->tool_window.vector_control_core.release_func(
+							window, x,y,
+								pressure, &window->app->tool_window.vector_control_core, (void*)&button
+						);
+					}
+					else
+					{
+						window->app->tool_window.active_vector_brush[window->app->input]->release_func(
+							window, x, y,
+							pressure, window->app->tool_window.active_vector_brush[window->app->input], (void*)&button
+						);
+					}
+				}
+			}
+
+			update_func(window, x, y, update_data);
+			window->last_x = x,	window->last_y = y;
+
+			goto func_end;
+		}
+	}
+
+	// 筆圧が下限値未満なら修正
+	if(pressure < MINIMUM_PRESSURE)
+	{
+		pressure = MINIMUM_PRESSURE;
+	}
+
+	// 手ブレ補正実行
+	if((window->state & GDK_BUTTON1_MASK) != 0)
+	{
+#define DISPLAY_UPDATE_DISTANCE 4
+		if(fabs(window->before_x-x0)+fabs(window->before_y-y0) > DISPLAY_UPDATE_DISTANCE)
+		{
+			update_window++;
+			window->before_x = x0, window->before_y = y0;
+		}
+
+		if(window->transform != NULL)
+		{
+			TransformMotionNotifyCallBack(window, window->transform, x, y, &window->state);
+			update_func(window, x0, y0, update_data);
+			goto func_end;
+		}
+		else
+		{
+			window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+			if(window->app->tool_window.smoother.num_use != 0
+				&& (window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) == 0)
+			{
+				if(window->app->tool_window.smoother.mode == SMOOTH_GAUSSIAN)
+				{
+					Smooth(&window->app->tool_window.smoother, &x, &y, event->time, window->rev_zoom);
+				}
+				else
+				{
+					FLOAT_T in_x = x,	in_y = y;
+					if(AddAverageSmoothPoint(&window->app->tool_window.smoother,
+						&x, &y, &pressure, window->rev_zoom) == FALSE)
+					{
+						window->flags &= ~(DRAW_WINDOW_UPDATE_ACTIVE_OVER);
+						goto func_end;
+					}
+					GetPerspectiveRulerPoint(&window->perspective_ruler, in_x, in_y, &x, &y);
+
+					window->before_cursor_x = window->app->tool_window.smoother.last_draw_point.x;
+					window->before_cursor_y = window->app->tool_window.smoother.last_draw_point.y;
+					x0 = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+						+ window->rev_add_cursor_x;
+					y0 = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+						+ window->rev_add_cursor_y;
+					window->app->tool_window.smoother.last_draw_point.x = x0;
+					window->app->tool_window.smoother.last_draw_point.y = y0;
+				}
+			}
+		}
+	}
+	else if(window->transform != NULL)
+	{
+		goto func_end;
+	}
+
+	{
+		FLOAT_T in_x = x,	in_y = y;
+		GetPerspectiveRulerPoint(&window->perspective_ruler, in_x, in_y, &x, &y);
+	}
+
+	if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+	{
+		window->app->tool_window.active_common_tool->motion_func(
+			window, x, y, window->app->tool_window.active_common_tool,
+			(void*)(&window->state) );
+	}
+	else
+	{
+		if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+			|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+		{
+			window->app->tool_window.active_brush[window->app->input]->motion_func(
+				window, x, y, pressure, window->app->tool_window.active_brush[window->app->input], (void*)(&window->state)
+			);
+		}
+		else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+		{
+			if((state & GDK_SHIFT_MASK) != 0)
+			{
+				window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+				window->app->tool_window.vector_control_core.motion_func(
+					window, x, y, pressure, &window->app->tool_window.vector_control_core, (void*)(&window->state)
+				);
+				update_func = window->app->tool_window.vector_control_core.motion_update;
+			}
+			else if((state & GDK_CONTROL_MASK) != 0 ||
+				(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+			{
+				window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+				window->app->tool_window.vector_control_core.motion_func(
+					window, x, y, pressure, &window->app->tool_window.vector_control_core, (void*)(&window->state)
+				);
+				update_func = window->app->tool_window.vector_control_core.motion_update;
+			}
+			else
+			{
+				window->app->tool_window.active_vector_brush[window->app->input]->motion_func(
+					window, x, y, pressure, window->app->tool_window.active_vector_brush[window->app->input], (void*)(&window->state)
+				);
+			}
+		}
+		else
+		{
+			TextLayerMotionCallBack(window, x, y, state);
+		}
+	}
+
+	window->state = (state & (~(GDK_BUTTON1_MASK))) | (window->state & GDK_BUTTON1_MASK);
+
+	update_func(window, x0, y0, update_data);
+
+func_end:
+	if(update_window != 0)
+	{
+		GdkEvent *queued_event = NULL;
+
+		while(gdk_events_pending() != FALSE)
+		{
+			queued_event = gdk_event_get();
+			gtk_main_iteration();
+			if(queued_event != NULL)
+			{
+				if(queued_event->any.type == GDK_EXPOSE)
+				{
+					gdk_event_free(queued_event);
+					break;
+				}
+				else
+				{
+					gdk_event_free(queued_event);
+				}
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+
+	// ここでflushしないと色変更ツール使用時に読み込みエラーになる…　なんで? (12年11月18日)
+	(void)fflush(stdout);
+
+	window->before_cursor_x = x0;
+	window->before_cursor_y = y0;
+
+	if(event->is_hint != FALSE)
+	{
+		gdk_event_request_motions(event);
+	}
+
+	return TRUE;
+}
+
+gboolean CustomButtonReleaseEvent(GtkWidget *widget, GdkEventButton *event, DRAW_WINDOW* window)
+{
+	brush_update_func update_func = DefaultToolUpdate;
+	void *update_data = NULL;
+	gdouble pressure;
+	gdouble x, y;
+#if GTK_MAJOR_VERSION >= 3
+	GdkDevice *device;
+	GdkInputSource source;
+#endif
+
+	// 画面更新用のデータを取得
+	if(window->transform == NULL)
+	{
+		if((window->app->tool_window.flags & TOOL_USING_BRUSH) != 0)
+		{
+			if(window->active_layer->layer_type == TYPE_NORMAL_LAYER)
+			{
+				update_func = window->app->tool_window.active_brush[window->app->input]->motion_update;
+				update_data = window->app->tool_window.active_brush[window->app->input]->brush_data;
+			}
+			else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+			{
+				update_func = window->app->tool_window.active_vector_brush[window->app->input]->motion_update;
+				update_data = window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
+			}
+		}
+		else
+		{
+			update_func = window->app->tool_window.active_common_tool->motion_update;
+			update_data = window->app->tool_window.active_common_tool->tool_data;
+		}
+	}
+
+	if((window->state & GDK_BUTTON1_MASK) == 0)
+	{
+		return TRUE;
+	}
+
+	window->cursor_x = (event->x - window->half_size) * window->cos_value
+		- (event->y - window->half_size) * window->sin_value + window->add_cursor_x;
+	window->cursor_y = (event->x - window->half_size) * window->sin_value
+		+ (event->y - window->half_size) * window->cos_value + window->add_cursor_y;
+	x = window->rev_zoom * window->cursor_x;
+	y = window->rev_zoom * window->cursor_y;
+
+	// 左右反転表示中ならばX座標を修正
+	if((window->flags & DRAW_WINDOW_DISPLAY_HORIZON_REVERSE) != 0)
+	{
+		x = window->width - x;
+		window->cursor_x = window->disp_layer->width - window->cursor_x;
+	}
+
+	{
+		FLOAT_T in_x = x,	in_y = y;
+		GetPerspectiveRulerPoint(&window->perspective_ruler, in_x, in_y, &x, &y);
+	}
+
+	// マウス以外なら筆圧を取得
+#if GTK_MAJOR_VERSION <= 2
+	if(event->device->source != GDK_SOURCE_MOUSE)
+	{
+		gdk_event_get_axis((GdkEvent*)event, GDK_AXIS_PRESSURE, &pressure);
+	}
+	else
+#else
+	device = gdk_event_get_device((GdkEvent*)event);
+	source = gdk_device_get_source(device);
+	if(gdk_device_get_axis(device, event->axes, GDK_AXIS_PRESSURE, &pressure) == FALSE)
+#endif
+	{	// マウスなら筆圧は最大に
+		pressure = 1.0;
+	}
+
+	// 筆圧が下限値未満なら修正
+	if(pressure < MINIMUM_PRESSURE)
+	{
+		pressure = MINIMUM_PRESSURE;
+	}
+
+	// 手ブレ補正データの初期化
+	if(event->button == 1)
+	{
+		if(window->app->tool_window.smoother.num_use > 0 &&
+			window->app->tool_window.smoother.mode != SMOOTH_GAUSSIAN)
+		{
+			FLOAT_T motion_x, motion_y, motion_pressure;
+			FLOAT_T update_x, update_y;
+			gboolean finish;
+
+			if(AddAverageSmoothPoint(&window->app->tool_window.smoother, &x, &y,
+				&pressure, 0) != FALSE)
+			{
+				FLOAT_T in_x = x,	in_y = y;
+				GetPerspectiveRulerPoint(&window->perspective_ruler, in_x, in_y, &x, &y);
+
+				if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+					|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+				{
+					window->app->tool_window.active_brush[window->app->input]->motion_func(
+						window, x, y, pressure,
+							window->app->tool_window.active_brush[window->app->input], (void*)(&window->state)
+					);
+				}
+				else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+				{
+					if((event->state & GDK_SHIFT_MASK) != 0)
+					{
+						/*
+						window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+						window->app->tool_window.vector_control_core.motion_func(
+							window, x, y, pressure, &window->app->tool_window.vector_control_core, (void*)(&window->state)
+						);*/
+					}
+					else if((event->state & GDK_CONTROL_MASK) != 0 ||
+						(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+					{
+						/*
+						window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+						window->app->tool_window.vector_control_core.motion_func(
+							window, x, y, motion_pressure,
+								&window->app->tool_window.vector_control_core, (void*)(&window->state)
+						);*/
+					}
+					else
+					{
+						window->app->tool_window.active_vector_brush[window->app->input]->motion_func(
+							window, x, y, pressure,
+								window->app->tool_window.active_vector_brush[window->app->input], (void*)(&window->state)
+						);
+					}
+				}
+				else
+				{
+					TextLayerMotionCallBack(window, x, y, event->state);
+				}
+
+				window->before_cursor_x = window->app->tool_window.smoother.last_draw_point.x;
+				window->before_cursor_y = window->app->tool_window.smoother.last_draw_point.y;
+				update_x = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+					+ window->rev_add_cursor_x;
+				update_y = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+					+ window->rev_add_cursor_y;
+				update_func(window, update_x, update_y, update_data);
+				window->app->tool_window.smoother.last_draw_point.x = update_x;
+				window->app->tool_window.smoother.last_draw_point.y = update_y;
+			}
+
+			do
+			{
+				FLOAT_T in_x = x,	in_y = y;
+				finish = AverageSmoothFlush(&window->app->tool_window.smoother,
+					&motion_x, &motion_y, &motion_pressure);
+				GetPerspectiveRulerPoint(&window->perspective_ruler, in_x, in_y, &x, &y);
+
+				if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+				{
+					window->app->tool_window.active_common_tool->motion_func(
+						window, motion_x, motion_y, window->app->tool_window.active_common_tool,
+							(void*)(&window->state) );
+				}
+				else
+				{
+					if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+						|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+					{
+						window->app->tool_window.active_brush[window->app->input]->motion_func(
+							window, motion_x, motion_y, motion_pressure,
+								window->app->tool_window.active_brush[window->app->input], (void*)(&window->state)
+						);
+					}
+					else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+					{
+						if((event->state & GDK_SHIFT_MASK) != 0)
+						{
+							/*
+							window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+							window->app->tool_window.vector_control_core.motion_func(
+								window, motion_x, motion_y, motion_pressure, &window->app->tool_window.vector_control_core, (void*)(&window->state)
+							);
+							*/
+						}
+						else if((event->state & GDK_CONTROL_MASK) != 0 ||
+							(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+						{
+							/*
+							window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+							window->app->tool_window.vector_control_core.motion_func(
+								window, motion_x, motion_y, motion_pressure,
+									&window->app->tool_window.vector_control_core, (void*)(&window->state)
+							);
+							*/
+						}
+						else
+						{
+							window->app->tool_window.active_vector_brush[window->app->input]->motion_func(
+								window, motion_x, motion_y, motion_pressure,
+									window->app->tool_window.active_vector_brush[window->app->input], (void*)(&window->state)
+							);
+						}
+					}
+					else
+					{
+						TextLayerMotionCallBack(window, motion_x, motion_y, event->state);
+					}
+				}
+
+				window->before_cursor_x = window->app->tool_window.smoother.last_draw_point.x;
+				window->before_cursor_y = window->app->tool_window.smoother.last_draw_point.y;
+				update_x = ((motion_x-window->width/2)*window->cos_value + (motion_y-window->height/2)*window->sin_value) * window->zoom_rate
+					+ window->rev_add_cursor_x;
+				update_y = (- (motion_x-window->width/2)*window->sin_value + (motion_y-window->height/2)*window->cos_value) * window->zoom_rate
+					+ window->rev_add_cursor_y;
+				update_func(window, update_x, update_y, update_data);
+				window->app->tool_window.smoother.last_draw_point.x = update_x;
+				window->app->tool_window.smoother.last_draw_point.y = update_y;
+			} while(finish == FALSE);
+		}
+
+		INIT_SMOOTHER(window->app->tool_window.smoother);
+
+		// ボタン状態をリセット
+		window->state &= ~(GDK_BUTTON1_MASK);
+
+		// 座標を記憶
+		window->last_x = x,	window->last_y = y;
+	}
+
+	if(window->transform != NULL)
+	{
+		window->transform->trans_point = TRANSFORM_POINT_NONE;
+		update_func(window, event->x, event->y, update_data);
+		goto func_end;
+	}
+
+	if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+	{
+		window->app->tool_window.active_common_tool->release_func(
+			window, x, y,
+			window->app->tool_window.active_common_tool, (void*)event
+		);
+	}
+	else
+	{
+		if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+			|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+		{
+			window->app->tool_window.active_brush[window->app->input]->release_func(
+				window, x, y, pressure,
+				window->app->tool_window.active_brush[window->app->input], (void*)event
+			);
+		}
+		else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+		{
+			if((event->state & GDK_SHIFT_MASK) != 0)
+			{
+				window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+				window->app->tool_window.vector_control_core.release_func(
+					window, x, y,
+					pressure, &window->app->tool_window.vector_control_core, (void*)event
+				);
+			}
+			else if((event->state & GDK_CONTROL_MASK) != 0 ||
+				(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+			{
+				window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+				window->app->tool_window.vector_control_core.release_func(
+					window, x,y,
+					pressure, &window->app->tool_window.vector_control_core, (void*)event
+				);
+			}
+			else
+			{
+				window->app->tool_window.active_vector_brush[window->app->input]->release_func(
+					window, x, y,
+					pressure, window->app->tool_window.active_vector_brush[window->app->input], (void*)event
+				);
+			}
+		}
+		else if(window->active_layer->layer_type == TYPE_TEXT_LAYER)
+		{
+			TextLayerButtonReleaseCallBack(window, x, y, event);
+		}
+	}
+
+	update_func(window, event->x, event->y, update_data);
+
+func_end:
+	window->before_cursor_x = event->x;
+	window->before_cursor_y = event->y;
+
+	window->state = event->state & ~(GDK_BUTTON1_MASK);
 
 	return TRUE;
 }
