@@ -267,6 +267,48 @@ void AddBrushHistory(
 		BrushCoreUndoRedo
 	);
 	(void)DeleteMemoryStream(stream);
+
+	{
+		DRAW_WINDOW *window;
+		FLOAT_T x0, y0, x1, y1;
+		FLOAT_T start_x, start_y;
+		FLOAT_T width, height;
+
+		window = GetActiveDrawWindow(core->app);
+		x0 = ((core->min_x-window->width/2)*window->cos_value + (core->min_y-window->height/2)*window->sin_value) * window->zoom_rate
+			+ window->rev_add_cursor_x;
+		y0 = (- (core->min_x-window->width/2)*window->sin_value + (core->min_y-window->height/2)*window->cos_value) * window->zoom_rate
+			+ window->rev_add_cursor_y;
+
+		x1 = ((core->max_x-window->width/2)*window->cos_value + (core->max_y-window->height/2)*window->sin_value) * window->zoom_rate
+			+ window->rev_add_cursor_x;
+		y1 = (- (core->max_x-window->width/2)*window->sin_value + (core->max_y-window->height/2)*window->cos_value) * window->zoom_rate
+			+ window->rev_add_cursor_y;
+
+		if(x0 < x1)
+		{
+			start_x = x0;
+			width = x1 - x0;
+		}
+		else
+		{
+			start_x = x1;
+			width = x0 - x1;
+		}
+
+		if(y0 < y1)
+		{
+			start_y = y0;
+			height = y1 - y0;
+		}
+		else
+		{
+			start_y = y1;
+			height = y0 - y1;
+		}
+
+		gtk_widget_queue_draw_area(window->window, (int)start_x, (int)start_y, (int)width, (int)height);
+	}
 }
 
 void BrushCoreUndoRedo(DRAW_WINDOW* window, void* p)
@@ -1576,7 +1618,7 @@ void AdaptNormalBrush(
 	{
 		ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
 			width + 3, height + 3};
-		AntiAliasLayer(window->work_layer, window->temp_layer, &range);
+		OldAntiAliasLayer(window->work_layer, window->temp_layer, &range, (void*)window->app);
 	}
 }
 
@@ -1618,8 +1660,8 @@ void AdaptBlendBrush(
 	{
 		ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
 			width + 3, height + 3};
-		AntiAliasLayer((draw_pixel == window->mask_temp->pixels) ? window->mask_temp : window->temp_layer,
-			window->mask, &range);
+		OldAntiAliasLayer((draw_pixel == window->mask_temp->pixels) ? window->mask_temp : window->temp_layer,
+			window->mask, &range, (void*)window->app);
 	}
 
 	for(i=0; i<height; i++)
@@ -1879,7 +1921,8 @@ void AdaptPickerBrush(
 				&window->active_layer->pixels[(start_y+i)*layer_stride+start_x+4], stride);
 		}
 		target = window->mask;
-		window->part_layer_blend_functions[blend_mode](window->work_layer, &rectangle);
+		window->part_layer_blend_functions[blend_mode](
+			window->work_layer, window->active_layer, &rectangle);
 	}
 	else
 	{
@@ -2043,8 +2086,8 @@ void AdaptPickerBrush(
 	{
 		ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
 			width + 3, height + 3};
-		AntiAliasLayer((draw_pixel == window->mask_temp->pixels) ? window->mask_temp : window->temp_layer,
-			window->mask, &range);
+		OldAntiAliasLayer((draw_pixel == window->mask_temp->pixels) ? window->mask_temp : window->temp_layer,
+			window->mask, &range, (void*)window->app);
 	}
 }
 

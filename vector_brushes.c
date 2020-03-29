@@ -308,7 +308,7 @@ static void PolyLinePressureScaleChange(
 	}
 }
 
-static void PolyLineSetAntiAlias(
+static void PolyLineSetOldAntiAlias(
 	GtkWidget* widget,
 	POLY_LINE_BRUSH* line
 )
@@ -458,7 +458,7 @@ static GtkWidget* CreatePolyLineDetailUI(APPLICATION* app, void* data)
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
-	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(PolyLineSetAntiAlias), data);
+	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(PolyLineSetOldAntiAlias), data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button),
 		line->flags & POLY_LINE_ANTI_ALIAS);
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
@@ -748,7 +748,7 @@ static void BezierLinePressureScaleChange(
 	}
 }
 
-static void BezierLineSetAntiAlias(
+static void BezierLineSetOldAntiAlias(
 	GtkWidget* widget,
 	BEZIER_LINE_BRUSH* line
 )
@@ -898,7 +898,7 @@ static GtkWidget* CreateBezierLineDetailUI(APPLICATION* app, void* data)
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
-	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(BezierLineSetAntiAlias), data);
+	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(BezierLineSetOldAntiAlias), data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button),
 		line->flags & BEZIER_LINE_ANTI_ALIAS);
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
@@ -1550,7 +1550,7 @@ static void ChangeFreeHandPressureSize(
 	}
 }
 
-static void ChangeFreeHandSetAntiAlias(
+static void ChangeFreeHandSetOldAntiAlias(
 	GtkWidget* widget,
 	FREE_HAND_BRUSH* free_hand
 )
@@ -1699,7 +1699,7 @@ static GtkWidget* CreateFreeHandDetailUI(APPLICATION* app, void* data)
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
 	g_signal_connect(G_OBJECT(check_button), "toggled",
-		G_CALLBACK(ChangeFreeHandSetAntiAlias), data);
+		G_CALLBACK(ChangeFreeHandSetOldAntiAlias), data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button),
 		free_hand->flags & FREE_HAND_ANTI_ALIAS);
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);

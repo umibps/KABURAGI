@@ -13,14 +13,14 @@ extern "C" {
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecutePaste(APPLICATION* app);
+EXTERN void ExecutePaste(APPLICATION* app);
 
 /*****************************************************
 * ExecuteCopy関数                                    *
 * コピーを実行                                       *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteCopy(APPLICATION* app);
+EXTERN void ExecuteCopy(APPLICATION* app);
 
 /*****************************************************
 * ExecuteCopyVisible関数                             *
@@ -28,7 +28,7 @@ extern void ExecuteCopy(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteCopyVisible(APPLICATION* app);
+EXTERN void ExecuteCopyVisible(APPLICATION* app);
 
 /*****************************************************
 * ExecuteCut関数                                     *
@@ -36,7 +36,15 @@ extern void ExecuteCopyVisible(APPLICATION* app);
 * 引数                                               *
 * app	: アプリケーションを管理する構造体のアドレス *
 *****************************************************/
-extern void ExecuteCut(APPLICATION* app);
+EXTERN void ExecuteCut(APPLICATION* app);
+
+/*****************************************************
+* ExecuteDelete関数                                  *
+* 削除を実行                                         *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+EXTERN void ExecuteDelete(APPLICATION* app);
 
 #ifdef __cplusplus
 }

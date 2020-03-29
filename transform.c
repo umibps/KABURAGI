@@ -1040,7 +1040,7 @@ void ProjectionTransformMotionNotify(
 
 				ave_x /= 8, ave_y /= 8;
 				angle = atan2(ave_y-y, x-ave_x);
-				change_angle = angle - transform->angle;
+				change_angle = angle - transform->before_angle;
 				transform->angle += change_angle;
 				transform->before_angle = angle;
 
@@ -1452,7 +1452,7 @@ void TransformMotionNotify(
 
 				ave_x /= 8, ave_y /= 8;
 				angle = atan2(ave_y-y, x-ave_x);
-				change_angle = angle - transform->angle;
+				change_angle = angle - transform->before_angle;
 				transform->angle += change_angle;
 				transform->before_angle = angle;
 
@@ -2482,19 +2482,19 @@ GtkWidget* CreateTransformDetailUI(APPLICATION* app)
 	buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.transform_free);
 	g_object_set_data(G_OBJECT(buttons[0]), "trans_mode", GINT_TO_POINTER(0));
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[0]), TRUE);
-	g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(ChangeTransformMode), app);
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(ChangeTransformMode), app);
 	buttons[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(
 		GTK_RADIO_BUTTON(buttons[0])), app->labels->tool_box.transform_scale);
 	g_object_set_data(G_OBJECT(buttons[1]), "trans_mode", GINT_TO_POINTER(1));
-	g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(ChangeTransformMode), app);
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(ChangeTransformMode), app);
 	buttons[2] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(
 		GTK_RADIO_BUTTON(buttons[0])), app->labels->tool_box.transform_free_shape);
 	g_object_set_data(G_OBJECT(buttons[2]), "trans_mode", GINT_TO_POINTER(2));
-	g_signal_connect(G_OBJECT(buttons[2]), "toggled", G_CALLBACK(ChangeTransformMode), app);
+	(void)g_signal_connect(G_OBJECT(buttons[2]), "toggled", G_CALLBACK(ChangeTransformMode), app);
 	buttons[3] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(
 		GTK_RADIO_BUTTON(buttons[0])), app->labels->tool_box.transform_rotate);
 	g_object_set_data(G_OBJECT(buttons[3]), "trans_mode", GINT_TO_POINTER(3));
-	g_signal_connect(G_OBJECT(buttons[3]), "toggled", G_CALLBACK(ChangeTransformMode), app);
+	(void)g_signal_connect(G_OBJECT(buttons[3]), "toggled", G_CALLBACK(ChangeTransformMode), app);
 
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[1], FALSE, FALSE, 0);
@@ -2502,10 +2502,10 @@ GtkWidget* CreateTransformDetailUI(APPLICATION* app)
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[3], FALSE, FALSE, 0);
 
 	buttons[0] = gtk_button_new_from_stock(GTK_STOCK_OK);
-	g_signal_connect(G_OBJECT(buttons[0]), "clicked",
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "clicked",
 		G_CALLBACK(ClickedTransformButtonOK), app);
 	buttons[1] = gtk_button_new_from_stock(GTK_STOCK_CANCEL);
-	g_signal_connect(G_OBJECT(buttons[1]), "clicked",
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "clicked",
 		G_CALLBACK(ClickedTransformButtonCancel), app);
 
 	hbox = gtk_hbox_new(FALSE, 0);
@@ -2523,12 +2523,12 @@ GtkWidget* CreateTransformDetailUI(APPLICATION* app)
 	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 3);
 
 	buttons[0] = gtk_check_button_new_with_label(app->labels->tool_box.reverse_horizontally);
-	g_signal_connect(G_OBJECT(buttons[0]), "toggled",
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled",
 		G_CALLBACK(ClickedTransformReverseHorizontallyButton), app);
 	gtk_box_pack_start(GTK_BOX(hbox), buttons[0], FALSE, FALSE, 0);
 
 	buttons[1] = gtk_check_button_new_with_label(app->labels->tool_box.reverse_vertically);
-	g_signal_connect(G_OBJECT(buttons[1]), "toggled",
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled",
 		G_CALLBACK(ClickedTransformReverseVerticallyButton), app);
 	gtk_box_pack_start(GTK_BOX(hbox), buttons[1], FALSE, FALSE, 0);
 

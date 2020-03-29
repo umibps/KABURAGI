@@ -891,6 +891,66 @@ const char* Save(
 
 	system_path = g_locale_from_utf8(file_path, -1, NULL, NULL, NULL);
 
+	// ルーペモードならキャンバスの更新を反映
+	if(window->focal_window != NULL)
+	{
+		// 局所キャンバス
+		DRAW_WINDOW *focal_window = window->focal_window;
+		// レイヤー情報移動用
+		LAYER *prev_layer = NULL;
+		LAYER *src_layer;
+		LAYER *dst_layer;
+		LAYER *target;
+		LAYER *check_layer;
+		// 局所キャンバスのサイズ
+		int focal_width, focal_height, focal_stride;
+		// コピー開始座標
+		int start_x, start_y;
+		// for文用のカウンタ
+		int y;
+
+		// 選択範囲部分にピクセルデータを戻す
+		start_x = window->selection_area.min_x;
+		start_y = window->selection_area.min_y;
+		focal_width = window->selection_area.max_x - window->selection_area.min_x;
+		focal_height = window->selection_area.max_y - window->selection_area.min_y;
+		focal_stride = focal_width * window->channel;
+		src_layer = focal_window->layer;
+		dst_layer = window->layer;
+		while(src_layer != NULL && dst_layer != NULL)
+		{
+			dst_layer->layer_mode = src_layer->layer_mode;
+			dst_layer->flags = src_layer->flags;
+			dst_layer->alpha = src_layer->alpha;
+			switch(src_layer->layer_type)
+			{
+			case TYPE_NORMAL_LAYER:
+				for(y=0; y<focal_height; y++)
+				{
+					(void)memcpy(&dst_layer->pixels[(start_y+y)*dst_layer->stride + start_x*dst_layer->channel],
+						&src_layer->pixels[y*src_layer->stride], focal_stride);
+				}
+				break;
+			case TYPE_LAYER_SET:
+				target = dst_layer->prev;
+				check_layer = src_layer->prev;
+				while(check_layer != NULL && check_layer->layer_set == src_layer)
+				{
+					target->layer_set = dst_layer;
+					target = target->prev;
+					check_layer = check_layer->prev;
+				}
+				break;
+			case TYPE_ADJUSTMENT_LAYER:
+				src_layer->layer_data.adjustment_layer_p->update(src_layer->layer_data.adjustment_layer_p,
+					src_layer->prev, window->mixed_layer, 0, 0, src_layer->width, src_layer->height);
+				break;
+			}
+			dst_layer = dst_layer->next;
+			src_layer = src_layer->next;
+		}
+	}
+
 	// 拡張子で書き出し方法を切り替え
 	if(StringCompareIgnoreCase(file_type, "kab") == 0)
 	{	// 独自形式

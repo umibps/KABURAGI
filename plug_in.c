@@ -22,6 +22,15 @@ int IsCorretPlugIn(const char* module_path)
 
 	if(module == NULL)
 	{
+#ifdef _DEBUG
+		const gchar *message = g_module_error();
+		gchar *system_message = g_locale_from_utf8(message, -1, NULL, NULL, NULL);
+		if(message != NULL)
+		{
+			(void)printf(system_message);
+		}
+#endif
+
 		return FALSE;
 	}
 
@@ -172,30 +181,34 @@ static GtkWidget* LoadPlugInItemLoop(
 		}
 		else
 		{
-			if(IsCorretPlugIn(file_path) != FALSE)
+			char *menu_name = MEM_STRDUP_FUNC(file_name);
+			char *extention = NULL;
+			char *ptr = menu_name;
+			while(*ptr != '\0')
 			{
-				char *menu_name = MEM_STRDUP_FUNC(file_name);
-				char *extention = NULL;
-				char *ptr = menu_name;
-				while(*ptr != '\0')
+				if(*ptr == '.')
 				{
-					if(*ptr == '.')
+					extention = ptr;
+				}
+				ptr = g_utf8_next_char(ptr);
+			}
+
+			if(*extention != '\0' && StringCompareIgnoreCase((extention+1), DLL_EXTENTION) == 0)
+			{
+				if(IsCorretPlugIn(file_path) != FALSE)
+				{
+					if(extention != NULL)
 					{
-						extention = ptr;
+						*extention = '\0';
 					}
-					ptr = g_utf8_next_char(ptr);
+					menu_item = gtk_menu_item_new_with_label(menu_name);
+					gtk_menu_shell_append(GTK_MENU_SHELL(parent), menu_item);
+					g_object_set_data(G_OBJECT(menu_item), "plug-in-name",
+						g_build_filename(relative_path, file_name, NULL));
+					(void)g_signal_connect(G_OBJECT(menu_item), "activate",
+						G_CALLBACK(ExecutePlugInMenu), app);
+					MEM_FREE_FUNC(menu_name);
 				}
-				if(extention != NULL)
-				{
-					*extention = '\0';
-				}
-				menu_item = gtk_menu_item_new_with_label(menu_name);
-				gtk_menu_shell_append(GTK_MENU_SHELL(parent), menu_item);
-				g_object_set_data(G_OBJECT(menu_item), "plug-in-name",
-					g_build_filename(relative_path, file_name, NULL));
-				(void)g_signal_connect(G_OBJECT(menu_item), "activate",
-					G_CALLBACK(ExecutePlugInMenu), app);
-				MEM_FREE_FUNC(menu_name);
 			}
 		}
 	}

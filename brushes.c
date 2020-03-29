@@ -65,9 +65,18 @@ static void DefaultReleaseCallBack(
 {
 	if(((GdkEventButton*)state)->button == 1)
 	{
+		UPDATE_RECTANGLE rectangle;
+
 		AddBrushHistory(core, window->active_layer);
 
-		window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->active_layer);
+		rectangle.x = core->min_x,	rectangle.y = core->min_y;
+		rectangle.width = core->max_x - core->min_x;
+		rectangle.height = core->max_x - core->min_y;
+		rectangle.cairo_p = window->active_layer->cairo_p;
+		rectangle.surface_p = window->work_layer->surface_p;
+
+		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->active_layer, &rectangle);
+		//window->layer_blend_functions[window->work_layer->layer_mode](window->work_layer, window->active_layer);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -122,6 +131,8 @@ static void PencilPressCallBack(
 	{
 		// ブラシの詳細情報にキャスト
 		PENCIL *pen = (PENCIL*)core->brush_data;
+		// ブラシ効果を適用するレイヤー
+		LAYER *brush_target;
 		// 描画範囲のイメージ情報
 		cairo_t *update;
 		cairo_surface_t *update_surface;
@@ -143,6 +154,16 @@ static void PencilPressCallBack(
 
 		// 作業レイヤーの合成方法を設定
 		window->work_layer->layer_mode = pen->blend_mode;
+
+		if((core->flags & BRUSH_FLAG_USE_OLD_ANTI_ALIAS) == 0 && (pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0)
+		{
+			brush_target = window->anti_alias;
+			(void)memset(window->anti_alias->pixels, 0, window->anti_alias->stride * window->anti_alias->height);
+		}
+		else
+		{
+			brush_target = window->work_layer;
+		}
 
 		// 最低筆圧のチェック
 		if(pressure < pen->minimum_pressure)
@@ -171,7 +192,7 @@ static void PencilPressCallBack(
 
 		// 更新範囲のサーフェース作成
 		update_surface = cairo_surface_create_for_rectangle(
-			window->work_layer->surface_p, min_x, min_y, r*2+1, r*2+1);
+			brush_target->surface_p, min_x, min_y, r*2+1, r*2+1);
 		update = cairo_create(update_surface);
 
 		// 今回の座標を記憶
@@ -190,9 +211,21 @@ static void PencilPressCallBack(
 		{
 			max_x = window->work_layer->width;
 		}
+		else if(max_x <= 0)
+		{
+			cairo_surface_destroy(update_surface);
+			cairo_destroy(update);
+			return;
+		}
 		if(max_y > window->work_layer->height)
 		{
 			max_y = window->work_layer->height;
+		}
+		else if(max_y <= 0)
+		{
+			cairo_surface_destroy(update_surface);
+			cairo_destroy(update);
+			return;
 		}
 
 		// 再描画の範囲を指定
@@ -396,6 +429,14 @@ static void PencilPressCallBack(
 		cairo_surface_destroy(update_surface);
 		cairo_destroy(update);
 
+		if((core->flags & BRUSH_FLAG_USE_OLD_ANTI_ALIAS) == 0 && (pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0)
+		{
+			for(i=0; i<height; i++)
+			{
+				(void)memcpy(&window->work_layer->pixels[(start_y+i)*window->work_layer->stride + start_x * 4],
+					&window->anti_alias->pixels[(start_y+i)*window->work_layer->stride + start_x * 4], stride);
+			}
+		}
 
 		window->flags |= DRAW_WINDOW_UPDATE_PART;
 	}
@@ -415,6 +456,8 @@ static void PencilMotionCallBack(
 	if(((*(GdkModifierType*)state) & GDK_BUTTON1_MASK) != 0)
 	{
 		PENCIL* pen = (PENCIL*)core->brush_data;
+		// ブラシ効果を適用するレイヤー
+		LAYER *brush_target;
 		cairo_matrix_t matrix;
 		// 描画範囲のイメージ情報
 		cairo_t *update;
@@ -427,9 +470,20 @@ static void PencilMotionCallBack(
 		int start_x, width, start_y, height;
 		int stride;
 		uint8 *color = *core->color;
-		uint8 *work_pixel = window->work_layer->pixels;
+		uint8 *work_pixel;
 		uint8 *mask;
 		int i;
+
+		if((core->flags & BRUSH_FLAG_USE_OLD_ANTI_ALIAS) == 0 && (pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0)
+		{
+			brush_target = window->mask_temp;
+			work_pixel = window->anti_alias->pixels;
+		}
+		else
+		{
+			brush_target = window->mask_temp;
+			work_pixel = window->work_layer->pixels;
+		}
 
 		// 最低筆圧のチェック
 		if(pressure < pen->minimum_pressure)
@@ -457,6 +511,10 @@ static void PencilMotionCallBack(
 			1 : pressure;
 		dx = x-pen->before_x, dy = y-pen->before_y;
 		d = sqrt(dx*dx+dy*dy);
+		if(step < MINIMUM_BRUSH_DISTANCE)
+		{
+			step = MINIMUM_BRUSH_DISTANCE;
+		}
 		diff_x = step * dx/d, diff_y = step * dy/d;
 
 		min_x = x - r*2, min_y = y - r*2;
@@ -569,7 +627,7 @@ static void PencilMotionCallBack(
 			}
 
 			update_surface = cairo_surface_create_for_rectangle(
-				window->mask_temp->surface_p, draw_x - r, draw_y - r,
+				brush_target->surface_p, draw_x - r, draw_y - r,
 					r*2+2, r*2+2);
 			update = cairo_create(update_surface);
 
@@ -808,11 +866,24 @@ static void PencilMotionCallBack(
 			omp_set_num_threads(core->app->max_threads);
 #endif
 			// アンチエイリアスを適用
-			if((pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0)
+			if((pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0 && (core->flags & BRUSH_FLAG_USE_OLD_ANTI_ALIAS) == 0)
 			{
-				ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
+				if((core->flags & BRUSH_FLAG_USE_OLD_ANTI_ALIAS) != 0)
+				{
+					ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
 					width + 3, height + 3};
-				AntiAliasLayer(window->work_layer, window->temp_layer, &range);
+					if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0
+						&& (window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+					{
+						OldAntiAliasLayer(window->work_layer, window->temp_layer, &range, (void*)window->app);
+					}
+					else
+					{
+						OldAntiAliasLayerWithSelectionOrAlphaLock(window->work_layer, window->temp_layer,
+							(window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0 ? NULL : window->selection,
+								window->active_layer, &range, (void*)window->app);
+					}
+				}
 			}
 skip_draw:
 			dx -= step;
@@ -831,12 +902,82 @@ skip_draw:
 			}
 		} while(1);
 
+		if((core->flags & BRUSH_FLAG_USE_OLD_ANTI_ALIAS) == 0 && (pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0)
+		{
+			//ANTI_ALIAS_RECTANGLE range = {(int)core->min_x - 1, (int)core->min_y - 1,
+			//	(int)(core->max_x - core->min_x) + 3, (int)(core->max_y - core->min_y) + 3};
+			ANTI_ALIAS_RECTANGLE range;
+			if(pen->before_x < x)
+			{
+				range.x = (int)(pen->before_x - r*2 - 4);
+				range.width = (int)(x - pen->before_x + r*4 + 4);
+			}
+			else
+			{
+				range.x = (int)(x - r*2 - 4);
+				range.width = (int)(pen->before_x - x + r*4 + 4);
+			}
+			if(pen->before_y < y)
+			{
+				range.y = (int)(pen->before_y - r*2 - 4);
+				range.height = (int)(y - pen->before_y + r*4 + 4);
+			}
+			else
+			{
+				range.y = (int)(y - r*2 - 4);
+				range.height = (int)(pen->before_y - y + r*4 + 4);
+			}
+
+			if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0
+				&& (window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+			{
+				AntiAliasLayer(window->anti_alias, window->work_layer, &range, (void*)window->app);
+			}
+			else
+			{
+				AntiAliasLayerWithSelectionOrAlphaLock(window->anti_alias, window->work_layer,
+					(window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0 ? NULL : window->selection,
+						window->active_layer, &range, (void*)window->app);
+			}
+		}
+
 		pen->before_x = x, pen->before_y = y;
 		window->flags |= DRAW_WINDOW_UPDATE_PART;
 	}
 }
 
-#define PencilEditSelectionMotionCallBack PencilMotionCallBack
+static void PencilEditSelectionMotionCallBack(
+	DRAW_WINDOW* window,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T pressure,
+	BRUSH_CORE *core,
+	void* state
+)
+{
+	if(((GdkEventButton*)state)->button == 1)
+	{
+		PENCIL* pen = (PENCIL*)core->brush_data;
+		if((pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0)
+		{
+			if((core->flags & BRUSH_FLAG_USE_OLD_ANTI_ALIAS) == 0)
+			{
+				ANTI_ALIAS_RECTANGLE range = {(int)core->min_x - 1, (int)core->min_y - 1,
+					(int)(core->max_x - core->min_x) + 3, (int)(core->max_y - core->min_y) + 3};
+				AntiAliasLayer(window->anti_alias, window->work_layer, &range, (void*)window->app);
+			}
+		}
+
+		AddSelectionEditHistory(core, window->selection);
+
+		g_blend_selection_funcs[window->selection->layer_mode](window->work_layer, window->selection);
+
+		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
+
+		window->work_layer->layer_mode = LAYER_BLEND_NORMAL;
+		window->selection->layer_mode = SELECTION_BLEND_NORMAL;
+	}
+}
 
 static void PencilReleaseCallBack(
 	DRAW_WINDOW* window,
@@ -849,6 +990,17 @@ static void PencilReleaseCallBack(
 {
 	if(((GdkEventButton*)state)->button == 1)
 	{
+		PENCIL* pen = (PENCIL*)core->brush_data;
+		if((pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0)
+		{
+			if((core->flags & BRUSH_FLAG_USE_OLD_ANTI_ALIAS) == 0)
+			{
+				ANTI_ALIAS_RECTANGLE range = {(int)core->min_x - 1, (int)core->min_y - 1,
+					(int)(core->max_x - core->min_x) + 3, (int)(core->max_y - core->min_y) + 3};
+				AntiAliasLayer(window->anti_alias, window->work_layer, &range, (void*)window->app);
+			}
+		}
+
 		AddBrushHistory(core, window->active_layer);
 
 		window->update.surface_p = cairo_surface_create_for_rectangle(
@@ -856,7 +1008,8 @@ static void PencilReleaseCallBack(
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
 
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -921,6 +1074,14 @@ static void PencilMotionUpdate(DRAW_WINDOW* window, FLOAT_T x, FLOAT_T y, PENCIL
 	{
 		start_y = y - r;
 		height = r * 2 + window->before_cursor_y - y;
+	}
+
+	if((pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0)
+	{
+		start_x -= 4;
+		width += 4;
+		start_y -= 4;
+		height += 4;
 	}
 
 	gtk_widget_queue_draw_area(window->window,
@@ -988,7 +1149,7 @@ static void PencilPressureFlowChange(
 	}
 }
 
-static void PencilSetAntiAlias(
+static void PencilSetOldAntiAlias(
 	GtkWidget* widget,
 	gpointer data
 )
@@ -1163,8 +1324,13 @@ static GtkWidget* CreatePencilDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, TRUE, 0);
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
-	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(PencilSetAntiAlias), core->brush_data);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(PencilSetOldAntiAlias), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), pen->flags & BRUSH_FLAG_ANTI_ALIAS);
+	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
+
+	check_button = gtk_check_button_new_with_label(app->labels->tool_box.use_old_anti_alias);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), core->flags & BRUSH_FLAG_USE_OLD_ANTI_ALIAS);
+	CheckButtonSetFlagsCallBack(check_button, &core->flags, BRUSH_FLAG_USE_OLD_ANTI_ALIAS);
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
 
 	brush_scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(pen->minimum_pressure * 100,
@@ -1981,7 +2147,8 @@ static void HardPenButtonReleaseCallBack(
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
 
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -2103,7 +2270,7 @@ static void HardPenPressureFlowChange(
 	}
 }
 
-static void HardPenSetAntiAlias(
+static void HardPenSetOldAntiAlias(
 	GtkWidget* widget,
 	gpointer data
 )
@@ -2257,7 +2424,7 @@ static GtkWidget* CreateHardPenDetailUI(APPLICATION* app, BRUSH_CORE* core)
 	gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, FALSE, 0);
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
-	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(HardPenSetAntiAlias), core->brush_data);
+	(void)g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(HardPenSetOldAntiAlias), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), pen->flags & BRUSH_FLAG_ANTI_ALIAS);
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, FALSE, 0);
 
@@ -3079,7 +3246,17 @@ static void AirBrushMotionCallBack(
 							{
 								ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
 									width + 3, height + 3};
-								AntiAliasLayer(window->work_layer, window->temp_layer, &range);
+								if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0
+									&& (window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+								{
+									OldAntiAliasLayer(window->work_layer, window->temp_layer, &range, (void*)window->app);
+								}
+								else
+								{
+									OldAntiAliasLayerWithSelectionOrAlphaLock(window->work_layer, window->temp_layer,
+										(window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0 ? NULL : window->selection,
+											window->active_layer, &range, (void*)window->app);
+								}
 							}
 skip_draw:
 							dx -= step;
@@ -3561,7 +3738,17 @@ static void AirBrushReleaseCallBack(
 					{
 						ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
 							width + 3, height + 3};
-						AntiAliasLayer(window->work_layer, window->temp_layer, &range);
+						if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0
+							&& (window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+						{
+							OldAntiAliasLayer(window->work_layer, window->temp_layer, &range, (void*)window->app);
+						}
+						else
+						{
+							OldAntiAliasLayerWithSelectionOrAlphaLock(window->work_layer, window->temp_layer,
+								(window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0 ? NULL : window->selection,
+									window->active_layer, &range, (void*)window->app);
+						}
 					}
 skip_draw:
 					dx -= step;
@@ -3593,7 +3780,8 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 		cairo_surface_destroy(window->update.surface_p);
 		cairo_destroy(window->update.cairo_p);
 
@@ -3903,7 +4091,17 @@ static void AirBrushEditSelectionReleaseCallBack(
 					{
 						ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
 							width + 1, height + 1};
-						AntiAliasLayer(window->work_layer, window->temp_layer, &range);
+						if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0
+							&& (window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+						{
+							OldAntiAliasLayer(window->work_layer, window->temp_layer, &range, (void*)window->app);
+						}
+						else
+						{
+							OldAntiAliasLayerWithSelectionOrAlphaLock(window->work_layer, window->temp_layer,
+								(window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0 ? NULL : window->selection,
+									window->active_layer, &range, (void*)window->app);
+						}
 					}
 skip_draw:
 					dx -= step;
@@ -4078,7 +4276,7 @@ static void AirBrushSetBlendMode(GtkComboBox* combo, AIR_BRUSH* brush)
 	brush->blend_mode = (uint16)gtk_combo_box_get_active(combo);
 }
 
-static void AirBrushSetAntiAlias(GtkWidget* button, AIR_BRUSH* brush)
+static void AirBrushSetOldAntiAlias(GtkWidget* button, AIR_BRUSH* brush)
 {
 	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
 	{
@@ -4233,7 +4431,7 @@ static GtkWidget* CreateAirBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
 	(void)g_signal_connect(G_OBJECT(check_button), "toggled",
-		G_CALLBACK(AirBrushSetAntiAlias), core->brush_data);
+		G_CALLBACK(AirBrushSetOldAntiAlias), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), brush->flags & BRUSH_FLAG_ANTI_ALIAS);
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
 
@@ -5510,7 +5708,17 @@ static void BlendBrushMotionCallBack(
 							{
 								ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
 									width + 1, height + 1};
-								AntiAliasLayer(window->work_layer, window->temp_layer, &range);
+								if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0
+									&& (window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+								{
+									OldAntiAliasLayer(window->work_layer, window->temp_layer, &range, (void*)window->app);
+								}
+								else
+								{
+									OldAntiAliasLayerWithSelectionOrAlphaLock(window->work_layer, window->temp_layer,
+										(window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0 ? NULL : window->selection,
+											window->active_layer, &range, (void*)window->app);
+								}
 							}
 skip_draw:
 							dx -= step;
@@ -6045,7 +6253,17 @@ static void BlendBrushButtonReleaseCallBack(
 					{
 						ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
 							width + 1, height + 1};
-						AntiAliasLayer(window->work_layer, window->temp_layer, &range);
+						if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0
+							&& (window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+						{
+							OldAntiAliasLayer(window->work_layer, window->temp_layer, &range, (void*)window->app);
+						}
+						else
+						{
+							OldAntiAliasLayerWithSelectionOrAlphaLock(window->work_layer, window->temp_layer,
+								(window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0 ? NULL : window->selection,
+									window->active_layer, &range, (void*)window->app);
+						}
 					}
 skip_draw:
 					dx -= step;
@@ -6077,7 +6295,8 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 		cairo_surface_destroy(window->update.surface_p);
 		cairo_destroy(window->update.cairo_p);
 
@@ -6395,7 +6614,17 @@ static void BlendBrushEditSelectionButtonReleaseCallBack(
 					{
 						ANTI_ALIAS_RECTANGLE range = {start_x - 1, start_y - 1,
 							width + 1, height + 1};
-						AntiAliasLayer(window->work_layer, window->temp_layer, &range);
+						if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0
+							&& (window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+						{
+							OldAntiAliasLayer(window->work_layer, window->temp_layer, &range, (void*)window->app);
+						}
+						else
+						{
+							OldAntiAliasLayerWithSelectionOrAlphaLock(window->work_layer, window->temp_layer,
+								(window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0 ? NULL : window->selection,
+									window->active_layer, &range, (void*)window->app);
+						}
 					}
 skip_draw:
 					dx -= step;
@@ -6579,7 +6808,7 @@ static void BlendBrushSetBlendTarget(GtkWidget* button, BLEND_BRUSH* brush)
 	}
 }
 
-static void BlendBrushSetAntiAlias(GtkWidget* button, BLEND_BRUSH* brush)
+static void BlendBrushSetOldAntiAlias(GtkWidget* button, BLEND_BRUSH* brush)
 {
 	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
 	{
@@ -6753,7 +6982,7 @@ static GtkWidget* CreateBlendBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
 	(void)g_signal_connect(G_OBJECT(check_button), "toggled",
-		G_CALLBACK(BlendBrushSetAntiAlias), core->brush_data);
+		G_CALLBACK(BlendBrushSetOldAntiAlias), core->brush_data);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), brush->flags & BRUSH_FLAG_ANTI_ALIAS);
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
 
@@ -8949,7 +9178,8 @@ static void WaterColorBrushReleaseCallBack(
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 		cairo_surface_destroy(window->update.surface_p);
 		cairo_destroy(window->update.cairo_p);
 
@@ -12087,7 +12317,8 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 		cairo_destroy(window->update.cairo_p);
 		cairo_surface_destroy(window->update.surface_p);
 
@@ -13995,7 +14226,8 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 		cairo_destroy(window->update.cairo_p);
 		cairo_surface_destroy(window->update.surface_p);
 
@@ -15783,7 +16015,17 @@ static void PickerBrushMotionCallBack(
 			if((brush->flags & PICKER_FLAG_ANTI_ALIAS) != 0)
 			{
 				ANTI_ALIAS_RECTANGLE range = {start_x-1, start_y-1, width+1, height+1};
-				AntiAliasLayer(window->work_layer, window->temp_layer, &range);
+				if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0
+					&& (window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+				{
+					OldAntiAliasLayer(window->work_layer, window->temp_layer, &range, (void*)window->app);
+				}
+				else
+				{
+					OldAntiAliasLayerWithSelectionOrAlphaLock(window->work_layer, window->temp_layer,
+						(window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0 ? NULL : window->selection,
+							window->active_layer, &range, (void*)window->app);
+				}
 			}
 
 
@@ -15985,7 +16227,7 @@ static void PickerBrushSetBlendMode(GtkComboBox* combo, PICKER_BRUSH* brush)
 	brush->blend_mode = (uint16)gtk_combo_box_get_active(combo);
 }
 
-static void PickerBrushSetAntiAlias(GtkWidget* button, PICKER_BRUSH* brush)
+static void PickerBrushSetOldAntiAlias(GtkWidget* button, PICKER_BRUSH* brush)
 {
 	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == FALSE)
 	{
@@ -16127,7 +16369,7 @@ static GtkWidget* CreatePickerBrushDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	check_button = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
 	(void)g_signal_connect(G_OBJECT(check_button), "toggled",
-		G_CALLBACK(PickerBrushSetAntiAlias), brush);
+		G_CALLBACK(PickerBrushSetOldAntiAlias), brush);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), brush->flags & BRUSH_FLAG_ANTI_ALIAS);
 	gtk_box_pack_start(GTK_BOX(vbox), check_button, FALSE, TRUE, 0);
 
@@ -17516,7 +17758,8 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 		cairo_destroy(window->update.cairo_p);
 		cairo_surface_destroy(window->update.surface_p);
 
@@ -18952,8 +19195,27 @@ static void BucketPressCallBack(
 		{
 			(void)memcpy(&window->temp_layer->pixels[window->width*window->height*2],
 				buff, window->active_layer->width*window->active_layer->height);
-			AntiAlias(&window->temp_layer->pixels[window->width*window->height*2],
-				buff, window->active_layer->width, window->active_layer->height, window->active_layer->width, 1);
+			if((window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0
+				&& (window->active_layer->flags & LAYER_LOCK_OPACITY) == 0)
+			{
+				OldAntiAlias(&window->temp_layer->pixels[window->width*window->height*2],
+					buff, window->active_layer->width, window->active_layer->height, window->active_layer->stride, window->app);
+			}
+			else
+			{
+				OldAntiAliasWithSelectionOrAlphaLock(
+					(window->flags & DRAW_WINDOW_HAS_SELECTION_AREA) == 0 ? NULL : window->selection,
+					(window->active_layer->flags & LAYER_LOCK_OPACITY) == 0 ? NULL : window->active_layer,
+					&window->temp_layer->pixels[window->width*window->height*2],
+					buff,
+					0,
+					0,
+					window->active_layer->width,
+					window->active_layer->height,
+					window->active_layer->stride,
+					window->app
+				);
+			}
 		}
 
 		core->min_x = min_x - 1, core->min_y = min_y - 1;
@@ -19116,8 +19378,9 @@ static void BucketEditSelectionPressCallBack(
 		{
 			(void)memcpy(&window->temp_layer->pixels[window->width*window->height*2],
 				buff, window->active_layer->width*window->active_layer->height);
-			AntiAlias(&window->temp_layer->pixels[window->width*window->height*2],
-				buff, window->active_layer->width, window->active_layer->height, window->active_layer->width, 1);
+			OldAntiAliasEditSelection(&window->temp_layer->pixels[window->width*window->height*2],
+				buff, window->active_layer->width, window->active_layer->height, window->active_layer->width, window->app);
+
 		}
 
 		core->min_x = min_x - 1, core->min_y = min_y - 1;
@@ -19234,7 +19497,7 @@ static void BucketSetSelectDirection(GtkWidget* widget, gpointer data)
 		(uint8)g_object_get_data(G_OBJECT(widget), "direction");
 }
 
-static void BucketChangeAntiAlias(GtkToggleButton* button, BUCKET* bucket)
+static void BucketChangeOldAntiAlias(GtkToggleButton* button, BUCKET* bucket)
 {
 	if(gtk_toggle_button_get_active(button) == FALSE)
 	{
@@ -19326,7 +19589,7 @@ static GtkWidget* CreateBucketDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	buttons[0] = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[0]), bucket->flags & BUCKET_FLAG_ANTI_ALIAS);
-	g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(BucketChangeAntiAlias), core->brush_data);
+	g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(BucketChangeOldAntiAlias), core->brush_data);
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, TRUE, 3);
 
 	threshold_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(bucket->extend, -50, 50, 1, 1, 0));
@@ -19471,8 +19734,8 @@ static void PatternFillPressCallBack(
 		{
 			(void)memcpy(&window->temp_layer->pixels[window->width*window->height*2],
 				buff, window->width*window->height);
-			AntiAlias(&window->temp_layer->pixels[window->width*window->height*2],
-				buff, window->width, window->height, window->width, 1);
+			OldAntiAliasEditSelection(&window->temp_layer->pixels[window->width*window->height*2],
+				buff, window->width, window->height, window->width, window->app);
 		}
 
 		core->min_x = min_x - 1, core->min_y = min_y - 1;
@@ -19658,8 +19921,8 @@ static void PatternFillEditSelectionPressCallBack(
 		{
 			(void)memcpy(&window->temp_layer->pixels[window->width*window->height*2],
 				buff, window->width*window->height);
-			AntiAlias(&window->temp_layer->pixels[window->width*window->height*2],
-				buff, window->width, window->height, window->width, 1);
+			OldAntiAliasEditSelection(&window->temp_layer->pixels[window->width*window->height*2],
+				buff, window->width, window->height, window->width, window->app);
 		}
 
 		core->min_x = min_x - 1, core->min_y = min_y - 1;
@@ -19773,7 +20036,7 @@ static void PatternFillSetBlendMode(GtkWidget* widget, PATTERN_FILL* fill)
 	fill->pattern_mode = (uint8)GPOINTER_TO_INT(g_object_get_data(G_OBJECT(widget), "blend-mode"));
 }
 
-static void PatternFillChangeAntiAlias(GtkToggleButton* button, PATTERN_FILL* fill)
+static void PatternFillChangeOldAntiAlias(GtkToggleButton* button, PATTERN_FILL* fill)
 {
 	if(gtk_toggle_button_get_active(button) == FALSE)
 	{
@@ -20262,7 +20525,7 @@ static GtkWidget* CreatePatternFillDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	buttons[0] = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[0]), fill->flags & PATTERN_FILL_FLAG_ANTI_ALIAS);
-	(void)g_signal_connect(GTK_BOX(vbox), "toggled", G_CALLBACK(PatternFillChangeAntiAlias), core->brush_data);
+	(void)g_signal_connect(GTK_BOX(vbox), "toggled", G_CALLBACK(PatternFillChangeOldAntiAlias), core->brush_data);
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, FALSE, 3);
 
 	// 塗りつぶし範囲の拡大縮小スライダ
@@ -23193,6 +23456,7 @@ static void SmudgeMotionCallBack(
 		FLOAT_T hardness = smudge->outline_hardness * 0.01f;
 		int before_size = (int)smudge->before_r;
 		int32 clear_x, clear_width, clear_y, clear_height;
+		int work_width, work_height;
 		int i;
 		// 作業レイヤーの幅
 		int layer_width = window->work_layer->width;
@@ -23541,17 +23805,20 @@ static void SmudgeMotionCallBack(
 					cairo_surface_destroy(update_surface);
 					cairo_destroy(update);
 
+					work_width = (clear_x + before_size > window->active_layer->width) ? window->active_layer->width  - clear_x : before_size;
+					work_height = (clear_y + before_size > window->active_layer->height) ? window->active_layer->height  - clear_y : before_size;
+
 #ifdef _OPENMP
-#pragma omp parallel for firstprivate(work_pixel, before_size, layer_stride, mask, brush_buffer, clear_x, clear_y)
+#pragma omp parallel for firstprivate(work_pixel, before_size, layer_stride, mask, brush_buffer, clear_x, clear_y, work_width, work_height)
 #endif
-					for(i=0; i<before_size; i++)
+					for(i=0; i<work_height; i++)
 					{
 						FLOAT_T c;
 						int index;
 						int j, k;
 						uint8 t;
 						uint8 before_alpha;
-						for(j=0; j<before_size; j++)
+						for(j=0; j<work_width; j++)
 						{
 							index = (clear_y+i)*layer_stride+(clear_x+j)*4;
 							t = mask[layer_width*(clear_y+i)+(clear_x+j)];
@@ -23660,6 +23927,7 @@ static void SmudgeEditSelectionMotionCallBack(
 		FLOAT_T hardness = smudge->outline_hardness * 0.01f;
 		int before_size = (int)smudge->before_r;
 		int32 clear_x, clear_width, clear_y, clear_height;
+		int work_width, work_height;
 		int i, j, t, c, index;
 		uint8 alpha_c, extention = (uint8)(smudge->extention*0.01*255);
 
@@ -23770,9 +24038,12 @@ static void SmudgeEditSelectionMotionCallBack(
 					cairo_arc(window->temp_layer->cairo_p, draw_x, draw_y, r, 0, 2*G_PI);
 					cairo_fill(window->temp_layer->cairo_p);
 
-					for(i=0; i<before_size; i++)
+					work_width = (clear_x + before_size > window->active_layer->width) ? window->active_layer->width  - clear_x : before_size;
+					work_height = (clear_y + before_size > window->active_layer->height) ? window->active_layer->height  - clear_y : before_size;
+
+					for(i=0; i<work_height; i++)
 					{
-						for(j=0; j<before_size; j++)
+						for(j=0; j<work_width; j++)
 						{
 							uint8 before_alpha;
 							index = (clear_y+i)*window->temp_layer->stride+(clear_x+j)*4;
@@ -23877,7 +24148,8 @@ static void SmudgeReleaseCallBack(
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 		cairo_destroy(window->update.cairo_p);
 		cairo_surface_destroy(window->update.surface_p);
 
@@ -23905,7 +24177,7 @@ static void SmudgeEditSelectionReleaseCallBack(
 
 		AddSelectionEditHistory(core, window->selection);
 
-		g_blend_selection_funcs[window->selection->layer_mode](window->work_layer, window->selection);
+		window->layer_blend_functions[window->selection->layer_mode](window->work_layer, window->selection);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -24118,24 +24390,24 @@ static GtkWidget* CreateSmudgeDetailUI(APPLICATION* app, BRUSH_CORE* core)
 
 	brush_scale = SpinScaleNew(brush_scale_adjustment,
 		app->labels->tool_box.brush_scale, 1);
-	g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(SmudgeScaleChange), core->brush_data);
 	gtk_table_attach_defaults(GTK_TABLE(table), brush_scale, 0, 3, 0, 1);
 
 	g_object_set_data(G_OBJECT(base_scale), "scale", brush_scale);
-	g_signal_connect(G_OBJECT(base_scale), "changed", G_CALLBACK(SetBrushBaseScale), &smudge->base_scale);
+	(void)g_signal_connect(G_OBJECT(base_scale), "changed", G_CALLBACK(SetBrushBaseScale), &smudge->base_scale);
 
 	brush_scale_adjustment =
 		GTK_ADJUSTMENT(gtk_adjustment_new(smudge->opacity, 0.0, 100.0, 1.0, 1.0, 0.0));
 	brush_scale = SpinScaleNew(brush_scale_adjustment,
 		app->labels->tool_box.flow, 1);
-	g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(SmudgeOpacityChange), core->brush_data);
 	gtk_table_attach_defaults(GTK_TABLE(table), brush_scale, 0, 3, 1, 2);
 
 	brush_scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(smudge->outline_hardness,
 		0, 100, 1, 1, 0));
-	g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(SmudgeOutlineHardnessChange), core->brush_data);
 	brush_scale = SpinScaleNew(brush_scale_adjustment,
 		app->labels->tool_box.outline_hardness, 1);
@@ -24145,13 +24417,13 @@ static GtkWidget* CreateSmudgeDetailUI(APPLICATION* app, BRUSH_CORE* core)
 		GTK_ADJUSTMENT(gtk_adjustment_new(smudge->blur, 0.0, 100.0, 1.0, 1.0, 0.0));
 	brush_scale = SpinScaleNew(brush_scale_adjustment,
 		app->labels->tool_box.blur, 1);
-	g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(SmudgeBlurChange), core->brush_data);
 	gtk_table_attach_defaults(GTK_TABLE(table), brush_scale, 0, 3, 3, 4);
 
 	brush_scale_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(smudge->extention,
 		0, 100, 1, 1, 0));
-	g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(brush_scale_adjustment), "value_changed",
 		G_CALLBACK(SmudgeColorExtendsChange), core->brush_data);
 	brush_scale = SpinScaleNew(brush_scale_adjustment,
 		app->labels->tool_box.color_extend, 1);
@@ -26278,7 +26550,8 @@ skip_draw:
 			window->active_layer->surface_p, window->update.x, window->update.y,
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 		cairo_destroy(window->update.cairo_p);
 		cairo_surface_destroy(window->update.surface_p);
 
@@ -29574,7 +29847,8 @@ static void ScriptBrushButtonReleaseCallBack(
 				window->update.width, window->update.height);
 		window->update.cairo_p = cairo_create(window->update.surface_p);
 
-		window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->update);
+		window->part_layer_blend_functions[window->work_layer->layer_mode](
+			window->work_layer, window->active_layer, &window->update);
 
 		(void)memset(window->work_layer->pixels, 0, window->work_layer->stride*window->work_layer->height);
 
@@ -29820,6 +30094,10 @@ void LoadBrushDetailData(
 		if(IniFileGetInteger(file, section_name, "ANTI_ALIAS") != 0)
 		{
 			pen->flags |= BRUSH_FLAG_ANTI_ALIAS;
+		}
+		if(IniFileGetInteger(file, section_name, "USE_OLD_ANTI_ALIAS") != 0)
+		{
+			core->flags |= BRUSH_FLAG_USE_OLD_ANTI_ALIAS;
 		}
 	}
 	else if(StringCompareIgnoreCase(brush_type, "HARD_PEN") == 0)
@@ -31315,6 +31593,8 @@ int WriteBrushDetailData(TOOL_WINDOW* window, const char* file_path, APPLICATION
 							"MINIMUM_PRESSURE", (int)(pen->minimum_pressure * 100 + 0.5), 10);
 						(void)IniFileAddInteger(file, brush_section_name,
 							"ANTI_ALIAS", ((pen->flags & BRUSH_FLAG_ANTI_ALIAS) != 0) ? 1 : 0, 10);
+						(void)IniFileAddInteger(file, brush_section_name,
+							"USE_OLD_ANTI_ALIAS", ((window->brushes[y][x].flags & BRUSH_FLAG_USE_OLD_ANTI_ALIAS) != 0) ? 1 : 0, 10);
 					}
 					break;
 				case BRUSH_TYPE_HARD_PEN:

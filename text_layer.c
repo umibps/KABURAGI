@@ -1086,6 +1086,7 @@ void RenderTextLayer(DRAW_WINDOW* window, LAYER* target, TEXT_LAYER* layer)
 		char* next_char;
 		uint32 utf8_code;
 		gdouble right_move, upper_move, rotate;
+		gdouble y_move = 0;
 
 		show_text = str = layer->text;
 		draw_y = layer->y;
@@ -1183,6 +1184,7 @@ void RenderTextLayer(DRAW_WINDOW* window, LAYER* target, TEXT_LAYER* layer)
 					draw_y -= upper_move;
 					draw_height -= upper_move;
 					upper_move *= 0.5;
+					y_move = layer->font_size * 1.2f;
 				}
 				else if(
 					// 「、」「。」
@@ -1195,6 +1197,7 @@ void RenderTextLayer(DRAW_WINDOW* window, LAYER* target, TEXT_LAYER* layer)
 					draw_y -= upper_move;
 					draw_height -= upper_move;
 					upper_move *= 0.25;
+					y_move = layer->font_size * 1.2f;
 				}
 				else if(
 					// 「：」
@@ -1238,6 +1241,7 @@ void RenderTextLayer(DRAW_WINDOW* window, LAYER* target, TEXT_LAYER* layer)
 					draw_y -= upper_move;
 					draw_height -= upper_move;
 					upper_move *= - 0.75;
+					y_move = layer->font_size * 1.2f;
 				}
 				else
 				{
@@ -1246,7 +1250,7 @@ void RenderTextLayer(DRAW_WINDOW* window, LAYER* target, TEXT_LAYER* layer)
 					cairo_text_extents(window->mask_temp->cairo_p, character_buffer, &character_info);
 					if(layer->font_size > character_info.width + character_info.x_bearing)
 					{
-						right_move = (layer->font_size - (character_info.width + character_info.x_bearing)) * 0.5;
+						right_move = (layer->font_size - character_info.width) * 0.5;
 					}
 					else
 					{
@@ -1255,6 +1259,7 @@ void RenderTextLayer(DRAW_WINDOW* window, LAYER* target, TEXT_LAYER* layer)
 
 					right_move -= character_info.x_bearing;
 					draw_x += right_move;
+					y_move = character_info.height * 1.2;
 				}
 
 				cairo_move_to(window->mask_temp->cairo_p,
@@ -1265,7 +1270,7 @@ void RenderTextLayer(DRAW_WINDOW* window, LAYER* target, TEXT_LAYER* layer)
 
 				draw_x -= right_move;
 
-				draw_y += layer->font_size * 1.2f - upper_move;
+				draw_y += y_move - upper_move;
 				draw_height += layer->font_size * 1.2f - upper_move;
 			}	// for(i=0; i<length; i++)
 		}

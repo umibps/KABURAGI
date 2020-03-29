@@ -203,7 +203,7 @@ gboolean UpdateSelectionArea(
 	surface_p = cairo_image_surface_create_for_data(temp->pixels, CAIRO_FORMAT_A8,
 		selection->window->disp_layer->width, selection->window->disp_layer->height, stride);
 	cairo_p = cairo_create(surface_p);
-	(void)memset(temp->pixels, 0, area->stride * selection->window->disp_layer->height);
+	(void)memset(temp->pixels, 0, area->stride * selection->window->selection->height);
 
 	pattern = cairo_pattern_create_for_surface(selection->surface_p);
 	cairo_pattern_set_filter(pattern, CAIRO_FILTER_FAST);
@@ -515,17 +515,33 @@ void AddSelectionAreaChangeHistory(
 	{
 		min_x--;
 	}
+	else if(min_x < 0)
+	{
+		min_x = 0;
+	}
 	if(min_y > 0)
 	{
 		min_y--;
+	}
+	else if(min_y < 0)
+	{
+		min_y = 0;
 	}
 	if(max_x < window->width)
 	{
 		max_x++;
 	}
+	else if(max_x > window->width)
+	{
+		max_x = window->width;
+	}
 	if(max_y < window->height)
 	{
 		max_y++;
+	}
+	else if(max_y > window->height)
+	{
+		max_y = window->height;
 	}
 
 	data.x = min_x, data.y = min_y;
@@ -925,6 +941,7 @@ void UnSetSelectionArea(APPLICATION* app)
 	AddSelectionAreaChangeHistory(window, app->labels->menu.select_none,
 		min_x, min_y, max_x, max_y);
 	window->flags &= ~(DRAW_WINDOW_HAS_SELECTION_AREA);
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
 }
 
 void InvertSelectionArea(APPLICATION* app)

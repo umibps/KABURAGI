@@ -5,6 +5,7 @@
 #include "draw_window.h"
 #include "brush_core.h"
 #include "ini_file.h"
+#include "perspective_ruler.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -173,6 +174,21 @@ typedef struct _HAND_TOOL
 	gdouble before_x, before_y;
 } HAND_TOOL;
 
+typedef enum _ePERSPECTIVE_RULER_TOOL_FLAGS
+{
+	PERSPECTIVE_RULER_TOOL_FLAG_SETTING_STARTED = 0x01
+} ePERSPECTIVE_RULER_TOOL_FLAG;
+
+typedef struct _PERSPECTIVE_RULER_TOOL
+{
+	FLOAT_T start_x, start_y;
+	FLOAT_T end_x, end_y;
+	ePERSPECTIVE_RULER_TYPE ruler_type;
+	int ative_point_id;
+	void *app;
+	unsigned int flags;
+} PERSPECTIVE_RULER_TOOL;
+
 typedef enum _eCOMMON_TOOL_TYPE
 {
 	TYPE_COLOR_PICKER,
@@ -182,7 +198,8 @@ typedef enum _eCOMMON_TOOL_TYPE
 	TYPE_FUZZY_SELECT,
 	TYPE_SELECT_BY_COLOR,
 	TYPE_HAND_TOOL,
-	TYPE_LOUPE_TOOL
+	TYPE_LOUPE_TOOL,
+	TYPE_PERSPECTIVE_RULER
 } eCOMMON_TOOL_TYPE;
 
 // 関数のプロトタイプ宣言

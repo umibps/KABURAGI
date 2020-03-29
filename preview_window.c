@@ -227,10 +227,10 @@ void InitializePreviewWindow(PREVIEW_WINDOW* preview, APPLICATION* app)
 	gtk_container_add(GTK_CONTAINER(preview->window), preview->image);
 	// 描画用のコールバック関数をセット
 #if GTK_MAJOR_VERSION <= 2
-	g_signal_connect(G_OBJECT(preview->image), "expose_event",
+	(void)g_signal_connect(G_OBJECT(preview->image), "expose_event",
 		G_CALLBACK(UpdatePreviewWindow), app);
 #else
-	g_signal_connect(G_OBJECT(preview->image), "draw",
+	(void)g_signal_connect(G_OBJECT(preview->image), "draw",
 		G_CALLBACK(UpdatePreviewWindow), app);
 #endif
 
@@ -238,13 +238,13 @@ void InitializePreviewWindow(PREVIEW_WINDOW* preview, APPLICATION* app)
 	gtk_widget_add_events(preview->image, GDK_EXPOSURE_MASK);
 
 	// ウィンドウが閉じられた時のコールバック関数をセット
-	g_signal_connect(G_OBJECT(preview->window), "delete_event",
+	(void)g_signal_connect(G_OBJECT(preview->window), "delete_event",
 		G_CALLBACK(OnClosePreviewWindow), preview);
 
 	// キーボードのコールバック関数をセット
-	g_signal_connect(G_OBJECT(preview->window), "key-press-event",
+	(void)g_signal_connect(G_OBJECT(preview->window), "key-press-event",
 		G_CALLBACK(KeyPressEvent), app);
-	g_signal_connect(G_OBJECT(preview->window), "key-release-event",
+	(void)g_signal_connect(G_OBJECT(preview->window), "key-release-event",
 		G_CALLBACK(KeyPressEvent), app);
 
 	// ウィンドウ表示

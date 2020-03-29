@@ -7,9 +7,54 @@
 extern "C" {
 #endif
 
+static void SaveLayerAlpha(LAYER* layer)
+{
+	uint8 *buf;
+	int i;
+
+	buf = layer->window->alpha_lock;
+	for(i=0; i<layer->height; i++)
+	{
+		uint8 *ptr;
+		int j;
+
+		for(j=0, ptr = &layer->pixels[i*layer->stride+3]; j<layer->width; j++, ptr+=4, buf++)
+		{
+			*buf = *ptr;
+		}
+	}
+}
+
+static void RestoreLayerAlpha(LAYER* layer)
+{
+	uint8 *buf;
+	int i;
+
+	buf = layer->window->alpha_lock;
+	for(i=0; i<layer->height; i++)
+	{
+		uint8 *ptr;
+		int j;
+
+		for(j=0, ptr = &layer->pixels[i*layer->stride]; j<layer->width; j++, ptr+=4, buf++)
+		{
+			if(ptr[0] > *buf) ptr[0] = *buf;
+			if(ptr[1] > *buf) ptr[1] = *buf;
+			if(ptr[2] > *buf) ptr[2] = *buf;
+			ptr[3] = *buf;
+		}
+	}
+}
+
 void BlendNormal_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_OVER);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -41,6 +86,11 @@ void BlendNormal_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 	/*
 	int i, j, k;
@@ -76,6 +126,12 @@ void BlendNormal_c(LAYER* src, LAYER* dst)
 void BlendAdd_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_ADD);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -107,12 +163,23 @@ void BlendAdd_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendMultiply_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_MULTIPLY);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -145,11 +212,22 @@ void BlendMultiply_c(LAYER* src, LAYER* dst)
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
+	}
 }
 
 void BlendScreen_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_SCREEN);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -187,6 +265,12 @@ void BlendScreen_c(LAYER* src, LAYER* dst)
 void BlendOverLay_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_OVERLAY);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -218,11 +302,22 @@ void BlendOverLay_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 void BlendLighten_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_LIGHTEN);
+	
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -254,12 +349,23 @@ void BlendLighten_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendDarken_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_DARKEN);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -291,12 +397,23 @@ void BlendDarken_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendDodge_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_COLOR_DODGE);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -328,12 +445,23 @@ void BlendDodge_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendBurn_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_COLOR_BURN);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -365,12 +493,23 @@ void BlendBurn_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendHardLight_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_HARD_LIGHT);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -402,12 +541,23 @@ void BlendHardLight_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendSoftLight_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_SOFT_LIGHT);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -439,12 +589,23 @@ void BlendSoftLight_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendDifference_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_DIFFERENCE);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -476,12 +637,23 @@ void BlendDifference_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendExclusion_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_EXCLUSION);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -513,12 +685,23 @@ void BlendExclusion_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendHslHue_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_HSL_HUE);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -550,12 +733,23 @@ void BlendHslHue_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendHslSaturation_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_HSL_SATURATION);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -587,12 +781,23 @@ void BlendHslSaturation_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendHslColor_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_HSL_COLOR);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -624,12 +829,23 @@ void BlendHslColor_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
 void BlendHslLuminosity_c(LAYER* src, LAYER* dst)
 {
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_HSL_LUMINOSITY);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -661,6 +877,11 @@ void BlendHslLuminosity_c(LAYER* src, LAYER* dst)
 	{
 		cairo_set_source_surface(dst->cairo_p, src->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
@@ -669,6 +890,11 @@ void BlendBinalize_c(LAYER* src, LAYER* dst)
 	int i;
 
 	cairo_set_operator(dst->cairo_p, CAIRO_OPERATOR_OVER);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
 
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
@@ -736,11 +962,21 @@ void BlendBinalize_c(LAYER* src, LAYER* dst)
 		cairo_set_source_surface(dst->cairo_p, src->window->mask_temp->surface_p, src->x, src->y);
 		cairo_paint_with_alpha(dst->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
+	}
 }
 
 void BlendColorReverse_c(LAYER* src, LAYER* dst)
 {
 	int i, j;
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
 
 	for(i=0; i<src->height && i+src->y<dst->height; i++)
 	{
@@ -757,11 +993,21 @@ void BlendColorReverse_c(LAYER* src, LAYER* dst)
 			}
 		}
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
+	}
 }
 
 void BlendGrater_c(LAYER* src, LAYER* dst)
 {
 	int i, j, k;
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlpha(dst);
+	}
 
 	for(i=0; i<src->height && i+src->y<dst->height; i++)
 	{
@@ -779,6 +1025,11 @@ void BlendGrater_c(LAYER* src, LAYER* dst)
 				}
 			}
 		}
+	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlpha(dst);
 	}
 }
 
@@ -910,9 +1161,102 @@ void SetLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, LAYER* d
 	layer_blend_functions[LAYER_BLEND_OVER] = BlendNormal_c;
 }
 
-static void PartBlendNormal_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void SaveLayerAlphaPart(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
+{
+	uint8 *pixels;
+	int x, y;
+	int width, height;
+	uint8 *buf;
+	int i;
+
+	pixels = dst->pixels;
+
+	if(pixels == NULL)
+	{
+		return;
+	}
+
+	x = (int)update->x;
+	y = (int)update->y;
+
+	width = (int)(update->width + 0.999);
+	height = (int)(update->height + 0.999);
+	if(x + width > src->width)
+	{
+		width = src->width - x;
+	}
+	if(y + height > src->height)
+	{
+		height = src->height - y;
+	}
+
+	buf = src->window->alpha_lock;
+	for(i=0; i<height; i++)
+	{
+		uint8 *ptr;
+		int j;
+
+		for(j=0, ptr = &pixels[(y+i)*src->stride+x*4+3]; j<width; j++, ptr+=4, buf++)
+		{
+			*buf = *ptr;
+		}
+	}
+}
+
+static void RestoreLayerAlphaPart(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
+{
+	uint8 *pixels;
+	int x, y;
+	int width, height;
+	uint8 *buf;
+	int i;
+
+	pixels = dst->pixels;
+
+	if(pixels == NULL)
+	{
+		return;
+	}
+
+	x = (int)update->x;
+	y = (int)update->y;
+
+	width = (int)(update->width + 0.999);
+	height = (int)(update->height + 0.999);
+	if(x + width > src->width)
+	{
+		width = src->width - x;
+	}
+	if(y + height > src->height)
+	{
+		height = src->height - y;
+	}
+
+	buf = src->window->alpha_lock;
+	for(i=0; i<height; i++)
+	{
+		uint8 *ptr;
+		int j;
+
+		for(j=0, ptr = &pixels[(y+i)*src->stride+x*4]; j<width; j++, ptr+=4, buf++)
+		{
+			if(ptr[0] > *buf) ptr[0] = *buf;
+			if(ptr[1] > *buf) ptr[1] = *buf;
+			if(ptr[2] > *buf) ptr[2] = *buf;
+			ptr[3] = *buf;
+		}
+	}
+}
+
+static void PartBlendNormal_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_OVER);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER *mask_source = src->prev;
@@ -963,11 +1307,22 @@ static void PartBlendNormal_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendAdd_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendAdd_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_ADD);
+	
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1018,11 +1373,22 @@ static void PartBlendAdd_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendMultiply_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendMultiply_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_MULTIPLY);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1073,11 +1439,22 @@ static void PartBlendMultiply_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendScreen_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendScreen_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_SCREEN);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1128,11 +1505,22 @@ static void PartBlendScreen_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendOverLay_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendOverLay_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_OVERLAY);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1183,11 +1571,22 @@ static void PartBlendOverLay_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendLighten_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendLighten_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_LIGHTEN);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1238,11 +1637,22 @@ static void PartBlendLighten_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendDarken_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendDarken_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_DARKEN);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1293,11 +1703,22 @@ static void PartBlendDarken_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendDodge_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendDodge_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_COLOR_DODGE);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1348,11 +1769,23 @@ static void PartBlendDodge_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendBurn_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendBurn_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_COLOR_BURN);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1403,11 +1836,22 @@ static void PartBlendBurn_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendHardLight_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendHardLight_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_HARD_LIGHT);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1458,11 +1902,22 @@ static void PartBlendHardLight_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendSoftLight_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendSoftLight_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_SOFT_LIGHT);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1513,11 +1968,22 @@ static void PartBlendSoftLight_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendDifference_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendDifference_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_DIFFERENCE);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1568,11 +2034,22 @@ static void PartBlendDifference_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendExclusion_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendExclusion_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_EXCLUSION);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1623,11 +2100,22 @@ static void PartBlendExclusion_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendHslHue_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendHslHue_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_HSL_HUE);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1678,11 +2166,22 @@ static void PartBlendHslHue_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendHslSaturation_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendHslSaturation_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_HSL_SATURATION);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1733,11 +2232,22 @@ static void PartBlendHslSaturation_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendHslColor_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendHslColor_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_HSL_COLOR);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1788,11 +2298,22 @@ static void PartBlendHslColor_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendHslLuminosity_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendHslLuminosity_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_HSL_LUMINOSITY);
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
+
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
 	{
 		LAYER* mask_source = src->prev;
@@ -1837,13 +2358,23 @@ static void PartBlendHslLuminosity_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void PartBlendBinalize_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendBinalize_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	int start_x, start_y;
 	int width, height;
 	int i, j;
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		SaveLayerAlphaPart(src, dst, update);
+	}
 
 	start_x = (int)update->x;
 	if(start_x < 0)
@@ -1978,23 +2509,28 @@ static void PartBlendBinalize_c(LAYER* src, UPDATE_RECTANGLE* update)
 		cairo_set_source_surface(update->cairo_p, src->window->mask_temp->surface_p, - update->x, - update->y);
 		cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 	}
+
+	if((dst->flags & LAYER_LOCK_OPACITY) != 0)
+	{
+		RestoreLayerAlphaPart(src, dst, update);
+	}
 }
 
-static void DummyPartBlend(LAYER* src, UPDATE_RECTANGLE* update)
+static void DummyPartBlend(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 }
 
 #define PartBlendColorReverse_c DummyPartBlend
 #define PartBlendGrater_c DummyPartBlend
 
-static void PartBlendAlphaMinus_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendAlphaMinus_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_DEST_OUT);
 	cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
 	cairo_paint_with_alpha(update->cairo_p, src->alpha * (FLOAT_T)0.01);
 }
 
-static void PartBlendSource_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendSource_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_SOURCE);
 	if((src->flags & LAYER_MASKING_WITH_UNDER_LAYER) != 0)
@@ -2049,7 +2585,7 @@ static void PartBlendSource_c(LAYER* src, UPDATE_RECTANGLE* update)
 	}
 }
 
-static void PartBlendAtop_c(LAYER* src, UPDATE_RECTANGLE* update)
+static void PartBlendAtop_c(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update)
 {
 	cairo_set_operator(update->cairo_p, CAIRO_OPERATOR_ATOP);
 	cairo_set_source_surface(update->cairo_p, src->surface_p, - update->x, - update->y);
@@ -2064,7 +2600,7 @@ static void PartBlendAtop_c(LAYER* src, UPDATE_RECTANGLE* update)
 * 引数                                                       *
 * layer_blend_functions	: 中身を設定する関数ポインタ配列     *
 *************************************************************/
-void SetPartLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, UPDATE_RECTANGLE* update))
+void SetPartLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update))
 {
 	layer_blend_functions[LAYER_BLEND_NORMAL] = PartBlendNormal_c;
 	layer_blend_functions[LAYER_BLEND_ADD] = PartBlendAdd_c;

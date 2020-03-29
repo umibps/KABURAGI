@@ -301,7 +301,7 @@ gboolean DisplayDrawWindow(
 					{	// 通常レイヤーは
 							// 作業レイヤーとアクティブレイヤーを一度合成してから下のレイヤーと合成
 						(void)memcpy(window->temp_layer->pixels, layer->pixels, layer->stride*layer->height);
-						window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, &window->temp_update);
+						window->part_layer_blend_functions[window->work_layer->layer_mode](window->work_layer, layer, &window->temp_update);
 						//g_layer_blend_funcs[window->work_layer->layer_mode](window->work_layer, window->temp_layer);
 						blend_layer = window->temp_layer;
 						blend_layer->alpha = layer->alpha;
@@ -367,7 +367,7 @@ gboolean DisplayDrawWindow(
 				}
 
 				// 合成する対象と方法が確定したので合成を実行する
-				window->part_layer_blend_functions[blend_mode](blend_layer, &window->update);
+				window->part_layer_blend_functions[blend_mode](blend_layer, layer, &window->update);
 				// 合成したらデータを元に戻す
 				window->temp_layer->alpha = 100;
 				window->temp_layer->flags = 0;

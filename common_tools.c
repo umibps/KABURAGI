@@ -18,6 +18,7 @@
 #include "display.h"
 #include "memory.h"
 #include "anti_alias.h"
+#include "gui/GTK/input_gtk.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -217,7 +218,7 @@ static GtkWidget* CreateColorPickerDetailUI(APPLICATION* app, void *data)
 	for(i=0; i<sizeof(buttons)/sizeof(*buttons); i++)
 	{
 		gtk_box_pack_start(GTK_BOX(vbox), buttons[i], FALSE, TRUE, 0);
-		g_signal_connect(G_OBJECT(buttons[i]), "toggled",
+		(void)g_signal_connect(G_OBJECT(buttons[i]), "toggled",
 			G_CALLBACK(ChangeColorPickerMode), data);
 		g_object_set_data(G_OBJECT(buttons[i]), "picker-mode", GINT_TO_POINTER(i));
 	}
@@ -325,7 +326,7 @@ static void SelectRectangleRelease(
 	void* state
 )
 {
-	SELECT_RECTANGLE* select = (SELECT_RECTANGLE*)core->tool_data;
+	SELECT_RECTANGLE *select = (SELECT_RECTANGLE*)core->tool_data;
 
 	if(((GdkEventButton*)state)->button == 1
 		&& (select->flags & SELECT_RECTANGLE_STARTED) != 0)
@@ -483,26 +484,26 @@ static void SelectRectangleDisplay(DRAW_WINDOW* window, COMMON_TOOL_CORE* core)
 
 static GtkWidget* CreateSelectRectangleDetailUI(APPLICATION* app, void* data)
 {
-	SELECT_RECTANGLE* select = (SELECT_RECTANGLE*)data;
-	GtkWidget* vbox = gtk_vbox_new(FALSE, 0);
+	SELECT_RECTANGLE *select = (SELECT_RECTANGLE*)data;
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
 	GtkWidget *button;
-	GtkWidget* select_start;
-	GtkAdjustment* start_adjust =
+	GtkWidget *select_start;
+	GtkAdjustment *start_adjust =
 		GTK_ADJUSTMENT(gtk_adjustment_new(select->select_start, 0, 32, 1, 1, 0));
 
-	g_signal_connect(G_OBJECT(start_adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(start_adjust), "value_changed",
 		G_CALLBACK(SelectRectangleStartChange), data);
 	select_start = SpinScaleNew(start_adjust,
 		app->labels->tool_box.select_move_start, 1);
 	gtk_box_pack_start(GTK_BOX(vbox), select_start, FALSE, TRUE, 0);
 
 	button = gtk_button_new_with_label(app->labels->menu.transform);
-	g_signal_connect(G_OBJECT(button), "clicked",
+	(void)g_signal_connect(G_OBJECT(button), "clicked",
 		G_CALLBACK(SelectToolsTransformButtonClicked), app);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, TRUE, 0);
 
 	button = gtk_button_new_with_label(app->labels->menu.select_none);
-	g_signal_connect(G_OBJECT(button), "clicked",
+	(void)g_signal_connect(G_OBJECT(button), "clicked",
 		G_CALLBACK(SelectToolsSelectNoneButtonClicked), app);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, TRUE, 0);
 
@@ -562,7 +563,7 @@ static void SelectEclipseButtonPress(
 {
 	if(((GdkEventButton*)state)->button == 1)
 	{
-		SELECT_ECLIPSE* select = (SELECT_ECLIPSE*)core->tool_data;
+		SELECT_ECLIPSE *select = (SELECT_ECLIPSE*)core->tool_data;
 		select->start_x = x;
 		select->start_y = y;
 
@@ -710,7 +711,7 @@ static void SelectEclipseMotion(
 {
 	if(((*(GdkModifierType*)state) & GDK_BUTTON1_MASK) != 0)
 	{
-		SELECT_ECLIPSE* select = (SELECT_ECLIPSE*)core->tool_data;
+		SELECT_ECLIPSE *select = (SELECT_ECLIPSE*)core->tool_data;
 		gdouble d = sqrt((select->start_x - x)*(select->start_x - x)
 			+(select->start_y - y)*(select->start_y - y));
 
@@ -888,7 +889,7 @@ static void SelectEclipseStartChange(
 
 static void SelectEclipseDisplay(DRAW_WINDOW* window, COMMON_TOOL_CORE* core)
 {
-	SELECT_ECLIPSE* select = (SELECT_ECLIPSE*)core->tool_data;
+	SELECT_ECLIPSE *select = (SELECT_ECLIPSE*)core->tool_data;
 	cairo_t *cairo_p;
 	cairo_surface_t *surface_p;
 	window->effect->layer_mode = LAYER_BLEND_DIFFERENCE;
@@ -977,26 +978,26 @@ static void SelectEclipseDisplay(DRAW_WINDOW* window, COMMON_TOOL_CORE* core)
 
 static GtkWidget* CreateSelectEclipseDetailUI(APPLICATION* app, void* data)
 {
-	SELECT_ECLIPSE* select = (SELECT_ECLIPSE*)data;
-	GtkWidget* vbox = gtk_vbox_new(FALSE, 0);
+	SELECT_ECLIPSE *select = (SELECT_ECLIPSE*)data;
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
 	GtkWidget *button;
-	GtkWidget* select_start;
-	GtkAdjustment* start_adjust =
+	GtkWidget *select_start;
+	GtkAdjustment *start_adjust =
 		GTK_ADJUSTMENT(gtk_adjustment_new(select->select_start, 0, 32, 1, 1, 0));
 
-	g_signal_connect(G_OBJECT(start_adjust), "value_changed",
+	(void)g_signal_connect(G_OBJECT(start_adjust), "value_changed",
 		G_CALLBACK(SelectRectangleStartChange), data);
 	select_start = SpinScaleNew(start_adjust,
 		app->labels->tool_box.select_move_start, 1);
 	gtk_box_pack_start(GTK_BOX(vbox), select_start, FALSE, TRUE, 0);
 
 	button = gtk_button_new_with_label(app->labels->menu.transform);
-	g_signal_connect(G_OBJECT(button), "clicked",
+	(void)g_signal_connect(G_OBJECT(button), "clicked",
 		G_CALLBACK(SelectToolsTransformButtonClicked), app);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, TRUE, 0);
 
 	button = gtk_button_new_with_label(app->labels->menu.select_none);
-	g_signal_connect(G_OBJECT(button), "clicked",
+	(void)g_signal_connect(G_OBJECT(button), "clicked",
 		G_CALLBACK(SelectToolsSelectNoneButtonClicked), app);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, TRUE, 0);
 
@@ -1271,12 +1272,12 @@ static GtkWidget* CreateFreeSelectDetailUI(APPLICATION* app, void* data)
 	GtkWidget *button;
 
 	button = gtk_button_new_with_label(app->labels->menu.transform);
-	g_signal_connect(G_OBJECT(button), "clicked",
+	(void)g_signal_connect(G_OBJECT(button), "clicked",
 		G_CALLBACK(SelectToolsTransformButtonClicked), app);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, TRUE, 0);
 
 	button = gtk_button_new_with_label(app->labels->menu.select_none);
-	g_signal_connect(G_OBJECT(button), "clicked",
+	(void)g_signal_connect(G_OBJECT(button), "clicked",
 		G_CALLBACK(SelectToolsSelectNoneButtonClicked), app);
 	gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, TRUE, 0);
 
@@ -1299,9 +1300,9 @@ void FuzzySelectButtonPress(
 
 	if(((GdkEventButton*)state)->button == 1)
 	{
-		FUZZY_SELECT* fuzzy = (FUZZY_SELECT*)core->tool_data;
-		LAYER* target;
-		uint8* buff = &window->temp_layer->pixels[window->width*window->height];
+		FUZZY_SELECT *fuzzy = (FUZZY_SELECT*)core->tool_data;
+		LAYER *target;
+		uint8 *buff = &window->temp_layer->pixels[window->width*window->height];
 		int32 min_x, min_y, max_x, max_y;
 		int32 before_min_x, before_min_y, before_max_x, before_max_y;
 		int32 flags = 0;
@@ -1420,13 +1421,13 @@ void FuzzySelectButtonPress(
 		{
 			(void)memcpy(&window->temp_layer->pixels[window->width*window->height*3],
 				buff, window->width*window->height);
-			AntiAlias(
+			OldAntiAlias(
 				&window->temp_layer->pixels[window->width*window->height*3],
 				buff,
 				window->width,
 				window->height,
 				window->width,
-				1
+				window->app
 			);
 		}
 
@@ -1545,7 +1546,7 @@ static void FuzzySelectChangeExtend(GtkAdjustment* slider, FUZZY_SELECT* fuzzy)
 	fuzzy->extend = (int16)gtk_adjustment_get_value(slider);
 }
 
-static void FuzzySelectChangeAntiAlias(GtkToggleButton* button, FUZZY_SELECT* fuzzy)
+static void FuzzySelectChangeOldAntiAlias(GtkToggleButton* button, FUZZY_SELECT* fuzzy)
 {
 	if(gtk_toggle_button_get_active(button) == FALSE)
 	{
@@ -1560,13 +1561,13 @@ static void FuzzySelectChangeAntiAlias(GtkToggleButton* button, FUZZY_SELECT* fu
 static GtkWidget* CreateFuzzySelectDetailUI(APPLICATION* app, void* data)
 {
 #define UI_FONT_SIZE 8.0
-	FUZZY_SELECT* fuzzy = (FUZZY_SELECT*)data;
-	GtkWidget* vbox = gtk_vbox_new(FALSE, 2);
-	GtkWidget* table;
-	GtkWidget* label;
-	GtkWidget* buttons[3];
-	GtkWidget* threshold_scale;
-	GtkAdjustment* threshold_adjustment;
+	FUZZY_SELECT *fuzzy = (FUZZY_SELECT*)data;
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 2);
+	GtkWidget *table;
+	GtkWidget *label;
+	GtkWidget *buttons[3];
+	GtkWidget *threshold_scale;
+	GtkAdjustment *threshold_adjustment;
 	gchar mark_up_buff[256];
 
 	label = gtk_label_new("");
@@ -1622,7 +1623,7 @@ static GtkWidget* CreateFuzzySelectDetailUI(APPLICATION* app, void* data)
 		app->labels->tool_box.select.area_large);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[fuzzy->select_direction]), TRUE);
 	g_object_set_data(G_OBJECT(buttons[0]), "direction", GINT_TO_POINTER(FUZZY_SELECT_DIRECTION_QUAD));
-	g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(FuzzySelectSetDetectDirection), data);
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(FuzzySelectSetDetectDirection), data);
 	g_object_set_data(G_OBJECT(buttons[1]), "direction", GINT_TO_POINTER(FUZZY_SELECT_DIRECTION_OCT));
 	g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(FuzzySelectSetDetectDirection), data);
 
@@ -1632,7 +1633,7 @@ static GtkWidget* CreateFuzzySelectDetailUI(APPLICATION* app, void* data)
 
 	threshold_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
 		fuzzy->extend, -50, 50, 1, 1, 0));
-	g_signal_connect(G_OBJECT(threshold_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(threshold_adjustment), "value_changed",
 		G_CALLBACK(FuzzySelectChangeExtend), data);
 	threshold_scale = SpinScaleNew(threshold_adjustment,
 		app->labels->tool_box.extend, 0);
@@ -1640,16 +1641,16 @@ static GtkWidget* CreateFuzzySelectDetailUI(APPLICATION* app, void* data)
 
 	buttons[0] = gtk_check_button_new_with_label(app->labels->tool_box.anti_alias);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[0]), fuzzy->flags & FUZZY_SELECT_ANTI_ALIAS);
-	g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(FuzzySelectChangeAntiAlias), data);
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(FuzzySelectChangeOldAntiAlias), data);
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, TRUE, 3);
 
 	buttons[0] = gtk_button_new_with_label(app->labels->menu.transform);
-	g_signal_connect(G_OBJECT(buttons[0]), "clicked",
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "clicked",
 		G_CALLBACK(SelectToolsTransformButtonClicked), app);
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, TRUE, 0);
 
 	buttons[0] = gtk_button_new_with_label(app->labels->menu.select_none);
-	g_signal_connect(G_OBJECT(buttons[0]), "clicked",
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "clicked",
 		G_CALLBACK(SelectToolsSelectNoneButtonClicked), app);
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, TRUE, 0);
 
@@ -1685,11 +1686,11 @@ static void SelectByColorButtonPress(
 	if(((GdkEventButton*)state)->button == 1)
 	{
 		// ツールの詳細データにキャスト
-		SELECT_BY_COLOR* select = (SELECT_BY_COLOR*)core->tool_data;
+		SELECT_BY_COLOR *select = (SELECT_BY_COLOR*)core->tool_data;
 		// 選択範囲決定に使用するレイヤー
-		LAYER* target;
+		LAYER *target;
 		// 選択範囲を記憶するバッファ
-		uint8* buff = &window->temp_layer->pixels[window->width*window->height];
+		uint8 *buff = &window->temp_layer->pixels[window->width*window->height];
 		// 選択範囲の最小最大の座標
 		int32 min_x, min_y, max_x, max_y;
 		// 選択範囲変更前の最小最大の座標
@@ -1842,25 +1843,25 @@ static GtkWidget* CreateSelectByColorDetailUI(APPLICATION* app, void* data)
 	// 閾値選択ツールの詳細データにキャスト
 	SELECT_BY_COLOR* select = (SELECT_BY_COLOR*)data;
 	// 詳細UIを入れるパッキングボックス
-	GtkWidget* vbox = gtk_vbox_new(FALSE, 2);
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 2);
 	// ウィジェットを整列するためのテーブル
-	GtkWidget* table;
+	GtkWidget *table;
 	// モード、ターゲットを選択するラジオボタンと
 		// スライダにつけるラベル
-	GtkWidget* buttons[2];
+	GtkWidget *buttons[2];
 	// 閾値決定用のスライダ
-	GtkWidget* threshold_scale;
+	GtkWidget *threshold_scale;
 	// スライダに使用するアジャスタ
 	GtkAdjustment* threshold_adjustment;
 
 	// モード選択用のラジオの作成とデータ、コールバック関数をセット
 	buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.select.rgb);
 	g_object_set_data(G_OBJECT(buttons[0]), "select-mode", GINT_TO_POINTER(0));
-	g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(SelectByColorSetMode), data);
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(SelectByColorSetMode), data);
 	buttons[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])),
 		app->labels->tool_box.select.rgba);
 	g_object_set_data(G_OBJECT(buttons[1]), "select-mode", GINT_TO_POINTER(1));
-	g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(SelectByColorSetMode), data);
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(SelectByColorSetMode), data);
 	// 現在のモードをセット
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[select->select_mode]), TRUE);
 
@@ -1871,7 +1872,7 @@ static GtkWidget* CreateSelectByColorDetailUI(APPLICATION* app, void* data)
 	// 閾値調整用のスライダ作成
 	threshold_adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(
 		select->threshold, 0, 255, 1, 1, 0));
-	g_signal_connect(G_OBJECT(threshold_adjustment), "value_changed",
+	(void)g_signal_connect(G_OBJECT(threshold_adjustment), "value_changed",
 		G_CALLBACK(SelectByColorChangeThreshold), data);
 	threshold_scale = SpinScaleNew(threshold_adjustment,
 		app->labels->tool_box.select.threshold, 0);
@@ -1884,11 +1885,11 @@ static GtkWidget* CreateSelectByColorDetailUI(APPLICATION* app, void* data)
 		// データとコールバック関数をセット
 	buttons[0] = gtk_radio_button_new_with_label(NULL, app->labels->tool_box.select.active_layer);
 	g_object_set_data(G_OBJECT(buttons[0]), "select-target", GINT_TO_POINTER(0));
-	g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(SelectByColorSetTarget), data);
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(SelectByColorSetTarget), data);
 	buttons[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])),
 		app->labels->tool_box.select.canvas);
 	g_object_set_data(G_OBJECT(buttons[1]), "select-target", GINT_TO_POINTER(1));
-	g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(SelectByColorSetTarget), data);
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(SelectByColorSetTarget), data);
 	// 現在のターゲットをセット
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[select->select_target]), TRUE);
 
@@ -1897,12 +1898,12 @@ static GtkWidget* CreateSelectByColorDetailUI(APPLICATION* app, void* data)
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[1], FALSE, TRUE, 0);
 
 	buttons[0] = gtk_button_new_with_label(app->labels->menu.transform);
-	g_signal_connect(G_OBJECT(buttons[0]), "clicked",
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "clicked",
 		G_CALLBACK(SelectToolsTransformButtonClicked), app);
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, TRUE, 0);
 
 	buttons[0] = gtk_button_new_with_label(app->labels->menu.select_none);
-	g_signal_connect(G_OBJECT(buttons[0]), "clicked",
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "clicked",
 		G_CALLBACK(SelectToolsSelectNoneButtonClicked), app);
 	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, TRUE, 0);
 
@@ -2021,11 +2022,203 @@ void LoupeButtonToggled(GtkWidget* button, APPLICATION* app)
 	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
 	{
 		Change2LoupeMode(app);
+		gtk_adjustment_set_value(app->navigation_window.zoom_slider, 100);
 	}
 	else
 	{
 		ReturnFromLoupeMode(app);
+		gtk_adjustment_set_value(app->navigation_window.zoom_slider, window->zoom);
 	}
+}
+
+void SetRulerCallback(DRAW_WINDOW* window)
+{
+	g_signal_handler_disconnect(G_OBJECT(window->window), window->callbacks.mouse_button_press);
+	g_signal_handler_disconnect(G_OBJECT(window->window), window->callbacks.mouse_move);
+	g_signal_handler_disconnect(G_OBJECT(window->window), window->callbacks.mouse_button_release);
+
+	window->callbacks.mouse_button_press =g_signal_connect(G_OBJECT(window->window), "button_press_event",
+		G_CALLBACK(CustomButtonPressEvent), window);
+	window->callbacks.mouse_move = g_signal_connect(G_OBJECT(window->window), "motion_notify_event",
+		G_CALLBACK(CustomMotionNotifyEvent), window);
+	window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(window->window), "button_release_event",
+		G_CALLBACK(CustomButtonReleaseEvent), window);
+}
+
+void UnsetRulerCallback(DRAW_WINDOW* window)
+{
+	g_signal_handler_disconnect(G_OBJECT(window->window), window->callbacks.mouse_button_press);
+	g_signal_handler_disconnect(G_OBJECT(window->window), window->callbacks.mouse_move);
+	g_signal_handler_disconnect(G_OBJECT(window->window), window->callbacks.mouse_button_release);
+
+	window->callbacks.mouse_button_press =g_signal_connect(G_OBJECT(window->window), "button_press_event",
+		G_CALLBACK(ButtonPressEvent), window);
+	window->callbacks.mouse_move = g_signal_connect(G_OBJECT(window->window), "motion_notify_event",
+		G_CALLBACK(MotionNotifyEvent), window);
+	window->callbacks.mouse_button_release = g_signal_connect(G_OBJECT(window->window), "button_release_event",
+		G_CALLBACK(ButtonReleaseEvent), window);
+}
+
+static void PerspectiveRulerButtonPress(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	COMMON_TOOL_CORE* core,
+	void* state
+)
+{
+	if(((GdkEventButton*)state)->button == 1)
+	{
+		PERSPECTIVE_RULER_TOOL *ruler = (PERSPECTIVE_RULER_TOOL*)core->tool_data;
+		ruler->start_x = x,	ruler->start_y = y;
+		if(ruler->ruler_type == PERSPECTIVE_RULER_TYPE_PARALLEL_LINES)
+		{
+			ruler->flags |= PERSPECTIVE_RULER_TOOL_FLAG_SETTING_STARTED;
+		}
+	}
+}
+
+static void PerspectiveRulerMotion(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	COMMON_TOOL_CORE* core,
+	void* state
+)
+{
+	if(((*(GdkModifierType*)state) & GDK_BUTTON1_MASK) != 0)
+	{
+		PERSPECTIVE_RULER_TOOL *ruler = (PERSPECTIVE_RULER_TOOL*)core->tool_data;
+		ruler->end_x = x,	ruler->end_y = y;
+	}
+}
+
+static void PerspectiveRulerRelease(
+	DRAW_WINDOW* window,
+	gdouble x,
+	gdouble y,
+	COMMON_TOOL_CORE* core,
+	void* state
+)
+{
+	PERSPECTIVE_RULER_TOOL *ruler = (PERSPECTIVE_RULER_TOOL*)core->tool_data;
+
+	if(((GdkEventButton*)state)->button == 1
+		&& (ruler->flags & PERSPECTIVE_RULER_TOOL_FLAG_SETTING_STARTED) != 0)
+	{
+		window->perspective_ruler.start_point[ruler->ative_point_id][0][0] = ruler->start_x;
+		window->perspective_ruler.start_point[ruler->ative_point_id][0][1] = ruler->start_y;
+		window->perspective_ruler.start_point[ruler->ative_point_id][1][0] = ruler->end_x;
+		window->perspective_ruler.start_point[ruler->ative_point_id][1][1] = ruler->end_y;
+		window->perspective_ruler.active_point = ruler->ative_point_id;
+		window->perspective_ruler.type = ruler->ruler_type;
+
+		ruler->flags &= ~(PERSPECTIVE_RULER_TOOL_FLAG_SETTING_STARTED);
+	}
+}
+
+static void PerspectiveRulerDisplay(DRAW_WINDOW* window, COMMON_TOOL_CORE* core)
+{
+	PERSPECTIVE_RULER_TOOL *ruler = (PERSPECTIVE_RULER_TOOL*)core->tool_data;
+	window->effect->layer_mode = LAYER_BLEND_DIFFERENCE;
+
+	if((ruler->flags & PERSPECTIVE_RULER_TOOL_FLAG_SETTING_STARTED) != 0)
+	{
+		cairo_set_source_rgb(window->effect->cairo_p, 1, 1, 1);
+		cairo_set_line_width(window->effect->cairo_p, 1);
+		cairo_move_to(window->effect->cairo_p, ruler->start_x, ruler->start_y);
+		cairo_line_to(window->effect->cairo_p, ruler->end_x, ruler->end_y);
+		cairo_stroke(window->effect->cairo_p);
+	}
+}
+
+static void PerspectiveRulerToolSelectMode(GtkWidget* button, PERSPECTIVE_RULER_TOOL* ruler)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
+	{
+		ruler->ruler_type = (ePERSPECTIVE_RULER_TYPE)GPOINTER_TO_INT(
+			g_object_get_data(G_OBJECT(button), "ruler-type"));
+	}
+}
+
+static void PerspectiveRulerToolSelectActivePoint(GtkWidget* button, PERSPECTIVE_RULER_TOOL* ruler)
+{
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
+	{
+		ruler->ative_point_id = (ePERSPECTIVE_RULER_TYPE)GPOINTER_TO_INT(
+			g_object_get_data(G_OBJECT(button), "point-id"));
+	}
+}
+
+static void PerspectiveRuleToolChangeActivate(GtkWidget* button, PERSPECTIVE_RULER_TOOL* ruler)
+{
+	DRAW_WINDOW *active = GetActiveDrawWindow((APPLICATION*)ruler->app);
+	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) != FALSE)
+	{
+		active->flags |= DRAW_WINDOW_ACTIVATE_PERSPECTIVE_RULER;
+		SetRulerCallback(active);
+	}
+	else
+	{
+		active->flags &= ~(DRAW_WINDOW_ACTIVATE_PERSPECTIVE_RULER);
+		UnsetRulerCallback(active);
+	}
+}
+
+static GtkWidget* CreatePerspectiveRulerDetailUI(APPLICATION* app, void* data)
+{
+	PERSPECTIVE_RULER_TOOL *ruler = (PERSPECTIVE_RULER_TOOL*)data;
+	DRAW_WINDOW *canvas;
+	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
+	GtkWidget *buttons[3];
+	GtkWidget *label;
+
+	ruler->app = (void*)app;
+	canvas = GetActiveDrawWindow(app);
+	ruler->ative_point_id = canvas->perspective_ruler.active_point;
+
+	UnsetRulerCallback(canvas);
+
+	label = gtk_label_new("Type : ");
+	gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 0);
+	buttons[0] = gtk_radio_button_new_with_label(NULL, "Circle");
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(buttons[0]), "ruler-type", GINT_TO_POINTER(0));
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(PerspectiveRulerToolSelectMode), data);
+	buttons[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])),
+		"Parallel Lines");
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[1], FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(buttons[1]), "ruler-type", GINT_TO_POINTER(1));
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(PerspectiveRulerToolSelectMode), data);
+	// 現在のモードをセット
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[canvas->perspective_ruler.type]), TRUE);
+
+	label = gtk_label_new("Active Point : ");
+	gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 0);
+	buttons[0] = gtk_radio_button_new_with_label(NULL, "No.1");
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(buttons[0]), "point-id", GINT_TO_POINTER(0));
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled", G_CALLBACK(PerspectiveRulerToolSelectActivePoint), data);
+	buttons[1] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])),
+		"No.2");
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[1], FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(buttons[1]), "point-id", GINT_TO_POINTER(1));
+	(void)g_signal_connect(G_OBJECT(buttons[1]), "toggled", G_CALLBACK(PerspectiveRulerToolSelectActivePoint), data);
+	buttons[2] = gtk_radio_button_new_with_label(gtk_radio_button_get_group(GTK_RADIO_BUTTON(buttons[0])),
+		"No.3");
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[2], FALSE, FALSE, 0);
+	g_object_set_data(G_OBJECT(buttons[2]), "point-id", GINT_TO_POINTER(2));
+	(void)g_signal_connect(G_OBJECT(buttons[2]), "toggled", G_CALLBACK(PerspectiveRulerToolSelectActivePoint), data);
+	// 現在のIDをセット
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[ruler->ative_point_id]), TRUE);
+
+	buttons[0] = gtk_check_button_new_with_label("Activate");
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[0]), GetActiveDrawWindow(app)->flags & DRAW_WINDOW_ACTIVATE_PERSPECTIVE_RULER);
+	(void)g_signal_connect(G_OBJECT(buttons[0]), "toggled",
+		G_CALLBACK(PerspectiveRuleToolChangeActivate), data);
+	gtk_box_pack_start(GTK_BOX(vbox), buttons[0], FALSE, FALSE, 0);
+
+	return vbox;
 }
 
 void LoadCommonToolDetailData(
@@ -2153,6 +2346,21 @@ void LoadCommonToolDetailData(
 	else if(StringCompareIgnoreCase(tool_type, "LOUPE_TOOL") == 0)
 	{
 		core->tool_type = TYPE_LOUPE_TOOL;
+	}
+	else if(StringCompareIgnoreCase(tool_type, "PERSPECTIVE_RULER") == 0)
+	{
+		PERSPECTIVE_RULER_TOOL *ruler;
+		core->tool_type = TYPE_PERSPECTIVE_RULER;
+		core->tool_data = MEM_ALLOC_FUNC(sizeof(*ruler));
+		(void)memset(core->tool_data, 0, sizeof(*ruler));
+
+		core->press_func = PerspectiveRulerButtonPress;
+		core->motion_func = PerspectiveRulerMotion;
+		core->release_func = PerspectiveRulerRelease;
+		core->display_func = PerspectiveRulerDisplay;
+		core->create_detail_ui = CreatePerspectiveRulerDetailUI;
+
+		core->tool_type = TYPE_PERSPECTIVE_RULER;
 	}
 
 	if(core->button_update == NULL)
@@ -2292,6 +2500,12 @@ int WriteCommonToolData(
 					break;
 				case TYPE_LOUPE_TOOL:
 					(void)IniFileAddString(file, tool_section_name, "TYPE", "LOUPE_TOOL");
+					break;
+				case TYPE_PERSPECTIVE_RULER:
+					{
+						HAND_TOOL *hand = (HAND_TOOL*)window->common_tools[y][x].tool_data;
+						(void)IniFileAddString(file, tool_section_name, "TYPE", "PERSPECTIVE_RULER");
+					}
 					break;
 				}
 

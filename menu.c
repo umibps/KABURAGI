@@ -336,6 +336,17 @@ GtkWidget* GetMainMenu(
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 	app->menus.num_disable_if_no_select++;
 
+	// 「削除」
+	(void)sprintf(buff, "%s", app->labels->unit._delete);
+	app->menus.disable_if_no_select[app->menus.num_disable_if_no_select] =
+		menu_item = gtk_menu_item_new_with_mnemonic(buff);
+	gtk_widget_add_accelerator(menu_item, "activate", accel_group,
+		GDK_KEY_Delete, 0, GTK_ACCEL_VISIBLE);
+	(void)g_signal_connect_swapped(G_OBJECT(menu_item), "activate",
+		G_CALLBACK(ExecuteDelete), app);
+	gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+	app->menus.num_disable_if_no_select++;
+
 	// 「貼り付け」
 	(void)sprintf(buff, "%s", app->labels->menu.paste);
 	menu_item = gtk_menu_item_new_with_mnemonic(buff);
@@ -2157,8 +2168,7 @@ void ExecuteDownLayer(APPLICATION* app)
 
 	AddChangeLayerOrderHistory(window->active_layer, before_prev, after_prev, before_parent);
 
-	ClearLayerView(&app->layer_window);
-	LayerViewSetDrawWindow(&app->layer_window, window);
+	ResetLayerView(window);
 
 	ChangeActiveLayer(window, window->active_layer);
 }

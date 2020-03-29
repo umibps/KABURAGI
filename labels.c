@@ -657,6 +657,8 @@ void LoadLabels(
 	labels->tool_box.brush_chain = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "TOOL_BOX", "CHANGE_BRUSH_CHAIN_KEY", temp_str, MAX_STR_SIZE);
 	labels->tool_box.change_brush_chain_key = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "TOOL_BOX", "USE_OLD_ANTI_ALIAS", temp_str, MAX_STR_SIZE);
+	labels->tool_box.use_old_anti_alias = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 
 	// レイヤーウィンドウ
 	length = IniFileGetString(file, "LAYER_WINDOW", "TITLE", temp_str, MAX_STR_SIZE);
@@ -799,6 +801,8 @@ void LoadLabels(
 	labels->preference.show_preview_on_taskbar = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 	length = IniFileGetString(file, "PREFERENCE", "BACKUP_DIRECTORY", temp_str, MAX_STR_SIZE);
 	labels->preference.backup_path = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
+	length = IniFileGetString(file, "PREFERENCE", "MOTION_BUFFER_SIZE", temp_str, MAX_STR_SIZE);
+	labels->preference.motion_buffer_size = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);
 #if GTK_MAJOR_VERSION >= 3
 	length = IniFileGetString(file, "PREFERENCE", "SCALE_AND_MOVE_WITH_TOUCH", temp_str, MAX_STR_SIZE);
 	labels->preference.scale_and_move_with_touch = g_convert(temp_str, length, "UTF-8", lang, NULL, NULL, NULL);

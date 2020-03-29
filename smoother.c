@@ -278,6 +278,45 @@ gboolean AverageSmoothFlush(
 	return FALSE;
 }
 
+/*********************************
+* MotionQueueAppendItem関数      *
+* マウスカーソルの座標を追加する *
+* 引数                           *
+* queue		: 座標管理のデータ   *
+* x			: 追加するX座標      *
+* y			: 追加するY座標      *
+* pressure	: 追加する筆圧       *
+* state		: シフトキー等の情報 *
+*********************************/
+void MotionQueueAppendItem(
+	MOTION_QUEUE* queue,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T pressure,
+	unsigned int state
+)
+{
+	int index;
+
+	queue->last_queued_x = x;
+	queue->last_queued_y = y;
+
+	if(queue->num_items >= queue->max_items)
+	{
+		index = (queue->start_index + queue->max_items - 1) % queue->max_items;
+	}
+	else
+	{
+		index = (queue->start_index + queue->num_items) % queue->max_items;
+		queue->num_items++;
+	}
+
+	queue->queue[index].x = x;
+	queue->queue[index].y = y;
+	queue->queue[index].pressure = pressure;
+	queue->queue[index].state = state;
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -27,6 +27,374 @@
 extern "C" {
 #endif
 
+/***************************************
+* ExecuteMotionQueue関数               *
+* 待ち行列に溜まったマウスの処理を行う *
+*  一定時間を超えたら処理を中断する    *
+* 引数                                 *
+* window	: 対応する描画領域         *
+***************************************/
+void ExecuteMotionQueue(DRAW_WINDOW* window)
+{
+// 処理を中断する時間 (ミリ秒)
+#define EXECUTE_MILLI_SECONDS 12
+	MOTION_QUEUE *motion_queue = &window->app->tool_window.motion_queue;
+	brush_update_func update_func = DefaultToolUpdate;
+	void *update_data = NULL;
+	GTimer *timer;
+	FLOAT_T x, y;
+	FLOAT_T x0, y0;
+	FLOAT_T display_before_x, display_before_y;
+	int executed_points = 0;
+	int index;
+
+	if(motion_queue->num_items == 0)
+	{
+		motion_queue->start_index = 0;
+		return;
+	}
+
+	display_before_x = window->before_cursor_x;
+	display_before_y = window->before_cursor_y;
+
+	x = motion_queue->queue[motion_queue->start_index].x, y = motion_queue->queue[motion_queue->start_index].y;
+	//window->before_cursor_x = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+	//	+ window->rev_add_cursor_x;
+	//window->before_cursor_y = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+	//	+ window->rev_add_cursor_y;
+	//window->before_cursor_x = ((x)*window->cos_value + (y)*window->sin_value) * window->zoom_rate
+	//	+ window->add_cursor_x;
+	//window->before_cursor_y = (- (x)*window->sin_value + (y)*window->cos_value) * window->zoom_rate
+	//	+ window->add_cursor_y;
+
+
+	// 画面更新用のデータを取得
+	if(window->transform == NULL)
+	{
+		if((window->app->tool_window.flags & TOOL_USING_BRUSH) != 0)
+		{
+			if(window->active_layer->layer_type == TYPE_NORMAL_LAYER)
+			{
+				update_func = window->app->tool_window.active_brush[window->app->input]->motion_update;
+				update_data = window->app->tool_window.active_brush[window->app->input]->brush_data;
+			}
+			else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+			{
+				update_func = window->app->tool_window.active_vector_brush[window->app->input]->motion_update;
+				update_data = window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
+			}
+		}
+		else
+		{
+			update_func = window->app->tool_window.active_common_tool->motion_update;
+			update_data = window->app->tool_window.active_common_tool->tool_data;
+		}
+	}
+
+	timer = g_timer_new();
+
+	if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+	{
+		do
+		{
+			index = (motion_queue->start_index + executed_points) % motion_queue->max_items;
+			x = motion_queue->queue[index].x, y = motion_queue->queue[index].y;
+
+			window->app->tool_window.active_common_tool->motion_func(
+				window, x, y, window->app->tool_window.active_common_tool,
+					(void*)(&motion_queue->queue[index].state));
+
+			x0 = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+				+ window->rev_add_cursor_x;
+			y0 = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+				+ window->rev_add_cursor_y;
+
+			update_func(window, x, y, update_data);
+
+			window->before_cursor_x = x0;
+			window->before_cursor_y = y0;
+			executed_points++;
+		} while(g_timer_elapsed(timer, NULL) <= EXECUTE_MILLI_SECONDS * 0.001
+			&& executed_points < motion_queue->num_items);
+	}
+	else
+	{
+		if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+				|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+		{
+			window->flags |= DRAW_WINDOW_UPDATE_PART | DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+			do
+			{
+				index = (motion_queue->start_index + executed_points) % motion_queue->max_items;
+				x = motion_queue->queue[index].x, y = motion_queue->queue[index].y;
+
+				window->app->tool_window.active_brush[window->app->input]->motion_func(
+					window, x, y, motion_queue->queue[index].pressure,
+						window->app->tool_window.active_brush[window->app->input], (void*)(&motion_queue->queue[index].state)
+				);
+
+				x0 = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+					+ window->rev_add_cursor_x;
+				y0 = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+					+ window->rev_add_cursor_y;
+
+				update_func(window, x0, y0, update_data);
+
+
+				window->before_cursor_x = x0;
+				window->before_cursor_y = y0;
+				executed_points++;
+			} while(g_timer_elapsed(timer, NULL) <= EXECUTE_MILLI_SECONDS * 0.001
+				&& executed_points < motion_queue->num_items);
+		}
+		else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+		{
+			window->flags |= DRAW_WINDOW_UPDATE_PART | DRAW_WINDOW_UPDATE_ACTIVE_UNDER;
+			do
+			{
+				index = (motion_queue->start_index + executed_points) % motion_queue->max_items;
+				x = motion_queue->queue[index].x, y = motion_queue->queue[index].y;
+
+				if((motion_queue->queue[index].state & GDK_SHIFT_MASK) != 0)
+				{
+					window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+					window->app->tool_window.vector_control_core.motion_func(
+						window, x, y, motion_queue->queue[index].pressure,
+							&window->app->tool_window.vector_control_core, (void*)(&motion_queue->queue[index].state)
+					);
+				}
+				else if((motion_queue->queue[index].state & GDK_CONTROL_MASK) != 0 ||
+					(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+				{
+					window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+					window->app->tool_window.vector_control_core.motion_func(
+						window, x, y, motion_queue->queue[index].pressure,
+							&window->app->tool_window.vector_control_core, (void*)(&motion_queue->queue[index].state)
+					);
+				}
+				else
+				{
+					window->app->tool_window.active_vector_brush[window->app->input]->motion_func(
+						window, x, y, motion_queue->queue[index].pressure,
+							window->app->tool_window.active_vector_brush[window->app->input], (void*)(&motion_queue->queue[index].state)
+					);
+				}
+
+				x0 = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+					+ window->rev_add_cursor_x;
+				y0 = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+					+ window->rev_add_cursor_y;
+
+				update_func(window, x, y, update_data);
+
+				window->before_cursor_x = x0;
+				window->before_cursor_y = y0;
+				executed_points++;
+			} while(g_timer_elapsed(timer, NULL) <= EXECUTE_MILLI_SECONDS * 0.001
+				&& executed_points < motion_queue->num_items);
+
+			if((window->active_layer->layer_data.vector_layer_p->flags &
+				(VECTOR_LAYER_RASTERIZE_ALL | VECTOR_LAYER_RASTERIZE_TOP | VECTOR_LAYER_RASTERIZE_ACTIVE)) != 0)
+			{
+				window->update.width = window->width,	window->update.height = window->height;
+			}
+		}
+		else
+		{
+			do
+			{
+				index = (motion_queue->start_index + executed_points) % motion_queue->max_items;
+				x = motion_queue->queue[index].x, y = motion_queue->queue[index].y;
+
+				TextLayerMotionCallBack(window, x, y, motion_queue->queue[index].state);
+
+				x0 = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+					+ window->rev_add_cursor_x;
+				y0 = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+					+ window->rev_add_cursor_y;
+
+				update_func(window, x, y, update_data);
+
+				window->before_cursor_x = x0;
+				window->before_cursor_y = y0;
+				executed_points++;
+			} while(g_timer_elapsed(timer, NULL) <= EXECUTE_MILLI_SECONDS * 0.001
+				&& executed_points < motion_queue->num_items);
+		}
+	}
+
+	motion_queue->num_items -= executed_points;
+	if(motion_queue->num_items == 0)
+	{
+		motion_queue->start_index = 0;
+	}
+	else
+	{
+		motion_queue->start_index += executed_points;
+	}
+
+	//window->before_cursor_x = display_before_x;
+	//window->before_cursor_y = display_before_y;
+
+	g_timer_destroy(timer);
+}
+
+/*****************************************
+* ClearMotionQueue関数                   *
+* 待ち行列に溜まったデータを全て処理する *
+* 引数                                   *
+* window	: 対応する描画領域           *
+*****************************************/
+void ClearMotionQueue(DRAW_WINDOW* window)
+{
+	MOTION_QUEUE *motion_queue = &window->app->tool_window.motion_queue;
+	brush_update_func update_func = DefaultToolUpdate;
+	void *update_data = NULL;
+	FLOAT_T x, y;
+	FLOAT_T x0, y0;
+	int index;
+	int i;
+
+	// 画面更新用のデータを取得
+	if(window->transform == NULL)
+	{
+		if((window->app->tool_window.flags & TOOL_USING_BRUSH) != 0)
+		{
+			if(window->active_layer->layer_type == TYPE_NORMAL_LAYER)
+			{
+				update_func = window->app->tool_window.active_brush[window->app->input]->motion_update;
+				update_data = window->app->tool_window.active_brush[window->app->input]->brush_data;
+			}
+			else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+			{
+				update_func = window->app->tool_window.active_vector_brush[window->app->input]->motion_update;
+				update_data = window->app->tool_window.active_vector_brush[window->app->input]->brush_data;
+			}
+		}
+		else
+		{
+			update_func = window->app->tool_window.active_common_tool->motion_update;
+			update_data = window->app->tool_window.active_common_tool->tool_data;
+		}
+	}
+
+	if((window->app->tool_window.flags & TOOL_USING_BRUSH) == 0)
+	{
+		for(i=0; i<motion_queue->num_items; i++)
+		{
+			index = (motion_queue->start_index + i) % motion_queue->max_items;
+			x = motion_queue->queue[index].x, y = motion_queue->queue[index].y;
+
+			window->app->tool_window.active_common_tool->motion_func(
+				window, x, y, window->app->tool_window.active_common_tool,
+				(void*)(&motion_queue->queue[index].state));
+
+			x0 = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+				+ window->rev_add_cursor_x;
+			y0 = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+				+ window->rev_add_cursor_y;
+
+			window->before_cursor_x = x0;
+			window->before_cursor_y = y0;
+
+			update_func(window, x, y, update_data);
+		}
+	}
+	else
+	{
+		if(window->active_layer->layer_type == TYPE_NORMAL_LAYER
+			|| (window->flags & DRAW_WINDOW_EDIT_SELECTION) != 0)
+		{
+			for(i=0; i<motion_queue->num_items; i++)
+			{
+				index = (motion_queue->start_index + i) % motion_queue->max_items;
+				x = motion_queue->queue[index].x, y = motion_queue->queue[index].y;
+		
+				window->app->tool_window.active_brush[window->app->input]->motion_func(
+					window, x, y, motion_queue->queue[index].pressure,
+						window->app->tool_window.active_brush[window->app->input], (void*)(&motion_queue->queue[index].state)
+				);
+
+				x0 = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+					+ window->rev_add_cursor_x;
+				y0 = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+					+ window->rev_add_cursor_y;
+
+				window->before_cursor_x = x0;
+				window->before_cursor_y = y0;
+
+				update_func(window, x, y, update_data);
+			}
+		}
+		else if(window->active_layer->layer_type == TYPE_VECTOR_LAYER)
+		{
+			for(i=0; i<motion_queue->num_items; i++)
+			{
+				index = (motion_queue->start_index + i) % motion_queue->max_items;
+				x = motion_queue->queue[index].x, y = motion_queue->queue[index].y;
+
+				if((motion_queue->queue[index].state & GDK_SHIFT_MASK) != 0)
+				{
+					window->app->tool_window.vector_control.mode = CONTROL_POINT_DELETE;
+					window->app->tool_window.vector_control_core.motion_func(
+						window, x, y, motion_queue->queue[index].pressure,
+							&window->app->tool_window.vector_control_core, (void*)(&motion_queue->queue[index].state)
+					);
+				}
+				else if((motion_queue->queue[index].state & GDK_CONTROL_MASK) != 0 ||
+					(window->app->tool_window.vector_control.flags & CONTROL_POINT_TOOL_HAS_POINT) != 0)
+				{
+					window->app->tool_window.vector_control.mode = CONTROL_POINT_MOVE;
+					window->app->tool_window.vector_control_core.motion_func(
+						window, x, y, motion_queue->queue[index].pressure,
+							&window->app->tool_window.vector_control_core, (void*)(&motion_queue->queue[index].state)
+					);
+				}
+				else
+				{
+					window->app->tool_window.active_vector_brush[window->app->input]->motion_func(
+						window, motion_queue->queue[index].x, motion_queue->queue[index].y, motion_queue->queue[index].pressure,
+							window->app->tool_window.active_vector_brush[window->app->input], (void*)(&motion_queue->queue[index].state)
+					);
+				}
+
+				x0 = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+					+ window->rev_add_cursor_x;
+				y0 = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+					+ window->rev_add_cursor_y;
+
+				window->before_cursor_x = x0;
+				window->before_cursor_y = y0;
+
+				update_func(window, x, y, update_data);
+			}
+		}
+		else
+		{
+			for(i=0; i<motion_queue->num_items; i++)
+			{
+				index = (motion_queue->start_index + i) % motion_queue->max_items;
+				x = motion_queue->queue[index].x, y = motion_queue->queue[index].y;
+
+				TextLayerMotionCallBack(window, x, y, motion_queue->queue[index].state);
+
+				x0 = ((x-window->width/2)*window->cos_value + (y-window->height/2)*window->sin_value) * window->zoom_rate
+					+ window->rev_add_cursor_x;
+				y0 = (- (x-window->width/2)*window->sin_value + (y-window->height/2)*window->cos_value) * window->zoom_rate
+					+ window->rev_add_cursor_y;
+
+				window->before_cursor_x = x0;
+				window->before_cursor_y = y0;
+
+				update_func(window, x, y, update_data);
+			}
+		}
+	}
+
+	motion_queue->start_index = 0;
+	motion_queue->num_items = 0;
+}
+
 #define DRAW_AREA_FRAME_RATE 60
 
 /*********************************************
@@ -585,11 +953,15 @@ DRAW_WINDOW* CreateDrawWindow(
 
 	// ブラシ用のバッファを確保
 	ret->brush_buffer = (uint8*)MEM_ALLOC_FUNC(sizeof(*ret->brush_buffer)*ret->pixel_buf_size);
+	// 不透明保護用のバッファを確保
+	ret->alpha_lock = (uint8*)MEM_ALLOC_FUNC(sizeof(*ret->alpha_lock)*ret->width * ret->height);
 
 	// 描画用のレイヤーを作成
 	ret->disp_layer = CreateLayer(0, 0, width, height, channel,
 		TYPE_NORMAL_LAYER, NULL, NULL, NULL, ret);
 	ret->scaled_mixed = CreateLayer(0, 0, width, height, channel,
+		TYPE_NORMAL_LAYER, NULL, NULL, NULL, ret);
+	ret->anti_alias = CreateLayer(0, 0, width, height, channel,
 		TYPE_NORMAL_LAYER, NULL, NULL, NULL, ret);
 
 	// レイヤー合成のフラグを立てる
@@ -620,7 +992,7 @@ DRAW_WINDOW* CreateDrawWindow(
 #if GTK_MAJOR_VERSION >= 3
 			| GDK_TOUCH_MASK
 #endif
-			| GDK_POINTER_MOTION_HINT_MASK
+			//| GDK_POINTER_MOTION_HINT_MASK
 	);
 	// 描画領域を入れるスクロールを作成
 	ret->scroll = gtk_scrolled_window_new(NULL, NULL);
@@ -881,6 +1253,8 @@ DRAW_WINDOW* CreateTempDrawWindow(
 	ret->disp_layer = CreateLayer(0, 0, width, height, channel,
 		TYPE_NORMAL_LAYER, NULL, NULL, NULL, ret);
 	ret->scaled_mixed = CreateLayer(0, 0, width, height, channel,
+		TYPE_NORMAL_LAYER, NULL, NULL, NULL, ret);
+	ret->anti_alias = CreateLayer(0, 0, width, height, channel,
 		TYPE_NORMAL_LAYER, NULL, NULL, NULL, ret);
 
 	// レイヤー合成のフラグを立てる
@@ -1259,6 +1633,8 @@ void DeleteDrawWindow(DRAW_WINDOW** window)
 
 	// 背景のピクセルデータを開放
 	MEM_FREE_FUNC((*window)->back_ground);
+	MEM_FREE_FUNC((*window)->brush_buffer);
+	MEM_FREE_FUNC((*window)->alpha_lock);
 
 	// レイヤーを全て削除
 	delete_layer = (*window)->layer;
@@ -1276,6 +1652,7 @@ void DeleteDrawWindow(DRAW_WINDOW** window)
 	DeleteLayer(&(*window)->mask);
 	DeleteLayer(&(*window)->mask_temp);
 	DeleteLayer(&(*window)->texture);
+	DeleteLayer(&(*window)->anti_alias);
 	DeleteLayer(&(*window)->work_layer);
 
 #ifdef OLD_SELECTION_AREA

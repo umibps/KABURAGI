@@ -583,6 +583,9 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 		for(i=1; i<=num_brush_chain; i++)
 		{
 			BRUSH_CHAIN_ITEM *item = (BRUSH_CHAIN_ITEM*)MEM_ALLOC_FUNC(sizeof(*item));
+			gchar *utf8_code;
+			char *system_code;
+			char *item_name;
 			InitializeBrushChainItem(item);
 
 			PointerArrayAppend(app->tool_window.brush_chain.chains, item);
@@ -591,7 +594,12 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 			for(j=1; j<=num_item; j++)
 			{
 				(void)sprintf(str, "BRUSH_NAME%d", j);
-				PointerArrayAppend(item->names, IniFileStrdup(file, section_name, str));
+				system_code = IniFileStrdup(file, section_name, str);
+				utf8_code = g_convert(system_code, -1, "UTF-8", app->system_code, NULL, NULL, NULL);
+				item_name = MEM_STRDUP_FUNC(utf8_code);
+				PointerArrayAppend(item->names, item_name);
+				MEM_FREE_FUNC(system_code);
+				g_free(utf8_code);
 			}
 		}
 	}
@@ -690,6 +698,17 @@ int ReadInitializeFile(APPLICATION* app, const char* file_path, INITIALIZE_DATA*
 	app->tool_window.smoother.num_use = IniFileGetInteger(file, "SMOOTH", "LEVEL");
 	app->tool_window.smoother.rate = IniFileGetInteger(file, "SMOOTH", "RATE");
 	app->tool_window.smoother.mode = IniFileGetInteger(file, "SMOOTH", "MODE");
+
+	// マウスカーソルの座標バッファサイズ
+	app->tool_window.motion_queue.max_items = IniFileGetInteger(file, "MOTION_QUEUE", "MAX_POINTS");
+	if(app->tool_window.motion_queue.max_items < MINIMUM_MOTION_QUEUE_BUFFER_SIZE)
+	{
+		app->tool_window.motion_queue.max_items = MINIMUM_MOTION_QUEUE_BUFFER_SIZE;
+	}
+	app->tool_window.motion_queue.queue = (MOTION_QUEUE_ITEM*)MEM_ALLOC_FUNC(
+		sizeof(*app->tool_window.motion_queue.queue) * app->tool_window.motion_queue.max_items);
+	(void)memset(app->tool_window.motion_queue.queue, 0,
+		sizeof(*app->tool_window.motion_queue.queue) * app->tool_window.motion_queue.max_items);
 
 	// テクスチャの設定を読み込む
 	app->textures.strength = IniFileGetDouble(file, "TEXTURE", "STRENGTH");
@@ -843,6 +862,7 @@ int WriteInitializeFile(APPLICATION* app, WRITE_APPLICATIOIN_DATA* write_app, co
 	{
 		char section_name[1024];
 		char key_name[1024];
+		gchar *system_code;
 		int i, j;
 
 		(void)IniFileAddInteger(file, "BRUSH_SET", "NUM_BRUSH_SET", (int)app->tool_window.brush_chain.chains->num_data, 10);
@@ -861,7 +881,9 @@ int WriteInitializeFile(APPLICATION* app, WRITE_APPLICATIOIN_DATA* write_app, co
 			for(j=0; j<(int)item->names->num_data; j++)
 			{
 				(void)sprintf(key_name, "BRUSH_NAME%d", j+1);
-				(void)IniFileAddString(file, section_name, key_name, (const char*)item->names->buffer[j]);
+				system_code = g_convert((const char*)item->names->buffer[j], -1, app->system_code, "UTF-8", NULL, NULL, NULL);
+				(void)IniFileAddString(file, section_name, key_name, (const char*)system_code);
+				g_free(system_code);
 			}
 		}
 	}
@@ -1030,6 +1052,7 @@ int WriteInitializeFile(APPLICATION* app, WRITE_APPLICATIOIN_DATA* write_app, co
 	(void)IniFileAddInteger(file, "SMOOTH", "LEVEL", app->tool_window.smoother.num_use, 10);
 	(void)IniFileAddInteger(file, "SMOOTH", "RATE", (int)app->tool_window.smoother.rate, 10);
 	(void)IniFileAddInteger(file, "SMOOTH", "MODE", app->tool_window.smoother.mode, 10);
+	(void)IniFileAddInteger(file, "MOTION_QUEUE", "MAX_POINTS", app->tool_window.motion_queue.max_items, 10);
 	// テクスチャ
 	(void)IniFileAddDouble(file, "TEXTURE", "STRENGTH", app->textures.strength, 2);
 	(void)IniFileAddDouble(file, "TEXTURE", "SCALE", app->textures.scale, 2);
@@ -2842,6 +2865,9 @@ void DeleteActiveLayer(APPLICATION* app)
 	// アクティブレイヤーの表示を更新
 	LayerViewSetActiveLayer(next_active, app->layer_window.view);
 
+	// レイヤーの表示をリセット
+	ResetLayerView(window);
+
 	// レイヤーが一個のみになったらウィジェットの無効化処理
 	if(window->num_layer <= 1)
 	{
@@ -3245,6 +3271,9 @@ void MergeDownActiveLayer(APPLICATION* app)
 	// アクティブレイヤーを変更する
 	ChangeActiveLayer(window, next_active);
 	LayerViewSetActiveLayer(next_active, app->layer_window.view);
+
+	// レイヤーの表示をリセット
+	ResetLayerView(window);
 }
 
 /*********************************************************

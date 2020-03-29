@@ -6,8 +6,8 @@
 #define MAJOR_VERSION 1
 
 #if MAJOR_VERSION == 1
-# define MINOR_VERSION 4
-# define RELEASE_VERSION 2
+# define MINOR_VERSION 5
+# define RELEASE_VERSION 0
 # define BUILD_VERSION 0
 #elif MAJOR_VERSION == 2
 # define MINOR_VERSION 0
@@ -213,6 +213,8 @@ typedef struct _TOOL_WINDOW
 	GtkWidget *ui, *detail_ui, *detail_ui_scroll;
 	// 手ブレ補正の情報
 	SMOOTHER smoother;
+	// ブラシ操作データの待ち行列
+	MOTION_QUEUE motion_queue;
 	// タッチイベント用の手ブレ補正
 #if GTK_MAJOR_VERSION >= 3
 	SMOOTHER touch_smoother[MAX_TOUCH];
@@ -364,6 +366,8 @@ typedef struct _APPLICATION
 	int window_num;
 	// 現在アクティブな描画領域
 	int active_window;
+	// ブラシデータ処理用タイマーコールバック関数ID
+	unsigned int timer_callback_id;
 
 	// 使用可能なフォントリスト
 	PangoFontFamily** font_list;
@@ -445,7 +449,7 @@ typedef struct _APPLICATION
 
 	// レイヤー合成用の関数ポインタ配列
 	void (*layer_blend_functions[NUM_LAYER_BLEND_FUNCTIONS])(LAYER* src, LAYER* dst);
-	void (*part_layer_blend_functions[NUM_LAYER_BLEND_FUNCTIONS])(LAYER* src, UPDATE_RECTANGLE* update);
+	void (*part_layer_blend_functions[NUM_LAYER_BLEND_FUNCTIONS])(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update);
 
 	// 合成モードの定数配列
 	cairo_operator_t layer_blend_operators[NUM_LAYER_BLEND_FUNCTIONS];

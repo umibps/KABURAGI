@@ -385,7 +385,7 @@ int main(int argc, char** argv)
 			"Number of Octaves", "Linear", "Cosine", "Cubic", "Colorize", "Start Editting 3D Model",
 			"Finish Editting 3D Model", "Scatter", "Scatter Amount", "Scatter Size", "Scatter Range", "Random Size Scatter",
 			"Random Flow Scatter", "Draw Scatter Only", "Bevel", "Round", "Mitter", "Normal Brush", "Brush Set",
-			"Change Brush Set Key",
+			"Change Brush Set Key", "Use Old Anti Alias",
 			{"Pencil", "Hard Pen", "Air Brush", "Old Air Brush", "Water Color Brush", "Picker Brush", "Eraser", "Bucket",
 				"Pattern Fill", "Blur Tool", "Smudge", "Mix Brush", "Gradation", "Text Tool", "Stamp Tool",
 				"Image Brush", "Image Blend\nBrush", "Picker Image Brush", "Script Brush", "Custom Brush", "PLUG_IN"},
@@ -413,7 +413,8 @@ int main(int argc, char** argv)
 		{"Preference", "Base Settings", "Auto Save", "Theme", "Default",
 			"There is a conflict to set a hot key.", "Language", "Backup File Directory",
 			"Show Preview Window on Taskbar", "Draw with Touch", "Scale Change and Move Canvas with Change",
-			"Set Back Ground Color", "Layer Window's Scrollbar places Left", "GUI Scale", "Add Brush Set"},
+			"Set Back Ground Color", "Layer Window's Scrollbar places Left", "GUI Scale", "Add Brush Set",
+			"Curosr motion buffer size"},
 		{"Execute Back Up..."}
 	};
 
@@ -453,6 +454,16 @@ int main(int argc, char** argv)
 		application.labels = &labels;
 		application.fractal_labels = &fractal_labels;
 
+		/*
+		if(g_thread_supported() == 0)
+		{
+			g_thread_init(NULL);
+		}
+
+		gdk_threads_init();
+
+		gdk_threads_enter();
+*/
 #if GTK_MAJOR_VERSION <= 2
 		gtk_set_locale();
 #endif
@@ -483,6 +494,8 @@ int main(int argc, char** argv)
 	}
 
 	gtk_main();
+
+	//gdk_threads_leave();
 
 #if defined(USE_3D_LAYER) && USE_3D_LAYER != 0
 	DeleteTbbObject(tbb);

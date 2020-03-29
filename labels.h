@@ -114,7 +114,8 @@ typedef struct _APPLICATION_LABELS
 			*cosine, *cubic, *colorize, *start_edit_3d, *end_edit_3d, *scatter,
 			*scatter_amount, *scatter_size, *scatter_range, *scatter_random_size,
 			*scatter_random_flow, *draw_scatter_only, *bevel, *round, *miter,
-			*normal_brush, *brush_chain, *change_brush_chain_key;
+			*normal_brush, *brush_chain, *change_brush_chain_key,
+			*use_old_anti_alias;
 		gchar *brush_default_names[NUM_BRUSH_TYPE];
 		SELECT_TARGET_LABELS select;
 		CONTROL_POINT_LABELS control;
@@ -157,7 +158,7 @@ typedef struct _APPLICATION_LABELS
 			*conflict_hot_key, *language, *backup_path, *show_preview_on_taskbar;
 		char *draw_with_touch, *scale_and_move_with_touch, *set_back_ground;
 		char *layer_window_scrollbar_place_left, *gui_scale;
-		char *add_brush_chain;
+		char *add_brush_chain, *motion_buffer_size;
 	} preference;
 
 	struct

@@ -47,6 +47,7 @@ typedef struct _SET_PREFERENCE
 	char *language_name;
 	char *language_path;
 	char *backup_path;
+	int motion_buffer_size;
 	GtkWidget *preference_dialog;
 	APPLICATION *app;
 	FLOAT_T gui_scale;
@@ -235,6 +236,12 @@ static void OnChangeUserInterfaceScale(GtkWidget* spin, SET_PREFERENCE* setting)
 	setting->gui_scale = gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin)) * 0.01;
 }
 
+static void OnChangeMotionBufferSize(GtkWidget* spin, SET_PREFERENCE* setting)
+{
+	setting->motion_buffer_size = (int)gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin));
+}
+
+
 #if defined(GTK_MAJOR_VERSION) && GTK_MAJOR_VERSION <= 2
 static void OnClickInputSettingButton(void* dummy)
 {
@@ -324,7 +331,6 @@ static void OnEditBrushChainItemButtonPressed(GtkWidget* button, SET_PREFERENCE*
 		char *name = MEM_STRDUP_FUNC((const char*)brush_names->buffer[active]);
 		char **item_name = (char**)g_object_get_data(G_OBJECT(button), "brush_name");
 
-		MEM_FREE_FUNC(*item_name);
 		*item_name = name;
 
 		label = GTK_WIDGET(g_object_get_data(G_OBJECT(button), "label_widget"));
@@ -583,7 +589,7 @@ static void OnBrushChainButtonPressed(GtkWidget* button, SET_PREFERENCE* setting
 			StringRemoveTargetString((char*)item->names->buffer[j], "\\n", str);
 			label = gtk_label_new(str);
 			edit_button = gtk_button_new_with_label(setting->app->labels->menu.edit);
-			g_object_set_data(G_OBJECT(edit_button), "brush_name", &item->names[item->names->num_data-1]);
+			g_object_set_data(G_OBJECT(edit_button), "brush_name", &item->names->buffer[j]);
 			g_object_set_data(G_OBJECT(edit_button), "chain_dialog", (void*)dialog);
 			g_object_set_data(G_OBJECT(edit_button), "label_widget", (void*)label);
 			(void)g_signal_connect(G_OBJECT(edit_button), "clicked",
@@ -726,6 +732,18 @@ static GtkWidget* CreateSettingWidget(SET_PREFERENCE *setting)
 			gtk_spin_button_set_digits(GTK_SPIN_BUTTON(spin), 0);
 			(void)g_signal_connect(G_OBJECT(spin), "value-changed",
 				G_CALLBACK(OnChangeUserInterfaceScale), setting);
+			gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+			gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, FALSE, 0);
+			gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 3);
+
+			hbox = gtk_hbox_new(FALSE, 0);
+			(void)sprintf(str, "%s : ", app->labels->preference.motion_buffer_size);
+			label = gtk_label_new(str);
+			spin = gtk_spin_button_new_with_range(MINIMUM_MOTION_QUEUE_BUFFER_SIZE, MAXIMUM_MOTION_QUEUE_BUFFER_SIZE, 1);
+			gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), setting->motion_buffer_size);
+			gtk_spin_button_set_digits(GTK_SPIN_BUTTON(spin), 0);
+			(void)g_signal_connect(G_OBJECT(spin), "value-changed",
+				G_CALLBACK(OnChangeMotionBufferSize), setting);
 			gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
 			gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, FALSE, 0);
 			gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 3);
@@ -1296,6 +1314,7 @@ void ExecuteSetPreference(APPLICATION* app)
 	SetPreferenceTreeView(tree_view, &setting, app);
 	setting.preference_dialog = dialog;
 	setting.app = app;
+	setting.motion_buffer_size = app->tool_window.motion_queue.max_items;
 	setting.gui_scale = app->gui_scale;
 
 	setting.preference = app->preference;
@@ -1404,6 +1423,13 @@ void ExecuteSetPreference(APPLICATION* app)
 
 			app->preference = setting.preference;
 			app->gui_scale = setting.gui_scale;
+			if(app->tool_window.motion_queue.max_items != setting.motion_buffer_size)
+			{
+				app->tool_window.motion_queue.max_items = setting.motion_buffer_size;
+				app->tool_window.motion_queue.queue =
+					(MOTION_QUEUE_ITEM*)MEM_REALLOC_FUNC(app->tool_window.motion_queue.queue, sizeof(*app->tool_window.motion_queue.queue) * app->tool_window.motion_queue.max_items);
+				(void)memset(app->tool_window.motion_queue.queue, 0, sizeof(*app->tool_window.motion_queue.queue) * app->tool_window.motion_queue.max_items);
+			}
 			if(app->preference.theme != NULL)
 			{
 				setting.preference.theme = MEM_STRDUP_FUNC(app->preference.theme);
@@ -1555,6 +1581,14 @@ void ExecuteSetPreference(APPLICATION* app)
 
 				app->preference = setting.preference;
 				app->gui_scale = setting.gui_scale;
+
+				if(app->tool_window.motion_queue.max_items != setting.motion_buffer_size)
+				{
+					app->tool_window.motion_queue.max_items = setting.motion_buffer_size;
+					app->tool_window.motion_queue.queue =
+						(MOTION_QUEUE_ITEM*)MEM_REALLOC_FUNC(app->tool_window.motion_queue.queue, sizeof(*app->tool_window.motion_queue.queue) * app->tool_window.motion_queue.max_items);
+					(void)memset(app->tool_window.motion_queue.queue, 0, sizeof(*app->tool_window.motion_queue.queue) * app->tool_window.motion_queue.max_items);
+				}
 
 				if(app->labels->language_name != setting.language_name)
 				{

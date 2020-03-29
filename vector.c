@@ -3097,7 +3097,7 @@ static void AddTopScriptRedo(DRAW_WINDOW* window, void* p)
 	gboolean fix_flag = TRUE;
 
 	// データをコピー
-	(void)memcpy(&history, p, offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name));
+	(void)memcpy(&history, p, offsetof(ADD_TOP_SCRIPT_HISTORY, layer_name));
 	buff += offsetof(ADD_TOP_ECLIPSE_HISTORY, layer_name);
 	history.layer_name = buff;
 	history.script_data = buff + history.layer_name_length;

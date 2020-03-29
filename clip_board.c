@@ -271,6 +271,31 @@ void ExecuteCopy(APPLICATION* app)
 	}
 #endif
 
+	for(i=0; i<height; i++)
+	{
+		int j;
+
+		for(j=0; j<width; j++)
+		{
+			if(pixels[i * width * 4 + j * 4 + 3] > window->selection->pixels[(y + i) * window->selection->stride + x + j])
+			{
+				pixels[i * width * 4 + j * 4 + 3] = window->selection->pixels[(y + i) * window->selection->stride + x + j];
+				if(pixels[i * width * 4 + j * 4 + 0] > pixels[i * width * 4 + j * 4 + 3])
+				{
+					pixels[i * width * 4 + j * 4 + 0] = pixels[i * width * 4 + j * 4 + 3];
+				}
+				if(pixels[i * width * 4 + j * 4 + 1] > pixels[i * width * 4 + j * 4 + 3])
+				{
+					pixels[i * width * 4 + j * 4 + 1] = pixels[i * width * 4 + j * 4 + 3];
+				}
+				if(pixels[i * width * 4 + j * 4 + 2] > pixels[i * width * 4 + j * 4 + 3])
+				{
+					pixels[i * width * 4 + j * 4 + 2] = pixels[i * width * 4 + j * 4 + 3];
+				}
+			}
+		}
+	}
+
 	// クリップボードへデータをコピー
 	gtk_clipboard_set_image(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), pixbuf);
 
@@ -343,6 +368,30 @@ void ExecuteCopyVisible(APPLICATION* app)
 	}
 #endif
 
+	for(i=0; i<height; i++)
+	{
+		int j;
+		for(j=0; j<width; j++)
+		{
+			if(pixels[i * width * 4 + j * 4 + 3] > window->selection->pixels[(y + i) * window->selection->stride + x + j])
+			{
+				pixels[i * width * 4 + j * 4 + 3] = window->selection->pixels[(y + i) * window->selection->stride + x + j];
+				if(pixels[i * width * 4 + j * 4 + 0] > pixels[i * width * 4 + j * 4 + 3])
+				{
+					pixels[i * width * 4 + j * 4 + 0] = pixels[i * width * 4 + j * 4 + 3];
+				}
+				if(pixels[i * width * 4 + j * 4 + 1] > pixels[i * width * 4 + j * 4 + 3])
+				{
+					pixels[i * width * 4 + j * 4 + 1] = pixels[i * width * 4 + j * 4 + 3];
+				}
+				if(pixels[i * width * 4 + j * 4 + 2] > pixels[i * width * 4 + j * 4 + 3])
+				{
+					pixels[i * width * 4 + j * 4 + 2] = pixels[i * width * 4 + j * 4 + 3];
+				}
+			}
+		}
+	}
+
 	// クリップボードへデータをコピー
 	gtk_clipboard_set_image(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), pixbuf);
 
@@ -374,7 +423,7 @@ void ExecuteCut(APPLICATION* app)
 	// コピーする一行分のバイト数
 	int stride;
 	// for文用のカウンタ
-	int i;
+	int i, j;
 
 	// コピーする座標、幅、高さを決定
 	x = window->selection_area.min_x;
@@ -416,6 +465,29 @@ void ExecuteCut(APPLICATION* app)
 	}
 #endif
 
+	for(i=0; i<height; i++)
+	{
+		for(j=0; j<width; j++)
+		{
+			if(pixels[i * width * 4 + j * 4 + 3] > window->selection->pixels[(y + i) * window->selection->stride + x + j])
+			{
+				pixels[i * width * 4 + j * 4 + 3] = window->selection->pixels[(y + i) * window->selection->stride + x + j];
+				if(pixels[i * width * 4 + j * 4 + 0] > pixels[i * width * 4 + j * 4 + 3])
+				{
+					pixels[i * width * 4 + j * 4 + 0] = pixels[i * width * 4 + j * 4 + 3];
+				}
+				if(pixels[i * width * 4 + j * 4 + 1] > pixels[i * width * 4 + j * 4 + 3])
+				{
+					pixels[i * width * 4 + j * 4 + 1] = pixels[i * width * 4 + j * 4 + 3];
+				}
+				if(pixels[i * width * 4 + j * 4 + 2] > pixels[i * width * 4 + j * 4 + 3])
+				{
+					pixels[i * width * 4 + j * 4 + 2] = pixels[i * width * 4 + j * 4 + 3];
+				}
+			}
+		}
+	}
+
 	// クリップボードへデータをコピー
 	gtk_clipboard_set_image(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), pixbuf);
 
@@ -424,6 +496,49 @@ void ExecuteCut(APPLICATION* app)
 
 	// 履歴データを追加
 	AddDeletePixelsHistory(app->labels->menu.cut, window, window->active_layer,
+		window->selection_area.min_x, window->selection_area.min_y,
+		window->selection_area.max_x, window->selection_area.min_y
+	);
+
+	// 選択範囲のピクセルデータを削除
+	DeleteSelectAreaPixels(window, window->active_layer, window->selection);
+
+	// 画面を更新
+	window->flags |= DRAW_WINDOW_UPDATE_ACTIVE_OVER;
+}
+
+/*****************************************************
+* ExecuteDelete関数                                  *
+* 削除を実行                                         *
+* 引数                                               *
+* app	: アプリケーションを管理する構造体のアドレス *
+*****************************************************/
+void ExecuteDelete(APPLICATION* app)
+{
+	// アクティブな描画領域
+	DRAW_WINDOW* window = GetActiveDrawWindow(app);
+	// コピー開始座標
+	int x, y;
+	// コピーする幅、高さ
+	int width, height;
+	// コピーする一行分のバイト数
+	int stride;
+
+	// コピーする座標、幅、高さを決定
+	x = window->selection_area.min_x;
+	y = window->selection_area.min_y;
+	width = window->selection_area.max_x - x;
+	height = window->selection_area.max_y - y;
+	stride = width * window->channel;
+
+	// 選択範囲のピクセルのみを残す
+	(void)memset(window->temp_layer->pixels, 0, window->pixel_buf_size);
+	cairo_set_operator(window->temp_layer->cairo_p, CAIRO_OPERATOR_OVER);
+	cairo_set_source_surface(window->temp_layer->cairo_p, window->active_layer->surface_p, 0, 0);
+	cairo_mask_surface(window->temp_layer->cairo_p, window->selection->surface_p, 0, 0);
+
+	// 履歴データを追加
+	AddDeletePixelsHistory(app->labels->unit._delete, window, window->active_layer,
 		window->selection_area.min_x, window->selection_area.min_y,
 		window->selection_area.max_x, window->selection_area.min_y
 	);

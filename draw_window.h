@@ -9,6 +9,7 @@
 #include "history.h"
 #include "selection_area.h"
 #include "memory_stream.h"
+#include "perspective_ruler.h"
 #include "types.h"
 
 #ifdef __cplusplus
@@ -32,7 +33,8 @@ typedef enum _eDRAW_WINDOW_FLAGS
 	DRAW_WINDOW_DISCONNECT_3D = 0x1000,
 	DRAW_WINDOW_UPDATE_AREA_INITIALIZED = 0x2000,
 	DRAW_WINDOW_IN_RASTERIZING_VECTOR_SCRIPT = 0x4000,
-	DRAW_WINDOW_FIRST_DRAW = 0x8000
+	DRAW_WINDOW_FIRST_DRAW = 0x8000,
+	DRAW_WINDOW_ACTIVATE_PERSPECTIVE_RULER = 0x10000
 } eDRAW_WINDOW_FLAGS;
 
 typedef struct _UPDATE_RECTANGLE
@@ -68,6 +70,7 @@ typedef struct _DRAW_WINDOW
 
 	// 時間で再描画を呼ぶ関数のID
 	unsigned int timer_id;
+	unsigned int motion_timer_id;
 	unsigned int auto_save_id;
 
 	// タブ切り替え前のレイヤービューの位置
@@ -118,6 +121,7 @@ typedef struct _DRAW_WINDOW
 
 	uint8 *back_ground;		// 背景のピクセルデータ
 	uint8 *brush_buffer;	// ブラシ用のバッファ
+	uint8 *alpha_lock;		// 不透明保護時の透明度保存領域
 
 	LAYER *layer;			// 一番下のレイヤー
 	// 表示用、エフェクト用、ブラシカーソル表示用の一時保存
@@ -132,6 +136,8 @@ typedef struct _DRAW_WINDOW
 	LAYER *mask, *mask_temp;
 	// テクスチャ用
 	LAYER *texture;
+	// アンチエイリアス用
+	LAYER *anti_alias;
 	// 表示用パターン
 	cairo_pattern_t *mixed_pattern;
 	// αチャンネルのみのマスク用サーフェース
@@ -141,7 +147,7 @@ typedef struct _DRAW_WINDOW
 
 	// レイヤー合成用の関数群
 	void (**layer_blend_functions)(LAYER* src, LAYER* dst);
-	void (**part_layer_blend_functions)(LAYER* src, UPDATE_RECTANGLE* update);
+	void (**part_layer_blend_functions)(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update);
 
 	uint16 num_layer;		// レイヤーの数
 	uint16 zoom;			// 拡大・縮小率
@@ -194,6 +200,9 @@ typedef struct _DRAW_WINDOW
 	struct _DRAW_WINDOW *focal_window;
 	// ルーペモード前のスクロールバーの位置
 	int16 focal_x, focal_y;
+
+	// パース定規用データ
+	PERSPECTIVE_RULER perspective_ruler;
 
 	// アプリケーション全体管理用構造体へのポインタ
 	struct _APPLICATION* app;
@@ -270,6 +279,16 @@ EXTERN void DeleteDrawWindow(DRAW_WINDOW** window);
 *	常にTRUE                                 *
 *********************************************/
 EXTERN gboolean TimerCallBack(DRAW_WINDOW* window);
+
+/*****************************************
+* MotionTimerCallBack関数                *
+* マウスカーソルの座標待ち行列を処理する *
+* 引数                                   *
+* window	: 対応する描画領域           *
+* 返り値                                 *
+*	常にTRUE                             *
+*****************************************/
+EXTERN gboolean MotionTimerCallBack(DRAW_WINDOW* window);
 
 /*******************************************************
 * SetDrawWindowCallbacks関数                           *
@@ -737,6 +756,14 @@ EXTERN void RenderTextLayer(DRAW_WINDOW* window, struct _LAYER* target, TEXT_LAY
 
 EXTERN void DisplayTextLayerRange(DRAW_WINDOW* window, TEXT_LAYER* layer);
 
+/*****************************************
+* ResetLayerView関数                     *
+* レイヤー一覧ウィジェットをリセットする *
+* 引数                                   *
+* canvas	: 表示するキャンバス         *
+*****************************************/
+EXTERN void ResetLayerView(DRAW_WINDOW* canvas);
+
 EXTERN void DisplayEditSelection(DRAW_WINDOW* window);
 
 /*********************************************************
@@ -753,7 +780,7 @@ extern void SetLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, L
 * 引数                                                       *
 * layer_blend_functions	: 中身を設定する関数ポインタ配列     *
 *************************************************************/
-extern void SetPartLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, UPDATE_RECTANGLE* update));
+extern void SetPartLayerBlendFunctions(void (*layer_blend_functions[])(LAYER* src, LAYER* dst, UPDATE_RECTANGLE* update));
 
 /********************************************************************
 * SetLayerBlendOperators関数                                        *
@@ -814,8 +841,24 @@ EXTERN void ReturnFromFocalMode(DRAW_WINDOW* parent_window);
 * 引数                                                                 *
 * draw_balloon_functions	: 吹き出しを描画する関数の関数ポインタ配列 *
 ***********************************************************************/
-EXTERN void SetTextLayerDrawBalloonFunctions(void (*draw_balloon_functions[])(TEXT_LAYER*, LAYER*, DRAW_WINDOW*)
-);
+EXTERN void SetTextLayerDrawBalloonFunctions(void (*draw_balloon_functions[])(TEXT_LAYER*, LAYER*, DRAW_WINDOW*));
+
+/***************************************
+* ExecuteMotionQueue関数               *
+* 待ち行列に溜まったマウスの処理を行う *
+*  一定時間を超えたら処理を中断する    *
+* 引数                                 *
+* window	: 対応する描画領域         *
+***************************************/
+EXTERN void ExecuteMotionQueue(DRAW_WINDOW* window);
+
+/*****************************************
+* ClearMotionQueue関数                   *
+* 待ち行列に溜まったデータを全て処理する *
+* 引数                                   *
+* window	: 対応する描画領域           *
+*****************************************/
+EXTERN void ClearMotionQueue(DRAW_WINDOW* window);
 
 #ifdef __cplusplus
 }

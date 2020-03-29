@@ -1085,7 +1085,7 @@ static void AddNewLayerUndo(DRAW_WINDOW* window, void* p)
 		LAYER *new_active = (delete_layer->prev == NULL)
 			? delete_layer->next : delete_layer->prev;	
 		ChangeActiveLayer(window, new_active);
-			LayerViewSetActiveLayer(new_active, window->app->layer_window.view);
+		LayerViewSetActiveLayer(new_active, window->app->layer_window.view);
 	}
 
 	DeleteLayer(&delete_layer);
