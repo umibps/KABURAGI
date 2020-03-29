@@ -10,88 +10,12 @@
 	>
 	<Platforms>
 		<Platform
-			Name="Win32"
-		/>
-		<Platform
 			Name="x64"
 		/>
 	</Platforms>
 	<ToolFiles>
 	</ToolFiles>
 	<Configurations>
-		<Configuration
-			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="2"
-			CharacterSet="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
-				MinimalRebuild="true"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="4"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				OutputFile="$(OutDir)\KABURAGI.dll"
-				LinkIncremental="2"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				TargetMachine="1"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
 		<Configuration
 			Name="Debug|x64"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
@@ -121,9 +45,10 @@
 				Optimization="0"
 				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
 				PreprocessorDefinitions="USE_3D_LAYER=1"
-				MinimalRebuild="true"
+				MinimalRebuild="false"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
+				OpenMP="true"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -172,91 +97,6 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="2"
-			CharacterSet="1"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="3"
-				InlineFunctionExpansion="2"
-				EnableIntrinsicFunctions="true"
-				FavorSizeOrSpeed="1"
-				OmitFramePointers="true"
-				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS; USE_3D_LAYER=1;"
-				StringPooling="true"
-				ExceptionHandling="0"
-				RuntimeLibrary="0"
-				EnableFunctionLevelLinking="true"
-				EnableEnhancedInstructionSet="2"
-				FloatingPointModel="2"
-				OpenMP="true"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="3"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				OutputFile="$(OutDir)\KABURAGI.dll"
-				LinkIncremental="1"
-				GenerateDebugInformation="false"
-				SubSystem="1"
-				OptimizeReferences="2"
-				EnableCOMDATFolding="2"
-				TargetMachine="1"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
 			Name="Release|x64"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
@@ -297,6 +137,7 @@
 				EnableFunctionLevelLinking="true"
 				EnableEnhancedInstructionSet="2"
 				FloatingPointModel="2"
+				OpenMP="true"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -341,80 +182,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="copy $(SolutionDir)$(PlatformName)\$(ConfigurationName)\KABURAGI.lib KABURAGI.lib"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Profile|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="2"
-			CharacterSet="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;_PROFILING"
-				MinimalRebuild="true"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="4"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				OutputFile="$(OutDir)\KABURAGI.dll"
-				LinkIncremental="2"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				TargetMachine="1"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
+				CommandLine="copy x64\Release\KABURAGI.lib KABURAGI.lib"
 			/>
 		</Configuration>
 		<Configuration
@@ -470,6 +238,7 @@
 				SubSystem="1"
 				ResourceOnlyDLL="false"
 				TargetMachine="17"
+				Profile="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -492,79 +261,6 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				CommandLine="copy $(SolutionDir)$(PlatformName)\$(ConfigurationName)\KABURAGI.lib KABURAGI.lib"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Debug x64|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="2"
-			CharacterSet="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="&quot;./Include/atk-1.0&quot;;./Include/cairo;&quot;./Include/gail-1.0&quot;;&quot;./Include/glib-2.0&quot;;&quot;./Include/gtk-2.0&quot;;./Include/libpng;&quot;./Include/pango-1.0&quot;;./Include/zlib; ./Include; ./MikuMikuGtk+/gtkglext; ./Include/Bullet;"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
-				MinimalRebuild="true"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="4"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				OutputFile="$(OutDir)\KABURAGI.dll"
-				LinkIncremental="2"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				TargetMachine="1"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
 		<Configuration
@@ -758,10 +454,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\input.c"
-				>
-			</File>
-			<File
 				RelativePath=".\label.c"
 				>
 			</File>
@@ -807,6 +499,10 @@
 			</File>
 			<File
 				RelativePath=".\pattern.c"
+				>
+			</File>
+			<File
+				RelativePath=".\perspective_ruler.c"
 				>
 			</File>
 			<File
@@ -1508,23 +1204,7 @@
 					RelativePath=".\MikuMikuGtk+\application.c"
 					>
 					<FileConfiguration
-						Name="Debug|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_application.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
 						Name="Debug|x64"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_application.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1540,23 +1220,7 @@
 						/>
 					</FileConfiguration>
 					<FileConfiguration
-						Name="Profile|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_application.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
 						Name="Profile|x64"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_application.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug x64|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1636,23 +1300,7 @@
 					RelativePath=".\MikuMikuGtk+\history.c"
 					>
 					<FileConfiguration
-						Name="Debug|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_history.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
 						Name="Debug|x64"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_history.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1668,23 +1316,7 @@
 						/>
 					</FileConfiguration>
 					<FileConfiguration
-						Name="Profile|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_history.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
 						Name="Profile|x64"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_history.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug x64|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1730,10 +1362,6 @@
 				</File>
 				<File
 					RelativePath=".\MikuMikuGtk+\material.c"
-					>
-				</File>
-				<File
-					RelativePath=".\MikuMikuGtk+\memory_stream.c"
 					>
 				</File>
 				<File
@@ -1836,23 +1464,7 @@
 					RelativePath=".\MikuMikuGtk+\texture.c"
 					>
 					<FileConfiguration
-						Name="Debug|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_texture.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
 						Name="Debug|x64"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_texture.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1868,23 +1480,7 @@
 						/>
 					</FileConfiguration>
 					<FileConfiguration
-						Name="Profile|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_texture.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
 						Name="Profile|x64"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_texture.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug x64|Win32"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
@@ -1928,27 +1524,11 @@
 					RelativePath=".\MikuMikuGtk+\utils.c"
 					>
 					<FileConfiguration
-						Name="Debug|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_utils.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
 						Name="Debug|x64"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
 							ObjectFile="$(IntDir)\mikumku_utils.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_utils.obj"
 						/>
 					</FileConfiguration>
 					<FileConfiguration
@@ -1960,27 +1540,11 @@
 						/>
 					</FileConfiguration>
 					<FileConfiguration
-						Name="Profile|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_utils.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
 						Name="Profile|x64"
 						>
 						<Tool
 							Name="VCCLCompilerTool"
 							ObjectFile="$(IntDir)\mikumku_utils.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug x64|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\mikumiku_utils.obj"
 						/>
 					</FileConfiguration>
 					<FileConfiguration
@@ -2661,6 +2225,34 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="gtk"
+				>
+				<File
+					RelativePath=".\gui\GTK\color_gtk.c"
+					>
+				</File>
+				<File
+					RelativePath=".\gui\GTK\gtk_widgets.c"
+					>
+				</File>
+				<File
+					RelativePath=".\gui\GTK\initialize_gtk.c"
+					>
+				</File>
+				<File
+					RelativePath=".\gui\GTK\input_gtk.c"
+					>
+				</File>
+				<File
+					RelativePath=".\gui\GTK\layer_gtk.c"
+					>
+				</File>
+				<File
+					RelativePath=".\gui\GTK\utils_gtk.c"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="ヘッダー ファイル"
@@ -2696,6 +2288,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\cairo-version.h"
+				>
+			</File>
+			<File
 				RelativePath=".\cell_renderer_widget.h"
 				>
 			</File>
@@ -2717,6 +2313,10 @@
 			</File>
 			<File
 				RelativePath=".\display.h"
+				>
+			</File>
+			<File
+				RelativePath=".\display_filter.h"
 				>
 			</File>
 			<File
@@ -2752,11 +2352,23 @@
 				>
 			</File>
 			<File
+				RelativePath=".\ght_hash_table.h"
+				>
+			</File>
+			<File
 				RelativePath=".\golomb_table.h"
 				>
 			</File>
 			<File
 				RelativePath=".\history.h"
+				>
+			</File>
+			<File
+				RelativePath=".\iccbutton.h"
+				>
+			</File>
+			<File
+				RelativePath=".\iccclassicons.h"
 				>
 			</File>
 			<File
@@ -2768,7 +2380,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\input.h"
+				RelativePath=".\initialize.h"
+				>
+			</File>
+			<File
+				RelativePath=".\label.h"
 				>
 			</File>
 			<File
@@ -2785,6 +2401,10 @@
 			</File>
 			<File
 				RelativePath=".\layer_window.h"
+				>
+			</File>
+			<File
+				RelativePath=".\lcms_wrapper.h"
 				>
 			</File>
 			<File
@@ -2809,6 +2429,14 @@
 			</File>
 			<File
 				RelativePath=".\pattern.h"
+				>
+			</File>
+			<File
+				RelativePath=".\pcre_internal.h"
+				>
+			</File>
+			<File
+				RelativePath=".\perspective_ruler.h"
 				>
 			</File>
 			<File
@@ -2840,6 +2468,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\script.h"
+				>
+			</File>
+			<File
 				RelativePath=".\selection_area.h"
 				>
 			</File>
@@ -2856,7 +2488,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\srgb_profile.h"
+				>
+			</File>
+			<File
 				RelativePath=".\text_layer.h"
+				>
+			</File>
+			<File
+				RelativePath=".\texture.h"
 				>
 			</File>
 			<File
@@ -2931,10 +2571,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\MikuMikuGtk+\bit_stream.h"
-					>
-				</File>
-				<File
 					RelativePath=".\MikuMikuGtk+\bone.h"
 					>
 				</File>
@@ -2963,10 +2599,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\MikuMikuGtk+\dyn_array.h"
-					>
-				</File>
-				<File
 					RelativePath=".\MikuMikuGtk+\effect.h"
 					>
 				</File>
@@ -2983,23 +2615,11 @@
 					>
 				</File>
 				<File
-					RelativePath=".\MikuMikuGtk+\golomb_table.h"
-					>
-				</File>
-				<File
 					RelativePath=".\MikuMikuGtk+\grid.h"
 					>
 				</File>
 				<File
-					RelativePath=".\MikuMikuGtk+\history.h"
-					>
-				</File>
-				<File
 					RelativePath=".\MikuMikuGtk+\ik.h"
-					>
-				</File>
-				<File
-					RelativePath=".\MikuMikuGtk+\image_read_write.h"
 					>
 				</File>
 				<File
@@ -3107,19 +2727,7 @@
 					>
 				</File>
 				<File
-					RelativePath=".\MikuMikuGtk+\shape_model.h"
-					>
-				</File>
-				<File
-					RelativePath=".\MikuMikuGtk+\slide.h"
-					>
-				</File>
-				<File
 					RelativePath=".\MikuMikuGtk+\soft_body.h"
-					>
-				</File>
-				<File
-					RelativePath=".\MikuMikuGtk+\spin_scale.h"
 					>
 				</File>
 				<File
@@ -3144,18 +2752,6 @@
 				</File>
 				<File
 					RelativePath=".\MikuMikuGtk+\texture_draw_helper.h"
-					>
-				</File>
-				<File
-					RelativePath=".\MikuMikuGtk+\tlg.h"
-					>
-				</File>
-				<File
-					RelativePath=".\MikuMikuGtk+\tlg6_bit_stream.h"
-					>
-				</File>
-				<File
-					RelativePath=".\MikuMikuGtk+\tlg6_encode.h"
 					>
 				</File>
 				<File
@@ -3190,8 +2786,28 @@
 					RelativePath=".\MikuMikuGtk+\world.h"
 					>
 				</File>
+			</Filter>
+			<Filter
+				Name="gtk"
+				>
 				<File
-					RelativePath=".\MikuMikuGtk+\xml.h"
+					RelativePath=".\gui\GTK\color_gtk.h"
+					>
+				</File>
+				<File
+					RelativePath=".\gui\GTK\gtk_widgets.h"
+					>
+				</File>
+				<File
+					RelativePath=".\gui\GTK\input_gtk.h"
+					>
+				</File>
+				<File
+					RelativePath=".\gui\GTK\layer_gtk.h"
+					>
+				</File>
+				<File
+					RelativePath=".\gui\GTK\utils_gtk.h"
 					>
 				</File>
 			</Filter>

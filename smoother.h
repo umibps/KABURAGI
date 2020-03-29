@@ -58,6 +58,43 @@ typedef struct _SMOOTHER
 	int mode;
 } SMOOTHER;
 
+// マウスカーソルの座標 待ち行列の最小バッファサイズ
+#define MINIMUM_MOTION_QUEUE_BUFFER_SIZE 128
+// マウスカーソルの座標 待ち行列の最大バッファサイズ
+#define MAXIMUM_MOTION_QUEUE_BUFFER_SIZE 8192
+
+/************************************
+* MOTION_QUEUE_ITEM構造体           *
+* マウスカーソル移動の1回分のデータ *
+************************************/
+typedef struct _MOTION_QUEUE_ITEM
+{
+	// マウスカーソルの座標
+	FLOAT_T x, y;
+	// 筆圧
+	FLOAT_T pressure;
+	// SHIFTキー等の情報
+	unsigned int state;
+} MOTION_QUEUE_ITEM;
+
+/***************************
+* MOTION_QUEUE構造体       *
+* マウスカーソル移動の情報 *
+***************************/
+typedef struct _MOTION_QUEUE
+{
+	// 最後に追加したマウスカーソルの座標
+	FLOAT_T last_queued_x, last_queued_y;
+	// 保有アイテム数
+	int num_items;
+	// インデックス探索位置
+	int start_index;
+	// 保有アイテム最大数
+	int max_items;
+	// アイテムバッファー
+	MOTION_QUEUE_ITEM *queue;
+} MOTION_QUEUE;
+
 // 関数のプロトタイプ宣言
 #define INIT_SMOOTHER(SMOOTHER) (SMOOTHER).index = 0, (SMOOTHER).num_data=0
 
@@ -115,6 +152,24 @@ extern gboolean AverageSmoothFlush(
 	FLOAT_T* x,
 	FLOAT_T* y,
 	FLOAT_T* pressure
+);
+
+/*********************************
+* MotionQueueAppendItem関数      *
+* マウスカーソルの座標を追加する *
+* 引数                           *
+* queue		: 座標管理のデータ   *
+* x			: 追加するX座標      *
+* y			: 追加するY座標      *
+* pressure	: 追加する筆圧       *
+* state		: シフトキー等の情報 *
+*********************************/
+extern void MotionQueueAppendItem(
+	MOTION_QUEUE* queue,
+	FLOAT_T x,
+	FLOAT_T y,
+	FLOAT_T pressure,
+	unsigned int state
 );
 
 #ifdef __cplusplus

@@ -7,6 +7,12 @@
 extern "C" {
 #endif
 
+#if defined(_WIN32)
+# define DLL_EXTENTION "dll"
+#else
+# define DLL_EXTENTION "so"
+#endif
+
 typedef int (*ExecutePlugInFunc)(APPLICATION* app, const char* plug_in_name, GModule* module);
 typedef void (*PlugInUndoRedoFunc)(DRAW_WINDOW* canvas, void* data, size_t data_length);
 

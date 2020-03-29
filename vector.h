@@ -167,6 +167,7 @@ typedef struct _VECTOR_SCRIPT
 ****************************/
 typedef union _VECTOR_DATA
 {
+	VECTOR_BASE_DATA base_data;
 	VECTOR_LINE line;
 	VECTOR_SQUARE square;
 	VECTOR_ECLIPSE eclipse;
